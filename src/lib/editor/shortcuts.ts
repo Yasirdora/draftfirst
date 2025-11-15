@@ -45,9 +45,10 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
 		]
 	},
 	{
-		title: 'Files',
+		title: 'Library & files',
 		items: [
-			{ keys: 'Drop file', action: 'Open a .md file anywhere on the window' },
+			{ keys: '☰', action: 'Show or hide the document library' },
+			{ keys: 'Drop file', action: 'Import a .md file into the open document' },
 			{ keys: 'Export', action: 'Markdown, standalone HTML, or print to PDF' }
 		]
 	}

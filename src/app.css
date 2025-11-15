@@ -72,6 +72,27 @@ body {
   flex-direction: column;
   min-height: 0;
 }
+.desk-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+.desk-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.library-toggle {
+  min-width: 34px;
+  padding-left: 8px;
+  padding-right: 8px;
+  font-size: 15px;
+  margin-right: 2px;
+}
 button, input, textarea, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
@@ -486,8 +507,11 @@ button { cursor: pointer; }
 
 @media print {
   .app-bar, .status-bar, .editor-pane, .drop-hint, .toolbar, .menu,
-  .welcome, .shortcuts-backdrop { display: none !important; }
-  html, body, .desk { height: auto; background: #fff; }
+  .welcome, .shortcuts-backdrop, .library, .find-bar, .library-toggle {
+    display: none !important;
+  }
+  html, body, .desk, .desk-body, .desk-main { height: auto; background: #fff; }
+  .desk-body { display: block; }
   .workspace { display: block; }
   .reading-pane { overflow: visible; border: 0; padding: 0; }
   .sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; font-size: 11.5pt; }

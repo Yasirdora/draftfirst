@@ -39,7 +39,6 @@
 		BLOCK_FOR,
 		NARROW
 	} from '$lib/editor/constants';
-	import { loadState, saveState } from '$lib/utils/storage';
 	import { download } from '$lib/utils/download';
 	import { documentName } from '$lib/utils/document-name';
 	import { exportStandaloneHtml } from '$lib/utils/export-html';
@@ -51,14 +50,34 @@
 	} from '$lib/editor/slash-commands';
 	import { findMatches, type FindMatch } from '$lib/editor/find';
 	import { moveOutlineSection } from '$lib/editor/outline-reorder';
+	import {
+		addDocument,
+		createDocument,
+		deleteDocument,
+		getActiveDocument,
+		loadLibrary,
+		renameDocument,
+		saveLibrary,
+		searchLibrary,
+		setActiveId,
+		sortDocuments,
+		undoDelete,
+		updateActiveBody
+	} from '$lib/library/library';
+	import type { LibraryState } from '$lib/library/types';
 	import BrandMark from './BrandMark.svelte';
 	import StatusBar from './StatusBar.svelte';
 	import ShortcutsOverlay from './ShortcutsOverlay.svelte';
 	import WelcomeStrip from './WelcomeStrip.svelte';
 	import SlashPalette from './SlashPalette.svelte';
 	import FindBar from './FindBar.svelte';
+	import LibrarySidebar from './LibrarySidebar.svelte';
 
 	/* ---------- reactive app state -------------------------------------- */
+
+	let library = $state<LibraryState | null>(null);
+	let libraryQuery = $state('');
+	let libraryOpen = $state(true);
 
 	let doc = $state('');
 	let view = $state<ViewMode>('page');
@@ -194,23 +213,122 @@
 		selection.addRange(savedPageRange);
 	}
 
-	/* ---------- persistence --------------------------------------------- */
+	/* ---------- library + persistence ----------------------------------- */
+
+	function libraryHits() {
+		if (!library) return [];
+		return searchLibrary(sortDocuments(library.documents), libraryQuery);
+	}
+
+	function flushBodyToLibrary(): LibraryState | null {
+		if (!library) return null;
+		return updateActiveBody(library, doc);
+	}
+
+	function loadActiveIntoEditor() {
+		if (!library || !editor) return;
+		const active = getActiveDocument(library);
+		doc = active.body;
+		if (editor.value !== doc) editor.value = doc;
+		renderDocument();
+		updateCursor();
+		updateToolbar();
+		closeSlash();
+		if (findOpen) updateFindMatches(findQuery);
+	}
+
+	function persistLibrary(next: LibraryState) {
+		library = {
+			...next,
+			ui: {
+				libraryOpen,
+				view,
+				focus
+			}
+		};
+		const result = saveLibrary(library);
+		if (result.ok) {
+			saveLabel = 'Saved';
+		} else {
+			saveLabel = result.message;
+		}
+		saveOn = true;
+		clearTimeout(statusTimer);
+		statusTimer = window.setTimeout(() => {
+			saveOn = false;
+		}, 1400);
+	}
 
 	function persist() {
 		clearTimeout(saveTimer);
 		saveTimer = window.setTimeout(() => {
-			const result = saveState({ doc, view, focus });
-			if (result.ok) {
-				saveLabel = 'Saved';
-			} else {
-				saveLabel = result.message;
-			}
-			saveOn = true;
-			clearTimeout(statusTimer);
-			statusTimer = window.setTimeout(() => {
-				saveOn = false;
-			}, 1400);
+			const flushed = flushBodyToLibrary();
+			if (!flushed) return;
+			persistLibrary(flushed);
 		}, 400);
+	}
+
+	function switchDocument(id: string) {
+		if (!library || id === library.activeId) return;
+		const flushed = flushBodyToLibrary();
+		if (!flushed) return;
+		library = setActiveId(flushed, id);
+		loadActiveIntoEditor();
+		persistLibrary(library);
+		closeMenus();
+	}
+
+	function newDocument() {
+		if (!library) return;
+		const flushed = flushBodyToLibrary() ?? library;
+		const fresh = createDocument({ body: '', title: 'Untitled' });
+		library = addDocument(flushed, fresh, true);
+		loadActiveIntoEditor();
+		persistLibrary(library);
+		closeMenus();
+		if (!libraryOpen) {
+			libraryOpen = true;
+			persistLibrary(library);
+		}
+	}
+
+	function renameActiveLibraryDoc(id: string, title: string) {
+		if (!library) return;
+		const flushed = flushBodyToLibrary() ?? library;
+		library = renameDocument(flushed, id, title);
+		persistLibrary(library);
+	}
+
+	function deleteLibraryDoc(id: string) {
+		if (!library) return;
+		const flushed = flushBodyToLibrary() ?? library;
+		const target = flushed.documents.find((d) => d.id === id);
+		if (!target) return;
+
+		if (flushed.documents.length === 1) {
+			if (target.body.trim() !== '' && !confirm('Clear this document? This is your only note.')) {
+				return;
+			}
+		} else if (!confirm('Delete this document? You can Undo for about a minute.')) {
+			return;
+		}
+
+		const { state: next } = deleteDocument(flushed, id);
+		library = next;
+		loadActiveIntoEditor();
+		persistLibrary(library);
+	}
+
+	function undoLibraryDelete() {
+		if (!library) return;
+		library = undoDelete(library);
+		loadActiveIntoEditor();
+		persistLibrary(library);
+	}
+
+	function toggleLibrary() {
+		libraryOpen = !libraryOpen;
+		if (library) persistLibrary(flushBodyToLibrary() ?? library);
 	}
 
 	function updateCounts() {
@@ -1030,7 +1148,27 @@
 	function openFile(file: File) {
 		const reader = new FileReader();
 		reader.addEventListener('load', () => {
-			setDoc(String(reader.result));
+			const text = String(reader.result);
+			if (!library) {
+				setDoc(text);
+				editor?.focus();
+				return;
+			}
+			// Import as a new library document — never overwrites without intent.
+			const flushed = flushBodyToLibrary() ?? library;
+			const baseName = file.name.replace(/\.(md|markdown|txt)$/i, '').trim();
+			const fresh = createDocument({
+				body: text,
+				title: baseName || undefined,
+				titleLocked: Boolean(baseName)
+			});
+			library = addDocument(flushed, fresh, true);
+			loadActiveIntoEditor();
+			persistLibrary(library);
+			if (!libraryOpen) {
+				libraryOpen = true;
+				persistLibrary(library);
+			}
 			editor?.focus();
 		});
 		reader.readAsText(file);
@@ -1305,21 +1443,25 @@
 			/* older engines */
 		}
 
-		const restored = loadState();
-		doc = restored.doc === '' ? SAMPLE : restored.doc;
-		view = restored.view;
-		focus = restored.focus;
-		applyView();
+		// First-run orientation (independent of document state).
+		const onboarding = loadOnboarding();
+		welcomeVisible = !onboarding.welcomeDismissed;
 
+		// Multi-doc library (migrates legacy single-doc storage automatically).
+		library = loadLibrary(SAMPLE);
+		libraryOpen = library.ui.libraryOpen;
+		// Narrow viewports: library as overlay would dominate — start closed.
+		if (isNarrow()) libraryOpen = false;
+		view = library.ui.view;
+		focus = library.ui.focus;
+		applyView();
+		const active = getActiveDocument(library);
+		doc = active.body;
 		if (editor) editor.value = doc;
 		renderDocument();
 		updateCursor();
 		updateToolbar();
 		ready = true;
-
-		// First-run orientation (independent of document state).
-		const onboarding = loadOnboarding();
-		welcomeVisible = !onboarding.welcomeDismissed;
 
 		const onDocClick = () => {
 			closeMenus();
@@ -1457,11 +1599,46 @@
 	class:focus-mode={focus}
 	class:dragging
 	class:keyboard-up={keyboardUp}
+	class:library-open={libraryOpen}
 	data-view={view}
 	bind:this={deskEl}
 >
+	<div class="desk-body">
+		{#if library}
+			<LibrarySidebar
+				open={libraryOpen}
+				activeId={library.activeId}
+				hits={libraryHits()}
+				bind:query={libraryQuery}
+				trash={library.trash}
+				onSelect={switchDocument}
+				onNew={newDocument}
+				onRename={renameActiveLibraryDoc}
+				onDelete={deleteLibraryDoc}
+				onUndo={undoLibraryDelete}
+				onClose={() => {
+					libraryOpen = false;
+					if (library) persistLibrary(flushBodyToLibrary() ?? library);
+				}}
+				onQueryChange={(q) => {
+					libraryQuery = q;
+				}}
+			/>
+		{/if}
+
+		<div class="desk-main">
 	<header class="app-bar">
 		<div class="brand">
+			<button
+				type="button"
+				class="btn btn-quiet library-toggle"
+				title={libraryOpen ? 'Hide library' : 'Show library'}
+				aria-label={libraryOpen ? 'Hide library' : 'Show library'}
+				aria-pressed={libraryOpen}
+				onclick={toggleLibrary}
+			>
+				☰
+			</button>
 			<BrandMark />
 			<span class="brand-name">Writing Desk</span>
 			<span class="brand-tag">markdown, typeset as you type — nothing leaves your browser</span>
@@ -1635,6 +1812,9 @@
 				onclick={() => closeMenus()}
 			>
 				<li>
+					<button type="button" onclick={newDocument}>New document</button>
+				</li>
+				<li>
 					<button type="button" onclick={() => fileInput?.click()}>Open a .md file…</button>
 				</li>
 				<li>
@@ -1647,7 +1827,7 @@
 					>
 				</li>
 				<li><button type="button" onclick={clearDesk}>Clear the desk</button></li>
-				<li class="menu-note">Or drop a file anywhere on the window.</li>
+				<li class="menu-note">Documents stay in this browser. Drop a .md file to import.</li>
 			</ul>
 		</div>
 
@@ -2119,4 +2299,6 @@
 	/>
 
 	<ShortcutsOverlay bind:open={shortcutsOpen} />
+		</div><!-- .desk-main -->
+	</div><!-- .desk-body -->
 </div>

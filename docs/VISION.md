@@ -241,18 +241,19 @@ We build **section-by-section**, each milestone shippable, each with prototype �
 
 **Exit criteria:** Create a multi-column table without typing pipes; source remains pretty.
 
-### Milestone 3 — Library (local multi-document) *(next)*
+### Milestone 3 — Library (local multi-document) (✓ done)
 
-**Focus:** From “one desk” to “your papers.”
+**Focus:** From “one desk” to “your papers.”  
+**Details:** see [`MILESTONE-3.md`](./MILESTONE-3.md).
 
-- Sidebar library (localStorage index → then File System Access).  
-- Search titles/body (client-side).  
-- Recent files; rename; trash with undo.  
-- Optional folder vault for power users.  
+- Sidebar library in localStorage (`library:v2`) with legacy migration.  
+- Search titles/body; rename; soft-delete with undo.  
+- Import/drop creates a new document; ☰ toggle; narrow starts closed.  
+- Folder vault / File System Access deferred to a later platform pass.  
 
 **Exit criteria:** 50 notes feel as calm as one; still zero network for content.
 
-### Milestone 4 — Fidelity & power tools
+### Milestone 4 — Fidelity & power tools *(next)*
 
 **Focus:** Trust and expert depth.
 
