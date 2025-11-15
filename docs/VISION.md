@@ -229,21 +229,19 @@ We build **section-by-section**, each milestone shippable, each with prototype �
 
 **Exit criteria:** New user understands Page vs Source in &lt;10 seconds; dialect honesty; discoverable shortcuts.
 
-### Milestone 2 — Structure intelligence *(next)*
+### Milestone 2 — Structure intelligence (✓ done)
 
-### Milestone 2 — Structure intelligence
+**Focus:** Make hard Markdown easy without hiding it.  
+**Details:** see [`MILESTONE-2.md`](./MILESTONE-2.md).
 
-**Focus:** Make hard Markdown easy without hiding it.
+- Slash command palette (`/`) on Markdown + empty page blocks.  
+- Table / task / structure inserts via clean Markdown snippets.  
+- Outline section reorder (↑↓ prototype).  
+- Find in document (`⌘F`).  
 
-- Slash command palette (`/`).  
-- First-class table editor (insert/resize columns → clean MD).  
-- Task list UX parity page ↔ source.  
-- Outline drag-to-reorder (prototype).  
-- Find in document.  
+**Exit criteria:** Create a multi-column table without typing pipes; source remains pretty.
 
-**Exit criteria:** Create a 3×3 table without typing pipes; source remains pretty.
-
-### Milestone 3 — Library (local multi-document)
+### Milestone 3 — Library (local multi-document) *(next)*
 
 **Focus:** From “one desk” to “your papers.”
 

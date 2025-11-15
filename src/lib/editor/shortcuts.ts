@@ -30,11 +30,18 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
 		]
 	},
 	{
+		title: 'Structure',
+		items: [
+			{ keys: '/', action: 'Slash menu — insert heading, list, table, task…' },
+			{ keys: '⌘ F', action: 'Find in document' },
+			{ keys: 'Tab', action: 'Indent (Markdown) · next table cell (Page)' }
+		]
+	},
+	{
 		title: 'Views & focus',
 		items: [
-			{ keys: 'Esc', action: 'Leave focus mode · close menus · close this panel' },
-			{ keys: '?', action: 'Show keyboard shortcuts' },
-			{ keys: 'Tab', action: 'Indent (Markdown) · next table cell (Page)' }
+			{ keys: 'Esc', action: 'Leave focus mode · close menus · close panels' },
+			{ keys: '?', action: 'Show keyboard shortcuts' }
 		]
 	},
 	{

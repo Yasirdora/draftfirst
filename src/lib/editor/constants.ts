@@ -31,7 +31,15 @@ export const OTHER_NAMES: Record<string, string> = {
 
 export const SNIPPETS: Record<string, { text: string; caret?: number }> = {
 	codeblock: { text: '```\n\n```', caret: 4 },
-	table: { text: '| Column | Column |\n| --- | --- |\n|  |  |', caret: 2 },
+	table: {
+		text: '| Column | Column |\n| --- | --- |\n|  |  |\n|  |  |',
+		caret: 2
+	},
+	/** Clean 3-column starter — written as pretty Markdown, not HTML. */
+	table3: {
+		text: '| A | B | C |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |',
+		caret: 2
+	},
 	rule: { text: '---' },
 	image: { text: '![description](https://)', caret: 2 }
 };

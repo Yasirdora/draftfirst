@@ -447,6 +447,43 @@ button { cursor: pointer; }
   font-weight: 700;
 }
 
+/* Outline reorder prototype */
+.menu-outline .outline-row {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+}
+.menu-outline .outline-jump {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.menu-outline .outline-move {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding-right: 2px;
+  gap: 1px;
+}
+.menu-outline .outline-move__btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+}
+.menu-outline .outline-move__btn:hover:not(:disabled) {
+  background: var(--rule-soft);
+  color: var(--ink);
+}
+.menu-outline .outline-move__btn:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
 @media print {
   .app-bar, .status-bar, .editor-pane, .drop-hint, .toolbar, .menu,
   .welcome, .shortcuts-backdrop { display: none !important; }

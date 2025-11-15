@@ -44,10 +44,19 @@
 	import { documentName } from '$lib/utils/document-name';
 	import { exportStandaloneHtml } from '$lib/utils/export-html';
 	import { loadOnboarding, saveOnboarding } from '$lib/utils/onboarding';
+	import {
+		detectSlashQuery,
+		filterSlashCommands,
+		type SlashCommand
+	} from '$lib/editor/slash-commands';
+	import { findMatches, type FindMatch } from '$lib/editor/find';
+	import { moveOutlineSection } from '$lib/editor/outline-reorder';
 	import BrandMark from './BrandMark.svelte';
 	import StatusBar from './StatusBar.svelte';
 	import ShortcutsOverlay from './ShortcutsOverlay.svelte';
 	import WelcomeStrip from './WelcomeStrip.svelte';
+	import SlashPalette from './SlashPalette.svelte';
+	import FindBar from './FindBar.svelte';
 
 	/* ---------- reactive app state -------------------------------------- */
 
@@ -58,6 +67,20 @@
 	let keyboardUp = $state(false);
 	let shortcutsOpen = $state(false);
 	let welcomeVisible = $state(false);
+
+	/* Slash palette */
+	let slashOpen = $state(false);
+	let slashQuery = $state('');
+	let slashItems = $state<SlashCommand[]>([]);
+	let slashIndex = $state(0);
+	let slashMode = $state<'source' | 'page'>('source');
+	let slashAnchor = $state<{ top: number; left: number } | null>(null);
+
+	/* Find */
+	let findOpen = $state(false);
+	let findQuery = $state('');
+	let findMatchesList = $state<FindMatch[]>([]);
+	let findIndex = $state(0);
 
 	let saveLabel = $state('Saved');
 	let saveOn = $state(false);
@@ -863,6 +886,145 @@
 		return Boolean(target.closest('[contenteditable="true"]'));
 	}
 
+	/* ---------- slash palette ------------------------------------------- */
+
+	function refreshSlashFromEditor() {
+		if (!editor || slashMode !== 'source') return;
+		const detected = detectSlashQuery(editor.value, editor.selectionStart);
+		if (!detected) {
+			slashOpen = false;
+			return;
+		}
+		slashQuery = detected.query;
+		slashItems = filterSlashCommands(detected.query);
+		slashIndex = 0;
+		slashOpen = true;
+		slashAnchor = slashAnchorFromEditor();
+	}
+
+	function slashAnchorFromEditor(): { top: number; left: number } {
+		if (!editor) return { top: 120, left: 40 };
+		const rect = editor.getBoundingClientRect();
+		const style = getComputedStyle(editor);
+		const lineHeight = parseFloat(style.lineHeight) || 24;
+		const paddingTop = parseFloat(style.paddingTop) || 0;
+		const line = editor.value.slice(0, editor.selectionStart).split('\n').length;
+		const top = Math.min(
+			Math.max(8, rect.top + paddingTop + line * lineHeight - editor.scrollTop + 4),
+			window.innerHeight - 220
+		);
+		const left = Math.min(rect.left + 20, window.innerWidth - 300);
+		return { top, left };
+	}
+
+	function openSlashOnPage() {
+		slashMode = 'page';
+		slashQuery = '';
+		slashItems = filterSlashCommands('');
+		slashIndex = 0;
+		slashOpen = true;
+		if (sheet) {
+			const rect = sheet.getBoundingClientRect();
+			slashAnchor = {
+				top: Math.min(rect.top + 48, window.innerHeight - 220),
+				left: Math.min(rect.left + 24, window.innerWidth - 300)
+			};
+		} else {
+			slashAnchor = { top: 120, left: 40 };
+		}
+	}
+
+	function removeSourceSlashQuery() {
+		if (!editor || slashMode !== 'source') return;
+		const detected = detectSlashQuery(editor.value, editor.selectionStart);
+		if (!detected) return;
+		const end = editor.selectionStart;
+		const next = editor.value.slice(0, detected.start) + editor.value.slice(end);
+		editor.value = next;
+		editor.setSelectionRange(detected.start, detected.start);
+		sourceChanged();
+		rememberSource();
+	}
+
+	function closeSlash(removeQuery = false) {
+		if (removeQuery) removeSourceSlashQuery();
+		slashOpen = false;
+		slashQuery = '';
+		slashItems = [];
+	}
+
+	function applySlashCommand(cmd: SlashCommand) {
+		if (slashMode === 'source') removeSourceSlashQuery();
+		slashOpen = false;
+		slashQuery = '';
+		slashItems = [];
+
+		if (cmd.action.type === 'command') {
+			command(cmd.action.name, cmd.action.argument);
+		} else {
+			command(cmd.action.id);
+		}
+	}
+
+	/* ---------- find ---------------------------------------------------- */
+
+	function openFind() {
+		closeMenus();
+		closeSlash();
+		findOpen = true;
+		updateFindMatches(findQuery);
+	}
+
+	function closeFind() {
+		findOpen = false;
+	}
+
+	function updateFindMatches(q: string) {
+		findQuery = q;
+		findMatchesList = findMatches(doc, q);
+		findIndex = 0;
+		if (findMatchesList.length > 0) goToFindMatch(0);
+	}
+
+	function goToFindMatch(index: number) {
+		if (!findMatchesList.length || !editor) return;
+		const i = ((index % findMatchesList.length) + findMatchesList.length) % findMatchesList.length;
+		findIndex = i;
+		const match = findMatchesList[i];
+		const end = match.index + Math.max(1, findQuery.trim().length);
+
+		if (view === 'page') {
+			view = 'split';
+			applyView();
+		}
+		editor.focus();
+		editor.setSelectionRange(match.index, end);
+		// Scroll the line into view approximately
+		const ratio = match.index / Math.max(1, editor.value.length);
+		editor.scrollTop = ratio * editor.scrollHeight - editor.clientHeight / 3;
+		rememberSource();
+		updateCursor();
+	}
+
+	function findNext() {
+		if (!findMatchesList.length) return;
+		goToFindMatch(findIndex + 1);
+	}
+
+	function findPrev() {
+		if (!findMatchesList.length) return;
+		goToFindMatch(findIndex - 1);
+	}
+
+	/* ---------- outline reorder ----------------------------------------- */
+
+	function moveOutline(headingIndex: number, direction: -1 | 1) {
+		const next = moveOutlineSection(doc, headingIndex, direction);
+		if (next === doc) return;
+		setDoc(next);
+		rebuildOutline();
+	}
+
 	/* ---------- file / export ------------------------------------------- */
 
 	function openFile(file: File) {
@@ -916,6 +1078,43 @@
 	}
 
 	function onSheetKeydown(event: KeyboardEvent) {
+		/* Slash on an empty paragraph → structure palette (page surface). */
+		if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+			const block = currentBlock();
+			const empty =
+				block &&
+				/^(P|DIV)$/.test(block.tagName) &&
+				!(block.textContent || '').replace(/\u00a0/g, ' ').trim();
+			if (empty || (!block && sheet && !(sheet.textContent || '').trim())) {
+				event.preventDefault();
+				openSlashOnPage();
+				return;
+			}
+		}
+
+		if (slashOpen && slashMode === 'page') {
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				closeSlash();
+				return;
+			}
+			if (event.key === 'ArrowDown') {
+				event.preventDefault();
+				slashIndex = Math.min(slashItems.length - 1, slashIndex + 1);
+				return;
+			}
+			if (event.key === 'ArrowUp') {
+				event.preventDefault();
+				slashIndex = Math.max(0, slashIndex - 1);
+				return;
+			}
+			if (event.key === 'Enter' && slashItems[slashIndex]) {
+				event.preventDefault();
+				applySlashCommand(slashItems[slashIndex]);
+				return;
+			}
+		}
+
 		if (event.key !== 'Tab') return;
 		const cell = currentCell();
 		if (!cell) return;
@@ -954,8 +1153,42 @@
 		if (!editor) return;
 		const meta = event.metaKey || event.ctrlKey;
 
+		/* Slash palette navigation while open */
+		if (slashOpen && slashMode === 'source') {
+			if (event.key === 'Escape') {
+				event.preventDefault();
+				closeSlash(true);
+				return;
+			}
+			if (event.key === 'ArrowDown') {
+				event.preventDefault();
+				slashIndex = Math.min(slashItems.length - 1, slashIndex + 1);
+				return;
+			}
+			if (event.key === 'ArrowUp') {
+				event.preventDefault();
+				slashIndex = Math.max(0, slashIndex - 1);
+				return;
+			}
+			if (event.key === 'Enter' && !event.shiftKey && slashItems[slashIndex]) {
+				event.preventDefault();
+				applySlashCommand(slashItems[slashIndex]);
+				return;
+			}
+			if (event.key === 'Tab' && slashItems[slashIndex]) {
+				event.preventDefault();
+				applySlashCommand(slashItems[slashIndex]);
+				return;
+			}
+		}
+
 		if (meta) {
 			const key = event.key.toLowerCase();
+			if (key === 'f' && !event.altKey && !event.shiftKey) {
+				event.preventDefault();
+				openFind();
+				return;
+			}
 			if (event.altKey && '0123'.indexOf(key) !== -1) {
 				event.preventDefault();
 				command('style', key === '0' ? 'paragraph' : 'h' + key);
@@ -1088,8 +1321,23 @@
 		const onboarding = loadOnboarding();
 		welcomeVisible = !onboarding.welcomeDismissed;
 
-		const onDocClick = () => closeMenus();
+		const onDocClick = () => {
+			closeMenus();
+			if (slashOpen && slashMode === 'page') closeSlash();
+		};
 		const onKey = (event: KeyboardEvent) => {
+			const meta = event.metaKey || event.ctrlKey;
+
+			// Global find (when not already handled inside the editor)
+			if (meta && event.key.toLowerCase() === 'f' && !event.altKey && !event.shiftKey) {
+				const t = event.target as HTMLElement | null;
+				if (t !== editor) {
+					event.preventDefault();
+					openFind();
+					return;
+				}
+			}
+
 			// Shortcuts: "?" when not typing into an input/textarea/contenteditable field with modifiers
 			if (
 				event.key === '?' &&
@@ -1107,6 +1355,14 @@
 			if (event.key === 'Escape') {
 				if (shortcutsOpen) {
 					shortcutsOpen = false;
+					return;
+				}
+				if (findOpen) {
+					closeFind();
+					return;
+				}
+				if (slashOpen) {
+					closeSlash(slashMode === 'source');
 					return;
 				}
 				if (openMenu) closeMenus();
@@ -1268,19 +1524,48 @@
 			</button>
 			<ul class="menu menu-outline" bind:this={outlineMenuEl} hidden>
 				{#if outlineItems.length === 0}
-					<li class="empty">No headings yet.</li>
+					<li class="empty">No headings yet. Use /h1 in Markdown or the style menu.</li>
 				{:else}
 					{#each outlineItems as heading, index (heading.line + ':' + index)}
-						<li>
+						<li class="outline-row">
 							<button
 								type="button"
-								class="lv{heading.level}"
+								class="lv{heading.level} outline-jump"
 								onclick={() => jumpToHeading(heading, index)}
 							>
 								{heading.text || '(untitled)'}
 							</button>
+							<span class="outline-move" role="group" aria-label="Reorder section">
+								<button
+									type="button"
+									class="outline-move__btn"
+									title="Move section up"
+									aria-label="Move section up"
+									disabled={index === 0}
+									onclick={(e) => {
+										e.stopPropagation();
+										moveOutline(index, -1);
+									}}
+								>
+									↑
+								</button>
+								<button
+									type="button"
+									class="outline-move__btn"
+									title="Move section down"
+									aria-label="Move section down"
+									disabled={index === outlineItems.length - 1}
+									onclick={(e) => {
+										e.stopPropagation();
+										moveOutline(index, 1);
+									}}
+								>
+									↓
+								</button>
+							</span>
 						</li>
 					{/each}
+					<li class="menu-note">↑↓ reorder whole sections (prototype)</li>
 				{/if}
 			</ul>
 		</div>
@@ -1293,6 +1578,21 @@
 			onclick={() => setFocusMode(!focus)}
 		>
 			Focus
+		</button>
+
+		<button
+			type="button"
+			class="btn btn-quiet"
+			title="Find in document (⌘F)"
+			aria-label="Find in document"
+			aria-pressed={findOpen}
+			onclick={(e) => {
+				e.stopPropagation();
+				if (findOpen) closeFind();
+				else openFind();
+			}}
+		>
+			Find
 		</button>
 
 		<button
@@ -1408,6 +1708,18 @@
 		bind:visible={welcomeVisible}
 		onOpenShortcuts={openShortcuts}
 		onDismiss={dismissWelcome}
+	/>
+
+	<FindBar
+		bind:open={findOpen}
+		bind:query={findQuery}
+		matches={findMatchesList}
+		activeIndex={findIndex}
+		onQueryChange={updateFindMatches}
+		onNext={findNext}
+		onPrev={findPrev}
+		onGoTo={goToFindMatch}
+		onClose={closeFind}
 	/>
 
 	<!-- Floating format bar: never steals selection (pointerdown preventDefault). -->
@@ -1723,6 +2035,9 @@
 					updateCursor();
 					updateToolbar();
 					rememberSource();
+					// Slash menu follows typing in the Markdown surface
+					slashMode = 'source';
+					queueMicrotask(() => refreshSlashFromEditor());
 				}}
 				onclick={() => {
 					rememberSource();
@@ -1792,6 +2107,16 @@
 	/>
 
 	<div class="drop-hint" aria-hidden="true">Drop a Markdown file to open it</div>
+
+	<SlashPalette
+		open={slashOpen}
+		query={slashQuery}
+		items={slashItems}
+		bind:activeIndex={slashIndex}
+		anchor={slashAnchor}
+		onSelect={applySlashCommand}
+		onClose={() => closeSlash(slashMode === 'source')}
+	/>
 
 	<ShortcutsOverlay bind:open={shortcutsOpen} />
 </div>

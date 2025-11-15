@@ -24,7 +24,9 @@
 		<div class="welcome__copy">
 			<strong>Write on the page.</strong>
 			<span>
-				Markdown stays underneath — switch views anytime. Press
+				Markdown stays underneath. Type
+				<button type="button" class="welcome__link" onclick={onOpenShortcuts}>/</button>
+				for structure,
 				<button type="button" class="welcome__link" onclick={onOpenShortcuts}>?</button>
 				for shortcuts. Nothing leaves this browser.
 			</span>
