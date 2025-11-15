@@ -439,8 +439,17 @@ button { cursor: pointer; }
 /* ==========================================================================
    Print — the sheet only, edge to edge, no chrome.
    ========================================================================== */
+/* Help control in the app bar — compact, never competes with primary actions */
+.app-bar__help {
+  min-width: 32px;
+  padding-left: 8px;
+  padding-right: 8px;
+  font-weight: 700;
+}
+
 @media print {
-  .app-bar, .status-bar, .editor-pane, .drop-hint, .toolbar, .menu { display: none !important; }
+  .app-bar, .status-bar, .editor-pane, .drop-hint, .toolbar, .menu,
+  .welcome, .shortcuts-backdrop { display: none !important; }
   html, body, .desk { height: auto; background: #fff; }
   .workspace { display: block; }
   .reading-pane { overflow: visible; border: 0; padding: 0; }

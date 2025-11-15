@@ -43,6 +43,11 @@
 	import { download } from '$lib/utils/download';
 	import { documentName } from '$lib/utils/document-name';
 	import { exportStandaloneHtml } from '$lib/utils/export-html';
+	import { loadOnboarding, saveOnboarding } from '$lib/utils/onboarding';
+	import BrandMark from './BrandMark.svelte';
+	import StatusBar from './StatusBar.svelte';
+	import ShortcutsOverlay from './ShortcutsOverlay.svelte';
+	import WelcomeStrip from './WelcomeStrip.svelte';
 
 	/* ---------- reactive app state -------------------------------------- */
 
@@ -51,6 +56,8 @@
 	let focus = $state(false);
 	let dragging = $state(false);
 	let keyboardUp = $state(false);
+	let shortcutsOpen = $state(false);
+	let welcomeVisible = $state(false);
 
 	let saveLabel = $state('Saved');
 	let saveOn = $state(false);
@@ -837,6 +844,25 @@
 		persist();
 	}
 
+	function openShortcuts() {
+		closeMenus();
+		shortcutsOpen = true;
+	}
+
+	function dismissWelcome() {
+		welcomeVisible = false;
+		saveOnboarding({ welcomeDismissed: true });
+	}
+
+	/** True when the event target is a field that should receive "?" as a character. */
+	function isTypingTarget(target: EventTarget | null): boolean {
+		if (!(target instanceof HTMLElement)) return false;
+		const tag = target.tagName;
+		if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+		if (target.isContentEditable) return true;
+		return Boolean(target.closest('[contenteditable="true"]'));
+	}
+
 	/* ---------- file / export ------------------------------------------- */
 
 	function openFile(file: File) {
@@ -1058,9 +1084,31 @@
 		updateToolbar();
 		ready = true;
 
+		// First-run orientation (independent of document state).
+		const onboarding = loadOnboarding();
+		welcomeVisible = !onboarding.welcomeDismissed;
+
 		const onDocClick = () => closeMenus();
 		const onKey = (event: KeyboardEvent) => {
+			// Shortcuts: "?" when not typing into an input/textarea/contenteditable field with modifiers
+			if (
+				event.key === '?' &&
+				!event.metaKey &&
+				!event.ctrlKey &&
+				!event.altKey &&
+				!isTypingTarget(event.target)
+			) {
+				event.preventDefault();
+				closeMenus();
+				shortcutsOpen = true;
+				return;
+			}
+
 			if (event.key === 'Escape') {
+				if (shortcutsOpen) {
+					shortcutsOpen = false;
+					return;
+				}
 				if (openMenu) closeMenus();
 				else if (focus) setFocusMode(false);
 			}
@@ -1158,22 +1206,7 @@
 >
 	<header class="app-bar">
 		<div class="brand">
-			<svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-				<rect width="32" height="32" rx="7" fill="var(--accent)"></rect>
-				<path
-					d="M8 24l1.5-5L20 8.5a2.1 2.1 0 013 3L12.5 22z"
-					fill="none"
-					stroke="var(--on-accent)"
-					stroke-width="2.2"
-					stroke-linejoin="round"
-				></path>
-				<path
-					d="M8 24h16"
-					stroke="var(--on-accent)"
-					stroke-width="2.2"
-					stroke-linecap="round"
-				></path>
-			</svg>
+			<BrandMark />
 			<span class="brand-name">Writing Desk</span>
 			<span class="brand-tag">markdown, typeset as you type — nothing leaves your browser</span>
 		</div>
@@ -1260,6 +1293,21 @@
 			onclick={() => setFocusMode(!focus)}
 		>
 			Focus
+		</button>
+
+		<button
+			type="button"
+			class="btn btn-quiet app-bar__help"
+			title="Keyboard shortcuts (?)"
+			aria-label="Keyboard shortcuts"
+			aria-haspopup="dialog"
+			aria-expanded={shortcutsOpen}
+			onclick={(e) => {
+				e.stopPropagation();
+				openShortcuts();
+			}}
+		>
+			?
 		</button>
 
 		<div class="menu-wrap">
@@ -1355,6 +1403,12 @@
 			}}
 		/>
 	</header>
+
+	<WelcomeStrip
+		bind:visible={welcomeVisible}
+		onOpenShortcuts={openShortcuts}
+		onDismiss={dismissWelcome}
+	/>
 
 	<!-- Floating format bar: never steals selection (pointerdown preventDefault). -->
 	<!-- svelte-ignore a11y_interactive_supports_focus a11y_click_events_have_key_events a11y_no_static_element_interactions -->
@@ -1729,20 +1783,15 @@
 		</div>
 	</main>
 
-	<footer class="status-bar">
-		<span><b>{wordCount.toLocaleString()}</b> words</span>
-		<span><b>{charCount.toLocaleString()}</b> characters</span>
-		<span><b>{readTime.toLocaleString()}</b> min read</span>
-		<span class="spacer"></span>
-		<span>{cursorPos}</span>
-		<span title="What this editor understands"
-			>Saved as CommonMark + tables, task lists, strikethrough</span
-		>
-	</footer>
+	<StatusBar
+		{wordCount}
+		{charCount}
+		{readTime}
+		{cursorPos}
+		onOpenShortcuts={openShortcuts}
+	/>
 
 	<div class="drop-hint" aria-hidden="true">Drop a Markdown file to open it</div>
 
-	{#if !ready}
-		<!-- Prevent interaction flash before localStorage restore -->
-	{/if}
+	<ShortcutsOverlay bind:open={shortcutsOpen} />
 </div>
