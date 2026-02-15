@@ -253,11 +253,12 @@ We build **section-by-section**, each milestone shippable, each with prototype �
 
 **Exit criteria:** 50 notes feel as calm as one; still zero network for content.
 
-### Milestone 4 — Fidelity & power tools *(next)*
+### Milestone 4 — Fidelity & power tools *(in progress)*
 
-**Focus:** Trust and expert depth.
+**Focus:** Trust and expert depth.  
+**Details:** see [`MILESTONE-4.md`](./MILESTONE-4.md).
 
-- Truth mode (lossy edit warnings).  
+- ✅ **Truth mode** (section 1): fidelity core, status toggle, non-modal diff strip, baseline ownership.  
 - Footnotes / definition lists as **optional dialect pack**.  
 - Math (KaTeX) and Mermaid as opt-in packs (sandboxed).  
 - Import/export packs; clipboard smart paste.  
@@ -318,14 +319,12 @@ We will not ship a kitchen-sink Obsidian clone. We will ship **layers of inevita
 
 ## 9. Immediate next step
 
-**Milestone 1 — Product shell & identity** is the first build section after this plan:
+**Milestone 4 — section 2: Dialect pack registry** (after Truth mode foundation):
 
-1. Shortcut overlay + dialect badge.  
-2. PWA manifest.  
-3. Component extraction of chrome.  
-4. Empty-state / sample refinement.  
-
-Say the word and we prototype Milestone 1 section-by-section.
+1. Pack registry API (`lib/dialect/`) with enable/disable.  
+2. Badge reflects active packs.  
+3. Lazy-load hooks for footnotes → math → mermaid.  
+4. Keep novice path unchanged when packs are off.
 
 ---
 

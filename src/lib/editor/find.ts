@@ -1,21 +1,26 @@
 /**
- * Find-in-document — pure helpers over the Markdown source string.
- * UI jumps to matches; page view scrolls via heading/line heuristics.
+ * Find-in-document — pure helpers over a plain-text haystack
+ * (Markdown source, or page innerText).
+ *
+ * UI highlights matches in the viewer; no result dropdown.
  */
 
+/** Minimum characters before we search (avoids noise on single-letter type). */
+export const FIND_MIN_LENGTH = 2;
+
 export interface FindMatch {
-	/** Character offset of the match in the source */
+	/** Character offset of the match in the haystack */
 	index: number;
 	line: number;
 	column: number;
-	/** Surrounding line text for the results list */
+	/** Surrounding line text (debug / a11y) */
 	preview: string;
 }
 
-/** Case-insensitive search; empty query → no matches. */
-export function findMatches(doc: string, query: string, limit = 200): FindMatch[] {
+/** Case-insensitive search; empty or short query → no matches. */
+export function findMatches(doc: string, query: string, limit = 500): FindMatch[] {
 	const q = query.trim();
-	if (!q) return [];
+	if (q.length < FIND_MIN_LENGTH) return [];
 
 	const hay = doc;
 	const needle = q;

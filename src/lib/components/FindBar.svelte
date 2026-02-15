@@ -1,49 +1,126 @@
 <script lang="ts">
 	/**
-	 * Find in document — calm, keyboard-first.
-	 * Parent owns match list and navigation (keeps editor logic centralized).
+	 * Find bar — search field + count + prev/next.
+	 * Matches are highlighted in the page viewer (parent), not listed in a dropdown.
+	 *
+	 * Focus stays in this field while typing and while stepping with Enter / arrows.
 	 */
-	import type { FindMatch } from '$lib/editor/find';
+	import { FIND_MIN_LENGTH } from '$lib/editor/find';
 
 	let {
 		open = $bindable(false),
 		query = $bindable(''),
-		matches = [] as FindMatch[],
+		matchCount = 0,
 		activeIndex = 0,
+		focusToken = 0,
 		onQueryChange,
 		onNext,
 		onPrev,
-		onGoTo,
 		onClose
 	}: {
 		open?: boolean;
 		query?: string;
-		matches?: FindMatch[];
+		matchCount?: number;
 		activeIndex?: number;
+		focusToken?: number;
 		onQueryChange?: (q: string) => void;
 		onNext?: () => void;
 		onPrev?: () => void;
-		onGoTo?: (index: number) => void;
 		onClose?: () => void;
 	} = $props();
 
 	let inputEl: HTMLInputElement | undefined = $state();
+	let lastFocusToken = -1;
+
+	const trimmed = $derived(query.trim());
+	const ready = $derived(trimmed.length >= FIND_MIN_LENGTH);
+	const canStep = $derived(ready && matchCount > 0);
+
+	const statusText = $derived.by(() => {
+		if (!trimmed) return '—';
+		if (!ready) {
+			const need = FIND_MIN_LENGTH - trimmed.length;
+			return need === 1 ? '1 more letter…' : `${need} more letters…`;
+		}
+		if (matchCount === 0) return 'No matches';
+		return `${activeIndex + 1} of ${matchCount}`;
+	});
+
+	function focusField(selectAll: boolean) {
+		queueMicrotask(() => {
+			if (!inputEl || !open) return;
+			inputEl.focus();
+			const len = inputEl.value.length;
+			if (selectAll && len > 0) inputEl.setSelectionRange(0, len);
+			else inputEl.setSelectionRange(len, len);
+		});
+	}
 
 	$effect(() => {
-		if (open) queueMicrotask(() => inputEl?.focus());
+		if (!open) {
+			lastFocusToken = -1;
+			return;
+		}
+		if (focusToken !== lastFocusToken) {
+			lastFocusToken = focusToken;
+			focusField(focusToken > 1 && query.length > 0);
+		}
 	});
+
+	function keepInputFocus(event: Event) {
+		event.preventDefault();
+	}
+
+	function focusInputSoon() {
+		queueMicrotask(() => inputEl?.focus());
+	}
 
 	function onKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
 			event.preventDefault();
+			event.stopPropagation();
 			onClose?.();
 			return;
 		}
+
+		// Live find: Enter / ⇧Enter step matches (search already runs as you type).
 		if (event.key === 'Enter') {
 			event.preventDefault();
+			event.stopPropagation();
 			if (event.shiftKey) onPrev?.();
 			else onNext?.();
+			focusInputSoon();
+			return;
 		}
+
+		// Arrows step when there are hits; otherwise leave caret movement alone.
+		if (canStep && !event.metaKey && !event.ctrlKey && !event.altKey) {
+			if (event.key === 'ArrowDown') {
+				event.preventDefault();
+				onNext?.();
+				focusInputSoon();
+				return;
+			}
+			if (event.key === 'ArrowUp') {
+				event.preventDefault();
+				onPrev?.();
+				focusInputSoon();
+				return;
+			}
+		}
+
+		if (event.key === 'F3') {
+			event.preventDefault();
+			event.stopPropagation();
+			if (event.shiftKey) onPrev?.();
+			else onNext?.();
+			focusInputSoon();
+		}
+	}
+
+	function onInput() {
+		// Parent highlights live as the query changes.
+		onQueryChange?.(query);
 	}
 </script>
 
@@ -55,49 +132,53 @@
 				bind:this={inputEl}
 				class="find-bar__input"
 				type="search"
-				placeholder="Search this document…"
+				placeholder="Find in document…"
 				autocomplete="off"
+				autocorrect="off"
+				autocapitalize="off"
 				spellcheck="false"
+				enterkeyhint="search"
 				bind:value={query}
-				oninput={() => onQueryChange?.(query)}
+				oninput={onInput}
 				onkeydown={onKeydown}
 			/>
 		</label>
 
-		<span class="find-bar__count" aria-live="polite">
-			{#if !query.trim()}
-				—
-			{:else if matches.length === 0}
-				No matches
-			{:else}
-				{activeIndex + 1} of {matches.length}
-			{/if}
-		</span>
+		<span class="find-bar__count" aria-live="polite">{statusText}</span>
 
-		<div class="find-bar__nav">
+		<div class="find-bar__nav" role="group" aria-label="Find navigation">
 			<button
 				type="button"
 				class="btn btn-quiet"
-				disabled={matches.length === 0}
-				onclick={() => onPrev?.()}
+				disabled={!canStep}
+				onmousedown={keepInputFocus}
+				onclick={() => {
+					onPrev?.();
+					focusInputSoon();
+				}}
 				aria-label="Previous match"
-				title="Previous (⇧Enter)"
+				title="Previous (↑ or ⇧Enter)"
 			>
 				↑
 			</button>
 			<button
 				type="button"
 				class="btn btn-quiet"
-				disabled={matches.length === 0}
-				onclick={() => onNext?.()}
+				disabled={!canStep}
+				onmousedown={keepInputFocus}
+				onclick={() => {
+					onNext?.();
+					focusInputSoon();
+				}}
 				aria-label="Next match"
-				title="Next (Enter)"
+				title="Next (↓ or Enter)"
 			>
 				↓
 			</button>
 			<button
 				type="button"
 				class="btn btn-quiet"
+				onmousedown={keepInputFocus}
 				onclick={() => onClose?.()}
 				aria-label="Close find"
 				title="Close (Esc)"
@@ -105,27 +186,6 @@
 				Done
 			</button>
 		</div>
-
-		{#if matches.length > 0 && query.trim()}
-			<ul class="find-bar__results">
-				{#each matches.slice(0, 40) as match, i (match.index)}
-					<li>
-						<button
-							type="button"
-							class="find-bar__hit"
-							class:is-active={i === activeIndex}
-							onclick={() => onGoTo?.(i)}
-						>
-							<span class="find-bar__line">L{match.line}</span>
-							<span class="find-bar__preview">{match.preview}</span>
-						</button>
-					</li>
-				{/each}
-				{#if matches.length > 40}
-					<li class="find-bar__more">+{matches.length - 40} more</li>
-				{/if}
-			</ul>
-		{/if}
 	</div>
 {/if}
 
@@ -146,7 +206,7 @@
 		display: flex;
 		align-items: center;
 		gap: 8px;
-		flex: 1 1 12rem;
+		flex: 1 1 14rem;
 		min-width: 0;
 	}
 
@@ -172,68 +232,23 @@
 		box-shadow: 0 0 0 2px var(--accent-soft);
 	}
 
+	.find-bar__input::-webkit-search-cancel-button {
+		-webkit-appearance: none;
+		appearance: none;
+	}
+
 	.find-bar__count {
 		font-size: 12px;
 		color: var(--muted);
 		font-variant-numeric: tabular-nums;
-		min-width: 5.5rem;
+		min-width: 6.5rem;
+		white-space: nowrap;
 	}
 
 	.find-bar__nav {
 		display: flex;
 		align-items: center;
 		gap: 2px;
-	}
-
-	.find-bar__results {
-		flex: 1 1 100%;
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		max-height: 9rem;
-		overflow: auto;
-		border: 1px solid var(--rule-soft);
-		border-radius: 8px;
-		background: var(--panel-2);
-	}
-
-	.find-bar__hit {
-		display: grid;
-		grid-template-columns: 3rem 1fr;
-		gap: 8px;
-		width: 100%;
-		padding: 6px 10px;
-		border: 0;
-		background: transparent;
-		text-align: left;
-		font: inherit;
-		color: var(--ink);
-		cursor: pointer;
-	}
-
-	.find-bar__hit:hover,
-	.find-bar__hit.is-active {
-		background: var(--accent-soft);
-	}
-
-	.find-bar__line {
-		font-size: 11px;
-		font-weight: 650;
-		color: var(--muted);
-		font-variant-numeric: tabular-nums;
-	}
-
-	.find-bar__preview {
-		font-size: 12.5px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.find-bar__more {
-		padding: 6px 10px;
-		font-size: 12px;
-		color: var(--muted);
 	}
 
 	@media print {

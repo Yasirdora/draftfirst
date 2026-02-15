@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { findMatches } from './find';
+import { FIND_MIN_LENGTH, findMatches } from './find';
 
 describe('findMatches', () => {
-	it('returns empty for blank query', () => {
+	it('returns empty for blank or short query', () => {
 		expect(findMatches('hello', '')).toEqual([]);
+		expect(findMatches('hello', 'h')).toEqual([]);
+		expect(FIND_MIN_LENGTH).toBe(2);
 	});
 
 	it('finds case-insensitive matches with line info', () => {

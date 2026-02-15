@@ -65,6 +65,11 @@ function serialiseInlineNodes(nodes) {
       continue;
     }
     if (tag === 'INPUT') continue;                 // the task box, handled by its item
+    // Find highlights are temporary chrome — never emit markup for them.
+    if (tag === 'MARK' && child.classList && child.classList.contains('find-mark')) {
+      out += serialiseInline(child);
+      continue;
+    }
     if (tag === 'CODE') { out += '`' + child.textContent + '`'; continue; }
     if (tag === 'A') {
       const href = child.getAttribute('href') || '';
@@ -128,7 +133,9 @@ function serialiseTable(table) {
 
   for (const row of table.querySelectorAll('tr')) {
     const cells = [];
-    for (const cell of row.cells) {
+    // querySelectorAll works in browsers and minimal DOMs (linkedom); row.cells is not always iterable.
+    const cellList = Array.from(row.querySelectorAll('th, td'));
+    for (const cell of cellList) {
       cells.push(serialiseInline(cell).replace(/\|/g, '\\|').trim());
       if (rows.length === 0) alignments.push((cell.style && cell.style.textAlign) || '');
     }

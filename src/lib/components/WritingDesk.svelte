@@ -44,11 +44,26 @@
 	import { exportStandaloneHtml } from '$lib/utils/export-html';
 	import { loadOnboarding, saveOnboarding } from '$lib/utils/onboarding';
 	import {
+		getTruthBaseline,
+		loadTruthPrefs,
+		pruneTruthBaselines,
+		removeTruthBaseline,
+		setTruthBaselineForDoc,
+		setTruthEnabled
+	} from '$lib/utils/truth-prefs';
+	import {
+		assessFidelity,
+		groupTruthChanges,
+		restoreTruthChange,
+		type FidelityReport
+	} from '$lib/markdown/fidelity';
+	import {
 		detectSlashQuery,
 		filterSlashCommands,
 		type SlashCommand
 	} from '$lib/editor/slash-commands';
-	import { findMatches, type FindMatch } from '$lib/editor/find';
+	import { FIND_MIN_LENGTH, findMatches, type FindMatch } from '$lib/editor/find';
+	import { clearFindHighlights, paintFindHighlights } from '$lib/editor/find-highlight';
 	import { moveOutlineSection } from '$lib/editor/outline-reorder';
 	import {
 		addDocument,
@@ -72,6 +87,7 @@
 	import SlashPalette from './SlashPalette.svelte';
 	import FindBar from './FindBar.svelte';
 	import LibrarySidebar from './LibrarySidebar.svelte';
+	import TruthStrip from './TruthStrip.svelte';
 
 	/* ---------- reactive app state -------------------------------------- */
 
@@ -100,9 +116,19 @@
 	let findQuery = $state('');
 	let findMatchesList = $state<FindMatch[]>([]);
 	let findIndex = $state(0);
+	/** Bumped to re-focus the find field (e.g. second ⌘F). */
+	let findFocusToken = $state(0);
+	/** Debounce live find paint so fast typing stays smooth. */
+	let findPaintTimer = 0;
 
 	let saveLabel = $state('Saved');
 	let saveOn = $state(false);
+
+	/* Truth mode — fidelity of page serialise vs trusted source baseline */
+	let truthEnabled = $state(false);
+	let truthBaseline = $state('');
+	let truthReport = $state<FidelityReport | null>(null);
+	let truthStripOpen = $state(false);
 
 	let wordCount = $state(0);
 	let charCount = $state(0);
@@ -235,6 +261,142 @@
 		updateToolbar();
 		closeSlash();
 		if (findOpen) updateFindMatches(findQuery);
+		// Restore this note's trusted baseline (survives reload) — do not clobber it.
+		restoreTruthForActiveDoc();
+	}
+
+	function activeDocId(): string | null {
+		return library?.activeId ?? null;
+	}
+
+	/**
+	 * Load Truth baseline for the active note and re-evaluate fidelity.
+	 * Baseline is persisted separately so page→source rewrites still show after reload.
+	 */
+	function restoreTruthForActiveDoc() {
+		const id = activeDocId();
+		const body = doc;
+		if (!id) {
+			truthBaseline = body;
+			truthReport = assessFidelity(body, body);
+			truthStripOpen = false;
+			return;
+		}
+		const baseline = getTruthBaseline(id, body);
+		truthBaseline = baseline;
+		const report = assessFidelity(baseline, body);
+		truthReport = report;
+		// If we had no stored baseline yet, seed it so future reloads have a reference.
+		if (baseline === body) {
+			setTruthBaselineForDoc(id, body);
+		}
+		truthStripOpen = truthEnabled && report.status !== 'identical';
+	}
+
+	/** Trusted source for Truth mode — intentional Markdown edits / Accept reset it. */
+	function setTruthBaseline(source: string) {
+		truthBaseline = source;
+		truthReport = assessFidelity(source, source);
+		truthStripOpen = false;
+		const id = activeDocId();
+		if (id) setTruthBaselineForDoc(id, source);
+	}
+
+	function refreshTruthFromPage(serialised: string) {
+		const report = assessFidelity(truthBaseline, serialised);
+		truthReport = report;
+		if (!truthEnabled) {
+			truthStripOpen = false;
+			return;
+		}
+		// Soft strip: only when something non-identical happened.
+		truthStripOpen = report.status !== 'identical';
+		// Baseline stays put; body is what persist() saves. Both survive reload.
+	}
+
+	function toggleTruthMode() {
+		truthEnabled = !truthEnabled;
+		setTruthEnabled(truthEnabled);
+		if (!truthEnabled) {
+			truthStripOpen = false;
+			return;
+		}
+		// Re-evaluate current doc against persisted baseline when enabling.
+		const report = assessFidelity(truthBaseline, doc);
+		truthReport = report;
+		truthStripOpen = report.status !== 'identical';
+	}
+
+	function acceptTruthBaseline() {
+		// Writer trusts the current source — baseline catches up to the body.
+		setTruthBaseline(doc);
+		saveLabel = 'Trusted source updated';
+		saveOn = true;
+		clearTimeout(statusTimer);
+		statusTimer = window.setTimeout(() => {
+			saveOn = false;
+		}, 1600);
+	}
+
+	/**
+	 * Apply a new body without treating it as a new trusted baseline.
+	 * Used for selective restore so remaining differences stay reviewable.
+	 */
+	function applyBodyKeepBaseline(text: string, statusMessage: string) {
+		doc = text;
+		if (editor && editor.value !== text) editor.value = text;
+		renderDocument();
+		updateCursor();
+		updateToolbar();
+		const report = assessFidelity(truthBaseline, text);
+		truthReport = report;
+		truthStripOpen = truthEnabled && report.status !== 'identical';
+		persist();
+		saveLabel = statusMessage;
+		saveOn = true;
+		clearTimeout(statusTimer);
+		statusTimer = window.setTimeout(() => {
+			saveOn = false;
+		}, 1600);
+	}
+
+	/**
+	 * Put the full trusted Markdown back — undoes every rewrite since baseline.
+	 */
+	function restoreTruthBaseline() {
+		const trusted = truthBaseline;
+		if (trusted === doc) {
+			truthStripOpen = false;
+			return;
+		}
+		const ok = confirm(
+			'Restore all trusted Markdown?\n\n' +
+				'Every change from the trusted version will be undone. ' +
+				'To undo only one change, open the change list and use “Restore this”.'
+		);
+		if (!ok) return;
+		// Full restore: body and baseline match again.
+		setDoc(trusted);
+		truthStripOpen = false;
+		saveLabel = 'Restored all trusted Markdown';
+		saveOn = true;
+		clearTimeout(statusTimer);
+		statusTimer = window.setTimeout(() => {
+			saveOn = false;
+		}, 1600);
+	}
+
+	/**
+	 * Restore a single change region from the trusted baseline; keep other edits.
+	 */
+	function restoreTruthChangeAt(changeId: number) {
+		const next = restoreTruthChange(truthBaseline, doc, changeId);
+		if (next === doc) return;
+		applyBodyKeepBaseline(next, 'Restored one change');
+	}
+
+	function dismissTruthStrip() {
+		truthStripOpen = false;
 	}
 
 	function persistLibrary(next: LibraryState) {
@@ -314,9 +476,11 @@
 		}
 
 		const { state: next } = deleteDocument(flushed, id);
+		removeTruthBaseline(id);
 		library = next;
 		loadActiveIntoEditor();
 		persistLibrary(library);
+		pruneTruthBaselines(library.documents.map((d) => d.id));
 	}
 
 	function undoLibraryDelete() {
@@ -354,10 +518,16 @@
 		sheet.innerHTML = renderMarkdown(doc);
 		enableTaskBoxes();
 		updateCounts();
+		if (findOpen && findQuery.trim().length >= FIND_MIN_LENGTH) {
+			// Marks were wiped with innerHTML — restore after paint.
+			queueMicrotask(() => revealFindMatch(findIndex));
+		}
 	}
 
 	function pageChanged() {
 		if (!sheet || !editor) return;
+		// Strip temporary find marks before serialising source.
+		clearFindHighlights(sheet);
 		let markdown: string;
 		try {
 			markdown = serialiseMarkdown(sheet);
@@ -370,6 +540,11 @@
 		if (!onSource()) editor.value = doc;
 		updateCounts();
 		updateCursor();
+		refreshTruthFromPage(markdown);
+		// Re-apply highlights if Find is still active.
+		if (findOpen && findQuery.trim().length >= FIND_MIN_LENGTH) {
+			revealFindMatch(findIndex);
+		}
 		persist();
 	}
 
@@ -381,6 +556,8 @@
 			enableTaskBoxes();
 		}
 		updateCounts();
+		// Writer owns source — baseline follows intentional Markdown edits.
+		setTruthBaseline(doc);
 		persist();
 	}
 
@@ -391,6 +568,7 @@
 		renderDocument();
 		updateCursor();
 		updateToolbar();
+		setTruthBaseline(text);
 		persist();
 	}
 
@@ -1086,52 +1264,135 @@
 
 	/* ---------- find ---------------------------------------------------- */
 
+	/**
+	 * Live find (browser-style): as you type, highlights update on the page.
+	 * Focus stays in the find field. Enter / ↑↓ step through matches.
+	 */
 	function openFind() {
 		closeMenus();
 		closeSlash();
+		// Prefer the typeset page — that's where highlights belong.
+		if (view === 'source') {
+			view = 'page';
+			applyView();
+			persist();
+		}
 		findOpen = true;
-		updateFindMatches(findQuery);
+		findFocusToken += 1;
+		// Restore live results if a query is already there.
+		runFindSearch({ resetIndex: false, immediate: true });
 	}
 
 	function closeFind() {
 		findOpen = false;
+		clearTimeout(findPaintTimer);
+		clearFindHighlights(sheet);
 	}
 
+	/** Live as you type — debounce paint slightly for smooth keystrokes. */
 	function updateFindMatches(q: string) {
 		findQuery = q;
-		findMatchesList = findMatches(doc, q);
-		findIndex = 0;
-		if (findMatchesList.length > 0) goToFindMatch(0);
+		runFindSearch({ resetIndex: true, immediate: false });
 	}
 
-	function goToFindMatch(index: number) {
-		if (!findMatchesList.length || !editor) return;
+	function runFindSearch(opts: { resetIndex?: boolean; immediate?: boolean } = {}) {
+		const q = findQuery;
+		if (q.trim().length < FIND_MIN_LENGTH) {
+			clearTimeout(findPaintTimer);
+			findMatchesList = [];
+			findIndex = 0;
+			clearFindHighlights(sheet);
+			return;
+		}
+
+		const apply = () => {
+			// Prefer page plain text so highlights match what the writer sees.
+			const haystack =
+				sheet && view !== 'source'
+					? sheet.innerText || sheet.textContent || doc
+					: doc;
+			findMatchesList = findMatches(haystack, q);
+			if (opts.resetIndex !== false) findIndex = 0;
+			if (findIndex >= findMatchesList.length) findIndex = Math.max(0, findMatchesList.length - 1);
+			// While typing, only nudge scroll if the hit is off-screen — never jump to center.
+			revealFindMatch(findIndex, { scroll: true });
+		};
+
+		clearTimeout(findPaintTimer);
+		if (opts.immediate) {
+			apply();
+		} else {
+			// ~40ms feels instant; Highlight API is cheap (no DOM writes).
+			findPaintTimer = window.setTimeout(apply, 40);
+		}
+	}
+
+	function revealFindMatch(index: number, opts: { scroll?: boolean } = {}) {
+		if (findQuery.trim().length < FIND_MIN_LENGTH) {
+			clearFindHighlights(sheet);
+			findMatchesList = [];
+			findIndex = 0;
+			return;
+		}
+
+		// Page highlights are the product surface (CSS Highlight API — no layout shift).
+		if (sheet && view !== 'source') {
+			const painted = paintFindHighlights(sheet, findQuery, index, {
+				scroll: opts.scroll !== false
+			});
+			if (painted > 0) {
+				findIndex = ((index % painted) + painted) % painted;
+				if (findMatchesList.length !== painted) {
+					findMatchesList = Array.from({ length: painted }, (_, i) => ({
+						index: i,
+						line: 0,
+						column: 0,
+						preview: ''
+					}));
+				}
+				return;
+			}
+			// Query only hits Markdown chrome, not page text.
+			findMatchesList = [];
+			findIndex = 0;
+			return;
+		}
+
+		// Source-only fallback: select in the Markdown textarea (no focus steal).
+		if (!findMatchesList.length || !editor) {
+			findIndex = 0;
+			return;
+		}
 		const i = ((index % findMatchesList.length) + findMatchesList.length) % findMatchesList.length;
 		findIndex = i;
 		const match = findMatchesList[i];
-		const end = match.index + Math.max(1, findQuery.trim().length);
-
-		if (view === 'page') {
-			view = 'split';
-			applyView();
-		}
-		editor.focus();
-		editor.setSelectionRange(match.index, end);
-		// Scroll the line into view approximately
+		const end = match.index + Math.max(FIND_MIN_LENGTH, findQuery.trim().length);
 		const ratio = match.index / Math.max(1, editor.value.length);
-		editor.scrollTop = ratio * editor.scrollHeight - editor.clientHeight / 3;
-		rememberSource();
+		editor.scrollTop = Math.max(0, ratio * editor.scrollHeight - editor.clientHeight / 3);
+		try {
+			editor.setSelectionRange(match.index, end);
+		} catch {
+			/* ignore */
+		}
 		updateCursor();
 	}
 
 	function findNext() {
-		if (!findMatchesList.length) return;
-		goToFindMatch(findIndex + 1);
+		if (findQuery.trim().length < FIND_MIN_LENGTH) return;
+		if (!findMatchesList.length) {
+			runFindSearch({ resetIndex: true, immediate: true });
+			return;
+		}
+		revealFindMatch(findIndex + 1, { scroll: true });
 	}
 
 	function findPrev() {
-		if (!findMatchesList.length) return;
-		goToFindMatch(findIndex - 1);
+		if (findQuery.trim().length < FIND_MIN_LENGTH) return;
+		if (!findMatchesList.length) {
+			runFindSearch({ resetIndex: true, immediate: true });
+			return;
+		}
+		revealFindMatch(findIndex - 1, { scroll: true });
 	}
 
 	/* ---------- outline reorder ----------------------------------------- */
@@ -1461,6 +1722,12 @@
 		renderDocument();
 		updateCursor();
 		updateToolbar();
+
+		// Truth: restore on/off + per-note baseline (do not reset baseline to body).
+		const truthPrefs = loadTruthPrefs();
+		truthEnabled = truthPrefs.enabled;
+		restoreTruthForActiveDoc();
+		pruneTruthBaselines(library.documents.map((d) => d.id));
 		ready = true;
 
 		const onDocClick = () => {
@@ -1470,14 +1737,12 @@
 		const onKey = (event: KeyboardEvent) => {
 			const meta = event.metaKey || event.ctrlKey;
 
-			// Global find (when not already handled inside the editor)
+			// Global find — always our find bar (not the browser's), including when
+			// focus is already in the find field (re-focus / select query).
 			if (meta && event.key.toLowerCase() === 'f' && !event.altKey && !event.shiftKey) {
-				const t = event.target as HTMLElement | null;
-				if (t !== editor) {
-					event.preventDefault();
-					openFind();
-					return;
-				}
+				event.preventDefault();
+				openFind();
+				return;
 			}
 
 			// Shortcuts: "?" when not typing into an input/textarea/contenteditable field with modifiers
@@ -1497,6 +1762,10 @@
 			if (event.key === 'Escape') {
 				if (shortcutsOpen) {
 					shortcutsOpen = false;
+					return;
+				}
+				if (truthStripOpen) {
+					dismissTruthStrip();
 					return;
 				}
 				if (findOpen) {
@@ -1632,16 +1901,27 @@
 			<button
 				type="button"
 				class="btn btn-quiet library-toggle"
-				title={libraryOpen ? 'Hide library' : 'Show library'}
-				aria-label={libraryOpen ? 'Hide library' : 'Show library'}
+				title={libraryOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+				aria-label={libraryOpen ? 'Collapse sidebar' : 'Expand sidebar'}
 				aria-pressed={libraryOpen}
 				onclick={toggleLibrary}
 			>
-				☰
+				<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+					<rect
+						x="3"
+						y="4"
+						width="18"
+						height="16"
+						rx="2.5"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.7"
+					/>
+					<path d="M9 4v16" fill="none" stroke="currentColor" stroke-width="1.7" />
+				</svg>
 			</button>
 			<BrandMark />
 			<span class="brand-name">Writing Desk</span>
-			<span class="brand-tag">markdown, typeset as you type — nothing leaves your browser</span>
 		</div>
 
 		<span class="save-status" class:on={saveOn} role="status" aria-live="polite">{saveLabel}</span>
@@ -1893,12 +2173,12 @@
 	<FindBar
 		bind:open={findOpen}
 		bind:query={findQuery}
-		matches={findMatchesList}
+		matchCount={findMatchesList.length}
 		activeIndex={findIndex}
+		focusToken={findFocusToken}
 		onQueryChange={updateFindMatches}
 		onNext={findNext}
 		onPrev={findPrev}
-		onGoTo={goToFindMatch}
 		onClose={closeFind}
 	/>
 
@@ -2278,11 +2558,28 @@
 		</div>
 	</main>
 
+	<TruthStrip
+		report={truthReport}
+		open={truthEnabled && truthStripOpen}
+		onDismiss={dismissTruthStrip}
+		onRestoreBaseline={restoreTruthBaseline}
+		onRestoreChange={restoreTruthChangeAt}
+		onAcceptBaseline={acceptTruthBaseline}
+	/>
+
 	<StatusBar
 		{wordCount}
 		{charCount}
 		{readTime}
 		{cursorPos}
+		{truthEnabled}
+		truthStatus={truthReport?.status ?? null}
+		truthChangeCount={
+			truthEnabled && truthReport && truthReport.status !== 'identical'
+				? groupTruthChanges(truthReport.hunks).length
+				: 0
+		}
+		onToggleTruth={toggleTruthMode}
 		onOpenShortcuts={openShortcuts}
 	/>
 

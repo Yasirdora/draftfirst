@@ -28,7 +28,8 @@ export const CORE_DIALECT: DialectPack = {
 		'GFM tables with alignment',
 		'Task lists',
 		'Strikethrough',
-		'Raw HTML escaped (never executed)'
+		'Raw HTML escaped (never executed)',
+		'Truth mode checks page → source fidelity'
 	]
 };
 

@@ -29,23 +29,24 @@
 	.dialect-badge {
 		display: inline-flex;
 		align-items: center;
-		gap: 6px;
-		padding: 2px 8px 2px 6px;
+		gap: 4px;
+		padding: 1px 6px 1px 5px;
 		border-radius: 999px;
-		border: 1px solid var(--rule);
+		border: 0;
 		background: var(--rule-soft);
 		color: var(--muted);
-		font-size: 11.5px;
+		font-size: 10.5px;
 		font-weight: 550;
 		letter-spacing: 0.01em;
 		white-space: nowrap;
 		cursor: help;
 		user-select: none;
+		line-height: 1.3;
 	}
 
 	.dialect-badge__dot {
-		width: 6px;
-		height: 6px;
+		width: 5px;
+		height: 5px;
 		border-radius: 50%;
 		background: var(--accent);
 		flex: none;

@@ -14,22 +14,29 @@
    runs unchanged today.
    ========================================================================== */
 :root {
-  --bg:          #E8EBEE;
-  --bg-deep:     #DDE2E7;
+  /* Light — calm matte shell (Gemini structure, light theme) */
+  --bg:          #F0F1F3;
+  --bg-deep:     #E6E8EB;
   --panel:       #FFFFFF;
-  --panel-2:     #F4F6F8;   /* editor background */
-  --panel-veil:  rgba(255,255,255,.86);   /* the floating bar, over the page */
-  --ink:         #1D2733;
-  --muted:       #61707F;
-  --rule:        #D9DEE4;
-  --rule-soft:   #EBEEF1;
-  --accent:      #2A5B8C;   /* ink blue (UI only) */
+  --panel-2:     #F4F5F7;
+  --panel-veil:  rgba(255,255,255,.88);
+  --ink:         #1A1C1E;
+  --muted:       #5F6368;
+  --rule:        rgba(0,0,0,.08);
+  --rule-soft:   rgba(0,0,0,.04);
+  --accent:      #0B57D0;   /* Gemini-adjacent system blue */
   --on-accent:   #FFFFFF;
-  --accent-deep: #1E4468;
-  --accent-soft: #E4EDF5;
-  --danger:      #B3402F;
-  --placeholder: #A6B1BC;
-  --shadow-sheet: 0 1px 2px rgba(16,24,32,.08), 0 18px 48px rgba(16,24,32,.16);
+  --accent-deep: #0842A0;
+  --accent-soft: rgba(11, 87, 208, 0.10);
+  --danger:      #B3261E;
+  --placeholder: #80868B;
+  --shadow-sheet: 0 1px 2px rgba(16,24,32,.05), 0 12px 32px rgba(16,24,32,.08);
+  --radius-stage: 6px;    /* soft window corners */
+  --radius-pill:  980px;
+  --stage-inset:  12px;
+  --page-measure: 60rem;  /* wider paper */
+  --paper:        #ffffff; /* page window fill (stays white in dark UI) */
+  --nav-width:    260px;
   --font-ui:   -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-doc:  Charter, "Bitstream Charter", Georgia, "Times New Roman", serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
@@ -37,22 +44,30 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg:          #14181D;
-    --bg-deep:     #0F1216;
-    --panel:       #1C2229;
-    --panel-2:     #14181D;
-    --panel-veil:  rgba(28,34,41,.86);
-    --ink:         #E6EAEF;
-    --muted:       #8B98A5;
-    --rule:        #323B45;
-    --rule-soft:   #262E37;
-    --accent:      #79B4E0;
-    --on-accent:   #08192B;
-    --accent-deep: #93C4EA;
-    --accent-soft: #1B2C3C;
-    --danger:      #E06A56;
-    --placeholder: #5A6673;
-    --shadow-sheet: 0 1px 2px rgba(0,0,0,.4), 0 22px 56px rgba(0,0,0,.5);
+    /* Kimi-like near-black shell — deep, low contrast chrome */
+    --bg:          #0A0A0A;
+    --bg-deep:     #050505;
+    --panel:       #141414;
+    --panel-2:     #111111;
+    --panel-veil:  rgba(28, 28, 28, 0.88);
+    --ink:         #EDEDED;
+    --muted:       #9A9A9A;
+    --rule:        rgba(255,255,255,.07);
+    --rule-soft:   rgba(255,255,255,.045);
+    --accent:      #E8E8E8;
+    --on-accent:   #0A0A0A;
+    --accent-deep: #FFFFFF;
+    --accent-soft: rgba(255, 255, 255, 0.10);
+    --danger:      #F2B8B5;
+    --placeholder: #6B6B6B;
+    --shadow-sheet: 0 0 0 1px rgba(255,255,255,.06), 0 12px 40px rgba(0,0,0,.45);
+  }
+
+  /* Paper stays white even in dark UI chrome */
+  .reading-pane,
+  .desk[data-view="page"] .reading-pane,
+  .desk[data-view="split"] .reading-pane {
+    background: var(--paper);
   }
 }
 
@@ -71,6 +86,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  background: var(--bg);
 }
 .desk-body {
   flex: 1 1 auto;
@@ -86,36 +102,45 @@ body {
   display: flex;
   flex-direction: column;
 }
-.library-toggle {
-  min-width: 34px;
-  padding-left: 8px;
-  padding-right: 8px;
-  font-size: 15px;
-  margin-right: 2px;
-}
+
 button, input, textarea, select { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 ::placeholder { color: var(--placeholder); opacity: 1; }
 
 /* ==========================================================================
-   App bar
+   App bar — Kimi-quiet: air, pill clusters, no heavy band
    ========================================================================== */
 .app-bar {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 16px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--rule);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 14px 8px;
+  background: transparent;
+  border-bottom: 0;
   flex: none;
 }
-.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
-.brand-mark { width: 26px; height: 26px; flex: none; }
-.brand-name { font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
-.brand-tag { color: var(--muted); font-size: 12.5px; }
-@media (max-width: 900px) { .brand-tag { display: none; } }
+.brand { display: flex; align-items: center; gap: 8px; margin-right: auto; }
+.brand-mark { width: 24px; height: 24px; flex: none; border-radius: 7px; }
+.brand-name {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.library-toggle {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  margin-right: 2px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.library-toggle:hover {
+  background: var(--rule-soft);
+}
 
 .save-status {
-  font-size: 12.5px; color: var(--muted);
+  font-size: 12px; color: var(--muted);
   opacity: 0; transition: opacity .3s ease;
 }
 .save-status.on { opacity: 1; }
@@ -124,46 +149,74 @@ button { cursor: pointer; }
 .btn {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 12px;
-  border: 1px solid var(--rule);
-  border-radius: 7px;
-  background: var(--panel);
-  font-weight: 550;
-  transition: background-color .12s ease, border-color .12s ease;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--rule-soft);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease;
 }
-.btn:hover { background: var(--rule-soft); }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.btn-primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
+.btn:hover { background: var(--rule); }
+.btn-primary {
+  background: var(--ink);
+  border-color: transparent;
+  color: var(--bg);
+  font-weight: 600;
+}
+.btn-primary:hover { opacity: 0.9; background: var(--ink); color: var(--bg); }
+/* Export stays the quiet bright pill (Kimi primary action energy) */
+.app-bar .btn-primary {
+  background: var(--ink);
+  color: var(--bg);
+}
 .btn-quiet { border-color: transparent; color: var(--muted); background: transparent; }
 .btn-quiet:hover { color: var(--ink); background: var(--rule-soft); }
 @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
 
-/* Segmented view switch */
-.views { display: inline-flex; padding: 2px; gap: 2px; background: var(--rule-soft); border-radius: 8px; }
+/* Segmented view switch — soft elevated pill (Kimi chip cluster) */
+.views {
+  display: inline-flex;
+  padding: 3px;
+  gap: 1px;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 1px 2px rgba(0,0,0,.12);
+}
 .views button {
   display: inline-flex; align-items: center; justify-content: center;
   border: 0; background: transparent; color: var(--muted);
-  width: 34px; height: 28px; padding: 0; border-radius: 6px;
+  width: 32px; height: 26px; padding: 0; border-radius: var(--radius-pill);
 }
 .views button svg {
-  width: 17px; height: 17px;
-  fill: none; stroke: currentColor; stroke-width: 1.8;
+  width: 16px; height: 16px;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
   stroke-linecap: round; stroke-linejoin: round;
 }
-.views button:hover { color: var(--ink); }
-.views button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(16,24,32,.10); }
+.views button:hover { color: var(--ink); background: var(--rule-soft); }
+.views button[aria-pressed="true"] {
+  background: var(--rule-soft);
+  color: var(--ink);
+  box-shadow: none;
+}
 
 /* Menus — plain absolutely-positioned lists; <dialog> and popover came later. */
 .menu-wrap { position: relative; }
 .menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
-  min-width: 210px; margin: 0; padding: 4px; list-style: none;
-  background: var(--panel); border: 1px solid var(--rule); border-radius: 9px;
-  box-shadow: 0 10px 30px rgba(16,24,32,.18);
+  min-width: 210px; margin: 0; padding: 6px; list-style: none;
+  background: var(--panel-veil);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.35);
+  backdrop-filter: saturate(160%) blur(18px);
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
 }
 .menu[hidden] { display: none; }
 .menu button {
   display: block; width: 100%; text-align: left;
-  padding: 7px 10px; border: 0; border-radius: 6px; background: none;
+  padding: 8px 12px; border: 0; border-radius: 10px; background: none;
 }
 .menu button:hover { background: var(--rule-soft); }
 .menu .menu-note { padding: 4px 10px 8px; color: var(--muted); font-size: 12px; }
@@ -191,21 +244,22 @@ button { cursor: pointer; }
 .toolbar {
   position: fixed;
   left: 50%;
-  bottom: var(--bar-bottom, 46px);
+  bottom: var(--bar-bottom, 32px);
   z-index: 15;
   transform: translateX(-50%) translateY(var(--keyboard-offset, 0px));
 
   display: flex; align-items: center; gap: 2px;
   width: max-content; max-width: min(calc(100vw - 32px), 680px);
-  padding: 6px 8px;
+  padding: 8px 12px;
 
-  background: var(--panel);
+  /* Gemini-like floating pill composer */
+  /* Kimi-like floating composer bar */
+  background: var(--panel-veil);
   border: 1px solid var(--rule);
-  border-radius: 14px;
+  border-radius: 22px;
   box-shadow:
-    0 1px 2px rgba(16,24,32,.06),
-    0 8px 24px -6px rgba(16,24,32,.20),
-    0 16px 48px -12px rgba(16,24,32,.16);
+    0 0 0 0.5px rgba(255,255,255,.04),
+    0 8px 32px rgba(0,0,0,.28);
 
   overflow-x: auto;
   scrollbar-width: none;
@@ -236,7 +290,7 @@ button { cursor: pointer; }
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   flex: none;
   min-width: 34px; height: 34px; padding: 0 8px;
-  border: 1px solid transparent; border-radius: 9px;
+  border: 1px solid transparent; border-radius: var(--radius-pill);
   background: none; color: var(--muted);
   transition: background-color .12s ease, color .12s ease;
 }
@@ -316,30 +370,154 @@ button { cursor: pointer; }
 }
 
 /* ==========================================================================
-   Workspace
+   Workspace — matte field; primary surfaces sit as rounded stages (Darkroom).
    ========================================================================== */
 .workspace {
   flex: 1 1 auto; min-height: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  background: var(--bg-deep);
+  gap: var(--stage-inset);
+  padding: 0 var(--stage-inset) var(--stage-inset);
+  /* Gemini: content sits on a continuous dark/matte field */
+  background: var(--bg);
 }
 .desk[data-view="source"] .workspace { grid-template-columns: 1fr; }
 .desk[data-view="page"]   .workspace { grid-template-columns: 1fr; }
 .desk[data-view="source"] .reading-pane { display: none; }
 .desk[data-view="page"]   .editor-pane  { display: none; }
 
-.editor-pane { display: flex; flex-direction: column; min-width: 0; background: var(--panel-2); }
-.reading-pane { min-width: 0; overflow: auto; border-left: 1px solid var(--rule); padding: 28px 20px; }
-.desk[data-view="page"] .reading-pane { border-left: 0; }
+/* Markdown source — same rounded “window” idea as the page pane */
+.editor-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--panel-2);
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+  overflow: hidden;
+  isolation: isolate;
+}
+/*
+ * Reading pane is the fixed rounded “window”. Content scrolls inside it,
+ * so corner radius never scrolls away (overflow clips to the radius).
+ */
+.reading-pane {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: 0;
+  padding: 0;
+  background: var(--paper);
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+  /* overflow:auto clips to radius so corners stay while content scrolls */
+  isolation: isolate;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;
+}
+.reading-pane::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.reading-pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+.reading-pane::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 32%, transparent);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.reading-pane::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  background-clip: padding-box;
+}
+
+/* Page view: inset the whole paper window so rounded corners show on the field */
+.desk[data-view="page"] .reading-pane {
+  margin: 8px 14px 12px 8px;
+  padding: 0;
+  background: var(--paper);
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+}
+
+/* —— Split view: two matching rounded windows —— */
+.desk[data-view="split"] .workspace {
+  gap: 10px;
+  padding: 10px 14px 10px 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  background: var(--bg);
+}
+.desk[data-view="split"] .editor-pane {
+  border-right: 0;
+  margin: 0;
+  background: var(--panel-2);
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+  overflow: hidden;
+}
+.desk[data-view="split"] .reading-pane {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+}
+/* Text inset — matched on both sides */
+.desk[data-view="split"] #editor {
+  padding: 44px 48px 64px;
+}
+.desk[data-view="split"] .sheet {
+  max-width: none;
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 44px 48px 64px;
+  /* Pane holds radius + fill; sheet is just the scrolling content */
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+/* Source-only: same rounded window as the page */
+.desk[data-view="source"] .workspace {
+  padding: 10px 14px 10px 10px;
+  gap: 0;
+}
+.desk[data-view="source"] .editor-pane {
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+  overflow: hidden;
+}
+/* Page view: no side inset so paper can grow and scrollbar stays at the edge */
+.desk[data-view="page"] .workspace {
+  padding: 0;
+  gap: 0;
+}
 
 #editor {
   flex: 1 1 auto; width: 100%; min-height: 0;
-  padding: 28px max(20px, calc(50% - 27rem));
+  /* Text padding in source view (split overrides with matched inset) */
+  padding: 44px max(40px, calc(50% - 0.5 * var(--page-measure) + 36px)) 64px;
   border: 0; resize: none; outline: none;
   background: transparent; color: var(--ink);
   font-family: var(--font-mono); font-size: 14.5px; line-height: 1.75;
   tab-size: 4;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;
+}
+#editor::-webkit-scrollbar {
+  width: 6px;
+}
+#editor::-webkit-scrollbar-track {
+  background: transparent;
+}
+#editor::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 32%, transparent);
+  border-radius: 999px;
 }
 /* Focus mode: the chrome recedes and everything but the paragraph being
    written is dimmed. The app bar fades rather than disappearing, so there is
@@ -351,6 +529,7 @@ button { cursor: pointer; }
 .desk.focus-mode .app-bar:hover,
 .desk.focus-mode .app-bar:focus-within { opacity: 1; }
 .desk.focus-mode .status-bar { opacity: 0; pointer-events: none; }
+.desk.focus-mode .truth { display: none; }
 .desk.focus-mode .reading-pane { padding-top: 6vh; }
 
 .desk.focus-mode .sheet > * {
@@ -376,13 +555,25 @@ button { cursor: pointer; }
    Status bar
    ========================================================================== */
 .status-bar {
-  flex: none; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  padding: 7px 16px;
-  background: var(--panel); border-top: 1px solid var(--rule);
-  color: var(--muted); font-size: 12.5px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  padding: 4px 12px 5px;
+  min-height: 0;
+  background: transparent;
+  border-top: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
 }
-.status-bar .spacer { margin-left: auto; }
+.status-bar .spacer { margin-left: auto; flex: 1 1 auto; min-width: 8px; }
 .status-bar b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.status-bar > span:not(.spacer) { white-space: nowrap; }
+@media (max-width: 720px) {
+  .status-bar { gap: 8px; padding: 3px 10px 4px; font-size: 10.5px; }
+}
 
 /* ==========================================================================
    The sheet — document tokens live here, not on :root.
@@ -396,16 +587,61 @@ button { cursor: pointer; }
   --doc-accent: #2A5B8C;
   --doc-code-bg:#F2F4F7;
 
-  max-width: 44rem; margin: 0 auto; padding: 44px 48px 60px;
-  background: var(--paper); color: var(--doc-ink);
-  font-family: var(--font-doc); font-size: 17px; line-height: 1.62;
-  border-radius: 4px; box-shadow: var(--shadow-sheet);
+  max-width: min(var(--page-measure), calc(100% - 0px));
+  width: 100%;
+  margin: 0 auto;
+  /* Text padding — space around the words, not the panel shell */
+  padding: 64px 72px 88px;
+  box-sizing: border-box;
+  /* Fill comes from .reading-pane so radius stays while scrolling */
+  background: transparent;
+  color: var(--doc-ink);
+  font-family: var(--font-doc);
+  font-size: 17.5px;
+  line-height: 1.62;
+  border-radius: 0;
+  box-shadow: none;
   overflow-wrap: break-word;
   min-height: 60vh;
   outline: none;
   caret-color: var(--doc-accent);
 }
-@media (max-width: 700px) { .sheet { padding: 28px 22px 40px; } }
+/* Page view: sheet can stay measure-limited; pane is the white rounded window */
+.desk[data-view="page"] .sheet {
+  max-width: min(var(--page-measure), 100%);
+}
+@media (max-width: 700px) {
+  .sheet {
+    padding: 40px 28px 56px;
+    font-size: 16.5px;
+  }
+  .workspace {
+    --stage-inset: 8px;
+    gap: 8px;
+    padding: 0;
+  }
+  .desk[data-view="page"] .reading-pane {
+    margin: 6px 10px 8px 6px;
+    border-radius: var(--radius-stage);
+  }
+  .desk[data-view="split"] .workspace,
+  .desk[data-view="source"] .workspace {
+    gap: 8px;
+    padding: 6px 10px 8px 6px;
+  }
+  .desk[data-view="split"] .editor-pane,
+  .desk[data-view="split"] .reading-pane,
+  .desk[data-view="source"] .editor-pane {
+    border-radius: var(--radius-stage);
+  }
+  .desk[data-view="split"] .sheet,
+  .desk[data-view="split"] #editor {
+    padding: 32px 28px 48px;
+  }
+  #editor {
+    padding: 32px 24px 48px;
+  }
+}
 
 /* The page is where you type, so it says so when it is empty. */
 .sheet:empty::before,
@@ -416,6 +652,57 @@ button { cursor: pointer; }
 }
 .sheet:focus-visible { box-shadow: var(--shadow-sheet), 0 0 0 2px var(--accent-soft); }
 .sheet li.task input { cursor: pointer; }
+
+/*
+ * Find-in-page highlights via CSS Custom Highlight API (no DOM, no reflow).
+ * background-color / color only — other properties are ignored by ::highlight.
+ */
+::highlight(wd-find) {
+  background-color: rgba(255, 214, 10, 0.42);
+  color: inherit;
+}
+::highlight(wd-find-active) {
+  background-color: rgba(255, 149, 0, 0.55);
+  color: inherit;
+}
+@media (prefers-color-scheme: dark) {
+  ::highlight(wd-find) {
+    background-color: rgba(201, 162, 39, 0.55);
+    color: inherit;
+  }
+  ::highlight(wd-find-active) {
+    background-color: rgba(232, 176, 48, 0.72);
+    color: inherit;
+  }
+}
+
+/*
+ * Legacy <mark> fallback (old engines only) — zero geometry so text does not reflow.
+ * No padding, margin, border, radius, or shadow.
+ */
+.sheet mark.find-mark {
+  background: rgba(255, 214, 10, 0.42);
+  color: inherit;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
+}
+.sheet mark.find-mark--active {
+  background: rgba(255, 149, 0, 0.55);
+}
+@media (prefers-color-scheme: dark) {
+  .sheet mark.find-mark {
+    background: rgba(201, 162, 39, 0.55);
+  }
+  .sheet mark.find-mark--active {
+    background: rgba(232, 176, 48, 0.72);
+  }
+}
 
 .sheet > :first-child { margin-top: 0; }
 .sheet > :last-child { margin-bottom: 0; }
@@ -507,13 +794,13 @@ button { cursor: pointer; }
 
 @media print {
   .app-bar, .status-bar, .editor-pane, .drop-hint, .toolbar, .menu,
-  .welcome, .shortcuts-backdrop, .library, .find-bar, .library-toggle {
+  .welcome, .shortcuts-backdrop, .library, .find-bar, .library-toggle, .truth {
     display: none !important;
   }
   html, body, .desk, .desk-body, .desk-main { height: auto; background: #fff; }
   .desk-body { display: block; }
-  .workspace { display: block; }
-  .reading-pane { overflow: visible; border: 0; padding: 0; }
+  .workspace { display: block; padding: 0; gap: 0; background: #fff; }
+  .reading-pane { overflow: visible; border: 0; padding: 0; border-radius: 0; background: #fff; }
   .sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; font-size: 11.5pt; }
   .sheet h1, .sheet h2, .sheet h3 { page-break-after: avoid; }
   .sheet pre, .sheet blockquote, .sheet table { page-break-inside: avoid; }
