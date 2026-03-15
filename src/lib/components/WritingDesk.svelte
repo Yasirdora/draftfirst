@@ -78,6 +78,7 @@
 		filterPaletteCommands,
 		type PaletteCommand
 	} from '$lib/editor/palette-commands';
+	import { highlightSource } from '$lib/editor/source-highlight';
 	import BrandMark from './BrandMark.svelte';
 	import StatusBar from './StatusBar.svelte';
 	import ShortcutsOverlay from './ShortcutsOverlay.svelte';
@@ -174,6 +175,14 @@
 	let readingPane: HTMLElement | undefined = $state();
 	let fileInput: HTMLInputElement | undefined = $state();
 	let toolbarEl: HTMLElement | undefined = $state();
+	let backdrop: HTMLElement | undefined = $state();
+
+	/* The highlight backdrop follows the document no matter which path changed
+	   it — typing, slash inserts, undo, document switches, imports. */
+	$effect(() => {
+		void desk.doc;
+		syncBackdrop();
+	});
 
 	/* Menu elements (ported to body for overflow clipping). */
 	let outlineMenuEl: HTMLUListElement | undefined = $state();
@@ -449,6 +458,14 @@
 			input.disabled = readOnly;
 			input.setAttribute('contenteditable', 'false');
 		});
+	}
+
+	/** Mirror the source into the highlight backdrop; scroll stays in lockstep. */
+	function syncBackdrop() {
+		if (!backdrop || !editor) return;
+		const html = highlightSource(editor.value);
+		if (backdrop.innerHTML !== html) backdrop.innerHTML = html;
+		backdrop.scrollTop = editor.scrollTop;
 	}
 
 	/** Repaint the page from source. Never while someone is typing on it. */
@@ -1125,6 +1142,7 @@
 		view = next;
 		applyView();
 		enableTaskBoxes(); // boxes follow the view: live in edit views, frozen in read
+		syncBackdrop(); // re-entering the source surface re-aligns highlight and scroll
 		desk.persist();
 	}
 
@@ -1798,6 +1816,7 @@
 	}
 
 	function onEditorScroll() {
+		if (backdrop && editor) backdrop.scrollTop = editor.scrollTop;
 		if (!editor || !readingPane || view !== 'split') return;
 		const range = editor.scrollHeight - editor.clientHeight;
 		if (range <= 0) return;
@@ -2672,6 +2691,9 @@
 
 	<main class="workspace">
 		<div class="editor-pane">
+			<!-- highlight backdrop: mirrors #editor byte-for-byte; the textarea above
+			     paints only the caret and the selection tint -->
+			<pre class="editor-backdrop" aria-hidden="true" bind:this={backdrop}></pre>
 			<textarea
 				id="editor"
 				bind:this={editor}

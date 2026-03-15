@@ -329,7 +329,7 @@ button { cursor: pointer; }
 .menu-style { min-width: 250px; }
 
 /* Room for the bar to float over, so it never sits on the last line. */
-#editor { padding-bottom: 120px; }
+#editor, .editor-backdrop { padding-bottom: 120px; }
 .reading-pane { padding-bottom: 120px; }
 
 /* A window narrow enough that two columns would be two unusable columns.
@@ -373,7 +373,7 @@ button { cursor: pointer; }
   .desk.keyboard-up .status-bar { display: none; }
   .desk.keyboard-up .toolbar { --bar-bottom: calc(8px + env(safe-area-inset-bottom)); }
 
-  #editor, .reading-pane { padding-bottom: 130px; }
+  #editor, .editor-backdrop, .reading-pane { padding-bottom: 130px; }
 }
 
 /* ==========================================================================
@@ -401,6 +401,7 @@ button { cursor: pointer; }
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  position: relative;
   background: var(--panel-2);
   border-radius: var(--radius-stage);
   box-shadow: var(--shadow-sheet);
@@ -476,7 +477,8 @@ button { cursor: pointer; }
   box-shadow: var(--shadow-sheet);
 }
 /* Text inset — matched on both sides */
-.desk[data-view="split"] #editor {
+.desk[data-view="split"] #editor,
+.desk[data-view="split"] .editor-backdrop {
   padding: 44px 48px 64px;
 }
 .desk[data-view="split"] .sheet {
@@ -509,16 +511,61 @@ button { cursor: pointer; }
   gap: 0;
 }
 
-#editor {
-  flex: 1 1 auto; width: 100%; min-height: 0;
+/* The source surface is a stack: a <pre> backdrop paints the highlighted
+   tokens, and the transparent-text textarea above it paints only the caret
+   and the selection tint. Both layers share every metric that decides
+   where a glyph lands — padding, font, line-height, wrap. */
+#editor,
+.editor-backdrop {
   /* Text padding in source view (split overrides with matched inset) */
   padding: 44px max(40px, calc(50% - 0.5 * var(--page-measure) + 36px)) 64px;
-  border: 0; resize: none; outline: none;
-  background: transparent; color: var(--ink);
+  border: 0;
+  background: transparent;
   font-family: var(--font-mono); font-size: 14.5px; line-height: 1.75;
   tab-size: 4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+#editor {
+  flex: 1 1 auto; width: 100%; min-height: 0;
+  position: relative; z-index: 1;
+  resize: none; outline: none;
+  color: transparent; caret-color: var(--ink);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;
+}
+/* Translucent so the backdrop's text shows through the tint. */
+#editor::selection {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.editor-backdrop {
+  position: absolute; inset: 0; z-index: 0;
+  margin: 0;
+  overflow-y: scroll; overflow-x: hidden;
+  pointer-events: none;
+  color: var(--ink);
+  /* Invisible scrollbar that still reserves the same gutter the textarea
+     reserves, so wrap points match on classic (space-taking) scrollbars. */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.editor-backdrop::-webkit-scrollbar { width: 6px; }
+.editor-backdrop::-webkit-scrollbar-track,
+.editor-backdrop::-webkit-scrollbar-thumb { background: transparent; }
+/* Tokens — color and background only, never font metrics, or the layers drift. */
+.editor-backdrop .tk-delim,
+.editor-backdrop .tk-url,
+.editor-backdrop .tk-fence,
+.editor-backdrop .tk-code-block { color: var(--muted); }
+.editor-backdrop .tk-heading,
+.editor-backdrop .tk-link,
+.editor-backdrop .tk-fn { color: var(--accent); }
+.editor-backdrop .tk-code {
+  background: var(--rule-soft);
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 #editor::-webkit-scrollbar {
   width: 6px;
@@ -648,10 +695,12 @@ button { cursor: pointer; }
     border-radius: var(--radius-stage);
   }
   .desk[data-view="split"] .sheet,
-  .desk[data-view="split"] #editor {
+  .desk[data-view="split"] #editor,
+  .desk[data-view="split"] .editor-backdrop {
     padding: 32px 28px 48px;
   }
-  #editor {
+  #editor,
+  .editor-backdrop {
     padding: 32px 24px 48px;
   }
 }
