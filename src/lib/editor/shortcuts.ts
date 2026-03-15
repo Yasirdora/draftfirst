@@ -22,7 +22,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
 			{ keys: '⌘ B', action: 'Bold' },
 			{ keys: '⌘ I', action: 'Italic' },
 			{ keys: '⌘ E', action: 'Inline code' },
-			{ keys: '⌘ K', action: 'Link' },
+			{ keys: '⌘ ⇧ K', action: 'Link' },
 			{ keys: '⌘ ⇧ X', action: 'Strikethrough' },
 			{ keys: '⌘ ⇧ 7', action: 'Numbered list' },
 			{ keys: '⌘ ⇧ 8', action: 'Bulleted list' },
@@ -32,6 +32,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
 	{
 		title: 'Structure',
 		items: [
+			{ keys: '⌘ K', action: 'Command palette — every action, fuzzy-findable' },
 			{ keys: '/', action: 'Slash menu — insert heading, list, table, task…' },
 			{ keys: '⌘ F', action: 'Find — highlights update as you type' },
 			{ keys: 'Enter / ↓', action: 'Find: next match' },

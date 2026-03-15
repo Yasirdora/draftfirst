@@ -62,6 +62,10 @@
 	import { moveOutlineSection } from '$lib/editor/outline-reorder';
 	import { searchLibrary, sortDocuments } from '$lib/library/library';
 	import { desk } from '$lib/state/desk.svelte';
+	import {
+		filterPaletteCommands,
+		type PaletteCommand
+	} from '$lib/editor/palette-commands';
 	import BrandMark from './BrandMark.svelte';
 	import StatusBar from './StatusBar.svelte';
 	import ShortcutsOverlay from './ShortcutsOverlay.svelte';
@@ -70,6 +74,7 @@
 	import FindBar from './FindBar.svelte';
 	import LibrarySidebar from './LibrarySidebar.svelte';
 	import TruthStrip from './TruthStrip.svelte';
+	import CommandPalette from './CommandPalette.svelte';
 
 	/* ---------- reactive app state -------------------------------------- */
 
@@ -103,6 +108,12 @@
 	let findFocusToken = $state(0);
 	/** Debounce live find paint so fast typing stays smooth. */
 	let findPaintTimer = 0;
+
+	/* Command palette (⌘K) */
+	let paletteOpen = $state(false);
+	let paletteQuery = $state('');
+	let paletteIndex = $state(0);
+	const paletteItems = $derived(filterPaletteCommands(paletteQuery));
 
 	/* Truth mode — fidelity of page serialise vs trusted source baseline */
 	let truthEnabled = $state(false);
@@ -1059,6 +1070,7 @@
 
 	function openShortcuts() {
 		closeMenus();
+		paletteOpen = false;
 		shortcutsOpen = true;
 	}
 
@@ -1156,6 +1168,76 @@
 		}
 	}
 
+	/* ---------- command palette (⌘K) ------------------------------------- */
+
+	function openPalette() {
+		closeMenus();
+		closeSlash();
+		paletteOpen = true;
+	}
+
+	function closePalette() {
+		paletteOpen = false;
+	}
+
+	/** One bus: palette insert actions reuse the slash command dispatch. */
+	function runPaletteCommand(cmd: PaletteCommand) {
+		paletteOpen = false;
+		if (cmd.action.type === 'slash') {
+			const action = cmd.action.command.action;
+			if (action.type === 'command') command(action.name, action.argument);
+			else command(action.id);
+			return;
+		}
+		switch (cmd.action.name) {
+			case 'new':
+				newDocument();
+				break;
+			case 'open':
+				fileInput?.click();
+				break;
+			case 'export-md':
+				onExport('md');
+				break;
+			case 'export-html':
+				onExport('html');
+				break;
+			case 'export-print':
+				onExport('print');
+				break;
+			case 'delete':
+				if (desk.activeId) deleteLibraryDoc(desk.activeId);
+				break;
+			case 'clear':
+				clearDesk();
+				break;
+			case 'view-page':
+				setView('page');
+				break;
+			case 'view-split':
+				setView('split');
+				break;
+			case 'view-source':
+				setView('source');
+				break;
+			case 'toggle-library':
+				toggleLibrary();
+				break;
+			case 'toggle-focus':
+				setFocusMode(!focus);
+				break;
+			case 'find':
+				openFind();
+				break;
+			case 'toggle-truth':
+				toggleTruthMode();
+				break;
+			case 'shortcuts':
+				openShortcuts();
+				break;
+		}
+	}
+
 	/* ---------- find ---------------------------------------------------- */
 
 	/**
@@ -1165,6 +1247,7 @@
 	function openFind() {
 		closeMenus();
 		closeSlash();
+		paletteOpen = false;
 		// Prefer the typeset page — that's where highlights belong.
 		if (view === 'source') {
 			view = 'page';
@@ -1488,7 +1571,7 @@
 					command('italic');
 					return;
 				}
-				if (key === 'k') {
+				if (key === 'k' && event.shiftKey) {
 					event.preventDefault();
 					command('link');
 					return;
@@ -1620,6 +1703,14 @@
 		const onKey = (event: KeyboardEvent) => {
 			const meta = event.metaKey || event.ctrlKey;
 
+			// Global command palette — every action, fuzzy-findable. Toggles.
+			if (meta && event.key.toLowerCase() === 'k' && !event.altKey && !event.shiftKey) {
+				event.preventDefault();
+				if (paletteOpen) closePalette();
+				else openPalette();
+				return;
+			}
+
 			// Global find — always our find bar (not the browser's), including when
 			// focus is already in the find field (re-focus / select query).
 			if (meta && event.key.toLowerCase() === 'f' && !event.altKey && !event.shiftKey) {
@@ -1643,6 +1734,10 @@
 			}
 
 			if (event.key === 'Escape') {
+				if (paletteOpen) {
+					closePalette();
+					return;
+				}
 				if (shortcutsOpen) {
 					shortcutsOpen = false;
 					return;
@@ -2474,6 +2569,15 @@
 		anchor={slashAnchor}
 		onSelect={applySlashCommand}
 		onClose={() => closeSlash(slashMode === 'source')}
+	/>
+
+	<CommandPalette
+		open={paletteOpen}
+		items={paletteItems}
+		bind:query={paletteQuery}
+		bind:activeIndex={paletteIndex}
+		onSelect={runPaletteCommand}
+		onClose={closePalette}
 	/>
 
 	<ShortcutsOverlay bind:open={shortcutsOpen} />

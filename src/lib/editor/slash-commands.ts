@@ -108,7 +108,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
 		id: 'link',
 		label: 'Link',
 		keywords: 'link url href',
-		hint: '⌘K',
+		hint: '⌘⇧K',
 		action: { type: 'command', name: 'link' }
 	}
 ] as const;
