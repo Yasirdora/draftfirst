@@ -5,6 +5,7 @@ import {
 	deleteDocument,
 	deriveTitle,
 	migrateFromLegacy,
+	normalizeLibrary,
 	renameDocument,
 	searchLibrary,
 	undoDelete,
@@ -89,5 +90,27 @@ describe('migrateFromLegacy', () => {
 		expect(lib.documents).toHaveLength(1);
 		expect(lib.documents[0].body).toContain('Legacy');
 		expect(lib.ui.view).toBe('split');
+	});
+
+	it('carries the read view forward', () => {
+		const lib = migrateFromLegacy(
+			{ doc: '# Legacy\n\ntext', view: 'read', focus: false },
+			''
+		);
+		expect(lib.ui.view).toBe('read');
+	});
+});
+
+describe('view modes', () => {
+	it('round-trips the read view', () => {
+		const stored = JSON.parse(JSON.stringify(defaultLibrary('# Hi\n')));
+		stored.ui.view = 'read';
+		expect(normalizeLibrary(stored)?.ui.view).toBe('read');
+	});
+
+	it('falls back to page for an unknown view', () => {
+		const stored = JSON.parse(JSON.stringify(defaultLibrary('# Hi\n')));
+		stored.ui.view = 'weird';
+		expect(normalizeLibrary(stored)?.ui.view).toBe('page');
 	});
 });

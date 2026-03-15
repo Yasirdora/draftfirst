@@ -443,9 +443,10 @@
 
 	function enableTaskBoxes() {
 		if (!sheet) return;
+		const readOnly = view === 'read';
 		sheet.querySelectorAll('input[type="checkbox"]').forEach((box) => {
 			const input = box as HTMLInputElement;
-			input.disabled = false;
+			input.disabled = readOnly;
 			input.setAttribute('contenteditable', 'false');
 		});
 	}
@@ -1123,6 +1124,7 @@
 	function setView(next: ViewMode) {
 		view = next;
 		applyView();
+		enableTaskBoxes(); // boxes follow the view: live in edit views, frozen in read
 		desk.persist();
 	}
 
@@ -1293,6 +1295,9 @@
 				break;
 			case 'view-source':
 				setView('source');
+				break;
+			case 'view-read':
+				setView('read');
 				break;
 			case 'toggle-library':
 				toggleLibrary();
@@ -1535,6 +1540,7 @@
 	}
 
 	function onSheetKeydown(event: KeyboardEvent) {
+		if (view === 'read') return;
 		/* Slash on an empty paragraph → structure palette (page surface). */
 		if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey) {
 			const block = currentBlock();
@@ -1599,6 +1605,7 @@
 	 * Markdown reference at the caret.
 	 */
 	async function insertImageFile(file: File) {
+		if (view === 'read') return; // the page is hands-off in read view
 		const meta = await putAsset(file);
 		const ref = assetRef(meta.id);
 		const alt = altFromFileName(file.name);
@@ -1666,7 +1673,7 @@
 	}
 
 	function onReadingPaneMouseDown(event: MouseEvent) {
-		if (event.target !== readingPane || !sheet) return;
+		if (view === 'read' || event.target !== readingPane || !sheet) return;
 		event.preventDefault();
 		sheet.focus();
 		const last = sheet.lastElementChild;
@@ -2095,6 +2102,20 @@
 			>
 				<svg viewBox="0 0 24 24" aria-hidden="true"
 					><path d="M8.5 8 4 12l4.5 4M15.5 8 20 12l-4.5 4M13.6 5.5l-3.2 13" /></svg
+				>
+			</button>
+			<button
+				type="button"
+				data-view-btn="read"
+				aria-pressed={view === 'read'}
+				title="Read — the typeset page, hands off"
+				aria-label="Read"
+				onclick={() => setView('read')}
+			>
+				<svg viewBox="0 0 24 24" aria-hidden="true"
+					><path
+						d="M2.5 5.5C4 4.9 5.7 4.6 7.5 4.6c1.9 0 3.4.5 4.5 1.4 1.1-.9 2.6-1.4 4.5-1.4 1.8 0 3.5.3 5 .9v13.2c-1.5-.6-3.2-.9-5-.9-1.9 0-3.4.5-4.5 1.4-1.1-.9-2.6-1.4-4.5-1.4-1.8 0-3.5.3-5 .9z"
+					/><path d="M12 6v13.2" /></svg
 				>
 			</button>
 		</div>
@@ -2697,7 +2718,8 @@
 			<article
 				class="sheet"
 				bind:this={sheet}
-				contenteditable="true"
+				contenteditable={view === 'read' ? 'false' : 'true'}
+				aria-readonly={view === 'read'}
 				spellcheck="true"
 				role="textbox"
 				aria-multiline="true"

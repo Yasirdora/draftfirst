@@ -73,6 +73,7 @@
 /* Paper stays white even in dark UI chrome */
 :root[data-theme='dark'] .reading-pane,
 :root[data-theme='dark'] .desk[data-view="page"] .reading-pane,
+:root[data-theme='dark'] .desk[data-view="read"] .reading-pane,
 :root[data-theme='dark'] .desk[data-view="split"] .reading-pane {
   background: var(--paper);
 }
@@ -389,8 +390,10 @@ button { cursor: pointer; }
 }
 .desk[data-view="source"] .workspace { grid-template-columns: 1fr; }
 .desk[data-view="page"]   .workspace { grid-template-columns: 1fr; }
+.desk[data-view="read"]   .workspace { grid-template-columns: 1fr; }
 .desk[data-view="source"] .reading-pane { display: none; }
 .desk[data-view="page"]   .editor-pane  { display: none; }
+.desk[data-view="read"]   .editor-pane  { display: none; }
 
 /* Markdown source — same rounded “window” idea as the page pane */
 .editor-pane {
@@ -441,7 +444,8 @@ button { cursor: pointer; }
 }
 
 /* Page view: inset the whole paper window so rounded corners show on the field */
-.desk[data-view="page"] .reading-pane {
+.desk[data-view="page"] .reading-pane,
+.desk[data-view="read"] .reading-pane {
   margin: 8px 14px 12px 8px;
   padding: 0;
   background: var(--paper);
@@ -498,8 +502,9 @@ button { cursor: pointer; }
   box-shadow: var(--shadow-sheet);
   overflow: hidden;
 }
-/* Page view: no side inset so paper can grow and scrollbar stays at the edge */
-.desk[data-view="page"] .workspace {
+/* Page and read views: no side inset so paper can grow and scrollbar stays at the edge */
+.desk[data-view="page"] .workspace,
+.desk[data-view="read"] .workspace {
   padding: 0;
   gap: 0;
 }
@@ -613,7 +618,8 @@ button { cursor: pointer; }
   caret-color: var(--doc-accent);
 }
 /* Page view: sheet can stay measure-limited; pane is the white rounded window */
-.desk[data-view="page"] .sheet {
+.desk[data-view="page"] .sheet,
+.desk[data-view="read"] .sheet {
   max-width: min(var(--page-measure), 100%);
 }
 @media (max-width: 700px) {
@@ -626,7 +632,8 @@ button { cursor: pointer; }
     gap: 8px;
     padding: 0;
   }
-  .desk[data-view="page"] .reading-pane {
+  .desk[data-view="page"] .reading-pane,
+  .desk[data-view="read"] .reading-pane {
     margin: 6px 10px 8px 6px;
     border-radius: var(--radius-stage);
   }
@@ -656,6 +663,16 @@ button { cursor: pointer; }
   color: #98A3AE;
   pointer-events: none;
 }
+
+/* Read view — the typeset page with nothing under the cursor: no toolbar,
+   no caret, no placeholder, plain text selection only. */
+.desk[data-view="read"] .toolbar { display: none; }
+.desk[data-view="read"] .sheet {
+  cursor: default;
+  caret-color: transparent;
+}
+.desk[data-view="read"] .sheet:empty::before,
+.desk[data-view="read"] .sheet > p:only-child:empty::before { content: none; }
 .sheet:focus-visible { box-shadow: var(--shadow-sheet), 0 0 0 2px var(--accent-soft); }
 .sheet li.task input { cursor: pointer; }
 

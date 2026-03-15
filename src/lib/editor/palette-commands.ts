@@ -99,6 +99,13 @@ const APP_COMMANDS: readonly PaletteCommand[] = [
 		action: { type: 'app', name: 'view-source' }
 	},
 	{
+		id: 'view-read',
+		group: 'View',
+		label: 'Read view',
+		keywords: 'read reading clean preview distraction free hands off',
+		action: { type: 'app', name: 'view-read' }
+	},
+	{
 		id: 'toggle-library',
 		group: 'View',
 		label: 'Show or hide the library',

@@ -47,6 +47,11 @@ describe('filterPaletteCommands', () => {
 		expect(hits.length).toBe(SLASH_COMMANDS.length);
 	});
 
+	it('finds the read view', () => {
+		const hits = filterPaletteCommands('read view');
+		expect(hits.some((c) => c.id === 'view-read')).toBe(true);
+	});
+
 	it('returns nothing for gibberish', () => {
 		expect(filterPaletteCommands('xyzzy plugh')).toEqual([]);
 	});

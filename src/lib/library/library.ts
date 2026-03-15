@@ -114,7 +114,10 @@ export function normalizeLibrary(raw: unknown): LibraryState | null {
 		unknown
 	>;
 	const view =
-		uiRaw.view === 'page' || uiRaw.view === 'split' || uiRaw.view === 'source'
+		uiRaw.view === 'page' ||
+		uiRaw.view === 'split' ||
+		uiRaw.view === 'source' ||
+		uiRaw.view === 'read'
 			? uiRaw.view
 			: 'page';
 
@@ -157,9 +160,13 @@ export function migrateFromLegacy(legacy: AppState, sampleIfEmpty: string): Libr
 		documents: [doc],
 		ui: {
 			libraryOpen: true,
-			view: legacy.view === 'page' || legacy.view === 'split' || legacy.view === 'source'
-				? legacy.view
-				: 'page',
+			view:
+				legacy.view === 'page' ||
+				legacy.view === 'split' ||
+				legacy.view === 'source' ||
+				legacy.view === 'read'
+					? legacy.view
+					: 'page',
 			focus: legacy.focus === true
 		},
 		trash: null
@@ -192,7 +199,10 @@ export function loadLibrary(sampleIfEmpty: string): LibraryState {
 				{
 					doc: typeof legacy.doc === 'string' ? legacy.doc : '',
 					view:
-						legacy.view === 'page' || legacy.view === 'split' || legacy.view === 'source'
+						legacy.view === 'page' ||
+						legacy.view === 'split' ||
+						legacy.view === 'source' ||
+						legacy.view === 'read'
 							? legacy.view
 							: 'page',
 					focus: legacy.focus === true

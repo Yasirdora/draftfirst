@@ -19,7 +19,10 @@ export function normalize(raw: unknown): AppState {
 	if (!raw || typeof raw !== 'object') return base;
 	const data = raw as Record<string, unknown>;
 	const view: ViewMode =
-		data.view === 'page' || data.view === 'split' || data.view === 'source'
+		data.view === 'page' ||
+		data.view === 'split' ||
+		data.view === 'source' ||
+		data.view === 'read'
 			? data.view
 			: base.view;
 	return {

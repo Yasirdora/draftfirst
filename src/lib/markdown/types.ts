@@ -2,8 +2,8 @@
  * Shared types for Writing Desk markdown + app state.
  */
 
-/** Editor view modes (page = typeset only, source = markdown only, split = both). */
-export type ViewMode = 'page' | 'split' | 'source';
+/** Editor view modes: page = typeset edit, source = markdown, split = both, read = typeset, hands off. */
+export type ViewMode = 'page' | 'split' | 'source' | 'read';
 
 /** Persisted application state (localStorage only — never leaves the browser). */
 export interface AppState {
