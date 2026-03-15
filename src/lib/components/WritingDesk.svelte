@@ -11,12 +11,7 @@
 	 * pressing a toolbar button moves focus, so we never trust activeElement alone.
 	 */
 	import { onMount } from 'svelte';
-	import {
-		renderMarkdown,
-		outlineOf,
-		countWords,
-		safeUrl
-	} from '$lib/markdown/render';
+	import { renderMarkdown, outlineOf, safeUrl } from '$lib/markdown/render';
 	import { serialiseMarkdown } from '$lib/markdown/serialise';
 	import {
 		MARKS,
@@ -65,21 +60,8 @@
 	import { FIND_MIN_LENGTH, findMatches, type FindMatch } from '$lib/editor/find';
 	import { clearFindHighlights, paintFindHighlights } from '$lib/editor/find-highlight';
 	import { moveOutlineSection } from '$lib/editor/outline-reorder';
-	import {
-		addDocument,
-		createDocument,
-		deleteDocument,
-		getActiveDocument,
-		loadLibrary,
-		renameDocument,
-		saveLibrary,
-		searchLibrary,
-		setActiveId,
-		sortDocuments,
-		undoDelete,
-		updateActiveBody
-	} from '$lib/library/library';
-	import type { LibraryState } from '$lib/library/types';
+	import { searchLibrary, sortDocuments } from '$lib/library/library';
+	import { desk } from '$lib/state/desk.svelte';
 	import BrandMark from './BrandMark.svelte';
 	import StatusBar from './StatusBar.svelte';
 	import ShortcutsOverlay from './ShortcutsOverlay.svelte';
@@ -91,11 +73,12 @@
 
 	/* ---------- reactive app state -------------------------------------- */
 
-	let library = $state<LibraryState | null>(null);
 	let libraryQuery = $state('');
 	let libraryOpen = $state(true);
 
-	let doc = $state('');
+	/** Narrowed view of the store's library for template bindings. */
+	const lib = $derived(desk.library);
+
 	let view = $state<ViewMode>('page');
 	let focus = $state(false);
 	let dragging = $state(false);
@@ -121,18 +104,12 @@
 	/** Debounce live find paint so fast typing stays smooth. */
 	let findPaintTimer = 0;
 
-	let saveLabel = $state('Saved');
-	let saveOn = $state(false);
-
 	/* Truth mode — fidelity of page serialise vs trusted source baseline */
 	let truthEnabled = $state(false);
 	let truthBaseline = $state('');
 	let truthReport = $state<FidelityReport | null>(null);
 	let truthStripOpen = $state(false);
 
-	let wordCount = $state(0);
-	let charCount = $state(0);
-	let readTime = $state(0);
 	let cursorPos = $state('Line 1, column 1');
 
 	/** Toolbar reflection of caret context. */
@@ -178,8 +155,6 @@
 	let savedPageRange: Range | null = null;
 	let viewBeforeFocus: ViewMode | null = null;
 
-	let saveTimer = 0;
-	let statusTimer = 0;
 	let dragDepth = 0;
 	let ready = $state(false);
 
@@ -242,20 +217,13 @@
 	/* ---------- library + persistence ----------------------------------- */
 
 	function libraryHits() {
-		if (!library) return [];
-		return searchLibrary(sortDocuments(library.documents), libraryQuery);
-	}
-
-	function flushBodyToLibrary(): LibraryState | null {
-		if (!library) return null;
-		return updateActiveBody(library, doc);
+		if (!desk.library) return [];
+		return searchLibrary(sortDocuments(desk.library.documents), libraryQuery);
 	}
 
 	function loadActiveIntoEditor() {
-		if (!library || !editor) return;
-		const active = getActiveDocument(library);
-		doc = active.body;
-		if (editor.value !== doc) editor.value = doc;
+		if (!desk.library || !editor) return;
+		if (editor.value !== desk.doc) editor.value = desk.doc;
 		renderDocument();
 		updateCursor();
 		updateToolbar();
@@ -265,17 +233,13 @@
 		restoreTruthForActiveDoc();
 	}
 
-	function activeDocId(): string | null {
-		return library?.activeId ?? null;
-	}
-
 	/**
 	 * Load Truth baseline for the active note and re-evaluate fidelity.
 	 * Baseline is persisted separately so page→source rewrites still show after reload.
 	 */
 	function restoreTruthForActiveDoc() {
-		const id = activeDocId();
-		const body = doc;
+		const id = desk.activeId;
+		const body = desk.doc;
 		if (!id) {
 			truthBaseline = body;
 			truthReport = assessFidelity(body, body);
@@ -298,7 +262,7 @@
 		truthBaseline = source;
 		truthReport = assessFidelity(source, source);
 		truthStripOpen = false;
-		const id = activeDocId();
+		const id = desk.activeId;
 		if (id) setTruthBaselineForDoc(id, source);
 	}
 
@@ -322,20 +286,15 @@
 			return;
 		}
 		// Re-evaluate current doc against persisted baseline when enabling.
-		const report = assessFidelity(truthBaseline, doc);
+		const report = assessFidelity(truthBaseline, desk.doc);
 		truthReport = report;
 		truthStripOpen = report.status !== 'identical';
 	}
 
 	function acceptTruthBaseline() {
 		// Writer trusts the current source — baseline catches up to the body.
-		setTruthBaseline(doc);
-		saveLabel = 'Trusted source updated';
-		saveOn = true;
-		clearTimeout(statusTimer);
-		statusTimer = window.setTimeout(() => {
-			saveOn = false;
-		}, 1600);
+		setTruthBaseline(desk.doc);
+		desk.flashStatus('Trusted source updated', 1600);
 	}
 
 	/**
@@ -343,7 +302,7 @@
 	 * Used for selective restore so remaining differences stay reviewable.
 	 */
 	function applyBodyKeepBaseline(text: string, statusMessage: string) {
-		doc = text;
+		desk.doc = text;
 		if (editor && editor.value !== text) editor.value = text;
 		renderDocument();
 		updateCursor();
@@ -351,13 +310,8 @@
 		const report = assessFidelity(truthBaseline, text);
 		truthReport = report;
 		truthStripOpen = truthEnabled && report.status !== 'identical';
-		persist();
-		saveLabel = statusMessage;
-		saveOn = true;
-		clearTimeout(statusTimer);
-		statusTimer = window.setTimeout(() => {
-			saveOn = false;
-		}, 1600);
+		desk.persist();
+		desk.flashStatus(statusMessage, 1600);
 	}
 
 	/**
@@ -365,7 +319,7 @@
 	 */
 	function restoreTruthBaseline() {
 		const trusted = truthBaseline;
-		if (trusted === doc) {
+		if (trusted === desk.doc) {
 			truthStripOpen = false;
 			return;
 		}
@@ -378,20 +332,15 @@
 		// Full restore: body and baseline match again.
 		setDoc(trusted);
 		truthStripOpen = false;
-		saveLabel = 'Restored all trusted Markdown';
-		saveOn = true;
-		clearTimeout(statusTimer);
-		statusTimer = window.setTimeout(() => {
-			saveOn = false;
-		}, 1600);
+		desk.flashStatus('Restored all trusted Markdown', 1600);
 	}
 
 	/**
 	 * Restore a single change region from the trusted baseline; keep other edits.
 	 */
 	function restoreTruthChangeAt(changeId: number) {
-		const next = restoreTruthChange(truthBaseline, doc, changeId);
-		if (next === doc) return;
+		const next = restoreTruthChange(truthBaseline, desk.doc, changeId);
+		if (next === desk.doc) return;
 		applyBodyKeepBaseline(next, 'Restored one change');
 	}
 
@@ -399,71 +348,30 @@
 		truthStripOpen = false;
 	}
 
-	function persistLibrary(next: LibraryState) {
-		library = {
-			...next,
-			ui: {
-				libraryOpen,
-				view,
-				focus
-			}
-		};
-		const result = saveLibrary(library);
-		if (result.ok) {
-			saveLabel = 'Saved';
-		} else {
-			saveLabel = result.message;
-		}
-		saveOn = true;
-		clearTimeout(statusTimer);
-		statusTimer = window.setTimeout(() => {
-			saveOn = false;
-		}, 1400);
-	}
-
-	function persist() {
-		clearTimeout(saveTimer);
-		saveTimer = window.setTimeout(() => {
-			const flushed = flushBodyToLibrary();
-			if (!flushed) return;
-			persistLibrary(flushed);
-		}, 400);
-	}
+	/* ---------- document operations (via the desk store) ------------------ */
 
 	function switchDocument(id: string) {
-		if (!library || id === library.activeId) return;
-		const flushed = flushBodyToLibrary();
-		if (!flushed) return;
-		library = setActiveId(flushed, id);
+		if (!desk.library || id === desk.library.activeId) return;
+		desk.switchDocument(id);
 		loadActiveIntoEditor();
-		persistLibrary(library);
 		closeMenus();
 	}
 
 	function newDocument() {
-		if (!library) return;
-		const flushed = flushBodyToLibrary() ?? library;
-		const fresh = createDocument({ body: '', title: 'Untitled' });
-		library = addDocument(flushed, fresh, true);
+		if (!desk.library) return;
+		if (!libraryOpen) libraryOpen = true;
+		desk.newDocument();
 		loadActiveIntoEditor();
-		persistLibrary(library);
 		closeMenus();
-		if (!libraryOpen) {
-			libraryOpen = true;
-			persistLibrary(library);
-		}
 	}
 
 	function renameActiveLibraryDoc(id: string, title: string) {
-		if (!library) return;
-		const flushed = flushBodyToLibrary() ?? library;
-		library = renameDocument(flushed, id, title);
-		persistLibrary(library);
+		desk.renameDocument(id, title);
 	}
 
 	function deleteLibraryDoc(id: string) {
-		if (!library) return;
-		const flushed = flushBodyToLibrary() ?? library;
+		if (!desk.library) return;
+		const flushed = desk.flush() ?? desk.library;
 		const target = flushed.documents.find((d) => d.id === id);
 		if (!target) return;
 
@@ -475,31 +383,21 @@
 			return;
 		}
 
-		const { state: next } = deleteDocument(flushed, id);
+		desk.deleteDocument(id);
 		removeTruthBaseline(id);
-		library = next;
+		pruneTruthBaselines(desk.library?.documents.map((d) => d.id) ?? []);
 		loadActiveIntoEditor();
-		persistLibrary(library);
-		pruneTruthBaselines(library.documents.map((d) => d.id));
 	}
 
 	function undoLibraryDelete() {
-		if (!library) return;
-		library = undoDelete(library);
+		if (!desk.library) return;
+		desk.undoDelete();
 		loadActiveIntoEditor();
-		persistLibrary(library);
 	}
 
 	function toggleLibrary() {
 		libraryOpen = !libraryOpen;
-		if (library) persistLibrary(flushBodyToLibrary() ?? library);
-	}
-
-	function updateCounts() {
-		const words = countWords(doc);
-		wordCount = words;
-		charCount = doc.length;
-		readTime = Math.max(words > 0 ? 1 : 0, Math.round(words / 220));
+		desk.persistImmediate();
 	}
 
 	function enableTaskBoxes() {
@@ -515,9 +413,8 @@
 	function renderDocument() {
 		if (!sheet) return;
 		// The only innerHTML path — and only ever with our own renderer output.
-		sheet.innerHTML = renderMarkdown(doc);
+		sheet.innerHTML = renderMarkdown(desk.doc);
 		enableTaskBoxes();
-		updateCounts();
 		if (findOpen && findQuery.trim().length >= FIND_MIN_LENGTH) {
 			// Marks were wiped with innerHTML — restore after paint.
 			queueMicrotask(() => revealFindMatch(findIndex));
@@ -532,44 +429,41 @@
 		try {
 			markdown = serialiseMarkdown(sheet);
 		} catch {
-			saveLabel = 'Could not read the page — switch to Markdown to check it';
-			saveOn = true;
+			desk.flashStatus('Could not read the page — switch to Markdown to check it');
 			return;
 		}
-		doc = markdown;
-		if (!onSource()) editor.value = doc;
-		updateCounts();
+		desk.doc = markdown;
+		if (!onSource()) editor.value = desk.doc;
 		updateCursor();
 		refreshTruthFromPage(markdown);
 		// Re-apply highlights if Find is still active.
 		if (findOpen && findQuery.trim().length >= FIND_MIN_LENGTH) {
 			revealFindMatch(findIndex);
 		}
-		persist();
+		desk.persist();
 	}
 
 	function sourceChanged() {
 		if (!editor || !sheet) return;
-		doc = editor.value;
+		desk.doc = editor.value;
 		if (!onPage()) {
-			sheet.innerHTML = renderMarkdown(doc);
+			sheet.innerHTML = renderMarkdown(desk.doc);
 			enableTaskBoxes();
 		}
-		updateCounts();
 		// Writer owns source — baseline follows intentional Markdown edits.
-		setTruthBaseline(doc);
-		persist();
+		setTruthBaseline(desk.doc);
+		desk.persist();
 	}
 
 	function setDoc(text: string) {
 		if (!editor) return;
-		doc = text;
+		desk.doc = text;
 		if (editor.value !== text) editor.value = text;
 		renderDocument();
 		updateCursor();
 		updateToolbar();
 		setTruthBaseline(text);
-		persist();
+		desk.persist();
 	}
 
 	function applyView() {
@@ -656,7 +550,7 @@
 	}
 
 	function rebuildOutline() {
-		outlineItems = outlineOf(doc);
+		outlineItems = outlineOf(desk.doc);
 	}
 
 	function jumpToHeading(heading: { level: number; text: string; line: number }, index: number) {
@@ -673,7 +567,7 @@
 
 	function jumpToLine(index: number) {
 		if (!editor) return;
-		const lines = doc.split('\n');
+		const lines = desk.doc.split('\n');
 		let offset = 0;
 		for (let i = 0; i < index && i < lines.length; i++) offset += lines[i].length + 1;
 		if (view === 'page') {
@@ -682,7 +576,7 @@
 		}
 		editor.focus();
 		editor.setSelectionRange(offset, offset);
-		const ratio = offset / Math.max(1, doc.length);
+		const ratio = offset / Math.max(1, desk.doc.length);
 		editor.scrollTop = ratio * editor.scrollHeight - editor.clientHeight / 3;
 		updateCursor();
 	}
@@ -1154,13 +1048,13 @@
 		applyView();
 		markWritingBlock();
 		if (on && sheet) sheet.focus();
-		persist();
+		desk.persist();
 	}
 
 	function setView(next: ViewMode) {
 		view = next;
 		applyView();
-		persist();
+		desk.persist();
 	}
 
 	function openShortcuts() {
@@ -1275,7 +1169,7 @@
 		if (view === 'source') {
 			view = 'page';
 			applyView();
-			persist();
+			desk.persist();
 		}
 		findOpen = true;
 		findFocusToken += 1;
@@ -1309,8 +1203,8 @@
 			// Prefer page plain text so highlights match what the writer sees.
 			const haystack =
 				sheet && view !== 'source'
-					? sheet.innerText || sheet.textContent || doc
-					: doc;
+					? sheet.innerText || sheet.textContent || desk.doc
+					: desk.doc;
 			findMatchesList = findMatches(haystack, q);
 			if (opts.resetIndex !== false) findIndex = 0;
 			if (findIndex >= findMatchesList.length) findIndex = Math.max(0, findMatchesList.length - 1);
@@ -1398,8 +1292,8 @@
 	/* ---------- outline reorder ----------------------------------------- */
 
 	function moveOutline(headingIndex: number, direction: -1 | 1) {
-		const next = moveOutlineSection(doc, headingIndex, direction);
-		if (next === doc) return;
+		const next = moveOutlineSection(desk.doc, headingIndex, direction);
+		if (next === desk.doc) return;
 		setDoc(next);
 		rebuildOutline();
 	}
@@ -1410,39 +1304,29 @@
 		const reader = new FileReader();
 		reader.addEventListener('load', () => {
 			const text = String(reader.result);
-			if (!library) {
+			if (!desk.library) {
 				setDoc(text);
 				editor?.focus();
 				return;
 			}
 			// Import as a new library document — never overwrites without intent.
-			const flushed = flushBodyToLibrary() ?? library;
 			const baseName = file.name.replace(/\.(md|markdown|txt)$/i, '').trim();
-			const fresh = createDocument({
-				body: text,
-				title: baseName || undefined,
-				titleLocked: Boolean(baseName)
-			});
-			library = addDocument(flushed, fresh, true);
+			if (!libraryOpen) libraryOpen = true;
+			desk.importDocument(text, baseName || undefined);
 			loadActiveIntoEditor();
-			persistLibrary(library);
-			if (!libraryOpen) {
-				libraryOpen = true;
-				persistLibrary(library);
-			}
 			editor?.focus();
 		});
 		reader.readAsText(file);
 	}
 
 	function onExport(kind: string) {
-		if (kind === 'md') download(doc, documentName(doc) + '.md', 'text/markdown');
-		else if (kind === 'html') exportStandaloneHtml(doc);
+		if (kind === 'md') download(desk.doc, documentName(desk.doc) + '.md', 'text/markdown');
+		else if (kind === 'html') exportStandaloneHtml(desk.doc);
 		else if (kind === 'print') setTimeout(() => window.print(), 60);
 	}
 
 	function clearDesk() {
-		if (doc.trim() !== '' && !confirm('Clear the desk? This cannot be undone.')) return;
+		if (desk.doc.trim() !== '' && !confirm('Clear the desk? This cannot be undone.')) return;
 		setDoc('');
 		editor?.focus();
 	}
@@ -1709,16 +1593,15 @@
 		welcomeVisible = !onboarding.welcomeDismissed;
 
 		// Multi-doc library (migrates legacy single-doc storage automatically).
-		library = loadLibrary(SAMPLE);
-		libraryOpen = library.ui.libraryOpen;
+		const ui = desk.init(SAMPLE);
+		desk.uiSnapshot = () => ({ libraryOpen, view, focus });
+		libraryOpen = ui.libraryOpen;
 		// Narrow viewports: library as overlay would dominate — start closed.
 		if (isNarrow()) libraryOpen = false;
-		view = library.ui.view;
-		focus = library.ui.focus;
+		view = ui.view;
+		focus = ui.focus;
 		applyView();
-		const active = getActiveDocument(library);
-		doc = active.body;
-		if (editor) editor.value = doc;
+		if (editor) editor.value = desk.doc;
 		renderDocument();
 		updateCursor();
 		updateToolbar();
@@ -1727,7 +1610,7 @@
 		const truthPrefs = loadTruthPrefs();
 		truthEnabled = truthPrefs.enabled;
 		restoreTruthForActiveDoc();
-		pruneTruthBaselines(library.documents.map((d) => d.id));
+		pruneTruthBaselines(desk.library?.documents.map((d) => d.id) ?? []);
 		ready = true;
 
 		const onDocClick = () => {
@@ -1789,7 +1672,7 @@
 		const onResize = () => {
 			if (isNarrow() && view === 'split') {
 				applyView();
-				persist();
+				desk.persist();
 			}
 		};
 
@@ -1853,8 +1736,6 @@
 			for (const el of [outlineMenuEl, fileMenuEl, exportMenuEl, styleMenuEl, moreMenuEl]) {
 				if (el && el.parentNode === document.body) el.remove();
 			}
-			clearTimeout(saveTimer);
-			clearTimeout(statusTimer);
 		};
 	});
 </script>
@@ -1873,13 +1754,13 @@
 	bind:this={deskEl}
 >
 	<div class="desk-body">
-		{#if library}
+		{#if lib}
 			<LibrarySidebar
 				open={libraryOpen}
-				activeId={library.activeId}
+				activeId={lib.activeId}
 				hits={libraryHits()}
 				bind:query={libraryQuery}
-				trash={library.trash}
+				trash={lib.trash}
 				onSelect={switchDocument}
 				onNew={newDocument}
 				onRename={renameActiveLibraryDoc}
@@ -1887,7 +1768,7 @@
 				onUndo={undoLibraryDelete}
 				onClose={() => {
 					libraryOpen = false;
-					if (library) persistLibrary(flushBodyToLibrary() ?? library);
+					desk.persistImmediate();
 				}}
 				onQueryChange={(q) => {
 					libraryQuery = q;
@@ -1924,7 +1805,7 @@
 			<span class="brand-name">Writing Desk</span>
 		</div>
 
-		<span class="save-status" class:on={saveOn} role="status" aria-live="polite">{saveLabel}</span>
+		<span class="save-status" class:on={desk.saveOn} role="status" aria-live="polite">{desk.saveLabel}</span>
 
 		<div class="views" role="group" aria-label="View">
 			<button
@@ -2568,9 +2449,9 @@
 	/>
 
 	<StatusBar
-		{wordCount}
-		{charCount}
-		{readTime}
+		wordCount={desk.wordCount}
+		charCount={desk.charCount}
+		readTime={desk.readTime}
 		{cursorPos}
 		{truthEnabled}
 		truthStatus={truthReport?.status ?? null}
