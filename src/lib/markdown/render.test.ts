@@ -60,6 +60,24 @@ describe('renderMarkdown', () => {
 		expect(html).toContain('<pre');
 		expect(html).toContain('const x = 1;');
 	});
+
+	it('opens links in a new tab with no opener', () => {
+		const link = renderMarkdown('[Example](https://example.com)');
+		expect(link).toContain('target="_blank"');
+		expect(link).toContain('rel="noopener noreferrer"');
+
+		const auto = renderMarkdown('<https://example.com>');
+		expect(auto).toContain('target="_blank"');
+
+		// mailto stays same-tab: a new tab would flash before the mail client
+		const mail = renderMarkdown('<a@b.com>');
+		expect(mail).toContain('mailto:a@b.com');
+		expect(mail).not.toContain('target="_blank"');
+
+		// dangerous schemes stay inert, target or not
+		const evil = renderMarkdown('[x](javascript:alert(1))');
+		expect(evil).not.toContain('href');
+	});
 });
 
 describe('outlineOf', () => {

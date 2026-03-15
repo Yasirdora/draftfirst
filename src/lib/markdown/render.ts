@@ -23,6 +23,13 @@ export function escapeHtml(text) {
 }
 
 /**
+ * Links never navigate the editor (or an exported document) away from itself:
+ * they open in a new tab with no opener handle. Mailto anchors are exempt —
+ * a new tab would flash before the mail client takes over.
+ */
+const LINK_TARGET = ' target="_blank" rel="noopener noreferrer"';
+
+/**
  * Allow only schemes that cannot execute. Anything else — javascript:,
  * vbscript:, data: text — becomes an inert anchor rather than a trap.
  */
@@ -88,7 +95,7 @@ function renderInline(src, refs) {
         if (/^[a-z][a-z0-9+.-]*:[^\s<>]*$/i.test(body)) {
           const href = safeUrl(body);
           flush();
-          out += href ? '<a href="' + escapeHtml(href) + '">' + escapeHtml(body) + '</a>' : escapeHtml('<' + body + '>');
+          out += href ? '<a href="' + escapeHtml(href) + '"' + LINK_TARGET + '>' + escapeHtml(body) + '</a>' : escapeHtml('<' + body + '>');
           i = close + 1;
           continue;
         }
@@ -211,7 +218,7 @@ function parseLink(src, start, refs, isImage) {
 
   const inner = renderInline(label, refs);
   if (!href) return { html: inner, end };
-  return { html: '<a href="' + escapeHtml(href) + '"' + titleAttr + '>' + inner + '</a>', end };
+  return { html: '<a href="' + escapeHtml(href) + '"' + LINK_TARGET + titleAttr + '>' + inner + '</a>', end };
 }
 
 /**
