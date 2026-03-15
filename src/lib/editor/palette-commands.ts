@@ -112,6 +112,27 @@ const APP_COMMANDS: readonly PaletteCommand[] = [
 		keywords: 'dim concentrate zen calm',
 		action: { type: 'app', name: 'toggle-focus' }
 	},
+	{
+		id: 'theme-light',
+		group: 'View',
+		label: 'Theme: light',
+		keywords: 'theme light mode appearance bright day',
+		action: { type: 'app', name: 'theme-light' }
+	},
+	{
+		id: 'theme-dark',
+		group: 'View',
+		label: 'Theme: dark',
+		keywords: 'theme dark mode appearance night black',
+		action: { type: 'app', name: 'theme-dark' }
+	},
+	{
+		id: 'theme-system',
+		group: 'View',
+		label: 'Theme: system (follow the OS)',
+		keywords: 'theme system auto automatic mode appearance os',
+		action: { type: 'app', name: 'theme-system' }
+	},
 
 	{
 		id: 'find',

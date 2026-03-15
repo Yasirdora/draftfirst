@@ -30,6 +30,8 @@
   --accent-soft: rgba(11, 87, 208, 0.10);
   --danger:      #B3261E;
   --placeholder: #80868B;
+  --hl-find:        rgba(255, 214, 10, 0.42);  /* find matches — see ::highlight */
+  --hl-find-active: rgba(255, 149, 0, 0.55);
   --shadow-sheet: 0 1px 2px rgba(16,24,32,.05), 0 12px 32px rgba(16,24,32,.08);
   --radius-stage: 6px;    /* soft window corners */
   --radius-pill:  980px;
@@ -42,33 +44,37 @@
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Kimi-like near-black shell — deep, low contrast chrome */
-    --bg:          #0A0A0A;
-    --bg-deep:     #050505;
-    --panel:       #141414;
-    --panel-2:     #111111;
-    --panel-veil:  rgba(28, 28, 28, 0.88);
-    --ink:         #EDEDED;
-    --muted:       #9A9A9A;
-    --rule:        rgba(255,255,255,.07);
-    --rule-soft:   rgba(255,255,255,.045);
-    --accent:      #E8E8E8;
-    --on-accent:   #0A0A0A;
-    --accent-deep: #FFFFFF;
-    --accent-soft: rgba(255, 255, 255, 0.10);
-    --danger:      #F2B8B5;
-    --placeholder: #6B6B6B;
-    --shadow-sheet: 0 0 0 1px rgba(255,255,255,.06), 0 12px 40px rgba(0,0,0,.45);
-  }
+/* Dark chrome is attribute-driven so the writer can override the OS choice.
+   app.html sets data-theme on <html> before the stylesheet loads — no flash —
+   and the editor keeps it in sync as the mode or the OS setting changes. */
+:root[data-theme='dark'] {
+  /* Kimi-like near-black shell — deep, low contrast chrome */
+  --bg:          #0A0A0A;
+  --bg-deep:     #050505;
+  --panel:       #141414;
+  --panel-2:     #111111;
+  --panel-veil:  rgba(28, 28, 28, 0.88);
+  --ink:         #EDEDED;
+  --muted:       #9A9A9A;
+  --rule:        rgba(255,255,255,.07);
+  --rule-soft:   rgba(255,255,255,.045);
+  --accent:      #E8E8E8;
+  --on-accent:   #0A0A0A;
+  --accent-deep: #FFFFFF;
+  --accent-soft: rgba(255, 255, 255, 0.10);
+  --danger:      #F2B8B5;
+  --placeholder: #6B6B6B;
+  --shadow-sheet: 0 0 0 1px rgba(255,255,255,.06), 0 12px 40px rgba(0,0,0,.45);
+  --hl-find:        rgba(201, 162, 39, 0.55);
+  --hl-find-active: rgba(232, 176, 48, 0.72);
+  color-scheme: dark;
+}
 
-  /* Paper stays white even in dark UI chrome */
-  .reading-pane,
-  .desk[data-view="page"] .reading-pane,
-  .desk[data-view="split"] .reading-pane {
-    background: var(--paper);
-  }
+/* Paper stays white even in dark UI chrome */
+:root[data-theme='dark'] .reading-pane,
+:root[data-theme='dark'] .desk[data-view="page"] .reading-pane,
+:root[data-theme='dark'] .desk[data-view="split"] .reading-pane {
+  background: var(--paper);
 }
 
 * { box-sizing: border-box; }
@@ -658,22 +664,12 @@ button { cursor: pointer; }
  * background-color / color only — other properties are ignored by ::highlight.
  */
 ::highlight(wd-find) {
-  background-color: rgba(255, 214, 10, 0.42);
+  background-color: var(--hl-find, rgba(255, 214, 10, 0.42));
   color: inherit;
 }
 ::highlight(wd-find-active) {
-  background-color: rgba(255, 149, 0, 0.55);
+  background-color: var(--hl-find-active, rgba(255, 149, 0, 0.55));
   color: inherit;
-}
-@media (prefers-color-scheme: dark) {
-  ::highlight(wd-find) {
-    background-color: rgba(201, 162, 39, 0.55);
-    color: inherit;
-  }
-  ::highlight(wd-find-active) {
-    background-color: rgba(232, 176, 48, 0.72);
-    color: inherit;
-  }
 }
 
 /*
@@ -681,7 +677,7 @@ button { cursor: pointer; }
  * No padding, margin, border, radius, or shadow.
  */
 .sheet mark.find-mark {
-  background: rgba(255, 214, 10, 0.42);
+  background: var(--hl-find, rgba(255, 214, 10, 0.42));
   color: inherit;
   padding: 0;
   margin: 0;
@@ -693,15 +689,7 @@ button { cursor: pointer; }
   vertical-align: baseline;
 }
 .sheet mark.find-mark--active {
-  background: rgba(255, 149, 0, 0.55);
-}
-@media (prefers-color-scheme: dark) {
-  .sheet mark.find-mark {
-    background: rgba(201, 162, 39, 0.55);
-  }
-  .sheet mark.find-mark--active {
-    background: rgba(232, 176, 48, 0.72);
-  }
+  background: var(--hl-find-active, rgba(255, 149, 0, 0.55));
 }
 
 .sheet > :first-child { margin-top: 0; }

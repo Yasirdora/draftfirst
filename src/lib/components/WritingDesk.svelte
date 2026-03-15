@@ -47,6 +47,13 @@
 		setTruthEnabled
 	} from '$lib/utils/truth-prefs';
 	import {
+		loadThemePrefs,
+		nextTheme,
+		resolveDark,
+		saveThemePrefs,
+		type ThemeMode
+	} from '$lib/utils/theme-prefs';
+	import {
 		assessFidelity,
 		groupTruthChanges,
 		restoreTruthChange,
@@ -86,6 +93,21 @@
 
 	let view = $state<ViewMode>('page');
 	let focus = $state(false);
+
+	/* Theme — chrome only; the sheet stays paper either way */
+	let theme = $state<ThemeMode>('system');
+	let systemDark = $state(false);
+	const resolvedDark = $derived(resolveDark(theme, systemDark));
+	const themeNext = $derived(nextTheme(theme, systemDark));
+	const themeLabel = $derived(
+		`Theme: ${theme}${theme === 'system' ? ` (${resolvedDark ? 'dark' : 'light'})` : ''} — click for ${themeNext}`
+	);
+
+	/* Keep <html data-theme> in sync with the mode and the OS setting. */
+	$effect(() => {
+		document.documentElement.dataset.theme = resolvedDark ? 'dark' : 'light';
+	});
+
 	let dragging = $state(false);
 	let keyboardUp = $state(false);
 	let shortcutsOpen = $state(false);
@@ -1074,6 +1096,15 @@
 		shortcutsOpen = true;
 	}
 
+	function setThemeMode(mode: ThemeMode) {
+		theme = mode;
+		saveThemePrefs(mode);
+	}
+
+	function cycleTheme() {
+		setThemeMode(nextTheme(theme, systemDark));
+	}
+
 	function dismissWelcome() {
 		welcomeVisible = false;
 		saveOnboarding({ welcomeDismissed: true });
@@ -1225,6 +1256,15 @@
 				break;
 			case 'toggle-focus':
 				setFocusMode(!focus);
+				break;
+			case 'theme-light':
+				setThemeMode('light');
+				break;
+			case 'theme-dark':
+				setThemeMode('dark');
+				break;
+			case 'theme-system':
+				setThemeMode('system');
 				break;
 			case 'find':
 				openFind();
@@ -1694,6 +1734,16 @@
 		truthEnabled = truthPrefs.enabled;
 		restoreTruthForActiveDoc();
 		pruneTruthBaselines(desk.library?.documents.map((d) => d.id) ?? []);
+
+		// Theme: restore the saved mode, then follow the OS while in "system".
+		theme = loadThemePrefs();
+		const scheme = window.matchMedia('(prefers-color-scheme: dark)');
+		const onScheme = () => {
+			systemDark = scheme.matches;
+		};
+		onScheme();
+		scheme.addEventListener('change', onScheme);
+
 		ready = true;
 
 		const onDocClick = () => {
@@ -1823,6 +1873,7 @@
 			window.removeEventListener('dragover', onDragOver);
 			window.removeEventListener('dragleave', onDragLeave);
 			window.removeEventListener('drop', onDrop);
+			scheme.removeEventListener('change', onScheme);
 			if (viewport) {
 				viewport.removeEventListener('resize', followKeyboard);
 				viewport.removeEventListener('scroll', followKeyboard);
@@ -2026,6 +2077,42 @@
 			}}
 		>
 			Find
+		</button>
+
+		<button
+			type="button"
+			class="btn btn-quiet theme-toggle"
+			title={themeLabel}
+			aria-label={themeLabel}
+			onclick={cycleTheme}
+		>
+			{#if theme === 'light'}
+				<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+					<circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7" />
+					<path
+						d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.7"
+						stroke-linecap="round"
+					/>
+				</svg>
+			{:else if theme === 'dark'}
+				<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+					<path
+						d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.7"
+						stroke-linejoin="round"
+					/>
+				</svg>
+			{:else}
+				<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+					<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7" />
+					<path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" />
+				</svg>
+			{/if}
 		</button>
 
 		<button

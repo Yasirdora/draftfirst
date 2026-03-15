@@ -252,16 +252,14 @@
 		white-space: nowrap;
 	}
 
-	@media (prefers-color-scheme: dark) {
-		.truth__del {
-			color: color-mix(in srgb, var(--danger) 85%, var(--ink));
-			background: color-mix(in srgb, var(--danger) 18%, transparent);
-		}
+	:global(:root[data-theme='dark']) .truth__del {
+		color: color-mix(in srgb, var(--danger) 85%, var(--ink));
+		background: color-mix(in srgb, var(--danger) 18%, transparent);
+	}
 
-		.truth__ins {
-			color: color-mix(in srgb, #6bcf7f 70%, var(--ink));
-			background: color-mix(in srgb, #2f9e44 22%, transparent);
-		}
+	:global(:root[data-theme='dark']) .truth__ins {
+		color: color-mix(in srgb, #6bcf7f 70%, var(--ink));
+		background: color-mix(in srgb, #2f9e44 22%, transparent);
 	}
 
 	.truth__empty {
