@@ -38,6 +38,7 @@
 	import { documentName } from '$lib/utils/document-name';
 	import { exportStandaloneHtml } from '$lib/utils/export-html';
 	import { loadOnboarding, saveOnboarding } from '$lib/utils/onboarding';
+	import { loadDialectPrefs, setFootnotesEnabled } from '$lib/utils/dialect-prefs';
 	import {
 		getTruthBaseline,
 		loadTruthPrefs,
@@ -146,6 +147,9 @@
 	let truthBaseline = $state('');
 	let truthReport = $state<FidelityReport | null>(null);
 	let truthStripOpen = $state(false);
+
+	/* Opt-in dialect packs */
+	let footnotesOn = $state(false);
 
 	let cursorPos = $state('Line 1, column 1');
 
@@ -477,7 +481,7 @@
 	function renderDocument() {
 		if (!sheet) return;
 		// The only innerHTML path — and only ever with our own renderer output.
-		sheet.innerHTML = renderMarkdown(desk.doc);
+		sheet.innerHTML = renderMarkdown(desk.doc, { footnotes: footnotesOn });
 		enableTaskBoxes();
 		void resolveAssetImages(sheet);
 		if (findOpen && findQuery.trim().length >= FIND_MIN_LENGTH) {
@@ -1137,6 +1141,13 @@
 		setThemeMode(nextTheme(theme, systemDark));
 	}
 
+	function toggleFootnotes() {
+		footnotesOn = !footnotesOn;
+		setFootnotesEnabled(footnotesOn);
+		renderDocument();
+		desk.flashStatus(footnotesOn ? 'Footnotes on' : 'Footnotes off');
+	}
+
 	function dismissWelcome() {
 		welcomeVisible = false;
 		saveOnboarding({ welcomeDismissed: true });
@@ -1297,6 +1308,9 @@
 				break;
 			case 'theme-system':
 				setThemeMode('system');
+				break;
+			case 'toggle-footnotes':
+				toggleFootnotes();
 				break;
 			case 'find':
 				openFind();
@@ -1481,7 +1495,7 @@
 			void inlineAssetDataUrls(desk.doc, async (id) => {
 				const blob = await getAsset(id);
 				return blob ? blobToDataUrl(blob) : null;
-			}).then(exportStandaloneHtml);
+			}).then((doc) => exportStandaloneHtml(doc, { footnotes: footnotesOn }));
 		} else if (kind === 'print') setTimeout(() => window.print(), 60);
 	}
 
@@ -1808,6 +1822,8 @@
 		focus = ui.focus;
 		applyView();
 		if (editor) editor.value = desk.doc;
+		// Opt-in dialect packs — before the first render, so they apply to it.
+		footnotesOn = loadDialectPrefs().footnotes;
 		renderDocument();
 		updateCursor();
 		updateToolbar();
@@ -2728,6 +2744,7 @@
 		readTime={desk.readTime}
 		{cursorPos}
 		{truthEnabled}
+		{footnotesOn}
 		truthStatus={truthReport?.status ?? null}
 		truthChangeCount={
 			truthEnabled && truthReport && truthReport.status !== 'identical'

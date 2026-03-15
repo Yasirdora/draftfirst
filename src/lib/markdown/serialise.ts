@@ -71,6 +71,12 @@ function serialiseInlineNodes(nodes) {
       continue;
     }
     if (tag === 'INPUT') continue;                 // the task box, handled by its item
+    /* Footnote reference — the number is chrome, the id is the source. */
+    if (tag === 'SUP' && child.dataset && child.dataset.fnref) {
+      out += '[^' + child.dataset.fnref + ']';
+      continue;
+    }
+    if (tag === 'A' && child.classList && child.classList.contains('fnback')) continue;
     // Find highlights are temporary chrome — never emit markup for them.
     if (tag === 'MARK' && child.classList && child.classList.contains('find-mark')) {
       out += serialiseInline(child);
@@ -196,6 +202,16 @@ function serialiseBlock(node) {
   /* A bare image at block level (paste/drop with no caret) still serialises. */
   if (tag === 'IMG') {
     return '![' + (node.getAttribute('alt') || '') + '](' + imgSerialSrc(node) + ')';
+  }
+
+  /* The footnotes section — back to definition lines, numbers/chrome dropped. */
+  if (tag === 'SECTION' && node.hasAttribute && node.hasAttribute('data-footnotes')) {
+    const parts = [];
+    for (const li of node.querySelectorAll('li[data-fn]')) {
+      const text = serialiseChildren(li).trim();
+      parts.push('[^' + li.getAttribute('data-fn') + ']: ' + text);
+    }
+    return parts.join('\n');
   }
 
   if (tag === 'DIV' && hasBlockChild(node.childNodes)) return serialiseBlocks(node.childNodes).trim();

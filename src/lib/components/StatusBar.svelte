@@ -14,6 +14,7 @@
 		truthEnabled = false,
 		truthStatus = null as FidelityStatus | null,
 		truthChangeCount = 0,
+		footnotesOn = false,
 		onToggleTruth,
 		onOpenShortcuts
 	}: {
@@ -24,6 +25,7 @@
 		truthEnabled?: boolean;
 		truthStatus?: FidelityStatus | null;
 		truthChangeCount?: number;
+		footnotesOn?: boolean;
 		onToggleTruth?: () => void;
 		onOpenShortcuts?: () => void;
 	} = $props();
@@ -53,7 +55,7 @@
 	</span>
 	<span class="spacer"></span>
 	<span class="status-bar__cursor">{cursorPos}</span>
-	<DialectBadge compact />
+	<DialectBadge compact {footnotesOn} />
 	<button
 		type="button"
 		class="status-truth"

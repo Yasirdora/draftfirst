@@ -2,26 +2,44 @@
 	/**
 	 * Visible dialect contract — honesty about what this desk understands.
 	 */
-	import { CORE_DIALECT } from '$lib/editor/dialect';
+	import { CORE_DIALECT, FOOTNOTES_PACK } from '$lib/editor/dialect';
 
 	let {
-		compact = false
+		compact = false,
+		footnotesOn = false
 	}: {
 		/** Shorter label on very narrow layouts */
 		compact?: boolean;
+		/** The opt-in footnotes pack is active */
+		footnotesOn?: boolean;
 	} = $props();
 
-	const title = [
-		CORE_DIALECT.summary,
-		'',
-		...CORE_DIALECT.features.map((f) => `· ${f}`)
-	].join('\n');
+	const title = $derived(
+		[
+			CORE_DIALECT.summary,
+			'',
+			...CORE_DIALECT.features.map((f) => `· ${f}`),
+			...(footnotesOn
+				? ['', FOOTNOTES_PACK.summary, ...FOOTNOTES_PACK.features.map((f) => `· ${f}`)]
+				: [])
+		].join('\n')
+	);
+
+	const label = $derived(
+		footnotesOn
+			? compact
+				? 'GFM + fn'
+				: CORE_DIALECT.label + ' · ' + FOOTNOTES_PACK.label
+			: compact
+				? 'GFM'
+				: CORE_DIALECT.label
+	);
 </script>
 
 <span class="dialect-badge" {title} role="status">
 	<span class="dialect-badge__dot" aria-hidden="true"></span>
 	<span class="dialect-badge__label">
-		{compact ? 'GFM' : CORE_DIALECT.label}
+		{label}
 	</span>
 </span>
 

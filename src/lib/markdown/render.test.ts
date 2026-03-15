@@ -35,6 +35,65 @@ describe('safeUrl', () => {
 	});
 });
 
+describe('footnotes pack', () => {
+	const on = (src: string) => renderMarkdown(src, { footnotes: true });
+
+	it('renders references as numbered superscripts and collects the section', () => {
+		const html = on('Text with a note[^a] and another[^b].\n\n[^a]: First note\n[^b]: Second note\n');
+		expect(html).toContain('data-fnref="a"');
+		expect(html).toContain('<section class="footnotes" data-footnotes>');
+		expect(html).toContain('data-fn="a"');
+		expect(html).toContain('First note');
+		expect(html.indexOf('First note')).toBeLessThan(html.indexOf('Second note'));
+		// definition lines leave the body
+		expect(html).not.toContain('<p>[^a]:');
+	});
+
+	it('numbers by first reference, not by definition order', () => {
+		const html = on('B first[^b], then A[^a].\n\n[^a]: Note A\n[^b]: Note B\n');
+		const bSup = html.indexOf('data-fnref="b"');
+		const aSup = html.indexOf('data-fnref="a"');
+		expect(html.slice(bSup, bSup + 200)).toContain('>1</a>');
+		expect(html.slice(aSup, aSup + 200)).toContain('>2</a>');
+	});
+
+	it('reuses the number for a repeated reference', () => {
+		const html = on('Twice[^a] and again[^a].\n\n[^a]: Note\n');
+		const sups = html.match(/data-fnref="a"/g) || [];
+		expect(sups).toHaveLength(2);
+		expect(html.match(/<li /g) || []).toHaveLength(1);
+	});
+
+	it('leaves unreferenced definitions out of the section', () => {
+		const html = on('Used[^u].\n\n[^u]: yes\n[^unused]: no\n');
+		expect(html).toContain('yes');
+		expect(html).not.toContain('>no<');
+	});
+
+	it('renders unknown references literally', () => {
+		const html = on('Text[^missing].\n');
+		expect(html).toContain('[^missing]');
+		expect(html).not.toContain('<section');
+	});
+
+	it('joins indented continuation lines into the definition', () => {
+		const html = on('Note[^a].\n\n[^a]: first\n    second\n');
+		expect(html).toContain('first second');
+	});
+
+	it('keeps everything literal when the pack is off', () => {
+		const html = renderMarkdown('Text[^a].\n\n[^a]: A note\n');
+		expect(html).toContain('[^a]');
+		expect(html).not.toContain('fnref');
+		expect(html).not.toContain('<section');
+	});
+
+	it('marks back-links so serialise can drop them', () => {
+		const html = on('Note[^a].\n\n[^a]: text\n');
+		expect(html).toContain('class="fnback" data-fnback="a"');
+	});
+});
+
 describe('renderMarkdown', () => {
 	it('renders headings and paragraphs safely', () => {
 		const html = renderMarkdown('# Hello\n\nWorld **bold**');

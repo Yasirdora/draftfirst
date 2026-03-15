@@ -113,6 +113,13 @@ const APP_COMMANDS: readonly PaletteCommand[] = [
 		action: { type: 'app', name: 'toggle-focus' }
 	},
 	{
+		id: 'toggle-footnotes',
+		group: 'View',
+		label: 'Toggle the footnotes pack',
+		keywords: 'footnotes references notes margin dialect pack',
+		action: { type: 'app', name: 'toggle-footnotes' }
+	},
+	{
 		id: 'theme-light',
 		group: 'View',
 		label: 'Theme: light',

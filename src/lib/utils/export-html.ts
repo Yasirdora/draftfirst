@@ -24,7 +24,7 @@ const EXPORT_CSS = [
 	'img{max-width:100%;height:auto}li.task{list-style:none;margin-left:-1.35em}'
 ].join('');
 
-export function exportStandaloneHtml(doc: string): void {
+export function exportStandaloneHtml(doc: string, { footnotes = false } = {}): void {
 	const title = (outlineOf(doc)[0] || {}).text || 'Document';
 	const page =
 		'<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n' +
@@ -34,7 +34,7 @@ export function exportStandaloneHtml(doc: string): void {
 		'</title>\n<style>' +
 		EXPORT_CSS +
 		'</style>\n</head>\n<body>\n<main>\n' +
-		renderMarkdown(doc) +
+		renderMarkdown(doc, { footnotes }) +
 		'</main>\n</body>\n</html>\n';
 
 	download(page, documentName(doc) + '.html', 'text/html');

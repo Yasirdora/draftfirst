@@ -33,5 +33,19 @@ export const CORE_DIALECT: DialectPack = {
 	]
 };
 
+/** Footnotes — the first opt-in pack. Off means `[^id]` stays literal text. */
+export const FOOTNOTES_PACK: DialectPack = {
+	id: 'footnotes',
+	label: 'Footnotes',
+	summary:
+		'Inline [^id] references and [^id]: definitions, numbered by first reference and back-linked.',
+	features: [
+		'[^id] references become numbered superscripts',
+		'[^id]: definitions collect at the end',
+		'Numbered by first reference, not by definition order',
+		'Back-links return to the reference'
+	]
+};
+
 /** Compact badge text for narrow status bars. */
 export const DIALECT_BADGE = CORE_DIALECT.label;

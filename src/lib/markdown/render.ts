@@ -57,8 +57,9 @@ const ESCAPABLE = '\\\\`*_{}[]()#+-.!>~|"\'';
 /**
  * Inline scanner. One pass, left to right, emitting escaped HTML.
  * `refs` holds link reference definitions collected by the block pass.
+ * `fns` is the footnote context when the pack is on, else null.
  */
-function renderInline(src, refs) {
+function renderInline(src, refs, fns = null) {
   let out = '';
   let plain = '';
   let i = 0;
@@ -116,7 +117,7 @@ function renderInline(src, refs) {
 
     /* image */
     if (ch === '!' && src[i + 1] === '[') {
-      const parsed = parseLink(src, i + 1, refs, true);
+      const parsed = parseLink(src, i + 1, refs, true, fns);
       if (parsed) {
         flush();
         out += parsed.html;
@@ -125,9 +126,23 @@ function renderInline(src, refs) {
       }
     }
 
+    /* footnote reference (pack on; definition must exist) */
+    if (fns && ch === '[' && src[i + 1] === '^') {
+      const close = src.indexOf(']', i + 2);
+      if (close !== -1) {
+        const id = src.slice(i + 2, close).trim();
+        if (id && fns.defs[id] !== undefined) {
+          flush();
+          out += footnoteRefHtml(fns, id);
+          i = close + 1;
+          continue;
+        }
+      }
+    }
+
     /* link */
     if (ch === '[') {
-      const parsed = parseLink(src, i, refs, false);
+      const parsed = parseLink(src, i, refs, false, fns);
       if (parsed) {
         flush();
         out += parsed.html;
@@ -138,7 +153,7 @@ function renderInline(src, refs) {
 
     /* strong, emphasis, strikethrough */
     if (ch === '*' || ch === '_' || ch === '~') {
-      const emphasis = parseEmphasis(src, i, refs);
+      const emphasis = parseEmphasis(src, i, refs, fns);
       if (emphasis) {
         flush();
         out += emphasis.html;
@@ -176,7 +191,7 @@ function matchBracket(src, start, open, close) {
 }
 
 /** `[text](url "title")`, `[text][ref]`, `[ref]` and their image forms. */
-function parseLink(src, start, refs, isImage) {
+function parseLink(src, start, refs, isImage, fns = null) {
   const labelEnd = matchBracket(src, start, '[', ']');
   if (labelEnd === -1) return null;
   const label = src.slice(start + 1, labelEnd);
@@ -239,7 +254,7 @@ function parseLink(src, start, refs, isImage) {
     };
   }
 
-  const inner = renderInline(label, refs);
+  const inner = renderInline(label, refs, fns);
   if (!href) return { html: inner, end };
   return { html: '<a href="' + escapeHtml(href) + '"' + LINK_TARGET + titleAttr + '>' + inner + '</a>', end };
 }
@@ -249,7 +264,7 @@ function parseLink(src, start, refs, isImage) {
  * _em_, ~~struck~~, and those nested inside each other. A delimiter only
  * opens if it is followed by non-space, and only closes if preceded by one.
  */
-function parseEmphasis(src, start, refs) {
+function parseEmphasis(src, start, refs, fns = null) {
   const ch = src[start];
   let run = 0;
   while (src[start + run] === ch) run++;
@@ -277,7 +292,7 @@ function parseEmphasis(src, start, refs) {
         if (src[i + width] === ch) { i++; continue; } // longer run: not ours
         const body = src.slice(from, i);
         if (body.trim() === '') break;
-        const inner = renderInline(body, refs);
+        const inner = renderInline(body, refs, fns);
         const tag = ch === '~' ? 'del' : (width === 2 ? 'strong' : 'em');
         return { html: '<' + tag + '>' + inner + '</' + tag + '>', end: i + width };
       }
@@ -323,6 +338,83 @@ function collectRefs(lines) {
   return { refs, lines: kept };
 }
 
+/* ---- footnotes (opt-in pack) ------------------------------------------ */
+
+const RE_FNDEF = /^ {0,3}\[\^([^\]]+)\]:[ \t]*(.*)$/;
+
+/**
+ * Pull out footnote definitions; they are not content either.
+ * Indented lines right below a definition continue it (one paragraph).
+ */
+function collectFootnotes(lines) {
+  const defs = Object.create(null);
+  const kept = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = RE_FNDEF.exec(lines[i]);
+    if (!m) {
+      kept.push(lines[i]);
+      continue;
+    }
+    let text = m[2];
+    while (i + 1 < lines.length && /^ {4,}\S/.test(lines[i + 1])) {
+      text += '\n' + lines[i + 1].trim();
+      i++;
+    }
+    defs[m[1].trim()] = text;
+  }
+  return { defs, lines: kept };
+}
+
+/** Per-document footnote state: definitions plus first-reference numbering. */
+function createFootnotes(defs) {
+  return { defs, order: [], numbers: Object.create(null), refCounts: Object.create(null) };
+}
+
+function footnoteRefHtml(fns, id) {
+  if (fns.numbers[id] === undefined) {
+    fns.order.push(id);
+    fns.numbers[id] = fns.order.length;
+  }
+  fns.refCounts[id] = (fns.refCounts[id] || 0) + 1;
+  const frag = encodeURIComponent(id);
+  const suffix = fns.refCounts[id] > 1 ? '-' + fns.refCounts[id] : '';
+  return (
+    '<sup class="fnref" data-fnref="' +
+    escapeHtml(id) +
+    '" id="fnref-' +
+    frag +
+    suffix +
+    '"><a href="#fn-' +
+    frag +
+    '">' +
+    fns.numbers[id] +
+    '</a></sup>'
+  );
+}
+
+/** The end-of-document section — only notes actually referenced, in that order. */
+function renderFootnoteSection(fns, refs) {
+  if (!fns || fns.order.length === 0) return '';
+  let html = '<section class="footnotes" data-footnotes>\n<hr>\n<ol>\n';
+  for (const id of fns.order) {
+    const frag = encodeURIComponent(id);
+    const text = renderInline(fns.defs[id].replace(/\s*\n\s*/g, ' '), refs, fns);
+    html +=
+      '<li id="fn-' +
+      frag +
+      '" data-fn="' +
+      escapeHtml(id) +
+      '"><p>' +
+      text +
+      ' <a href="#fnref-' +
+      frag +
+      '" class="fnback" data-fnback="' +
+      escapeHtml(id) +
+      '" aria-label="Back to reference">↩</a></p></li>\n';
+  }
+  return html + '</ol>\n</section>\n';
+}
+
 /** Split a table row on unescaped pipes, dropping the optional outer ones. */
 function tableCells(row) {
   const trimmed = row.trim().replace(/^\|/, '').replace(/\|$/, '');
@@ -337,7 +429,7 @@ function tableCells(row) {
   return parts.map((c) => c.trim());
 }
 
-function renderTable(rows, alignments, refs) {
+function renderTable(rows, alignments, refs, fns = null) {
   const cells = tableCells;
 
   const style = (index) => {
@@ -347,7 +439,7 @@ function renderTable(rows, alignments, refs) {
 
   let html = '<table>\n<thead>\n<tr>';
   cells(rows[0]).forEach((cell, index) => {
-    html += '<th' + style(index) + '>' + renderInline(cell, refs) + '</th>';
+    html += '<th' + style(index) + '>' + renderInline(cell, refs, fns) + '</th>';
   });
   html += '</tr>\n</thead>\n';
 
@@ -356,7 +448,7 @@ function renderTable(rows, alignments, refs) {
     for (const row of rows.slice(1)) {
       html += '<tr>';
       cells(row).forEach((cell, index) => {
-        html += '<td' + style(index) + '>' + renderInline(cell, refs) + '</td>';
+        html += '<td' + style(index) + '>' + renderInline(cell, refs, fns) + '</td>';
       });
       html += '</tr>\n';
     }
@@ -372,7 +464,7 @@ function renderTable(rows, alignments, refs) {
  * written without their `<p>` wrapper — the difference between
  * `<li>one</li>` and `<li><p>one</p></li>`.
  */
-function renderBlocks(lines, refs, { tight = false } = {}) {
+function renderBlocks(lines, refs, { tight = false, fns = null } = {}) {
   let html = '';
   let i = 0;
 
@@ -408,7 +500,7 @@ function renderBlocks(lines, refs, { tight = false } = {}) {
     const atx = RE_ATX.exec(line);
     if (atx) {
       const level = atx[1].length;
-      html += '<h' + level + '>' + renderInline((atx[2] || '').trim(), refs) + '</h' + level + '>\n';
+      html += '<h' + level + '>' + renderInline((atx[2] || '').trim(), refs, fns) + '</h' + level + '>\n';
       i++;
       continue;
     }
@@ -420,7 +512,7 @@ function renderBlocks(lines, refs, { tight = false } = {}) {
         body.push(lines[i].replace(RE_QUOTE, ''));
         i++;
       }
-      html += '<blockquote>\n' + renderBlocks(body, refs) + '</blockquote>\n';
+      html += '<blockquote>\n' + renderBlocks(body, refs, { fns }) + '</blockquote>\n';
       continue;
     }
 
@@ -428,7 +520,7 @@ function renderBlocks(lines, refs, { tight = false } = {}) {
     const bullet = RE_BULLET.exec(line);
     const ordered = RE_ORDERED.exec(line);
     if (bullet || ordered) {
-      const result = renderList(lines, i, refs);
+      const result = renderList(lines, i, refs, fns);
       html += result.html;
       i = result.next;
       continue;
@@ -464,7 +556,7 @@ function renderBlocks(lines, refs, { tight = false } = {}) {
           rows.push(lines[i]);
           i++;
         }
-        html += renderTable(rows, alignments, refs);
+        html += renderTable(rows, alignments, refs, fns);
         continue;
       }
     }
@@ -481,12 +573,12 @@ function renderBlocks(lines, refs, { tight = false } = {}) {
 
     if (i < lines.length && RE_SETEXT.test(lines[i])) {
       const level = lines[i].trim()[0] === '=' ? 1 : 2;
-      html += '<h' + level + '>' + renderInline(paragraph.join('\n').trim(), refs) + '</h' + level + '>\n';
+      html += '<h' + level + '>' + renderInline(paragraph.join('\n').trim(), refs, fns) + '</h' + level + '>\n';
       i++;
       continue;
     }
 
-    const inline = renderInline(paragraph.join('\n').trim(), refs);
+    const inline = renderInline(paragraph.join('\n').trim(), refs, fns);
     html += tight ? inline + '\n' : '<p>' + inline + '</p>\n';
   }
 
@@ -497,7 +589,7 @@ function renderBlocks(lines, refs, { tight = false } = {}) {
  * A list and everything indented under it. Items are collected by their
  * marker width, then rendered by recursion, so nesting is free.
  */
-function renderList(lines, start, refs) {
+function renderList(lines, start, refs, fns = null) {
   const first = RE_BULLET.exec(lines[start]) || RE_ORDERED.exec(lines[start]);
   const isOrdered = !RE_BULLET.exec(lines[start]);
   const startNumber = isOrdered ? parseInt(first[2], 10) : 1;
@@ -571,7 +663,7 @@ function renderList(lines, start, refs) {
       checkbox = '<input type="checkbox" disabled' + (task[1] === ' ' ? '' : ' checked') + '> ';
     }
 
-    const body = renderBlocks(item, refs, { tight: !loose }).trim();
+    const body = renderBlocks(item, refs, { tight: !loose, fns }).trim();
     html += '<li' + cls + '>' + checkbox + body + '</li>\n';
   }
 
@@ -583,12 +675,20 @@ function renderList(lines, start, refs) {
  * Every character of the source ends up either inside a tag this function
  * chose or escaped; nothing from the document is ever emitted as markup.
  */
-export function renderMarkdown(source) {
+export function renderMarkdown(source, { footnotes = false } = {}) {
   const text = String(source == null ? '' : source)
     .replace(/\r\n?/g, '\n')
     .replace(/\u0000/g, '\uFFFD');
-  const { refs, lines } = collectRefs(text.split('\n'));
-  return renderBlocks(lines, refs);
+  let lines = text.split('\n');
+  let fns = null;
+  if (footnotes) {
+    /* Footnote defs first — RE_REFDEF would otherwise swallow them as link refs. */
+    const collected = collectFootnotes(lines);
+    lines = collected.lines;
+    fns = createFootnotes(collected.defs);
+  }
+  const { refs, lines: kept } = collectRefs(lines);
+  return renderBlocks(kept, refs, { fns }) + renderFootnoteSection(fns, refs);
 }
 
 /** Headings, for the outline menu. Uses the same regexes as the renderer. */
