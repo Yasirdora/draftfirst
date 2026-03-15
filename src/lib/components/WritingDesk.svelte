@@ -66,6 +66,7 @@
 	} from '$lib/editor/slash-commands';
 	import { FIND_MIN_LENGTH, findMatches, type FindMatch } from '$lib/editor/find';
 	import { clearFindHighlights, paintFindHighlights } from '$lib/editor/find-highlight';
+	import { continueOnEnter, hardBreak, indentOnTab } from '$lib/editor/source-keys';
 	import { moveOutlineSection } from '$lib/editor/outline-reorder';
 	import { searchLibrary, sortDocuments } from '$lib/library/library';
 	import { desk } from '$lib/state/desk.svelte';
@@ -1641,55 +1642,28 @@
 
 		if (event.key === 'Tab') {
 			event.preventDefault();
-			const start = editor.selectionStart;
-			const end = editor.selectionEnd;
-			if (start === end) {
-				const text = editor.value.slice(0, start) + '  ' + editor.value.slice(end);
-				setDoc(text);
-				editor.setSelectionRange(start + 2, start + 2);
-			} else {
-				const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
-				const block = editor.value.slice(lineStart, end);
-				const shifted = event.shiftKey
-					? block.replace(/^ {1,2}/gm, '')
-					: block.replace(/^/gm, '  ');
-				const text = editor.value.slice(0, lineStart) + shifted + editor.value.slice(end);
-				setDoc(text);
-				editor.setSelectionRange(lineStart, lineStart + shifted.length);
-			}
+			const tabEdit = indentOnTab(
+				editor.value,
+				editor.selectionStart,
+				editor.selectionEnd,
+				event.shiftKey
+			);
+			setDoc(tabEdit.text);
+			editor.setSelectionRange(tabEdit.selectionStart, tabEdit.selectionEnd);
 			return;
 		}
 
-		/* Continue a list on Enter; end it on an empty item. */
-		if (event.key === 'Enter' && !event.shiftKey) {
+		/* Enter continues lists / tasks / quotes; Shift+Enter writes a hard break. */
+		if (event.key === 'Enter') {
 			const start = editor.selectionStart;
 			if (start !== editor.selectionEnd) return;
-			const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
-			const line = editor.value.slice(lineStart, start);
-			const marker = /^(\s*)([-+*]|\d{1,9}[.)])(\s+)(\[[ xX]\]\s+)?/.exec(line);
-			if (!marker) return;
-
+			const edit = event.shiftKey
+				? hardBreak(editor.value, start)
+				: continueOnEnter(editor.value, start);
+			if (!edit) return;
 			event.preventDefault();
-			const rest = line.slice(marker[0].length);
-
-			if (rest.trim() === '') {
-				const text = editor.value.slice(0, lineStart) + editor.value.slice(start);
-				setDoc(text);
-				editor.setSelectionRange(lineStart, lineStart);
-				return;
-			}
-
-			let next = marker[1] + marker[2] + marker[3];
-			if (/\d/.test(marker[2])) {
-				const number = parseInt(marker[2], 10) + 1;
-				next = marker[1] + number + marker[2].slice(-1) + marker[3];
-			}
-			if (marker[4]) next += '[ ] ';
-
-			const insert = '\n' + next;
-			const text = editor.value.slice(0, start) + insert + editor.value.slice(start);
-			setDoc(text);
-			editor.setSelectionRange(start + insert.length, start + insert.length);
+			setDoc(edit.text);
+			editor.setSelectionRange(edit.selectionStart, edit.selectionEnd);
 		}
 	}
 
