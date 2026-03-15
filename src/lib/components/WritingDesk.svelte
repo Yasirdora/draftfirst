@@ -67,6 +67,9 @@
 	import { FIND_MIN_LENGTH, findMatches, type FindMatch } from '$lib/editor/find';
 	import { clearFindHighlights, paintFindHighlights } from '$lib/editor/find-highlight';
 	import { continueOnEnter, hardBreak, indentOnTab } from '$lib/editor/source-keys';
+	import { altFromFileName, assetRef, insertImageRef } from '$lib/editor/image-insert';
+	import { blobToDataUrl, getAsset, putAsset } from '$lib/assets/asset-store';
+	import { inlineAssetDataUrls } from '$lib/utils/export-assets';
 	import { moveOutlineSection } from '$lib/editor/outline-reorder';
 	import { searchLibrary, sortDocuments } from '$lib/library/library';
 	import { desk } from '$lib/state/desk.svelte';
@@ -444,11 +447,39 @@
 	}
 
 	/** Repaint the page from source. Never while someone is typing on it. */
+	/* ---------- pasted images (IndexedDB assets) -------------------------- */
+
+	/** Session cache of minted object URLs — revoked on destroy. */
+	const assetUrls = new Map<string, string>();
+
+	/** Swap asset placeholders for freshly minted object URLs after each render. */
+	async function resolveAssetImages(root: HTMLElement) {
+		for (const img of Array.from(root.querySelectorAll<HTMLImageElement>('img[data-asset]'))) {
+			const id = img.dataset.asset!;
+			let url = assetUrls.get(id);
+			if (!url) {
+				try {
+					const blob = await getAsset(id);
+					if (!blob) {
+						if (img.isConnected) img.classList.add('asset-missing');
+						continue;
+					}
+					url = URL.createObjectURL(blob);
+					assetUrls.set(id, url);
+				} catch {
+					continue;
+				}
+			}
+			if (img.isConnected && img.getAttribute('src') !== url) img.src = url;
+		}
+	}
+
 	function renderDocument() {
 		if (!sheet) return;
 		// The only innerHTML path — and only ever with our own renderer output.
 		sheet.innerHTML = renderMarkdown(desk.doc);
 		enableTaskBoxes();
+		void resolveAssetImages(sheet);
 		if (findOpen && findQuery.trim().length >= FIND_MIN_LENGTH) {
 			// Marks were wiped with innerHTML — restore after paint.
 			queueMicrotask(() => revealFindMatch(findIndex));
@@ -1445,8 +1476,13 @@
 
 	function onExport(kind: string) {
 		if (kind === 'md') download(desk.doc, documentName(desk.doc) + '.md', 'text/markdown');
-		else if (kind === 'html') exportStandaloneHtml(desk.doc);
-		else if (kind === 'print') setTimeout(() => window.print(), 60);
+		else if (kind === 'html') {
+			// Standalone file: swap stored-asset refs for inline data URLs.
+			void inlineAssetDataUrls(desk.doc, async (id) => {
+				const blob = await getAsset(id);
+				return blob ? blobToDataUrl(blob) : null;
+			}).then(exportStandaloneHtml);
+		} else if (kind === 'print') setTimeout(() => window.print(), 60);
 	}
 
 	function clearDesk() {
@@ -1535,8 +1571,81 @@
 		updateToolbar();
 	}
 
+	function imageFileFrom(data: DataTransfer | null): File | null {
+		if (!data) return null;
+		for (const file of Array.from(data.files ?? [])) {
+			if (/^image\//.test(file.type)) return file;
+		}
+		return null;
+	}
+
+	/**
+	 * One path for paste and drop, both surfaces: store the blob in IndexedDB,
+	 * then reference it. Page gets an <img> at the selection; source gets the
+	 * Markdown reference at the caret.
+	 */
+	async function insertImageFile(file: File) {
+		const meta = await putAsset(file);
+		const ref = assetRef(meta.id);
+		const alt = altFromFileName(file.name);
+		restoreSelection();
+		if (surface() === 'page' && sheet) {
+			// Manual Range insertion — deterministic whether the caret is current
+			// (paste) or only remembered (drop). The URL is minted immediately:
+			// the image shows at once, and data-asset keeps serialise honest.
+			const img = document.createElement('img');
+			img.setAttribute('data-asset', meta.id);
+			img.setAttribute('alt', alt);
+			const url = URL.createObjectURL(file);
+			assetUrls.set(meta.id, url);
+			img.src = url;
+			const selection = window.getSelection();
+			let range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+			if (!range || !sheet.contains(range.commonAncestorContainer)) {
+				// No caret on the page — append a fresh paragraph holding the image
+				// (a bare <img> at the sheet root would not serialise).
+				const p = document.createElement('p');
+				p.appendChild(img);
+				sheet.appendChild(p);
+				range = document.createRange();
+				range.setStartAfter(p);
+				range.collapse(true);
+			} else {
+				range.deleteContents();
+				range.insertNode(img);
+				range.setStartAfter(img);
+				range.collapse(true);
+			}
+			selection?.removeAllRanges();
+			selection?.addRange(range);
+			rememberPage();
+			pageChanged();
+			void resolveAssetImages(sheet);
+			return;
+		}
+		if (!editor) return;
+		const edit = insertImageRef(editor.value, editor.selectionStart, editor.selectionEnd, ref, alt);
+		setDoc(edit.text);
+		editor.setSelectionRange(edit.selectionStart, edit.selectionEnd);
+		rememberSource();
+	}
+
+	function onEditorPaste(event: ClipboardEvent) {
+		if (!editor || !event.clipboardData) return;
+		const file = imageFileFrom(event.clipboardData);
+		if (!file) return; // plain text — let the default paste happen
+		event.preventDefault();
+		void insertImageFile(file);
+	}
+
 	function onSheetPaste(event: ClipboardEvent) {
 		if (!event.clipboardData) return;
+		const file = imageFileFrom(event.clipboardData);
+		if (file) {
+			event.preventDefault();
+			void insertImageFile(file);
+			return;
+		}
 		event.preventDefault();
 		run('insertText', event.clipboardData.getData('text/plain'));
 		pageChanged();
@@ -1810,7 +1919,12 @@
 			dragDepth = 0;
 			dragging = false;
 			const file = event.dataTransfer?.files?.[0];
-			if (file) openFile(file);
+			if (!file) return;
+			if (/^image\//.test(file.type)) {
+				void insertImageFile(file);
+				return;
+			}
+			openFile(file);
 		};
 
 		document.addEventListener('click', onDocClick);
@@ -1848,6 +1962,9 @@
 			window.removeEventListener('dragleave', onDragLeave);
 			window.removeEventListener('drop', onDrop);
 			scheme.removeEventListener('change', onScheme);
+			// Minted object URLs die with the editor.
+			for (const url of assetUrls.values()) URL.revokeObjectURL(url);
+			assetUrls.clear();
 			if (viewport) {
 				viewport.removeEventListener('resize', followKeyboard);
 				viewport.removeEventListener('scroll', followKeyboard);
@@ -2553,6 +2670,7 @@
 				}}
 				onmouseup={rememberSource}
 				onkeydown={onEditorKeydown}
+				onpaste={onEditorPaste}
 				onscroll={onEditorScroll}
 			></textarea>
 		</div>

@@ -44,6 +44,12 @@ export function serialiseInline(node) {
   return serialiseInlineNodes(node.childNodes);
 }
 
+/** Image source for serialise: the stored-asset ref if it was resolved, else the src attribute. */
+function imgSerialSrc(node) {
+  const asset = node.dataset && node.dataset.asset;
+  return asset ? 'asset:' + asset : node.getAttribute('src') || '';
+}
+
 function serialiseInlineNodes(nodes) {
   let out = '';
 
@@ -61,7 +67,7 @@ function serialiseInlineNodes(nodes) {
 
     if (tag === 'BR') { out += '  \n'; continue; }
     if (tag === 'IMG') {
-      out += '![' + (child.getAttribute('alt') || '') + '](' + (child.getAttribute('src') || '') + ')';
+      out += '![' + (child.getAttribute('alt') || '') + '](' + imgSerialSrc(child) + ')';
       continue;
     }
     if (tag === 'INPUT') continue;                 // the task box, handled by its item
@@ -186,6 +192,11 @@ function serialiseBlock(node) {
   if (tag === 'UL' || tag === 'OL') return serialiseList(node, tag === 'OL');
 
   if (tag === 'TABLE') return serialiseTable(node);
+
+  /* A bare image at block level (paste/drop with no caret) still serialises. */
+  if (tag === 'IMG') {
+    return '![' + (node.getAttribute('alt') || '') + '](' + imgSerialSrc(node) + ')';
+  }
 
   if (tag === 'DIV' && hasBlockChild(node.childNodes)) return serialiseBlocks(node.childNodes).trim();
 

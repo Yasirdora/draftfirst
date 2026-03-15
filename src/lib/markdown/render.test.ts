@@ -28,6 +28,11 @@ describe('safeUrl', () => {
 		expect(safeUrl(png)).toBe('');
 		expect(safeUrl(png, { allowImageData: true })).toBe(png);
 	});
+
+	it('allows stored-asset references for images only', () => {
+		expect(safeUrl('asset:9f1c-42ab', { allowImageData: true })).toBe('asset:9f1c-42ab');
+		expect(safeUrl('asset:9f1c-42ab')).toBe('');
+	});
 });
 
 describe('renderMarkdown', () => {
@@ -43,6 +48,12 @@ describe('renderMarkdown', () => {
 		const html = renderMarkdown('<img src=x onerror=alert(1)>');
 		expect(html).toContain('&lt;img');
 		expect(html).not.toContain('<img src=x');
+	});
+
+	it('renders images, keeping stored-asset references resolvable', () => {
+		const html = renderMarkdown('![diagram](asset:9f1c-42ab)');
+		expect(html).toContain('data-asset="9f1c-42ab"');
+		expect(html).toContain('alt="diagram"');
 	});
 
 	it('renders GFM tables and task lists', () => {

@@ -29,6 +29,10 @@ export function escapeHtml(text) {
  */
 const LINK_TARGET = ' target="_blank" rel="noopener noreferrer"';
 
+/** 1×1 transparent gif — placeholder for stored assets until the object URL lands. */
+const TRANSPARENT_PIXEL =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
 /**
  * Allow only schemes that cannot execute. Anything else — javascript:,
  * vbscript:, data: text — becomes an inert anchor rather than a trap.
@@ -39,6 +43,8 @@ export function safeUrl(url, { allowImageData = false } = {}) {
   if (/^[a-z][a-z0-9+.-]*:/i.test(raw)) {
     if (/^(https?|mailto|tel|ftp):/i.test(raw)) return raw;
     if (allowImageData && /^data:image\/(png|jpe?g|gif|webp);base64,[a-z0-9+/=\s]+$/i.test(raw)) return raw;
+    /* Stored blobs — opaque IndexedDB ids, swapped for object URLs after render. */
+    if (allowImageData && /^asset:[a-z0-9-]+$/i.test(raw)) return raw;
     return '';
   }
   return raw; // relative path, #anchor, ./file
@@ -210,6 +216,23 @@ function parseLink(src, start, refs, isImage) {
 
   if (isImage) {
     if (!href) return { html: escapeHtml('![' + label + ']'), end };
+    /* Stored blobs: emit a placeholder + the id; the shell swaps in the object URL. */
+    const asset = /^asset:([a-z0-9-]+)$/i.exec(href);
+    if (asset) {
+      return {
+        html:
+          '<img src="' +
+          TRANSPARENT_PIXEL +
+          '" data-asset="' +
+          escapeHtml(asset[1]) +
+          '" alt="' +
+          escapeHtml(label) +
+          '"' +
+          titleAttr +
+          '>',
+        end
+      };
+    }
     return {
       html: '<img src="' + escapeHtml(href) + '" alt="' + escapeHtml(label) + '"' + titleAttr + '>',
       end
