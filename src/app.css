@@ -815,7 +815,6 @@ button { cursor: pointer; }
   min-width: 32px;
   padding-left: 8px;
   padding-right: 8px;
-  font-weight: 700;
 }
 
 /* Outline reorder prototype */

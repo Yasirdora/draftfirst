@@ -88,6 +88,7 @@
 	import LibrarySidebar from './LibrarySidebar.svelte';
 	import TruthStrip from './TruthStrip.svelte';
 	import CommandPalette from './CommandPalette.svelte';
+	import Icon from './Icon.svelte';
 
 	/* ---------- reactive app state -------------------------------------- */
 
@@ -2066,19 +2067,7 @@
 				aria-pressed={libraryOpen}
 				onclick={toggleLibrary}
 			>
-				<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-					<rect
-						x="3"
-						y="4"
-						width="18"
-						height="16"
-						rx="2.5"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.7"
-					/>
-					<path d="M9 4v16" fill="none" stroke="currentColor" stroke-width="1.7" />
-				</svg>
+				<Icon name="sidebar" />
 			</button>
 			<BrandMark />
 			<span class="brand-name">Writing Desk</span>
@@ -2095,9 +2084,7 @@
 				aria-label="Page"
 				onclick={() => setView('page')}
 			>
-				<svg viewBox="0 0 24 24" aria-hidden="true"
-					><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /><path d="M9 12h6M9 16h6" /></svg
-				>
+				<Icon name="page" />
 			</button>
 			<button
 				type="button"
@@ -2107,9 +2094,7 @@
 				aria-label="Split"
 				onclick={() => setView('split')}
 			>
-				<svg viewBox="0 0 24 24" aria-hidden="true"
-					><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /></svg
-				>
+				<Icon name="split" />
 			</button>
 			<button
 				type="button"
@@ -2119,9 +2104,7 @@
 				aria-label="Markdown"
 				onclick={() => setView('source')}
 			>
-				<svg viewBox="0 0 24 24" aria-hidden="true"
-					><path d="M8.5 8 4 12l4.5 4M15.5 8 20 12l-4.5 4M13.6 5.5l-3.2 13" /></svg
-				>
+				<Icon name="code" />
 			</button>
 			<button
 				type="button"
@@ -2131,11 +2114,7 @@
 				aria-label="Read"
 				onclick={() => setView('read')}
 			>
-				<svg viewBox="0 0 24 24" aria-hidden="true"
-					><path
-						d="M2.5 5.5C4 4.9 5.7 4.6 7.5 4.6c1.9 0 3.4.5 4.5 1.4 1.1-.9 2.6-1.4 4.5-1.4 1.8 0 3.5.3 5 .9v13.2c-1.5-.6-3.2-.9-5-.9-1.9 0-3.4.5-4.5 1.4-1.1-.9-2.6-1.4-4.5-1.4-1.8 0-3.5.3-5 .9z"
-					/><path d="M12 6v13.2" /></svg
-				>
+				<Icon name="read" />
 			</button>
 		</div>
 
@@ -2233,33 +2212,7 @@
 			aria-label={themeLabel}
 			onclick={cycleTheme}
 		>
-			{#if theme === 'light'}
-				<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-					<circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7" />
-					<path
-						d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.7"
-						stroke-linecap="round"
-					/>
-				</svg>
-			{:else if theme === 'dark'}
-				<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-					<path
-						d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="1.7"
-						stroke-linejoin="round"
-					/>
-				</svg>
-			{:else}
-				<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-					<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7" />
-					<path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor" />
-				</svg>
-			{/if}
+			<Icon name={theme === 'light' ? 'sun' : theme === 'dark' ? 'moon' : 'auto'} />
 		</button>
 
 		<button
@@ -2274,7 +2227,7 @@
 				openShortcuts();
 			}}
 		>
-			?
+			<Icon name="question" />
 		</button>
 
 		<div class="menu-wrap">
