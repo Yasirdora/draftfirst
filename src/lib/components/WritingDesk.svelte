@@ -71,7 +71,7 @@
 	import { altFromFileName, assetRef, insertImageRef } from '$lib/editor/image-insert';
 	import { blobToDataUrl, getAsset, putAsset } from '$lib/assets/asset-store';
 	import { inlineAssetDataUrls } from '$lib/utils/export-assets';
-	import { moveOutlineSection } from '$lib/editor/outline-reorder';
+	import { reorderOutlineSections } from '$lib/editor/outline-reorder';
 	import { searchLibrary, sortDocuments } from '$lib/library/library';
 	import { desk } from '$lib/state/desk.svelte';
 	import {
@@ -1611,13 +1611,62 @@
 		revealFindMatch(findIndex - 1, { scroll: true });
 	}
 
-	/* ---------- outline reorder ----------------------------------------- */
+	/* ---------- outline drag-to-reorder ------------------------------------ */
 
-	function moveOutline(headingIndex: number, direction: -1 | 1) {
-		const next = moveOutlineSection(desk.doc, headingIndex, direction);
+	let outlineDragFrom = $state<number | null>(null);
+	let outlineDropTarget = $state<{ index: number; before: boolean } | null>(null);
+
+	function applyOutlineReorder(from: number, to: number) {
+		if (from === to) return;
+		const next = reorderOutlineSections(desk.doc, from, to);
 		if (next === desk.doc) return;
 		setDoc(next);
 		rebuildOutline();
+	}
+
+	function onOutlineDragStart(event: DragEvent, index: number) {
+		outlineDragFrom = index;
+		if (!event.dataTransfer) return;
+		event.dataTransfer.effectAllowed = 'move';
+		event.dataTransfer.setData('text/plain', String(index));
+		const row = (event.currentTarget as HTMLElement).closest('li');
+		if (row) event.dataTransfer.setDragImage(row as HTMLElement, 12, 12);
+	}
+
+	function onOutlineDragOver(event: DragEvent, index: number) {
+		if (outlineDragFrom === null) return;
+		event.preventDefault();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		outlineDropTarget = { index, before: event.clientY < rect.top + rect.height / 2 };
+	}
+
+	function onOutlineDrop(event: DragEvent) {
+		event.preventDefault();
+		if (outlineDragFrom !== null && outlineDropTarget) {
+			let to = outlineDropTarget.index + (outlineDropTarget.before ? 0 : 1);
+			if (to > outlineDragFrom) to -= 1;
+			applyOutlineReorder(outlineDragFrom, to);
+		}
+		outlineDragFrom = null;
+		outlineDropTarget = null;
+	}
+
+	function onOutlineDragEnd() {
+		outlineDragFrom = null;
+		outlineDropTarget = null;
+	}
+
+	/* Keyboard parity: Alt+Arrow moves a section without the mouse. */
+	function onOutlineGripKey(event: KeyboardEvent, index: number) {
+		if (!event.altKey) return;
+		if (event.key === 'ArrowUp' && index > 0) {
+			event.preventDefault();
+			applyOutlineReorder(index, index - 1);
+		} else if (event.key === 'ArrowDown' && index < outlineItems.length - 1) {
+			event.preventDefault();
+			applyOutlineReorder(index, index + 1);
+		}
 	}
 
 	/* ---------- file / export ------------------------------------------- */
@@ -2306,7 +2355,27 @@
 					<li class="empty">No headings yet. Use /h1 in Markdown or the style menu.</li>
 				{:else}
 					{#each outlineItems as heading, index (heading.line + ':' + index)}
-						<li class="outline-row">
+						<li
+							class="outline-row"
+							class:dragging={outlineDragFrom === index}
+							class:drop-before={outlineDropTarget?.index === index && outlineDropTarget.before}
+							class:drop-after={outlineDropTarget?.index === index && !outlineDropTarget.before}
+							ondragover={(e) => onOutlineDragOver(e, index)}
+							ondrop={onOutlineDrop}
+						>
+							<span
+								class="outline-grip"
+								role="button"
+								tabindex="0"
+								title="Drag to reorder section (⌥↑↓)"
+								aria-label="Reorder section — drag, or Alt with arrow keys"
+								draggable="true"
+								ondragstart={(e) => onOutlineDragStart(e, index)}
+								ondragend={onOutlineDragEnd}
+								onkeydown={(e) => onOutlineGripKey(e, index)}
+							>
+								<Icon name="grip" size={14} />
+							</span>
 							<button
 								type="button"
 								class="lv{heading.level} outline-jump"
@@ -2314,37 +2383,9 @@
 							>
 								{heading.text || '(untitled)'}
 							</button>
-							<span class="outline-move" role="group" aria-label="Reorder section">
-								<button
-									type="button"
-									class="outline-move__btn"
-									title="Move section up"
-									aria-label="Move section up"
-									disabled={index === 0}
-									onclick={(e) => {
-										e.stopPropagation();
-										moveOutline(index, -1);
-									}}
-								>
-									↑
-								</button>
-								<button
-									type="button"
-									class="outline-move__btn"
-									title="Move section down"
-									aria-label="Move section down"
-									disabled={index === outlineItems.length - 1}
-									onclick={(e) => {
-										e.stopPropagation();
-										moveOutline(index, 1);
-									}}
-								>
-									↓
-								</button>
-							</span>
 						</li>
 					{/each}
-					<li class="menu-note">↑↓ reorder whole sections (prototype)</li>
+					<li class="menu-note">Drag the dots to reorder whole sections · ⌥↑↓ too</li>
 				{/if}
 			</ul>
 		</div>

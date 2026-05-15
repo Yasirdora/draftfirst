@@ -54,7 +54,8 @@
 		rule: '<path d="M4 12h16"/>',
 		eraser:
 			'<path d="m5.2 15.2 7-7a1.6 1.6 0 0 1 2.2 0l3.4 3.4a1.6 1.6 0 0 1 0 2.2l-4.4 4.4H8.4z"/><path d="M4.5 20h15"/>',
-		edit: '<path d="M16.9 3.6a2.5 2.5 0 0 1 3.5 3.5l-11 11L4 19.5l1.4-5.4z"/><path d="m14.9 5.6 3.5 3.5"/>'
+		edit: '<path d="M16.9 3.6a2.5 2.5 0 0 1 3.5 3.5l-11 11L4 19.5l1.4-5.4z"/><path d="m14.9 5.6 3.5 3.5"/>',
+		grip: '<g fill="currentColor" stroke="none"><circle cx="9" cy="6.5" r="1.35"/><circle cx="15" cy="6.5" r="1.35"/><circle cx="9" cy="12" r="1.35"/><circle cx="15" cy="12" r="1.35"/><circle cx="9" cy="17.5" r="1.35"/><circle cx="15" cy="17.5" r="1.35"/></g>'
 	} as const;
 
 	export type IconName = keyof typeof paths;

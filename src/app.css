@@ -862,42 +862,50 @@ kbd, .menu .hint {
   padding-right: 8px;
 }
 
-/* Outline reorder prototype */
+/* Outline — six-dot grip at the row's left edge; drag to reorder sections.
+   The grip sleeps at zero opacity until the row is hovered or focused, the
+   way the library's row actions do. */
 .menu-outline .outline-row {
   display: flex;
   align-items: stretch;
-  gap: 2px;
+  position: relative;
 }
+.menu-outline .outline-grip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  margin-left: 2px;
+  border-radius: 5px;
+  color: var(--placeholder);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.menu-outline .outline-row:hover .outline-grip,
+.menu-outline .outline-row:focus-within .outline-grip {
+  opacity: 1;
+}
+.menu-outline .outline-grip:hover { color: var(--ink); }
+.menu-outline .outline-grip:active { cursor: grabbing; }
 .menu-outline .outline-jump {
   flex: 1 1 auto;
   min-width: 0;
 }
-.menu-outline .outline-move {
-  display: flex;
-  flex: none;
-  align-items: center;
-  padding-right: 2px;
-  gap: 1px;
+.menu-outline .outline-row.dragging { opacity: .38; }
+.menu-outline .outline-row.drop-before::before,
+.menu-outline .outline-row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 4px; right: 4px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
 }
-.menu-outline .outline-move__btn {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1;
-}
-.menu-outline .outline-move__btn:hover:not(:disabled) {
-  background: var(--rule-soft);
-  color: var(--ink);
-}
-.menu-outline .outline-move__btn:disabled {
-  opacity: 0.28;
-  cursor: default;
-}
+.menu-outline .outline-row.drop-before::before { top: -1px; }
+.menu-outline .outline-row.drop-after::after { bottom: -1px; }
 
 @media print {
   .app-bar, .status-bar, .editor-pane, .drop-hint, .toolbar, .menu,
