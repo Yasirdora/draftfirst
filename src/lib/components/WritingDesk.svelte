@@ -2374,7 +2374,7 @@
 				}}
 			>
 				<span>{styleToken}</span>
-				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+				<Icon name="chevron-down" size={13} />
 			</button>
 			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 			<ul
@@ -2414,9 +2414,7 @@
 			title="Bold (⌘B)"
 			aria-label="Bold"
 		>
-			<svg viewBox="0 0 24 24" aria-hidden="true"
-				><path d="M7 5h6.5a3.5 3.5 0 0 1 0 7H7zM7 12h7.5a3.5 3.5 0 0 1 0 7H7z" /></svg
-			>
+			<Icon name="bold" />
 		</button>
 		<button
 			type="button"
@@ -2426,9 +2424,7 @@
 			title="Italic (⌘I)"
 			aria-label="Italic"
 		>
-			<svg viewBox="0 0 24 24" aria-hidden="true"
-				><path d="M15 5h-5M14 19H9M13.5 5 10.5 19" /></svg
-			>
+			<Icon name="italic" />
 		</button>
 		<button
 			type="button"
@@ -2438,11 +2434,7 @@
 			title="Strikethrough (⌘⇧X)"
 			aria-label="Strikethrough"
 		>
-			<svg viewBox="0 0 24 24" aria-hidden="true"
-				><path
-					d="M5 12h14M16 7.5C15.2 6 13.7 5.2 12 5.2 9.6 5.2 8 6.4 8 8.2c0 1.3.9 2.2 2.6 2.8M8.4 16c.7 1.7 2.3 2.6 4 2.6 2.5 0 4.1-1.2 4.1-3 0-.6-.2-1.2-.5-1.6"
-				/></svg
-			>
+			<Icon name="strike" />
 		</button>
 		<button
 			type="button"
@@ -2452,7 +2444,7 @@
 			title="Code (⌘E)"
 			aria-label="Inline code"
 		>
-			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" /></svg>
+			<Icon name="code" />
 		</button>
 		<button
 			type="button"
@@ -2462,11 +2454,7 @@
 			title="Link (⌘K)"
 			aria-label="Link"
 		>
-			<svg viewBox="0 0 24 24" aria-hidden="true"
-				><path
-					d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 1 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 1 0 5.66 5.66l1-1"
-				/></svg
-			>
+			<Icon name="link" />
 		</button>
 
 		<span class="tool-sep"></span>
@@ -2479,21 +2467,7 @@
 			title="Bulleted list"
 			aria-label="Bulleted list"
 		>
-			<svg viewBox="0 0 24 24" aria-hidden="true"
-				><path d="M9 6h11M9 12h11M9 18h11" /><circle
-					cx="4.5"
-					cy="6"
-					r="1.3"
-					fill="currentColor"
-					stroke="none"
-				/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle
-					cx="4.5"
-					cy="18"
-					r="1.3"
-					fill="currentColor"
-					stroke="none"
-				/></svg
-			>
+			<Icon name="list" />
 		</button>
 		<button
 			type="button"
@@ -2503,11 +2477,7 @@
 			title="Numbered list"
 			aria-label="Numbered list"
 		>
-			<svg viewBox="0 0 24 24" aria-hidden="true"
-				><path
-					d="M10 6h10M10 12h10M10 18h10M4 5.5h1.4V9M3.4 14.2c0-.7.6-1.2 1.3-1.2.7 0 1.3.5 1.3 1.1 0 1.2-2.6 1.6-2.6 3.4h2.8"
-				/></svg
-			>
+			<Icon name="ordered" />
 		</button>
 
 		<span class="tool-spacer"></span>
@@ -2529,15 +2499,7 @@
 					});
 				}}
 			>
-				<svg viewBox="0 0 24 24" aria-hidden="true"
-					><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle
-						cx="12"
-						cy="12"
-						r="1.4"
-						fill="currentColor"
-						stroke="none"
-					/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" /></svg
-				>
+				<Icon name="more" />
 			</button>
 			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
 			<ul

@@ -255,7 +255,7 @@ button { cursor: pointer; }
   z-index: 15;
   transform: translateX(-50%) translateY(var(--keyboard-offset, 0px));
 
-  display: flex; align-items: center; gap: 2px;
+  display: flex; align-items: center; gap: 1px;
   width: max-content; max-width: min(calc(100vw - 32px), 680px);
   padding: 8px 12px;
 
@@ -293,23 +293,24 @@ button { cursor: pointer; }
   to   { opacity: 1; }
 }
 
+/* Button grammar adopted from writedown: 28px targets, 7px radius, hairline dividers */
 .tool {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   flex: none;
-  min-width: 34px; height: 34px; padding: 0 8px;
-  border: 1px solid transparent; border-radius: var(--radius-pill);
+  min-width: 28px; height: 28px; padding: 0 5px;
+  border: 1px solid transparent; border-radius: 7px;
   background: none; color: var(--muted);
   transition: background-color .12s ease, color .12s ease;
 }
 .tool:hover { background: var(--rule-soft); color: var(--ink); }
 .tool[aria-pressed="true"], .tool[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent); }
-.tool svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-.tool--style { min-width: 0; padding: 0 7px 0 9px; gap: 3px; font-size: 13px; font-weight: 650; }
+.tool svg { width: 16px; height: 16px; }
+.tool--style { min-width: 0; padding: 0 7px 0 9px; gap: 3px; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; }
 .tool--style span { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .tool--style svg { width: 13px; height: 13px; }
 @media (prefers-reduced-motion: reduce) { .tool { transition: none; } }
 
-.tool-sep { flex: none; width: 1px; height: 20px; margin: 0 6px; background: var(--rule); }
+.tool-sep { flex: none; width: 1px; height: 18px; margin: 0 7px; background: var(--rule); }
 .tool-spacer { flex: 0 0 4px; }
 
 .menu-style button, .menu-more button { display: flex; align-items: center; gap: 10px; }
