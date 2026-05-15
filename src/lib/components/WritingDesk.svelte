@@ -776,24 +776,153 @@
 		}
 	}
 
-	function toggleTaskItem() {
-		const block = currentBlock();
-		if (!block || block.tagName !== 'LI') run('insertUnorderedList');
-		const item = currentBlock();
-		if (!item || item.tagName !== 'LI') return;
+	/**
+	 * Lists are built by hand. execCommand('insertUnorderedList') nests the
+	 * <ul> inside the current <p> when defaultParagraphSeparator is 'p' —
+	 * invalid HTML that silently breaks serialisation (the list round-trips
+	 * as running text). Every list toggle here produces structure that
+	 * serialises cleanly: a list is always a direct child of the sheet.
+	 */
+	function toggleListOnPage(kind: 'ul' | 'ol' | 'task') {
+		if (!sheet) return;
+		const selection = window.getSelection();
+		if (!selection || !selection.rangeCount) return;
+		const listTag = kind === 'ol' ? 'OL' : 'UL';
 
-		const existing = item.querySelector('input[type="checkbox"]');
-		if (existing) {
-			existing.remove();
-			item.classList.remove('task');
+		const freshBox = () => {
+			const box = document.createElement('input');
+			box.type = 'checkbox';
+			box.setAttribute('contenteditable', 'false');
+			return box;
+		};
+		const ensureBreak = (el: HTMLElement) => {
+			if (!(el.textContent || '').trim() && !el.querySelector('br'))
+				el.appendChild(document.createElement('br'));
+		};
+		const matchesKind = (li: Element) =>
+			li.parentElement?.tagName === listTag &&
+			(kind === 'task' ? li.classList.contains('task') : !li.classList.contains('task'));
+
+		/* One item back to a paragraph, splitting the list when it sits in
+		   the middle — the way the good editors do it. */
+		const unwrapItem = (li: HTMLElement) => {
+			const list = li.parentElement!;
+			const after = list.cloneNode(false) as HTMLElement;
+			let node = li.nextSibling;
+			while (node) {
+				const following = node.nextSibling;
+				after.appendChild(node);
+				node = following;
+			}
+			const p = document.createElement('p');
+			li.querySelector('input[type="checkbox"]')?.remove();
+			while (li.firstChild) p.appendChild(li.firstChild);
+			ensureBreak(p);
+			list.after(p);
+			if (after.childNodes.length) p.after(after);
+			li.remove();
+			if (!list.childNodes.length) list.remove();
+			placeCaretIn(p);
+		};
+
+		const block = currentBlock();
+
+		if (block && block.tagName === 'LI' && selection.isCollapsed) {
+			const li = block as HTMLElement;
+			if (matchesKind(li)) {
+				unwrapItem(li);
+				return;
+			}
+			if (kind === 'task' || li.classList.contains('task')) {
+				/* bullet ↔ task: per-item, the <ul> stays */
+				if (kind === 'task') {
+					li.classList.add('task');
+					li.insertBefore(freshBox(), li.firstChild);
+				} else {
+					li.classList.remove('task');
+					li.querySelector('input[type="checkbox"]')?.remove();
+				}
+			} else {
+				/* bullet ↔ numbered: the whole list changes tag */
+				const list = li.parentElement!;
+				const converted = document.createElement(listTag);
+				while (list.firstChild) converted.appendChild(list.firstChild);
+				list.after(converted);
+				list.remove();
+			}
 			return;
 		}
 
-		const box = document.createElement('input');
-		box.type = 'checkbox';
-		box.setAttribute('contenteditable', 'false');
-		item.classList.add('task');
-		item.insertBefore(box, item.firstChild);
+		/* Blocks → items: the current block, or every top-level block the
+		   selection touches becomes one item in a single new list. */
+		const targets: HTMLElement[] = [];
+		if (selection.isCollapsed) {
+			if (block && block !== sheet && sheet.contains(block)) targets.push(block as HTMLElement);
+		} else {
+			const range = selection.getRangeAt(0);
+			for (const child of Array.from(sheet.children)) {
+				if (range.intersectsNode(child)) targets.push(child as HTMLElement);
+			}
+		}
+		if (!targets.length) return;
+
+		/* A selection spanning only items of this kind unwraps them all. */
+		if (
+			!selection.isCollapsed &&
+			targets.every(
+				(el) =>
+					el.tagName === listTag &&
+					Array.from(el.children).every((c) => matchesKind(c))
+			)
+		) {
+			for (const list of targets)
+				for (const item of Array.from(list.children)) unwrapItem(item as HTMLElement);
+			return;
+		}
+
+		const list = document.createElement(listTag);
+		targets[0].before(list);
+		for (const target of targets) {
+			if (target.tagName === 'UL' || target.tagName === 'OL') {
+				for (const item of Array.from(target.children)) {
+					const li = item as HTMLElement;
+					if (kind === 'task' && !li.classList.contains('task')) {
+						li.classList.add('task');
+						li.insertBefore(freshBox(), li.firstChild);
+					} else if (kind !== 'task' && li.classList.contains('task')) {
+						li.classList.remove('task');
+						li.querySelector('input[type="checkbox"]')?.remove();
+					}
+					list.appendChild(li);
+				}
+				target.remove();
+			} else {
+				const li = document.createElement('li');
+				if (kind === 'task') {
+					li.className = 'task';
+					li.appendChild(freshBox());
+				}
+				while (target.firstChild) li.appendChild(target.firstChild);
+				ensureBreak(li);
+				list.appendChild(li);
+				target.remove();
+			}
+		}
+
+		/* Moved text nodes keep the caret; a removed empty block loses it. */
+		if (!selection.anchorNode || !sheet.contains(selection.anchorNode)) {
+			const firstItem = list.querySelector('li');
+			if (firstItem) {
+				const caret = document.createRange();
+				caret.setStart(
+					firstItem,
+					firstItem.querySelector('input[type="checkbox"]') ? 1 : 0
+				);
+				caret.collapse(true);
+				selection.removeAllRanges();
+				selection.addRange(caret);
+			}
+		}
 	}
 
 	function currentCell(): HTMLTableCellElement | null {
@@ -996,9 +1125,9 @@
 		else if (name === 'link') pageLink();
 		else if (name === 'style') run('formatBlock', '<' + (BLOCK_FOR[argument || ''] || 'p') + '>');
 		else if (name === 'quote') run('formatBlock', before.kind === 'quote' ? '<p>' : '<blockquote>');
-		else if (name === 'ul') run('insertUnorderedList');
-		else if (name === 'ol') run('insertOrderedList');
-		else if (name === 'task') toggleTaskItem();
+		else if (name === 'ul') toggleListOnPage('ul');
+		else if (name === 'ol') toggleListOnPage('ol');
+		else if (name === 'task') toggleListOnPage('task');
 		else if (name === 'clear') {
 			run('removeFormat');
 			run('unlink');
@@ -1594,6 +1723,46 @@
 				event.preventDefault();
 				applySlashCommand(slashItems[slashIndex]);
 				return;
+			}
+		}
+
+		/* Enter inside a task item continues the task list. The native split
+		   clones the <li> but not its checkbox, so the new line would degrade
+		   to a plain bullet on the next round-trip — do the split by hand. */
+		if (
+			event.key === 'Enter' &&
+			!event.shiftKey &&
+			!event.metaKey &&
+			!event.ctrlKey &&
+			!event.altKey
+		) {
+			const block = currentBlock();
+			if (block && block.tagName === 'LI' && block.classList.contains('task')) {
+				const selection = window.getSelection();
+				if (selection && selection.rangeCount && selection.isCollapsed) {
+					event.preventDefault();
+					const li = block as HTMLElement;
+					const tail = selection.getRangeAt(0).cloneRange();
+					tail.selectNodeContents(li);
+					tail.setStart(selection.getRangeAt(0).endContainer, selection.getRangeAt(0).endOffset);
+					const next = document.createElement('li');
+					next.className = 'task';
+					const box = document.createElement('input');
+					box.type = 'checkbox';
+					box.setAttribute('contenteditable', 'false');
+					next.appendChild(box);
+					next.appendChild(tail.extractContents());
+					li.after(next);
+					const caret = document.createRange();
+					caret.setStart(next, 1);
+					caret.collapse(true);
+					selection.removeAllRanges();
+					selection.addRange(caret);
+					rememberPage();
+					pageChanged();
+					updateToolbar();
+					return;
+				}
 			}
 		}
 

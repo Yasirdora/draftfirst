@@ -737,7 +737,6 @@ kbd, .menu .hint {
 .desk[data-view="read"] .sheet:empty::before,
 .desk[data-view="read"] .sheet > p:only-child:empty::before { content: none; }
 .sheet:focus-visible { box-shadow: var(--shadow-sheet), 0 0 0 2px var(--accent-soft); }
-.sheet li.task input { cursor: pointer; }
 
 /*
  * Find-in-page highlights via CSS Custom Highlight API (no DOM, no reflow).
@@ -791,7 +790,30 @@ kbd, .menu .hint {
 .sheet li { margin: .28em 0; }
 .sheet li > ul, .sheet li > ol { margin: .28em 0; }
 .sheet li.task { list-style: none; margin-left: -1.35em; }
-.sheet li.task input { margin-right: .5em; }
+/* Task checkboxes are drawn, not native — writedown's 15px box: hairline
+   border at rest, paper-accent fill with a white tick when done. Pinned to
+   the --doc tokens because the sheet is always white paper; the UI accent
+   flips to near-white in dark chrome and would erase the tick. */
+.sheet li.task input[type='checkbox'] {
+  appearance: none; -webkit-appearance: none;
+  position: relative;
+  width: 15px; height: 15px;
+  margin: 0 8px 0 1px; vertical-align: -2px;
+  border: 1.5px solid var(--doc-muted); border-radius: 4.5px;
+  background: transparent; cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease;
+  print-color-adjust: exact; -webkit-print-color-adjust: exact;
+}
+.sheet li.task input[type='checkbox']:checked {
+  background: var(--doc-accent); border-color: var(--doc-accent);
+}
+.sheet li.task input[type='checkbox']:checked::after {
+  content: ''; position: absolute;
+  left: 4.5px; top: 1.5px; width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.sheet li.task input[type='checkbox']:disabled { cursor: default; opacity: 1; }
 .sheet blockquote {
   margin: 0 0 1.05em; padding: .1em 0 .1em 1.1em;
   border-left: 3px solid var(--doc-rule); color: var(--doc-muted);

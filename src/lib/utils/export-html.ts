@@ -21,7 +21,13 @@ const EXPORT_CSS = [
 	'pre{padding:14px 16px;overflow:auto;background:#F2F4F7;border-radius:7px}pre code{background:none;padding:0;font-size:.82em}',
 	'table{border-collapse:collapse;width:100%;font-size:.93em}th,td{border:1px solid #DFE4E9;padding:.45em .7em;text-align:left}',
 	'th{background:#F2F4F7}hr{border:0;border-top:1px solid #DFE4E9;margin:2em 0}',
-	'img{max-width:100%;height:auto}li.task{list-style:none;margin-left:-1.35em}'
+	'img{max-width:100%;height:auto}li.task{list-style:none;margin-left:-1.35em}',
+	'li.task input[type=checkbox]{appearance:none;-webkit-appearance:none;position:relative;',
+	'width:15px;height:15px;margin:0 8px 0 1px;vertical-align:-2px;border:1.5px solid #5A6875;',
+	'border-radius:4.5px;background:transparent;print-color-adjust:exact;-webkit-print-color-adjust:exact}',
+	'li.task input[type=checkbox]:checked{background:#2A5B8C;border-color:#2A5B8C}',
+	'li.task input[type=checkbox]:checked::after{content:"";position:absolute;left:4.5px;top:1.5px;',
+	'width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}'
 ].join('');
 
 export function exportStandaloneHtml(doc: string, { footnotes = false } = {}): void {
