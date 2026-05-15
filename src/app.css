@@ -28,6 +28,7 @@
   --on-accent:   #FFFFFF;
   --accent-deep: #0842A0;
   --accent-soft: rgba(11, 87, 208, 0.10);
+  --syn-accent:  #0B57D0;   /* source-view syntax accent — stays a colour in both themes */
   --danger:      #FF3B30;
   --placeholder: #80868B;
   --hl-find:        rgba(255, 214, 10, 0.42);  /* find matches — see ::highlight */
@@ -62,6 +63,7 @@
   --on-accent:   #0A0A0A;
   --accent-deep: #FFFFFF;
   --accent-soft: rgba(255, 255, 255, 0.10);
+  --syn-accent:  #82AFFF;   /* readable blue for syntax on the near-black pane */
   --danger:      #FF453A;
   --placeholder: #6B6B6B;
   --shadow-sheet: 0 0 0 1px rgba(255,255,255,.06), 0 12px 40px rgba(0,0,0,.45);
@@ -342,9 +344,11 @@ kbd, .menu .hint {
 .menu .separator { height: 1px; margin: 4px 6px; background: var(--rule); }
 .menu-style { min-width: 250px; }
 
-/* Room for the bar to float over, so it never sits on the last line. */
-#editor, .editor-backdrop { padding-bottom: 120px; }
-.reading-pane { padding-bottom: 120px; }
+/* Room for the bar to float over, plus writedown's 45vh: the last line can
+   always scroll up to a comfortable reading height. (.reading-pane takes its
+   bottom room in its own block below — a padding shorthand there would
+   override a rule here.) */
+#editor, .editor-backdrop { padding-bottom: 45vh; }
 
 /* A window narrow enough that two columns would be two unusable columns.
    This is about the layout, not the toolbar — hence its own breakpoint. */
@@ -432,6 +436,9 @@ kbd, .menu .hint {
   overflow: auto;
   border-left: 0;
   padding: 0;
+  /* writedown's 45vh: the last line scrolls up to reading height, and the
+     floating bar never sits on it. Must live in this block — see note above. */
+  padding-bottom: 45vh;
   background: var(--paper);
   border-radius: var(--radius-stage);
   box-shadow: var(--shadow-sheet);
@@ -462,7 +469,7 @@ kbd, .menu .hint {
 .desk[data-view="page"] .reading-pane,
 .desk[data-view="read"] .reading-pane {
   margin: 8px 14px 12px 8px;
-  padding: 0;
+  padding: 0 0 45vh;
   background: var(--paper);
   border-radius: var(--radius-stage);
   box-shadow: var(--shadow-sheet);
@@ -485,7 +492,7 @@ kbd, .menu .hint {
 }
 .desk[data-view="split"] .reading-pane {
   margin: 0;
-  padding: 0;
+  padding: 0 0 45vh;
   background: var(--paper);
   border-radius: var(--radius-stage);
   box-shadow: var(--shadow-sheet);
@@ -545,7 +552,7 @@ kbd, .menu .hint {
   flex: 1 1 auto; width: 100%; min-height: 0;
   position: relative; z-index: 1;
   resize: none; outline: none;
-  color: transparent; caret-color: var(--ink);
+  color: transparent; caret-color: var(--accent);
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;
 }
@@ -574,7 +581,7 @@ kbd, .menu .hint {
 .editor-backdrop .tk-code-block { color: var(--muted); }
 .editor-backdrop .tk-heading,
 .editor-backdrop .tk-link,
-.editor-backdrop .tk-fn { color: var(--accent); }
+.editor-backdrop .tk-fn { color: var(--syn-accent); }
 .editor-backdrop .tk-code {
   background: var(--rule-soft);
   border-radius: 4px;
@@ -777,8 +784,8 @@ kbd, .menu .hint {
   font-family: var(--font-ui); line-height: 1.25; margin: 1.9em 0 .55em;
   letter-spacing: -0.012em;
 }
-.sheet h1 { font-size: 1.9em; margin-top: .2em; }
-.sheet h2 { font-size: 1.42em; padding-bottom: .2em; border-bottom: 1px solid var(--doc-rule); }
+.sheet h1 { font-size: 1.9em; margin-top: .2em; letter-spacing: -0.022em; }
+.sheet h2 { font-size: 1.42em; padding-bottom: .2em; border-bottom: 1px solid var(--doc-rule); letter-spacing: -0.016em; }
 .sheet h3 { font-size: 1.18em; }
 .sheet h4 { font-size: 1.02em; }
 .sheet h5, .sheet h6 { font-size: .95em; color: var(--doc-muted); }
@@ -788,6 +795,8 @@ kbd, .menu .hint {
 .sheet del { color: var(--doc-muted); }
 .sheet ul, .sheet ol { margin: 0 0 1.05em; padding-left: 1.5em; }
 .sheet li { margin: .28em 0; }
+.sheet li::marker { color: var(--doc-muted); }
+.sheet ::selection { background: color-mix(in srgb, var(--doc-accent) 18%, transparent); }
 .sheet li > ul, .sheet li > ol { margin: .28em 0; }
 .sheet li.task { list-style: none; margin-left: -1.35em; }
 /* Task checkboxes are drawn, not native — writedown's 15px box: hairline
@@ -828,7 +837,7 @@ kbd, .menu .hint {
   background: var(--doc-code-bg); border-radius: 7px;
 }
 .sheet pre code { background: none; padding: 0; font-size: .82em; line-height: 1.55; }
-.sheet img { max-width: 100%; height: auto; border-radius: 4px; }
+.sheet img { max-width: 100%; height: auto; border-radius: 8px; }
 .sheet img.asset-missing { opacity: .55; outline: 1px dashed var(--doc-muted); outline-offset: 2px; }
 
 /* Footnotes pack — quiet, print-safe */
