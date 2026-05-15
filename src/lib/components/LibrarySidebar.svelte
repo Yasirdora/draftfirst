@@ -4,6 +4,7 @@
 	 */
 	import type { LibraryDocument, LibrarySearchHit, TrashBin } from '$lib/library/types';
 	import { formatRelativeTime } from '$lib/library/library';
+	import Icon from './Icon.svelte';
 
 	let {
 		open = true,
@@ -80,29 +81,18 @@
 					aria-label="Close library"
 					onclick={onClose}
 				>
-					<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-						<path
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							d="M6 6l12 12M18 6L6 18"
-						/>
-					</svg>
+					<Icon name="close" />
 				</button>
 			</div>
 
 			<button type="button" class="library__new" onclick={onNew}>
-				<span class="library__new-plus" aria-hidden="true">+</span>
+				<span class="library__new-plus" aria-hidden="true"><Icon name="plus" size={14} /></span>
 				New document
 			</button>
 
 			<label class="library__search">
 				<span class="visually-hidden">Search library</span>
-				<svg class="library__search-icon" viewBox="0 0 24 24" aria-hidden="true">
-					<circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="2" />
-					<path d="M16 16l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-				</svg>
+				<span class="library__search-icon" aria-hidden="true"><Icon name="search" size={14} /></span>
 				<input
 					type="search"
 					placeholder="Search"
@@ -164,11 +154,11 @@
 										aria-label="Rename {doc.title}"
 										onclick={(e) => startRename(doc, e)}
 									>
-										✎
+										<Icon name="edit" size={14} />
 									</button>
 									<button
 										type="button"
-										class="library__action"
+										class="library__action library__action--danger"
 										title="Delete"
 										aria-label="Delete {doc.title}"
 										onclick={(e) => {
@@ -176,7 +166,7 @@
 											onDelete?.(doc.id);
 										}}
 									>
-										⌫
+										<Icon name="trash" size={14} />
 									</button>
 								</div>
 							{/if}
@@ -294,8 +284,8 @@
 		left: 12px;
 		top: 50%;
 		transform: translateY(-50%);
-		width: 14px;
-		height: 14px;
+		display: inline-flex;
+		align-items: center;
 		color: var(--placeholder);
 		pointer-events: none;
 	}
@@ -367,7 +357,7 @@
 		text-align: center;
 	}
 
-	/* Kimi: quiet rows, soft active fill (not heavy chrome) */
+	/* Kimi: quiet rows; the active row speaks in accent, adopted from writedown */
 	.library__item {
 		display: flex;
 		align-items: stretch;
@@ -377,7 +367,7 @@
 	}
 
 	.library__item.is-active {
-		background: var(--rule-soft);
+		background: var(--accent-soft);
 		box-shadow: none;
 	}
 
@@ -419,7 +409,7 @@
 
 	.library__item.is-active .library__name {
 		font-weight: 550;
-		color: var(--ink);
+		color: var(--accent);
 	}
 
 	.library__meta {
@@ -444,14 +434,16 @@
 	}
 
 	.library__action {
-		width: 28px;
-		height: 28px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
 		padding: 0;
 		border: 0;
-		border-radius: var(--radius-pill);
+		border-radius: 6px;
 		background: transparent;
-		color: var(--muted);
-		font-size: 12px;
+		color: var(--placeholder);
 		cursor: pointer;
 	}
 
@@ -460,12 +452,17 @@
 		color: var(--ink);
 	}
 
+	.library__action--danger:hover {
+		background: var(--rule-soft);
+		color: var(--danger);
+	}
+
 	.library__rename {
 		flex: 1 1 auto;
 		margin: 4px 8px;
 		padding: 8px 12px;
 		border: 0;
-		border-radius: var(--radius-pill);
+		border-radius: 8px;
 		background: var(--bg-deep);
 		box-shadow: 0 0 0 2px var(--accent-soft);
 		font: inherit;
