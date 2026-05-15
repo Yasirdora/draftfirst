@@ -2255,10 +2255,12 @@
 				onclick={() => closeMenus()}
 			>
 				<li>
-					<button type="button" onclick={newDocument}>New document</button>
+					<button type="button" onclick={newDocument}><Icon name="plus" />New document</button>
 				</li>
 				<li>
-					<button type="button" onclick={() => fileInput?.click()}>Open a .md file…</button>
+					<button type="button" onclick={() => fileInput?.click()}
+						><Icon name="folder" />Open a .md file…</button
+					>
 				</li>
 				<li>
 					<button
@@ -2266,10 +2268,14 @@
 						onclick={() => {
 							setDoc(SAMPLE);
 							editor?.focus();
-						}}>Load the sample document</button
+						}}><Icon name="page" />Load the sample document</button
 					>
 				</li>
-				<li><button type="button" onclick={clearDesk}>Clear the desk</button></li>
+				<li>
+					<button type="button" class="danger" onclick={clearDesk}
+						><Icon name="trash" />Clear the desk</button
+					>
+				</li>
 				<li class="menu-note">Documents stay in this browser. Drop a .md file to import.</li>
 			</ul>
 		</div>
@@ -2299,13 +2305,19 @@
 				onclick={() => closeMenus()}
 			>
 				<li>
-					<button type="button" onclick={() => onExport('md')}>Markdown (.md)</button>
+					<button type="button" onclick={() => onExport('md')}
+						><Icon name="download" />Markdown (.md)</button
+					>
 				</li>
 				<li>
-					<button type="button" onclick={() => onExport('html')}>Standalone HTML</button>
+					<button type="button" onclick={() => onExport('html')}
+						><Icon name="globe" />Standalone HTML</button
+					>
 				</li>
 				<li>
-					<button type="button" onclick={() => onExport('print')}>Print / save as PDF…</button>
+					<button type="button" onclick={() => onExport('print')}
+						><Icon name="print" />Print / save as PDF…</button
+					>
 				</li>
 				<li class="menu-note">
 					The HTML export carries its own styles and needs nothing else to open.
@@ -2479,6 +2491,35 @@
 		>
 			<Icon name="ordered" />
 		</button>
+		<button
+			type="button"
+			class="tool tool--secondary"
+			data-block="task"
+			aria-pressed={activeBlock === 'task'}
+			title="Task list"
+			aria-label="Task list"
+		>
+			<Icon name="task" />
+		</button>
+		<button
+			type="button"
+			class="tool tool--secondary"
+			data-block="quote"
+			aria-pressed={activeBlock === 'quote'}
+			title="Quote"
+			aria-label="Quote"
+		>
+			<Icon name="quote" />
+		</button>
+		<button
+			type="button"
+			class="tool tool--secondary"
+			data-insert="codeblock"
+			title="Code block"
+			aria-label="Code block"
+		>
+			<Icon name="codeblock" />
+		</button>
 
 		<span class="tool-spacer"></span>
 
@@ -2512,92 +2553,76 @@
 				onclick={onMoreMenuClick}
 			>
 				<li class="only-narrow">
-					<button type="button" data-mark="strike"
-						><span class="tick">{marks.strike ? '✓' : ''}</span>Strikethrough<span class="hint"
-							>⌘⇧X</span
-						></button
+					<button type="button" data-mark="strike" class:on={marks.strike}
+						><Icon name="strike" />Strikethrough<span class="hint">⌘⇧X</span></button
 					>
 				</li>
 				<li class="only-narrow">
-					<button type="button" data-mark="code"
-						><span class="tick">{marks.code ? '✓' : ''}</span>Inline code<span class="hint"
-							>⌘E</span
-						></button
+					<button type="button" data-mark="code" class:on={marks.code}
+						><Icon name="code" />Inline code<span class="hint">⌘E</span></button
 					>
 				</li>
 				<li class="only-narrow">
-					<button type="button" data-block="ol"
-						><span class="tick">{activeBlock === 'ol' ? '✓' : ''}</span>Numbered list</button
+					<button type="button" data-block="ol" class:on={activeBlock === 'ol'}
+						><Icon name="ordered" />Numbered list</button
 					>
 				</li>
 				<li class="only-narrow separator"></li>
 				<li>
-					<button type="button" data-block="task"
-						><span class="tick">{activeBlock === 'task' ? '✓' : ''}</span>Task list</button
+					<button type="button" data-block="task" class:on={activeBlock === 'task'}
+						><Icon name="task" />Task list</button
 					>
 				</li>
 				<li>
-					<button type="button" data-block="quote"
-						><span class="tick">{activeBlock === 'quote' ? '✓' : ''}</span>Quote</button
+					<button type="button" data-block="quote" class:on={activeBlock === 'quote'}
+						><Icon name="quote" />Quote</button
 					>
 				</li>
 				<li>
 					<button type="button" data-insert="codeblock"
-						><span class="tick"></span>Code block<span class="hint">```</span></button
+						><Icon name="codeblock" />Code block<span class="hint">```</span></button
 					>
 				</li>
 				<li>
-					<button type="button" data-insert="table"><span class="tick"></span>Table</button>
+					<button type="button" data-insert="table"><Icon name="table" />Table</button>
 				</li>
 				<li>
 					<button type="button" data-insert="rule"
-						><span class="tick"></span>Divider<span class="hint">---</span></button
+						><Icon name="rule" />Divider<span class="hint">---</span></button
 					>
 				</li>
 				<li>
-					<button type="button" data-insert="image"><span class="tick"></span>Image</button>
+					<button type="button" data-insert="image"><Icon name="image" />Image</button>
 				</li>
 				<li>
 					<button type="button" data-action="clear"
-						><span class="tick"></span>Clear formatting</button
+						><Icon name="eraser" />Clear formatting</button
 					>
 				</li>
 				{#if inTable}
 					<li class="only-table separator"></li>
 					<li class="only-table">
-						<button type="button" data-table="rowAbove"
-							><span class="tick"></span>Insert row above</button
-						>
+						<button type="button" data-table="rowAbove">Insert row above</button>
 					</li>
 					<li class="only-table">
 						<button type="button" data-table="rowBelow"
-							><span class="tick"></span>Insert row below<span class="hint">Tab</span></button
+							>Insert row below<span class="hint">Tab</span></button
 						>
 					</li>
 					<li class="only-table">
-						<button type="button" data-table="columnLeft"
-							><span class="tick"></span>Insert column left</button
-						>
+						<button type="button" data-table="columnLeft">Insert column left</button>
 					</li>
 					<li class="only-table">
-						<button type="button" data-table="columnRight"
-							><span class="tick"></span>Insert column right</button
-						>
+						<button type="button" data-table="columnRight">Insert column right</button>
 					</li>
 					<li class="only-table">
-						<button type="button" data-table="removeRow"
-							><span class="tick"></span>Delete row</button
-						>
+						<button type="button" data-table="removeRow">Delete row</button>
 					</li>
 					<li class="only-table">
-						<button type="button" data-table="removeColumn"
-							><span class="tick"></span>Delete column</button
-						>
+						<button type="button" data-table="removeColumn">Delete column</button>
 					</li>
 					<li class="only-table">
-						<button type="button" data-table="removeTable"
-							><span class="tick"></span>Delete table</button
-						>
+						<button type="button" data-table="removeTable">Delete table</button>
 					</li>
 				{/if}
 			</ul>

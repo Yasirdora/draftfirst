@@ -28,7 +28,7 @@
   --on-accent:   #FFFFFF;
   --accent-deep: #0842A0;
   --accent-soft: rgba(11, 87, 208, 0.10);
-  --danger:      #B3261E;
+  --danger:      #FF3B30;
   --placeholder: #80868B;
   --hl-find:        rgba(255, 214, 10, 0.42);  /* find matches — see ::highlight */
   --hl-find-active: rgba(255, 149, 0, 0.55);
@@ -62,7 +62,7 @@
   --on-accent:   #0A0A0A;
   --accent-deep: #FFFFFF;
   --accent-soft: rgba(255, 255, 255, 0.10);
-  --danger:      #F2B8B5;
+  --danger:      #FF453A;
   --placeholder: #6B6B6B;
   --shadow-sheet: 0 0 0 1px rgba(255,255,255,.06), 0 12px 40px rgba(0,0,0,.45);
   --hl-find:        rgba(201, 162, 39, 0.55);
@@ -208,24 +208,39 @@ button { cursor: pointer; }
   box-shadow: none;
 }
 
-/* Menus — plain absolutely-positioned lists; <dialog> and popover came later. */
+/* Menus — plain absolutely-positioned lists; <dialog> and popover came later.
+   Grammar adopted from writedown: a 12px shell with 5px padding, 7px rows,
+   a 15px icon well at the left of every action, hints dressed as key caps,
+   and one red reserved for destructive rows. */
 .menu-wrap { position: relative; }
 .menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
-  min-width: 210px; margin: 0; padding: 6px; list-style: none;
+  min-width: 210px; margin: 0; padding: 5px; list-style: none;
   background: var(--panel-veil);
   border: 1px solid var(--rule);
-  border-radius: 14px;
+  border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0,0,0,.35);
   backdrop-filter: saturate(160%) blur(18px);
   -webkit-backdrop-filter: saturate(160%) blur(18px);
 }
 .menu[hidden] { display: none; }
 .menu button {
-  display: block; width: 100%; text-align: left;
-  padding: 8px 12px; border: 0; border-radius: 10px; background: none;
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  padding: 7px 9px; border: 0; border-radius: 7px; background: none;
+  font-size: 13px;
 }
 .menu button:hover { background: var(--rule-soft); }
+.menu button svg { width: 15px; height: 15px; flex: none; color: var(--placeholder); }
+.menu button:hover svg { color: var(--ink); }
+/* Active rows speak in accent, the way writedown does, instead of a ✓ column. */
+.menu button.on, .menu button.on svg { color: var(--accent); }
+.menu button.danger, .menu button.danger svg { color: var(--danger); }
+kbd, .menu .hint {
+  font-family: var(--font-ui); font-size: 11px; color: var(--placeholder);
+  background: var(--panel-2); border: 1px solid var(--rule-soft); border-radius: 4px;
+  padding: 1px 5px;
+}
+.menu .hint { margin-left: auto; }
 .menu .menu-note { padding: 4px 10px 8px; color: var(--muted); font-size: 12px; }
 .menu-outline { max-height: 55vh; overflow: auto; min-width: 260px; }
 .menu-outline button { color: var(--ink); }
@@ -313,8 +328,7 @@ button { cursor: pointer; }
 .tool-sep { flex: none; width: 1px; height: 18px; margin: 0 7px; background: var(--rule); }
 .tool-spacer { flex: 0 0 4px; }
 
-.menu-style button, .menu-more button { display: flex; align-items: center; gap: 10px; }
-.menu-style .tick, .menu-more .tick { width: 14px; color: var(--accent); font-weight: 700; }
+.menu-style .tick { flex: none; width: 14px; color: var(--accent); font-weight: 700; }
 .menu-style .style-token {
   flex: none; width: 26px;
   color: var(--muted); font-size: 11.5px; font-weight: 700;
@@ -324,7 +338,6 @@ button { cursor: pointer; }
 .menu-style .as-h1 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
 .menu-style .as-h2 { font-size: 16px; font-weight: 700; }
 .menu-style .as-h3 { font-size: 14px; font-weight: 700; }
-.menu-more .hint { margin-left: auto; color: var(--placeholder); font-size: 11.5px; }
 .only-narrow { display: none; }
 .menu .separator { height: 1px; margin: 4px 6px; background: var(--rule); }
 .menu-style { min-width: 250px; }

@@ -50,7 +50,10 @@
 		outline: '<path d="M4 6h16M7.5 12H20M11 18h9"/>',
 		tick: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
 		restore: '<path d="M4.5 10a7.5 7.5 0 1 1 .6 5.8"/><path d="M4.5 4.8V10h5.2"/>',
-		'chevron-down': '<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>'
+		'chevron-down': '<path d="m6.5 9.5 5.5 5.5 5.5-5.5"/>',
+		rule: '<path d="M4 12h16"/>',
+		eraser:
+			'<path d="m5.2 15.2 7-7a1.6 1.6 0 0 1 2.2 0l3.4 3.4a1.6 1.6 0 0 1 0 2.2l-4.4 4.4H8.4z"/><path d="M4.5 20h15"/>'
 	} as const;
 
 	export type IconName = keyof typeof paths;

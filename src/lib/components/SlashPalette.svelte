@@ -131,8 +131,8 @@
 
 	.slash-palette__item.is-active,
 	.slash-palette__item:hover {
-		background: var(--accent-soft);
-		color: var(--accent-deep);
+		background: var(--accent);
+		color: var(--on-accent);
 	}
 
 	.slash-palette__label {
@@ -146,8 +146,10 @@
 		color: var(--muted);
 	}
 
-	.slash-palette__item.is-active .slash-palette__hint {
-		color: var(--accent);
+	.slash-palette__item.is-active .slash-palette__hint,
+	.slash-palette__item:hover .slash-palette__hint {
+		color: inherit;
+		opacity: 0.72;
 	}
 
 	.slash-palette__foot {
