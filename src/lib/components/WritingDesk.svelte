@@ -1764,6 +1764,17 @@
 		editor?.focus();
 	}
 
+	/** The empty page's phantom greeting offers the sample — load it there. */
+	function loadSample() {
+		setDoc(SAMPLE);
+		if (surface() === 'page' && sheet) {
+			sheet.focus();
+			placeCaretIn(sheet.firstElementChild);
+		} else {
+			editor?.focus();
+		}
+	}
+
 	/* ---------- event handlers ------------------------------------------ */
 
 	function onToolbarPointer(event: Event) {
@@ -2143,7 +2154,9 @@
 		welcomeVisible = !onboarding.welcomeDismissed;
 
 		// Multi-doc library (migrates legacy single-doc storage automatically).
-		const ui = desk.init(SAMPLE);
+		// First run greets with an empty desk — the page's phantom line offers
+		// the sample, so the document itself starts clean.
+		const ui = desk.init('');
 		desk.uiSnapshot = () => ({ libraryOpen, view, focus });
 		libraryOpen = ui.libraryOpen;
 		// Narrow viewports: library as overlay would dominate — start closed.
@@ -2406,15 +2419,6 @@
 					<li>
 						<button type="button" onclick={() => fileInput?.click()}
 							><Icon name="folder" />Open a .md file…</button
-						>
-					</li>
-					<li>
-						<button
-							type="button"
-							onclick={() => {
-								setDoc(SAMPLE);
-								editor?.focus();
-							}}><Icon name="page" />Load the sample document</button
 						>
 					</li>
 					<li>
@@ -2983,7 +2987,6 @@
 				role="textbox"
 				aria-multiline="true"
 				aria-label="Document"
-				data-placeholder="Start writing…"
 				onfocus={() => {
 					rememberPage();
 					updateToolbar();
@@ -3007,6 +3010,19 @@
 				onkeydown={onSheetKeydown}
 				onpaste={onSheetPaste}
 			></article>
+			{#if desk.doc.trim() === '' && view === 'page'}
+				<!-- Phantom greeting on the empty page: an overlay, never document
+				     content — typing makes it leave, export never sees it. -->
+				<p class="sheet-ghost">
+					Start typing… or
+					<button
+						type="button"
+						class="ghost-sample"
+						onmousedown={(e) => e.preventDefault()}
+						onclick={loadSample}>load the sample</button
+					>
+				</p>
+			{/if}
 		</div>
 	</main>
 

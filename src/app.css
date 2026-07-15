@@ -450,6 +450,7 @@ kbd, .menu .hint {
  * so corner radius never scrolls away (overflow clips to the radius).
  */
 .reading-pane {
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: auto;
@@ -745,12 +746,33 @@ kbd, .menu .hint {
   }
 }
 
-/* The page is where you type, so it says so when it is empty. */
-.sheet:empty::before,
-.sheet > p:only-child:empty::before {
-  content: attr(data-placeholder);
-  color: #98A3AE;
+/* The empty page greets you: a phantom line over the sheet's first row,
+   never document content. The box mirrors .sheet exactly so the words sit
+   where the first sentence would. Clicks pass through — only the sample
+   link is alive. */
+.sheet-ghost {
+  position: absolute; top: 0; left: 0; right: 0;
+  max-width: min(var(--page-measure), 100%);
+  margin: 0 auto;
+  padding: 64px 72px 88px;
+  box-sizing: border-box;
+  font-family: var(--font-doc);
+  font-size: 17.5px;
+  line-height: 1.62;
+  color: var(--placeholder);
   pointer-events: none;
+  user-select: none;
+}
+.sheet-ghost .ghost-sample {
+  pointer-events: auto;
+  border: 0; background: none; padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+.sheet-ghost .ghost-sample:hover { text-decoration: underline; }
+@media (max-width: 700px) {
+  .sheet-ghost { padding: 40px 28px 56px; font-size: 16.5px; }
 }
 
 /* Read view — the typeset page with nothing under the cursor: no toolbar,
