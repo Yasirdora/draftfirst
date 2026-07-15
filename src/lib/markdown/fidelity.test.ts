@@ -245,3 +245,36 @@ describe('round-trip fidelity inventory (render → serialise)', () => {
 		expect(afterPlain.length).toBeGreaterThan(beforePlain.length * 0.8);
 	});
 });
+
+describe('serialise — typed code blocks', () => {
+	/* Code typed on the page holds <br> line breaks; textContent alone would
+	   glue every line together. */
+	function serialiseFragment(html: string): string {
+		const { document } = parseHTML('<!DOCTYPE html><html><body></body></html>');
+		const root = document.createElement('article');
+		root.innerHTML = html;
+		return serialiseMarkdown(root);
+	}
+
+	it('keeps <br> line breaks inside a fence', () => {
+		expect(serialiseFragment('<pre><code>const a = 1<br>return a</code></pre>')).toBe(
+			'```\nconst a = 1\nreturn a\n```\n'
+		);
+	});
+
+	it('keeps blank lines inside a fence', () => {
+		expect(serialiseFragment('<pre><code>a<br><br>b</code></pre>')).toBe('```\na\n\nb\n```\n');
+	});
+
+	it('nested div lines from pasted markup stay separate', () => {
+		expect(serialiseFragment('<pre><code>a<div>b</div><div>c</div></code></pre>')).toBe(
+			'```\na\nb\nc\n```\n'
+		);
+	});
+
+	it('keeps the language from the code class', () => {
+		expect(
+			serialiseFragment('<pre><code class="language-js">const x = 1<br>x</code></pre>')
+		).toBe('```js\nconst x = 1\nx\n```\n');
+	});
+});

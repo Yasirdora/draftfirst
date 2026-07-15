@@ -103,6 +103,30 @@ function serialiseInlineNodes(nodes) {
 const indentLines = (text, prefix, firstPrefix) =>
   text.split('\n').map((line, index) => (index === 0 ? (firstPrefix == null ? prefix : firstPrefix) : prefix) + line).join('\n');
 
+/**
+ * The text of a code block with its line breaks intact. `textContent` reads a
+ * `<br>` as nothing, so code typed on the page would round-trip glued onto a
+ * single line — walk the tree and translate the break-bearing nodes. Pasted
+ * markup can also nest <div>/<p> lines inside the code element.
+ */
+function codeText(el) {
+  let out = '';
+  for (const child of el.childNodes) {
+    if (child.nodeType === 3) { out += child.nodeValue; continue; }
+    if (child.nodeType !== 1) continue;
+    const tag = child.tagName.toUpperCase();
+    if (tag === 'BR') { out += '\n'; continue; }
+    if (tag === 'DIV' || tag === 'P') {
+      if (out !== '' && !out.endsWith('\n')) out += '\n';
+      out += codeText(child);
+      if (!out.endsWith('\n')) out += '\n';
+      continue;
+    }
+    out += codeText(child);
+  }
+  return out;
+}
+
 function serialiseList(list, ordered) {
   const items = [];
   let number = Number(list.getAttribute('start') || 1);
@@ -187,7 +211,7 @@ function serialiseBlock(node) {
   if (tag === 'PRE') {
     const code = node.querySelector('code') || node;
     const language = /language-([\w.+-]+)/.exec(code.className || '');
-    return '```' + (language ? language[1] : '') + '\n' + code.textContent.replace(/\n$/, '') + '\n```';
+    return '```' + (language ? language[1] : '') + '\n' + codeText(code).replace(/\n$/, '') + '\n```';
   }
 
   if (tag === 'BLOCKQUOTE') {

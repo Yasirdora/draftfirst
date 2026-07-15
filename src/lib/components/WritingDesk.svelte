@@ -777,6 +777,47 @@
 	}
 
 	/**
+	 * Is the caret sitting on the empty last line of a code block? That means
+	 * nothing but breaks after it, and a break (or nothing) right before it —
+	 * the state one Enter at the end of the code produces.
+	 */
+	function caretOnEmptyPreTail(pre: HTMLElement, range: Range): boolean {
+		const after = range.cloneRange();
+		after.selectNodeContents(pre);
+		after.setStart(range.endContainer, range.endOffset);
+		if ((after.cloneContents().textContent || '').trim() !== '') return false;
+
+		const before = range.cloneRange();
+		before.selectNodeContents(pre);
+		before.setEnd(range.startContainer, range.startOffset);
+		const frag = before.cloneContents();
+		let last: Node | null = frag;
+		while (last && last.lastChild) last = last.lastChild;
+		if (!last || last === frag) return true; // empty code block
+		if (last.nodeType === 1) return (last as Element).tagName === 'BR';
+		return (last.textContent || '').trim() === '';
+	}
+
+	/**
+	 * Typora-style exit: drop the break(s) that formed the empty last line and
+	 * step out into a fresh paragraph after the block.
+	 */
+	function exitCodeBlock(pre: HTMLElement) {
+		const code = pre.querySelector('code') || pre;
+		while (
+			code.lastChild &&
+			code.lastChild.nodeType === 1 &&
+			(code.lastChild as Element).tagName === 'BR'
+		) {
+			code.removeChild(code.lastChild);
+		}
+		const p = document.createElement('p');
+		p.appendChild(document.createElement('br'));
+		pre.after(p);
+		placeCaretIn(p);
+	}
+
+	/**
 	 * Lists are built by hand. execCommand('insertUnorderedList') nests the
 	 * <ul> inside the current <p> when defaultParagraphSeparator is 'p' —
 	 * invalid HTML that silently breaks serialisation (the list round-trips
@@ -1061,8 +1102,18 @@
 		sheet.insertBefore(trailing, nodes[nodes.length - 1].nextSibling);
 
 		if (selection) {
+			/* Land the caret where typing should start: inside the code element
+			   of a fresh fence, the first cell of a table — not on the wrapper. */
+			let spot: Node = nodes[0];
+			while (
+				spot.firstChild &&
+				!(spot.firstChild.nodeType === 1 && (spot.firstChild as Element).tagName === 'BR')
+			) {
+				spot = spot.firstChild;
+			}
 			const range = document.createRange();
-			range.selectNodeContents(nodes[0]);
+			if (spot.firstChild) range.setStartBefore(spot.firstChild);
+			else range.setStart(spot, 0);
 			range.collapse(true);
 			selection.removeAllRanges();
 			selection.addRange(range);
@@ -1792,6 +1843,24 @@
 			!event.altKey
 		) {
 			const block = currentBlock();
+			/* Enter on the empty last line of a code block steps out of it —
+			   anywhere else inside one, Enter just writes a line break. */
+			if (block && block.tagName === 'PRE') {
+				const selection = window.getSelection();
+				if (
+					selection &&
+					selection.rangeCount &&
+					selection.isCollapsed &&
+					caretOnEmptyPreTail(block as HTMLElement, selection.getRangeAt(0))
+				) {
+					event.preventDefault();
+					exitCodeBlock(block as HTMLElement);
+					rememberPage();
+					pageChanged();
+					updateToolbar();
+					return;
+				}
+			}
 			if (block && block.tagName === 'LI' && block.classList.contains('task')) {
 				const selection = window.getSelection();
 				if (selection && selection.rangeCount && selection.isCollapsed) {
@@ -1822,6 +1891,16 @@
 		}
 
 		if (event.key !== 'Tab') return;
+		/* In a code block Tab writes indentation — it must never walk focus
+		   out of the sheet. */
+		if (currentBlock()?.tagName === 'PRE') {
+			event.preventDefault();
+			run('insertText', '  ');
+			rememberPage();
+			pageChanged();
+			updateToolbar();
+			return;
+		}
 		const cell = currentCell();
 		if (!cell) return;
 		event.preventDefault();
