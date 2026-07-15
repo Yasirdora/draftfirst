@@ -10,7 +10,7 @@
 	 * any toolbar command. Focus is the wrong thing to hang commands on —
 	 * pressing a toolbar button moves focus, so we never trust activeElement alone.
 	 */
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { renderMarkdown, outlineOf, safeUrl } from '$lib/markdown/render';
 	import { serialiseMarkdown } from '$lib/markdown/serialise';
 	import {
@@ -1657,16 +1657,22 @@
 		outlineDropTarget = null;
 	}
 
-	/* Keyboard parity: Alt+Arrow moves a section without the mouse. */
-	function onOutlineGripKey(event: KeyboardEvent, index: number) {
+	/* Keyboard parity: Alt+Arrow moves a section without the mouse. The
+	   rebuild after a reorder replaces every row (keys are line-based), so
+	   focus would fall to <body> and the second keypress would die — put it
+	   back on the moved section, on the same kind of control that had it. */
+	async function onOutlineGripKey(event: KeyboardEvent, index: number) {
 		if (!event.altKey) return;
-		if (event.key === 'ArrowUp' && index > 0) {
-			event.preventDefault();
-			applyOutlineReorder(index, index - 1);
-		} else if (event.key === 'ArrowDown' && index < outlineItems.length - 1) {
-			event.preventDefault();
-			applyOutlineReorder(index, index + 1);
-		}
+		const to =
+			event.key === 'ArrowUp' ? index - 1 : event.key === 'ArrowDown' ? index + 1 : index;
+		if (to === index || to < 0 || to >= outlineItems.length) return;
+		event.preventDefault();
+		const wasGrip = (event.currentTarget as HTMLElement).classList.contains('outline-grip');
+		applyOutlineReorder(index, to);
+		await tick();
+		const row = outlineMenuEl?.querySelectorAll('.outline-row')[to];
+		const target = row?.querySelector(wasGrip ? '.outline-grip' : '.outline-jump');
+		(target as HTMLElement | undefined)?.focus();
 	}
 
 	/* ---------- file / export ------------------------------------------- */
@@ -2287,8 +2293,59 @@
 			>
 				<Icon name="sidebar" />
 			</button>
-			<BrandMark />
-			<span class="brand-name">Writing Desk</span>
+			<div class="menu-wrap brand-wrap">
+				<button
+					type="button"
+					class="brand-trigger"
+					bind:this={fileBtnEl}
+					aria-haspopup="true"
+					aria-expanded={openMenu === 'file'}
+					aria-label="File menu"
+					title="File"
+					onclick={(e) => {
+						e.stopPropagation();
+						toggleMenu('file');
+					}}
+				>
+					<BrandMark />
+					<span class="brand-caret"><Icon name="chevron-down" size={12} /></span>
+				</button>
+				<span class="brand-name">Writing Desk</span>
+				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+				<ul
+					class="menu menu--left"
+					bind:this={fileMenuEl}
+					hidden
+					onmousedown={(e) => {
+						if ((e.target as HTMLElement).closest('button')) e.preventDefault();
+					}}
+					onclick={() => closeMenus()}
+				>
+					<li>
+						<button type="button" onclick={newDocument}><Icon name="plus" />New document</button>
+					</li>
+					<li>
+						<button type="button" onclick={() => fileInput?.click()}
+							><Icon name="folder" />Open a .md file…</button
+						>
+					</li>
+					<li>
+						<button
+							type="button"
+							onclick={() => {
+								setDoc(SAMPLE);
+								editor?.focus();
+							}}><Icon name="page" />Load the sample document</button
+						>
+					</li>
+					<li>
+						<button type="button" class="danger" onclick={clearDesk}
+							><Icon name="trash" />Clear the desk</button
+						>
+					</li>
+					<li class="menu-note">Documents stay in this browser. Drop a .md file to import.</li>
+				</ul>
+			</div>
 		</div>
 
 		<span class="save-status" class:on={desk.saveOn} role="status" aria-live="polite">{desk.saveLabel}</span>
@@ -2380,6 +2437,7 @@
 								type="button"
 								class="lv{heading.level} outline-jump"
 								onclick={() => jumpToHeading(heading, index)}
+								onkeydown={(e) => onOutlineGripKey(e, index)}
 							>
 								{heading.text || '(untitled)'}
 							</button>
@@ -2439,56 +2497,6 @@
 		>
 			<Icon name="question" />
 		</button>
-
-		<div class="menu-wrap">
-			<button
-				type="button"
-				class="btn"
-				bind:this={fileBtnEl}
-				aria-haspopup="true"
-				aria-expanded={openMenu === 'file'}
-				onclick={(e) => {
-					e.stopPropagation();
-					toggleMenu('file');
-				}}
-			>
-				File
-			</button>
-			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
-			<ul
-				class="menu"
-				bind:this={fileMenuEl}
-				hidden
-				onmousedown={(e) => {
-					if ((e.target as HTMLElement).closest('button')) e.preventDefault();
-				}}
-				onclick={() => closeMenus()}
-			>
-				<li>
-					<button type="button" onclick={newDocument}><Icon name="plus" />New document</button>
-				</li>
-				<li>
-					<button type="button" onclick={() => fileInput?.click()}
-						><Icon name="folder" />Open a .md file…</button
-					>
-				</li>
-				<li>
-					<button
-						type="button"
-						onclick={() => {
-							setDoc(SAMPLE);
-							editor?.focus();
-						}}><Icon name="page" />Load the sample document</button
-					>
-				</li>
-				<li>
-					<button type="button" class="danger" onclick={clearDesk}
-						><Icon name="trash" />Clear the desk</button
-					>
-				</li>
-				<li class="menu-note">Documents stay in this browser. Drop a .md file to import.</li>
-			</ul>
-		</div>
 
 		<div class="menu-wrap">
 			<button

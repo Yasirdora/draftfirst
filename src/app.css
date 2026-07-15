@@ -135,6 +135,23 @@ button { cursor: pointer; }
   white-space: nowrap;
   font-size: 14px;
 }
+/* The logo is the File menu: only the mark + caret are clickable, the wordmark
+   next to it is plain text. */
+.brand-wrap { display: flex; align-items: center; gap: 7px; }
+.brand-trigger {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 7px 4px 5px;
+  border: 0; background: none; border-radius: 10px;
+  color: inherit; font: inherit; cursor: pointer;
+}
+.brand-trigger:hover { background: var(--rule-soft); }
+.brand-caret {
+  display: inline-flex;
+  color: var(--placeholder);
+  transition: color .15s ease;
+}
+.brand-trigger:hover .brand-caret,
+.brand-trigger[aria-expanded="true"] .brand-caret { color: var(--ink); }
 .library-toggle {
   width: 32px;
   height: 32px;
@@ -226,6 +243,8 @@ button { cursor: pointer; }
   -webkit-backdrop-filter: saturate(160%) blur(18px);
 }
 .menu[hidden] { display: none; }
+/* Menus anchored to a left-side trigger (the logo) hug the left edge. */
+.menu--left { left: 0; right: auto; }
 .menu button {
   display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
   padding: 7px 9px; border: 0; border-radius: 7px; background: none;

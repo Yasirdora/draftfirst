@@ -111,6 +111,12 @@ export function reorderOutlineSections(
 	const parts: string[] = [];
 	if (preamble) parts.push(preamble.body);
 	for (const h of next) parts.push(h.body);
+	/* A section that was originally last may not end in a newline. Joined
+	   directly against the next section, the following heading glues onto its
+	   last body line and vanishes from the outline — normalize interior seams. */
+	for (let i = 0; i < parts.length - 1; i++) {
+		if (parts[i] && !parts[i].endsWith('\n')) parts[i] += '\n';
+	}
 	return parts.join('');
 }
 
