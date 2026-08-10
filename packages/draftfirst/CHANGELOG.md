@@ -11,6 +11,7 @@ All notable changes to the Draft First Screenwriting Engine will be documented h
 - Dependency-free `.docx` import: hand-rolled ZIP reader (stored + deflated via the platform's native `DecompressionStream`, CRC-32 integrity, size caps) and OOXML reading for styles, indents, alignment, page breaks, tracked changes, tables, and images.
 - Plain-text and paste import covering typewriter layout and reflowed prose, with pagination artifacts (`(MORE)`, `CONTINUED`, page numbers) stripped and counted.
 - `.docx` export (`writeDocx`) closing the round trip: production-office OOXML with Courier New 12pt, screenplay margins and indents, `keepNext` speech protection, and title-page emission — verified by reading exports back through the importer.
+- PDF round trip: exported PDFs carry the complete Fountain source as a versioned, UTF-8-safe payload in the Info dictionary (`pdfsignal`), alongside `/Producer` and `/Title` metadata. A Draft First PDF re-imports perfectly; a foreign PDF is refused with a clear message — no PDF-parsing dependency, ever.
 
 ## [0.1.0] - 2026-08-10
 
