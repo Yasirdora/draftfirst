@@ -18,6 +18,7 @@ All notable changes to the Draft First Screenwriting Engine will be documented h
 - Fountain import no longer eats a foreign script's opener: a lone leading `Key:` line is a title page only for known keys (`Title:`, `Credit:`…) or a run of two or more keys, so `FADE IN:` stays in the body where it belongs — and the FADE opener/closer family is now detected as transitions on import and serialised bare.
 - `.docx` round trip preserves multi-line elements: line breaks inside an element travel as in-paragraph `<w:br/>` runs and fold back into one element on import, instead of returning as sibling elements with the continuation flagged low-confidence. Multi-line title pages drop once instead of between every line.
 - Text import normalises mid-line tabs (Word tab stops, typewriter layout) to spaces instead of leaking raw tab characters into element text.
+- `(CONT'D)` is suggested again whenever the same voice continues in a scene — resuming after action *or* simply speaking again, matching Final Draft. The port had tied it to an intervening action beat, so `MARA` → dialogue → `MARA` + space whispered nothing. The empty-block guess still requires the action beat; the explicit gestures (typing `(` or the name plus a space) now need only the fact of continuation.
 
 ## [0.1.0] - 2026-08-10
 

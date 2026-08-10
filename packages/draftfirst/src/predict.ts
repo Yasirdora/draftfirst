@@ -192,6 +192,38 @@ function resumingAfterAction(elements: ScreenplayElement[], beforeIndex: number,
 	return false;
 }
 
+/**
+ * The Final Draft continuation. True when the most recent voice in THIS
+ * scene is `name` and that speech actually happened (non-empty dialogue).
+ * Action, shots, and parentheticals between the speeches do not break a
+ * continuation; another speaker, a scene boundary, or a semantic break
+ * (transition, general line, lyric) does.
+ *
+ * This is looser than `resumingAfterAction` on purpose: an empty-block guess
+ * needs the action beat to be confident, but an explicit extension gesture —
+ * typing `(`, or the name plus a trailing space — only needs the fact that
+ * the same voice continues. Final Draft marks both.
+ */
+function continuingSameVoice(elements: ScreenplayElement[], beforeIndex: number, name: string): boolean {
+	let spoke = false;
+	for (let i = clampIndex(elements, beforeIndex) - 1; i >= 0; i--) {
+		const t = elements[i].type;
+		if (t === 'scene') return false;
+		if (t === 'character') {
+			return spoke && stripCueExtensions(elements[i].text).trim().toUpperCase() === name;
+		}
+		if (t === 'dialogue' || t === 'parenthetical') {
+			if (t === 'dialogue' && elements[i].text.trim() !== '') spoke = true;
+			continue;
+		}
+		if (t === 'action' || t === 'shot' || t === 'note' || t === 'section' || t === 'synopsis' || t === 'pagebreak') {
+			continue;
+		}
+		return false;
+	}
+	return false;
+}
+
 /* ---- structure memory ---------------------------------------------------- */
 
 /** The most recently opened structure that has not been closed yet. */
@@ -402,8 +434,9 @@ function typedCharacterCandidates(script: Screenplay, text: string): Prediction[
 
 /**
  * Offer cue extensions only after explicit extension input. Document-specific
- * extensions rank before defaults. `(CONT'D)` is included only when the same
- * speaker resumes after an action or shot interruption in the current scene.
+ * extensions rank before defaults. `(CONT'D)` is included when the same voice
+ * continues in the current scene — resuming after action, or simply speaking
+ * again; both are continuations, and Final Draft marks both.
  */
 function extensionCandidates(script: Screenplay, text: string, index: number): Prediction[] {
 	const openParen = /^(.*?)\(([^)]*)$/.exec(text);
@@ -414,7 +447,7 @@ function extensionCandidates(script: Screenplay, text: string, index: number): P
 
 	const typed = openParen[2].toUpperCase();
 	const pool: string[] = [];
-	const resuming = resumingAfterAction(script.elements, index, name);
+	const resuming = continuingSameVoice(script.elements, index, name);
 	if (resuming) pushUnique(pool, "(CONT'D)");
 	if (known) {
 		for (const e of usedExtensions(script.elements)) {
@@ -427,7 +460,7 @@ function extensionCandidates(script: Screenplay, text: string, index: number): P
 	return pool
 		.filter((e) => e.slice(1, -1).startsWith(typed) && e.slice(1, -1) !== typed)
 		.slice(0, 6)
-		.map((t) => ({ text: t, why: t === "(CONT'D)" ? 'same voice resuming after action' : 'cue extension' }));
+		.map((t) => ({ text: t, why: t === "(CONT'D)" ? 'same voice continuing' : 'cue extension' }));
 }
 
 /** Scene-heading assembly: intro → location → time, each stage story-aware. */
@@ -575,8 +608,8 @@ export function predict(script: Screenplay, ctx: PredictContext): Prediction[] {
 			if (spaced) {
 				if (EXT_RE.test(spaced[1])) return []; /* already extended */
 				const name = stripCueExtensions(spaced[1]).trim().toUpperCase();
-				if (name !== '' && resumingAfterAction(script.elements, index, name)) {
-					return [{ text: "(CONT'D)", why: 'same voice resuming after action' }];
+				if (name !== '' && continuingSameVoice(script.elements, index, name)) {
+					return [{ text: "(CONT'D)", why: 'same voice continuing' }];
 				}
 				return [];
 			}

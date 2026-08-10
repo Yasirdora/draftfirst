@@ -109,7 +109,16 @@ describe('predict · typed character prefix', () => {
 describe('predict · character extensions', () => {
 	it('a bare name is just a name — silence until the writer signals intent', () => {
 		expect(predict(TWO_HANDER, { type: 'character', text: 'MARA', index: 8 })).toEqual([]);
-		expect(predict(TWO_HANDER, { type: 'character', text: 'ELIAS ', index: 8 })).toEqual([]);
+		expect(predict(TWO_HANDER, { type: 'character', text: 'ELIAS', index: 8 })).toEqual([]);
+	});
+
+	it('the space is the signal — but only for the voice that actually continues', () => {
+		/* ELIAS spoke last ("Then we watch it—"), so ELIAS + space continues him. */
+		expect(predict(TWO_HANDER, { type: 'character', text: 'ELIAS ', index: 8 })).toEqual([
+			{ text: "(CONT'D)", why: 'same voice continuing' }
+		]);
+		/* MARA spoke earlier, but ELIAS answered — her reply is not a continuation. */
+		expect(predict(TWO_HANDER, { type: 'character', text: 'MARA ', index: 8 })).toEqual([]);
 	});
 
 	it('typing "(" whispers extensions, closing paren included', () => {
@@ -166,7 +175,7 @@ describe('predict · (CONT’D) is a fact, not a habit', () => {
 		]);
 		const out = predict(script, { type: 'character', text: 'MARA (', index: 4 });
 		expect(out[0].text).toBe("(CONT'D)");
-		expect(out[0].why).toContain('resuming');
+		expect(out[0].why).toContain('continuing');
 	});
 
 	it('a typed prefix still narrows it: (C keeps it, (V does not', () => {
@@ -217,14 +226,26 @@ describe('predict · (CONT’D) is a fact, not a habit', () => {
 		expect(texts(predict(script, { type: 'character', text: 'MARA (', index: 2 }))).not.toContain("(CONT'D)");
 	});
 
-	it('is not offered without intervening action — unbroken speech is just speech', () => {
+	it('is offered when the same voice simply speaks again — consecutive speeches are continuations too', () => {
+		/* Final Draft marks both: MARA → dialogue → MARA is a continuation, with or
+		   without an action beat between the speeches. */
 		const script = doc([
 			el('scene', 'INT. LAB - NIGHT'),
 			el('character', 'MARA'),
 			el('dialogue', 'Hello.'),
 			el('character', 'MARA (')
 		]);
-		expect(texts(predict(script, { type: 'character', text: 'MARA (', index: 3 }))).not.toContain("(CONT'D)");
+		const out = predict(script, { type: 'character', text: 'MARA (', index: 3 });
+		expect(out[0].text).toBe("(CONT'D)");
+	});
+
+	it('is not offered when the earlier cue never spoke — an abandoned cue continues nothing', () => {
+		const script = doc([
+			el('scene', 'INT. LAB - NIGHT'),
+			el('character', 'MARA'),
+			el('character', 'MARA (')
+		]);
+		expect(texts(predict(script, { type: 'character', text: 'MARA (', index: 2 }))).not.toContain("(CONT'D)");
 	});
 
 	it('is not offered across transitions, general lines, or lyrics', () => {
@@ -271,7 +292,19 @@ describe('predict · the space gesture — name + space whispers the fact', () =
 
 	it('a space after the name whispers (CONT’D) when it is true', () => {
 		const out = predict(RESUMING(), { type: 'character', text: 'MARA ', index: 4 });
-		expect(out).toEqual([{ text: "(CONT'D)", why: 'same voice resuming after action' }]);
+		expect(out).toEqual([{ text: "(CONT'D)", why: 'same voice continuing' }]);
+	});
+
+	it('a space whispers (CONT’D) for a contiguous speech too — no action beat required', () => {
+		const contiguous = doc([
+			el('scene', 'INT. LAB - NIGHT'),
+			el('character', 'MARA'),
+			el('dialogue', 'Hello.'),
+			el('character', 'MARA ')
+		]);
+		expect(predict(contiguous, { type: 'character', text: 'MARA ', index: 3 })).toEqual([
+			{ text: "(CONT'D)", why: 'same voice continuing' }
+		]);
 	});
 
 	it('the suffix attaches cleanly to the trailing space', () => {
