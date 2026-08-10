@@ -1359,6 +1359,9 @@
 			<span class="doctitle">{scriptTitle}</span>
 			<span class="vsep"></span>
 
+			<button type="button" class="iconbtn" class:on={showSide} data-tip="Scenes panel" aria-label="Scenes panel" onclick={() => (showSide = !showSide)}>
+				<svg viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M6.2 2.5v11"/></svg>
+			</button>
 			<button type="button" class="iconbtn" data-tip="New screenplay" aria-label="New screenplay" onclick={newScript}>
 				<svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
 			</button>
@@ -1393,9 +1396,6 @@
 			</button>
 			<button type="button" class="iconbtn" class:on={focusMode} data-tip="Focus mode" aria-label="Focus mode" onclick={() => (focusMode = !focusMode)}>
 				<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6"/></svg>
-			</button>
-			<button type="button" class="iconbtn" class:on={showSide} data-tip="Scenes panel" aria-label="Scenes panel" onclick={() => (showSide = !showSide)}>
-				<svg viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M6.2 2.5v11"/></svg>
 			</button>
 			<button type="button" class="iconbtn" data-tip="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onclick={() => (helpOn = !helpOn)}>
 				<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.2c0-1 .8-1.8 1.8-1.8s1.8.8 1.8 1.8c0 1.2-1.8 1.4-1.8 2.6M8 11.4v.1"/></svg>
