@@ -1,0 +1,963 @@
+/* Global Writing Desk styles */
+/* Writing Desk — ported design system (UI chrome + document sheet + print). */
+/* ==========================================================================
+   Writing Desk — single-file, dependency-free, offline-first.
+
+   Two token scopes, kept deliberately separate:
+   1. UI tokens on :root — theme-aware (light/dark) chrome around the tool.
+   2. Document tokens on .sheet — the page you are writing is always paper:
+      white, serif, print-safe, and unaffected by the UI theme.
+
+   Written to the platform as it stood in 2020: CSS Grid, custom properties,
+   prefers-color-scheme, ES2020 syntax. No :has(), no container queries, no
+   <dialog>, no popover — none of which had shipped. Everything here still
+   runs unchanged today.
+   ========================================================================== */
+:root {
+  /* Light — calm matte shell (Gemini structure, light theme) */
+  --bg:          #F0F1F3;
+  --bg-deep:     #E6E8EB;
+  --panel:       #FFFFFF;
+  --panel-2:     #F4F5F7;
+  --panel-veil:  rgba(255,255,255,.88);
+  --ink:         #1A1C1E;
+  --muted:       #5F6368;
+  --rule:        rgba(0,0,0,.08);
+  --rule-soft:   rgba(0,0,0,.04);
+  --accent:      #0B57D0;   /* Gemini-adjacent system blue */
+  --on-accent:   #FFFFFF;
+  --accent-deep: #0842A0;
+  --accent-soft: rgba(11, 87, 208, 0.10);
+  --syn-accent:  #0B57D0;   /* source-view syntax accent — stays a colour in both themes */
+  --danger:      #FF3B30;
+  --placeholder: #80868B;
+  --hl-find:        rgba(255, 214, 10, 0.42);  /* find matches — see ::highlight */
+  --hl-find-active: rgba(255, 149, 0, 0.55);
+  --shadow-sheet: 0 1px 2px rgba(16,24,32,.05), 0 12px 32px rgba(16,24,32,.08);
+  --radius-stage: 6px;    /* soft window corners */
+  --radius-pill:  980px;
+  --stage-inset:  12px;
+  --page-measure: 60rem;  /* wider paper */
+  --paper:        #ffffff; /* page window fill (stays white in dark UI) */
+  --nav-width:    260px;
+  --font-ui:   -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-doc:  Charter, "Bitstream Charter", Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+}
+
+/* Dark chrome is attribute-driven so the writer can override the OS choice.
+   app.html sets data-theme on <html> before the stylesheet loads — no flash —
+   and the editor keeps it in sync as the mode or the OS setting changes. */
+:root[data-theme='dark'] {
+  /* Low-contrast dark application shell. */
+  --bg:          #0A0A0A;
+  --bg-deep:     #050505;
+  --panel:       #141414;
+  --panel-2:     #111111;
+  --panel-veil:  rgba(28, 28, 28, 0.88);
+  --ink:         #EDEDED;
+  --muted:       #9A9A9A;
+  --rule:        rgba(255,255,255,.07);
+  --rule-soft:   rgba(255,255,255,.045);
+  --accent:      #E8E8E8;
+  --on-accent:   #0A0A0A;
+  --accent-deep: #FFFFFF;
+  --accent-soft: rgba(255, 255, 255, 0.10);
+  --syn-accent:  #82AFFF;   /* readable blue for syntax on the near-black pane */
+  --danger:      #FF453A;
+  --placeholder: #6B6B6B;
+  --shadow-sheet: 0 0 0 1px rgba(255,255,255,.06), 0 12px 40px rgba(0,0,0,.45);
+  --hl-find:        rgba(201, 162, 39, 0.55);
+  --hl-find-active: rgba(232, 176, 48, 0.72);
+  color-scheme: dark;
+}
+
+/* Paper stays white even in dark UI chrome */
+:root[data-theme='dark'] .reading-pane,
+:root[data-theme='dark'] .desk[data-view="page"] .reading-pane,
+:root[data-theme='dark'] .desk[data-view="read"] .reading-pane,
+:root[data-theme='dark'] .desk[data-view="split"] .reading-pane {
+  background: var(--paper);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--bg);
+}
+/* App shell: fills the viewport; data-view / focus-mode live here (not on body). */
+.desk {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+}
+.desk-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+.desk-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+::placeholder { color: var(--placeholder); opacity: 1; }
+
+/* ==========================================================================
+   Application bar
+   ========================================================================== */
+.app-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 14px 8px;
+  background: transparent;
+  border-bottom: 0;
+  flex: none;
+}
+.brand { display: flex; align-items: center; gap: 8px; margin-right: auto; }
+.brand-mark { width: 24px; height: 24px; flex: none; border-radius: 7px; }
+.brand-name {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  font-size: 14px;
+}
+/* The logo is the File menu: only the mark + caret are clickable, the wordmark
+   next to it is plain text. */
+.brand-wrap { display: flex; align-items: center; gap: 7px; }
+.brand-trigger {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 7px 4px 5px;
+  border: 0; background: none; border-radius: 10px;
+  color: inherit; font: inherit; cursor: pointer;
+}
+.brand-trigger:hover { background: var(--rule-soft); }
+.brand-caret {
+  display: inline-flex;
+  color: var(--placeholder);
+  transition: color .15s ease;
+}
+.brand-trigger:hover .brand-caret,
+.brand-trigger[aria-expanded="true"] .brand-caret { color: var(--ink); }
+.library-toggle {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  margin-right: 2px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.library-toggle:hover {
+  background: var(--rule-soft);
+}
+
+.save-status {
+  font-size: 12px; color: var(--muted);
+  opacity: 0; transition: opacity .3s ease;
+}
+.save-status.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .save-status { transition: none; } }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--rule-soft);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  transition: background-color .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease;
+}
+.btn:hover { background: var(--rule); }
+.btn-primary {
+  background: var(--ink);
+  border-color: transparent;
+  color: var(--bg);
+  font-weight: 600;
+}
+.btn-primary:hover { opacity: 0.9; background: var(--ink); color: var(--bg); }
+/* Keep the primary export action visually distinct. */
+.app-bar .btn-primary {
+  background: var(--ink);
+  color: var(--bg);
+}
+.btn-quiet { border-color: transparent; color: var(--muted); background: transparent; }
+.btn-quiet:hover { color: var(--ink); background: var(--rule-soft); }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+
+/* Segmented view switch. */
+.views {
+  display: inline-flex;
+  padding: 3px;
+  gap: 1px;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 1px 2px rgba(0,0,0,.12);
+}
+.views button {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: transparent; color: var(--muted);
+  width: 32px; height: 26px; padding: 0; border-radius: var(--radius-pill);
+}
+.views button svg {
+  width: 16px; height: 16px;
+  fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.views button:hover { color: var(--ink); background: var(--rule-soft); }
+.views button[aria-pressed="true"] {
+  background: var(--rule-soft);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+/* Menus — plain absolutely-positioned lists; <dialog> and popover came later.
+   Grammar adopted from writedown: a 12px shell with 5px padding, 7px rows,
+   a 15px icon well at the left of every action, hints dressed as key caps,
+   and one red reserved for destructive rows. */
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
+  min-width: 210px; margin: 0; padding: 5px; list-style: none;
+  background: var(--panel-veil);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.35);
+  backdrop-filter: saturate(160%) blur(18px);
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
+}
+.menu[hidden] { display: none; }
+/* Menus anchored to a left-side trigger (the logo) hug the left edge. */
+.menu--left { left: 0; right: auto; }
+.menu button {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  padding: 7px 9px; border: 0; border-radius: 7px; background: none;
+  font-size: 13px;
+}
+.menu button:hover { background: var(--rule-soft); }
+.menu button svg { width: 15px; height: 15px; flex: none; color: var(--placeholder); }
+.menu button:hover svg { color: var(--ink); }
+/* Active rows speak in accent, the way writedown does, instead of a ✓ column. */
+.menu button.on, .menu button.on svg { color: var(--accent); }
+.menu button.danger, .menu button.danger svg { color: var(--danger); }
+kbd, .menu .hint {
+  font-family: var(--font-ui); font-size: 11px; color: var(--placeholder);
+  background: var(--panel-2); border: 1px solid var(--rule-soft); border-radius: 4px;
+  padding: 1px 5px;
+}
+.menu .hint { margin-left: auto; }
+.menu .menu-note { padding: 4px 10px 8px; color: var(--muted); font-size: 12px; }
+.menu-outline { max-height: 55vh; overflow: auto; min-width: 260px; }
+.menu-outline button { color: var(--ink); }
+.menu-outline .lv2 { padding-left: 24px; }
+.menu-outline .lv3 { padding-left: 38px; }
+.menu-outline .lv4, .menu-outline .lv5, .menu-outline .lv6 { padding-left: 52px; }
+.menu-outline .empty { padding: 8px 10px; color: var(--muted); }
+
+/* ==========================================================================
+   Formatting toolbar
+
+   A floating bar, the way a phone editor does it: it hovers over the document
+   rather than taking a band out of the top of the window, and on a phone it
+   rides above the software keyboard.
+
+   Three things this has to get right, and they are the whole job:
+   1. It must never cover the line being written, so the panes carry enough
+      bottom padding to sit clear of it.
+   2. Its menus open upward, because it lives at the bottom.
+   3. It must not steal the selection when pressed — handled in the script,
+      but it is the reason this bar can float at all.
+   ========================================================================== */
+.toolbar {
+  position: fixed;
+  left: 50%;
+  bottom: var(--bar-bottom, 32px);
+  z-index: 15;
+  transform: translateX(-50%) translateY(var(--keyboard-offset, 0px));
+
+  display: flex; align-items: center; gap: 1px;
+  width: max-content; max-width: min(calc(100vw - 32px), 680px);
+  padding: 8px 12px;
+
+  /* Floating formatting controls. */
+  background: var(--panel-veil);
+  border: 1px solid var(--rule);
+  border-radius: 22px;
+  box-shadow:
+    0 0 0 0.5px rgba(255,255,255,.04),
+    0 8px 32px rgba(0,0,0,.28);
+
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.toolbar::-webkit-scrollbar { display: none; }
+
+@supports (backdrop-filter: blur(1px)) {
+  .toolbar {
+    background: var(--panel-veil);
+    backdrop-filter: saturate(180%) blur(16px);
+  }
+}
+
+[data-theme] .toolbar,
+.toolbar { transition: opacity .18s ease, transform .18s ease; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .toolbar { animation: rise .22s cubic-bezier(.2,.9,.3,1); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; }
+}
+
+/* Button grammar adopted from writedown: 28px targets, 7px radius, hairline dividers */
+.tool {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  flex: none;
+  min-width: 28px; height: 28px; padding: 0 5px;
+  border: 1px solid transparent; border-radius: 7px;
+  background: none; color: var(--muted);
+  transition: background-color .12s ease, color .12s ease;
+}
+.tool:hover { background: var(--rule-soft); color: var(--ink); }
+.tool[aria-pressed="true"], .tool[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent); }
+.tool svg { width: 16px; height: 16px; }
+.tool--style { min-width: 0; padding: 0 7px 0 9px; gap: 3px; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; }
+.tool--style span { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tool--style svg { width: 13px; height: 13px; }
+@media (prefers-reduced-motion: reduce) { .tool { transition: none; } }
+
+.tool-sep { flex: none; width: 1px; height: 18px; margin: 0 7px; background: var(--rule); }
+.tool-spacer { flex: 0 0 4px; }
+
+.menu-style .tick { flex: none; width: 14px; color: var(--accent); font-weight: 700; }
+.menu-style .style-token {
+  flex: none; width: 26px;
+  color: var(--muted); font-size: 11.5px; font-weight: 700;
+  letter-spacing: .02em; text-align: left;
+}
+.menu-style button:hover .style-token { color: var(--ink); }
+.menu-style .as-h1 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.menu-style .as-h2 { font-size: 16px; font-weight: 700; }
+.menu-style .as-h3 { font-size: 14px; font-weight: 700; }
+.only-narrow { display: none; }
+.menu .separator { height: 1px; margin: 4px 6px; background: var(--rule); }
+.menu-style { min-width: 250px; }
+
+/* Room for the bar to float over, plus writedown's 45vh: the last line can
+   always scroll up to a comfortable reading height. (.reading-pane takes its
+   bottom room in its own block below — a padding shorthand there would
+   override a rule here.) */
+#editor, .editor-backdrop { padding-bottom: 45vh; }
+
+/* A window narrow enough that two columns would be two unusable columns.
+   This is about the layout, not the toolbar — hence its own breakpoint. */
+@media (max-width: 720px) {
+  .views button[data-view-btn="split"] { display: none; }
+}
+
+/* Phone-sized: the bar goes full width just above the keyboard, targets grow
+   to something a thumb can hit, and the three occasional tools move into the
+   overflow rather than being squeezed. Above this width the pill still fits
+   all eight comfortably, so it keeps them. */
+@media (max-width: 480px) {
+  .toolbar {
+    left: 8px; right: 8px;
+    width: auto; max-width: none;
+    bottom: var(--bar-bottom, 41px);
+    transform: translateY(var(--keyboard-offset, 0px));
+    padding: 6px;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; }
+  }
+
+  .tool { min-width: 42px; height: 42px; border-radius: 10px; }
+  .tool svg { width: 20px; height: 20px; }
+  .tool--style { padding: 0 12px; font-size: 14px; }
+
+  .tool--secondary { display: none; }
+  .only-narrow { display: block; }
+
+  .status-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 14;
+    padding-bottom: calc(7px + env(safe-area-inset-bottom));
+  }
+
+  /* While the keyboard is up the counts step aside and the bar takes the
+     space directly above it, exactly as a phone editor does. */
+  .desk.keyboard-up .status-bar { display: none; }
+  .desk.keyboard-up .toolbar { --bar-bottom: calc(8px + env(safe-area-inset-bottom)); }
+
+  #editor, .editor-backdrop, .reading-pane { padding-bottom: 130px; }
+}
+
+/* ==========================================================================
+   Workspace — matte field; primary surfaces sit as rounded stages (Darkroom).
+   ========================================================================== */
+.workspace {
+  flex: 1 1 auto; min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--stage-inset);
+  padding: 0 var(--stage-inset) var(--stage-inset);
+  /* Gemini: content sits on a continuous dark/matte field */
+  background: var(--bg);
+}
+.desk[data-view="source"] .workspace { grid-template-columns: 1fr; }
+.desk[data-view="page"]   .workspace { grid-template-columns: 1fr; }
+.desk[data-view="read"]   .workspace { grid-template-columns: 1fr; }
+.desk[data-view="source"] .reading-pane { display: none; }
+.desk[data-view="page"]   .editor-pane  { display: none; }
+.desk[data-view="read"]   .editor-pane  { display: none; }
+
+/* Markdown source — same rounded “window” idea as the page pane */
+.editor-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  background: var(--panel-2);
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+  overflow: hidden;
+  isolation: isolate;
+}
+/*
+ * Reading pane is the fixed rounded “window”. Content scrolls inside it,
+ * so corner radius never scrolls away (overflow clips to the radius).
+ */
+.reading-pane {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-left: 0;
+  padding: 0;
+  /* writedown's 45vh: the last line scrolls up to reading height, and the
+     floating bar never sits on it. Must live in this block — see note above. */
+  padding-bottom: 45vh;
+  background: var(--paper);
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+  /* overflow:auto clips to radius so corners stay while content scrolls */
+  isolation: isolate;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;
+}
+.reading-pane::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.reading-pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+.reading-pane::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 32%, transparent);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.reading-pane::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  background-clip: padding-box;
+}
+
+/* Page view: inset the whole paper window so rounded corners show on the field */
+.desk[data-view="page"] .reading-pane,
+.desk[data-view="read"] .reading-pane {
+  margin: 8px 14px 12px 8px;
+  padding: 0 0 45vh;
+  background: var(--paper);
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+}
+
+/* —— Split view: two matching rounded windows —— */
+.desk[data-view="split"] .workspace {
+  gap: 10px;
+  padding: 10px 14px 10px 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  background: var(--bg);
+}
+.desk[data-view="split"] .editor-pane {
+  border-right: 0;
+  margin: 0;
+  background: var(--panel-2);
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+  overflow: hidden;
+}
+.desk[data-view="split"] .reading-pane {
+  margin: 0;
+  padding: 0 0 45vh;
+  background: var(--paper);
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+}
+/* Text inset — matched on both sides */
+.desk[data-view="split"] #editor,
+.desk[data-view="split"] .editor-backdrop {
+  padding: 44px 48px 64px;
+}
+.desk[data-view="split"] .sheet {
+  max-width: none;
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 44px 48px 64px;
+  /* Pane holds radius + fill; sheet is just the scrolling content */
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+/* Source-only: same rounded window as the page */
+.desk[data-view="source"] .workspace {
+  padding: 10px 14px 10px 10px;
+  gap: 0;
+}
+.desk[data-view="source"] .editor-pane {
+  border-radius: var(--radius-stage);
+  box-shadow: var(--shadow-sheet);
+  overflow: hidden;
+}
+/* Page and read views: no side inset so paper can grow and scrollbar stays at the edge */
+.desk[data-view="page"] .workspace,
+.desk[data-view="read"] .workspace {
+  padding: 0;
+  gap: 0;
+}
+
+/* The source surface is a stack: a <pre> backdrop paints the highlighted
+   tokens, and the transparent-text textarea above it paints only the caret
+   and the selection tint. Both layers share every metric that decides
+   where a glyph lands — padding, font, line-height, wrap. */
+#editor,
+.editor-backdrop {
+  /* Text padding in source view (split overrides with matched inset) */
+  padding: 44px max(40px, calc(50% - 0.5 * var(--page-measure) + 36px)) 64px;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-mono); font-size: 14.5px; line-height: 1.75;
+  tab-size: 4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+#editor {
+  flex: 1 1 auto; width: 100%; min-height: 0;
+  position: relative; z-index: 1;
+  resize: none; outline: none;
+  color: transparent; caret-color: var(--accent);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted) 35%, transparent) transparent;
+}
+/* Translucent so the backdrop's text shows through the tint. */
+#editor::selection {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.editor-backdrop {
+  position: absolute; inset: 0; z-index: 0;
+  margin: 0;
+  overflow-y: scroll; overflow-x: hidden;
+  pointer-events: none;
+  color: var(--ink);
+  /* Invisible scrollbar that still reserves the same gutter the textarea
+     reserves, so wrap points match on classic (space-taking) scrollbars. */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.editor-backdrop::-webkit-scrollbar { width: 6px; }
+.editor-backdrop::-webkit-scrollbar-track,
+.editor-backdrop::-webkit-scrollbar-thumb { background: transparent; }
+/* Tokens — color and background only, never font metrics, or the layers drift. */
+.editor-backdrop .tk-delim,
+.editor-backdrop .tk-url,
+.editor-backdrop .tk-fence,
+.editor-backdrop .tk-code-block { color: var(--muted); }
+.editor-backdrop .tk-heading,
+.editor-backdrop .tk-link,
+.editor-backdrop .tk-fn { color: var(--syn-accent); }
+.editor-backdrop .tk-code {
+  background: var(--rule-soft);
+  border-radius: 4px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+#editor::-webkit-scrollbar {
+  width: 6px;
+}
+#editor::-webkit-scrollbar-track {
+  background: transparent;
+}
+#editor::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 32%, transparent);
+  border-radius: 999px;
+}
+/* Focus mode: the chrome recedes and everything but the paragraph being
+   written is dimmed. The app bar fades rather than disappearing, so there is
+   always a way back — and Escape leaves as well. */
+.desk.focus-mode .app-bar {
+  opacity: .18;
+  transition: opacity .2s ease;
+}
+.desk.focus-mode .app-bar:hover,
+.desk.focus-mode .app-bar:focus-within { opacity: 1; }
+.desk.focus-mode .status-bar { opacity: 0; pointer-events: none; }
+.desk.focus-mode .truth { display: none; }
+.desk.focus-mode .reading-pane { padding-top: 6vh; }
+
+.desk.focus-mode .sheet > * {
+  opacity: .28;
+  transition: opacity .18s ease;
+}
+.desk.focus-mode .sheet > .is-writing,
+.desk.focus-mode .sheet:not(:focus-within) > * { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .desk.focus-mode .app-bar,
+  .desk.focus-mode .sheet > * { transition: none; }
+}
+
+.drop-hint {
+  position: fixed; inset: 0; z-index: 30;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(16,24,32,.45); color: #fff; font-size: 18px; font-weight: 600;
+}
+.desk.dragging .drop-hint { display: flex; }
+
+/* ==========================================================================
+   Status bar
+   ========================================================================== */
+.status-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+  padding: 4px 12px 5px;
+  min-height: 0;
+  background: transparent;
+  border-top: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+.status-bar .spacer { margin-left: auto; flex: 1 1 auto; min-width: 8px; }
+.status-bar b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.status-bar > span:not(.spacer) { white-space: nowrap; }
+@media (max-width: 720px) {
+  .status-bar { gap: 8px; padding: 3px 10px 4px; font-size: 10.5px; }
+}
+
+/* ==========================================================================
+   The sheet — document tokens live here, not on :root.
+   The page you are writing is paper, whatever the UI theme is doing.
+   ========================================================================== */
+.sheet {
+  --paper:      #FFFFFF;
+  --doc-ink:    #16202B;
+  --doc-muted:  #5A6875;
+  --doc-rule:   #DFE4E9;
+  --doc-accent: #2A5B8C;
+  --doc-code-bg:#F2F4F7;
+
+  max-width: min(var(--page-measure), calc(100% - 0px));
+  width: 100%;
+  margin: 0 auto;
+  /* Text padding — space around the words, not the panel shell */
+  padding: 64px 72px 88px;
+  box-sizing: border-box;
+  /* Fill comes from .reading-pane so radius stays while scrolling */
+  background: transparent;
+  color: var(--doc-ink);
+  font-family: var(--font-doc);
+  font-size: 17.5px;
+  line-height: 1.62;
+  border-radius: 0;
+  box-shadow: none;
+  overflow-wrap: break-word;
+  min-height: 60vh;
+  outline: none;
+  caret-color: var(--doc-accent);
+}
+/* Page view: sheet can stay measure-limited; pane is the white rounded window */
+.desk[data-view="page"] .sheet,
+.desk[data-view="read"] .sheet {
+  max-width: min(var(--page-measure), 100%);
+}
+@media (max-width: 700px) {
+  .sheet {
+    padding: 40px 28px 56px;
+    font-size: 16.5px;
+  }
+  .workspace {
+    --stage-inset: 8px;
+    gap: 8px;
+    padding: 0;
+  }
+  .desk[data-view="page"] .reading-pane,
+  .desk[data-view="read"] .reading-pane {
+    margin: 6px 10px 8px 6px;
+    border-radius: var(--radius-stage);
+  }
+  .desk[data-view="split"] .workspace,
+  .desk[data-view="source"] .workspace {
+    gap: 8px;
+    padding: 6px 10px 8px 6px;
+  }
+  .desk[data-view="split"] .editor-pane,
+  .desk[data-view="split"] .reading-pane,
+  .desk[data-view="source"] .editor-pane {
+    border-radius: var(--radius-stage);
+  }
+  .desk[data-view="split"] .sheet,
+  .desk[data-view="split"] #editor,
+  .desk[data-view="split"] .editor-backdrop {
+    padding: 32px 28px 48px;
+  }
+  #editor,
+  .editor-backdrop {
+    padding: 32px 24px 48px;
+  }
+}
+
+/* The empty page greets you: a phantom line over the sheet's first row,
+   never document content. The box mirrors .sheet exactly so the words sit
+   where the first sentence would. Clicks pass through — only the sample
+   link is alive. */
+.sheet-ghost {
+  position: absolute; top: 0; left: 0; right: 0;
+  max-width: min(var(--page-measure), 100%);
+  margin: 0 auto;
+  padding: 64px 72px 88px;
+  box-sizing: border-box;
+  font-family: var(--font-doc);
+  font-size: 17.5px;
+  line-height: 1.62;
+  color: var(--placeholder);
+  pointer-events: none;
+  user-select: none;
+}
+.sheet-ghost .ghost-sample {
+  pointer-events: auto;
+  border: 0; background: none; padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+.sheet-ghost .ghost-sample:hover { text-decoration: underline; }
+@media (max-width: 700px) {
+  .sheet-ghost { padding: 40px 28px 56px; font-size: 16.5px; }
+}
+
+/* Read view — the typeset page with nothing under the cursor: no toolbar,
+   no caret, no placeholder, plain text selection only. */
+.desk[data-view="read"] .toolbar { display: none; }
+.desk[data-view="read"] .sheet {
+  cursor: default;
+  caret-color: transparent;
+}
+.desk[data-view="read"] .sheet:empty::before,
+.desk[data-view="read"] .sheet > p:only-child:empty::before { content: none; }
+.sheet:focus-visible { box-shadow: var(--shadow-sheet), 0 0 0 2px var(--accent-soft); }
+
+/*
+ * Find-in-page highlights via CSS Custom Highlight API (no DOM, no reflow).
+ * background-color / color only — other properties are ignored by ::highlight.
+ */
+::highlight(wd-find) {
+  background-color: var(--hl-find, rgba(255, 214, 10, 0.42));
+  color: inherit;
+}
+::highlight(wd-find-active) {
+  background-color: var(--hl-find-active, rgba(255, 149, 0, 0.55));
+  color: inherit;
+}
+
+/*
+ * Legacy <mark> fallback (old engines only) — zero geometry so text does not reflow.
+ * No padding, margin, border, radius, or shadow.
+ */
+.sheet mark.find-mark {
+  background: var(--hl-find, rgba(255, 214, 10, 0.42));
+  color: inherit;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font: inherit;
+  line-height: inherit;
+  vertical-align: baseline;
+}
+.sheet mark.find-mark--active {
+  background: var(--hl-find-active, rgba(255, 149, 0, 0.55));
+}
+
+.sheet > :first-child { margin-top: 0; }
+.sheet > :last-child { margin-bottom: 0; }
+.sheet h1, .sheet h2, .sheet h3, .sheet h4, .sheet h5, .sheet h6 {
+  font-family: var(--font-ui); line-height: 1.25; margin: 1.9em 0 .55em;
+  letter-spacing: -0.012em;
+}
+.sheet h1 { font-size: 1.9em; margin-top: .2em; letter-spacing: -0.022em; }
+.sheet h2 { font-size: 1.42em; padding-bottom: .2em; border-bottom: 1px solid var(--doc-rule); letter-spacing: -0.016em; }
+.sheet h3 { font-size: 1.18em; }
+.sheet h4 { font-size: 1.02em; }
+.sheet h5, .sheet h6 { font-size: .95em; color: var(--doc-muted); }
+.sheet p { margin: 0 0 1.05em; }
+.sheet a { color: var(--doc-accent); text-underline-offset: 2px; }
+.sheet strong { font-weight: 700; }
+.sheet del { color: var(--doc-muted); }
+.sheet ul, .sheet ol { margin: 0 0 1.05em; padding-left: 1.5em; }
+.sheet li { margin: .28em 0; }
+.sheet li::marker { color: var(--doc-muted); }
+.sheet ::selection { background: color-mix(in srgb, var(--doc-accent) 18%, transparent); }
+.sheet li > ul, .sheet li > ol { margin: .28em 0; }
+.sheet li.task { list-style: none; margin-left: -1.35em; }
+/* Task checkboxes are drawn, not native — writedown's 15px box: hairline
+   border at rest, paper-accent fill with a white tick when done. Pinned to
+   the --doc tokens because the sheet is always white paper; the UI accent
+   flips to near-white in dark chrome and would erase the tick. */
+.sheet li.task input[type='checkbox'] {
+  appearance: none; -webkit-appearance: none;
+  position: relative;
+  width: 15px; height: 15px;
+  margin: 0 8px 0 1px; vertical-align: -2px;
+  border: 1.5px solid var(--doc-muted); border-radius: 4.5px;
+  background: transparent; cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease;
+  print-color-adjust: exact; -webkit-print-color-adjust: exact;
+}
+.sheet li.task input[type='checkbox']:checked {
+  background: var(--doc-accent); border-color: var(--doc-accent);
+}
+.sheet li.task input[type='checkbox']:checked::after {
+  content: ''; position: absolute;
+  left: 4.5px; top: 1.5px; width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.sheet li.task input[type='checkbox']:disabled { cursor: default; opacity: 1; }
+.sheet blockquote {
+  margin: 0 0 1.05em; padding: .1em 0 .1em 1.1em;
+  border-left: 3px solid var(--doc-rule); color: var(--doc-muted);
+}
+.sheet hr { border: 0; border-top: 1px solid var(--doc-rule); margin: 2em 0; }
+.sheet code {
+  font-family: var(--font-mono); font-size: .86em;
+  background: var(--doc-code-bg); padding: .12em .35em; border-radius: 4px;
+}
+.sheet pre {
+  margin: 0 0 1.05em; padding: 14px 16px; overflow: auto;
+  background: var(--doc-code-bg); border-radius: 7px;
+}
+.sheet pre code { background: none; padding: 0; font-size: .82em; line-height: 1.55; }
+.sheet img { max-width: 100%; height: auto; border-radius: 8px; }
+.sheet img.asset-missing { opacity: .55; outline: 1px dashed var(--doc-muted); outline-offset: 2px; }
+
+/* Footnotes pack — quiet, print-safe */
+.sheet sup.fnref { line-height: 0; }
+.sheet sup.fnref a { text-decoration: none; }
+.sheet .footnotes { font-size: .82em; color: var(--doc-muted); }
+.sheet .footnotes ol { padding-left: 1.4em; }
+.sheet .footnotes li { margin: .25em 0; }
+.sheet .footnotes .fnback { text-decoration: none; }
+.sheet table { border-collapse: collapse; margin: 0 0 1.05em; width: 100%; font-size: .93em; }
+.sheet th, .sheet td { border: 1px solid var(--doc-rule); padding: .45em .7em; text-align: left; }
+.sheet th { background: var(--doc-code-bg); font-family: var(--font-ui); font-size: .92em; }
+.sheet .footnotes { font-size: .9em; color: var(--doc-muted); }
+
+/* ==========================================================================
+   Print — the sheet only, edge to edge, no chrome.
+   ========================================================================== */
+/* Help control in the app bar — compact, never competes with primary actions */
+.app-bar__help {
+  min-width: 32px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* Outline — six-dot grip at the row's left edge; drag to reorder sections.
+   The grip sleeps at zero opacity until the row is hovered or focused, the
+   way the library's row actions do. */
+.menu-outline .outline-row {
+  display: flex;
+  align-items: stretch;
+  position: relative;
+}
+.menu-outline .outline-grip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  margin-left: 2px;
+  border-radius: 5px;
+  color: var(--placeholder);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity .12s ease;
+}
+.menu-outline .outline-row:hover .outline-grip,
+.menu-outline .outline-row:focus-within .outline-grip {
+  opacity: 1;
+}
+.menu-outline .outline-grip:hover { color: var(--ink); }
+.menu-outline .outline-grip:active { cursor: grabbing; }
+.menu-outline .outline-jump {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.menu-outline .outline-row.dragging { opacity: .38; }
+.menu-outline .outline-row.drop-before::before,
+.menu-outline .outline-row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 4px; right: 4px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.menu-outline .outline-row.drop-before::before { top: -1px; }
+.menu-outline .outline-row.drop-after::after { bottom: -1px; }
+
+@media print {
+  .app-bar, .status-bar, .editor-pane, .drop-hint, .toolbar, .menu,
+  .welcome, .shortcuts-backdrop, .library, .find-bar, .library-toggle, .truth {
+    display: none !important;
+  }
+  html, body, .desk, .desk-body, .desk-main { height: auto; background: #fff; }
+  .desk-body { display: block; }
+  .workspace { display: block; padding: 0; gap: 0; background: #fff; }
+  .reading-pane { overflow: visible; border: 0; padding: 0; border-radius: 0; background: #fff; }
+  .sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; font-size: 11.5pt; }
+  .sheet h1, .sheet h2, .sheet h3 { page-break-after: avoid; }
+  .sheet pre, .sheet blockquote, .sheet table { page-break-inside: avoid; }
+  .sheet a { color: inherit; text-decoration: underline; }
+}
