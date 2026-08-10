@@ -198,7 +198,7 @@ export async function importDocx(source: Uint8Array, options: DocxImportOptions 
 			for (let n = 0; n < physicalLines.length; n++) {
 				const physical = physicalLines[n];
 				if (physical === undefined) continue;
-				const content = physical.trim().replace(/[\t ]{2,}/g, ' ');
+				const content = physical.trim().replace(/\t/g, ' ').replace(/ {2,}/g, ' ');
 				if (content === '') continue;
 				const line: RawLine = { text: content };
 				if (layout.indentInches !== undefined) {

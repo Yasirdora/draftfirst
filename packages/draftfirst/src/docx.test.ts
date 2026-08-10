@@ -85,6 +85,16 @@ describe('importDocx', () => {
 		expect(report.flagged).toHaveLength(1);
 	});
 
+	it('normalizes a mid-line tab from Word tab stops to a space', async () => {
+		const bytes = await docxBytes(
+			`<w:p><w:r><w:t>INT.</w:t><w:tab/><w:t>KITCHEN - DAY</w:t></w:r></w:p>`,
+			{ styles: false }
+		);
+		const { script } = await importDocx(bytes);
+		expect(script.elements[0]?.type).toBe('scene');
+		expect(script.elements[0]?.text).toBe('INT. KITCHEN - DAY');
+	});
+
 	it('keeps tracked insertions and drops tracked deletions, with a warning', async () => {
 		const bytes = await docxBytes(`
 			<w:p><w:r><w:t>Keep </w:t></w:r><w:ins><w:r><w:t>this</w:t></w:r></w:ins><w:del><w:r><w:delText>not this</w:delText></w:r></w:del><w:r><w:t> text.</w:t></w:r></w:p>`);

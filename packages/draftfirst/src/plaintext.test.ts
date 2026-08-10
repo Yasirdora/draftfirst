@@ -72,6 +72,15 @@ describe('importPlainText', () => {
 		expect(script.elements.map((element) => element.type)).toEqual(['scene', 'pagebreak', 'scene']);
 	});
 
+	it('normalizes a mid-line tab to a space', () => {
+		const { script } = importPlainText('INT.\tKITCHEN - DAY\n\nMARA\t(CONT’D)\nHi.');
+		expect(script.elements.map((element) => element.text)).toEqual([
+			'INT. KITCHEN - DAY',
+			'MARA (CONT’D)',
+			'Hi.'
+		]);
+	});
+
 	it('normalizes Windows line endings', () => {
 		const { script } = importPlainText('INT. CAFE - DAY\r\n\r\nMARA\r\nHi.');
 		expect(script.elements.map((element) => element.type)).toEqual(['scene', 'character', 'dialogue']);

@@ -81,7 +81,7 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 				stripped++;
 				continue; /* attachment survives — (MORE) splits a speech, not a thought */
 			}
-			const line: RawLine = { text: trimmed.replace(/[\t ]{2,}/g, ' ') };
+			const line: RawLine = { text: trimmed.replace(/\t/g, ' ').replace(/ {2,}/g, ' ') };
 			const indent = leadingIndentInches(segment);
 			if (indent > 0) line.indentInches = indent;
 			if (attached) line.attached = true;
