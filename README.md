@@ -1,5 +1,10 @@
 # Draft First Screenwriting
 
+[![npm version](https://img.shields.io/npm/v/%40draftfirst%2Fcore?label=%40draftfirst%2Fcore&color=cb3837)](https://www.npmjs.com/package/@draftfirst/core)
+[![npm downloads](https://img.shields.io/npm/dm/%40draftfirst%2Fcore?color=cb3837)](https://www.npmjs.com/package/@draftfirst/core)
+[![CI](https://github.com/Yasirdora/draftfirst/actions/workflows/ci.yml/badge.svg)](https://github.com/Yasirdora/draftfirst/actions/workflows/ci.yml)
+[![MIT License](https://img.shields.io/badge/license-MIT-2ea44f.svg)](./LICENSE)
+
 Draft First is a privacy-first screenwriting workspace backed by a reusable,
 framework-independent TypeScript engine. It supports Fountain and a deliberately
 bounded subset of FDX, deterministic screenplay pagination, story-aware writing
@@ -10,7 +15,8 @@ in August 2026 after the document model, interoperability layer, pagination, and
 editor policies were separated into a tested package.
 
 - Website: [draftfirst.xyz](https://draftfirst.xyz)
-- Package: [`@draftfirst/core`](./packages/draftfirst)
+- npm package: [`@draftfirst/core`](https://www.npmjs.com/package/@draftfirst/core)
+- Package source: [`packages/draftfirst`](./packages/draftfirst)
 - License: [MIT](./LICENSE)
 
 ## Why this project exists
