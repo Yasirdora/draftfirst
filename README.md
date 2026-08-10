@@ -74,8 +74,7 @@ src/lib/components/
 src/lib/screenplay/
   pdf.ts                      App-only PDF export
   sample.ts                   App-only sample screenplay
-src/routes/screenplay/        Screenwriting application route
-src/routes/notes/             Preserved local-first Markdown desk
+src/routes/                     The editor at `/` (legacy `/screenplay` redirects)
 scripts/                      Package-boundary and release verification
 .github/workflows/            Continuous integration and npm publishing
 ```
