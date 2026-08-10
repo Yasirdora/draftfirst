@@ -18,12 +18,19 @@
  * silently replaced. A future Unicode exporter must embed a font and a
  * ToUnicode map; this module does not claim that support.
  *
+ * Round trip: the Info dictionary carries the complete Fountain source as a
+ * versioned, UTF-8-safe hex payload in /Keywords (see the engine's pdfsignal
+ * module), plus /Producer and /Title metadata. A PDF we export re-imports
+ * perfectly — the printable deliverable is also the backup.
+ *
  * Known gap (honest): dual dialogue prints sequentially rather than in
  * side-by-side columns. No content is lost or mislabelled; the layout is
  * linear. True two-column dual layout lands with the production layer.
  */
 
 import { isPrinting, type Screenplay, type TitlePageEntry } from '@draftfirst/core';
+import { serialiseFountain } from '@draftfirst/core/fountain';
+import { encodePdfPayload } from '@draftfirst/core/import';
 import {
 	paginate,
 	PAGE_WIDTH_CHARS,
@@ -171,6 +178,16 @@ function pdfStr(s: string): string {
 		else out += '\\' + byte.toString(8).padStart(3, '0');
 	}
 	return out;
+}
+
+/**
+ * A PDF text string for the Info dictionary: UTF-16BE hex with the BOM, the
+ * spec-sanctioned form when a title may carry any script on earth.
+ */
+function pdfUtf16Hex(s: string): string {
+	let hex = 'FEFF';
+	for (let i = 0; i < s.length; i++) hex += s.charCodeAt(i).toString(16).padStart(4, '0');
+	return hex;
 }
 
 /** Title-case exceptions aside, printing types shout by convention. */
@@ -366,6 +383,15 @@ export function scriptToPdf(script: Screenplay): Uint8Array {
 			`<< /Length ${spec.stream.length} >>\nstream\n${spec.stream}\nendstream`;
 	});
 
+	/* Info: Producer + Title metadata, and the complete Fountain source as a
+	   versioned hex payload — this PDF is its own backup. */
+	const infoObj = 4 + specs.length * 2;
+	const docTitle = tpValues(script.titlePage, 'title').join(' ').trim();
+	objects[infoObj] =
+		'<< /Producer (Draft First)' +
+		(docTitle === '' ? '' : ` /Title <${pdfUtf16Hex(docTitle)}>`) +
+		` /Keywords <${encodePdfPayload(serialiseFountain(script))}> >>`;
+
 	let out = '%PDF-1.4\n';
 	const offsets: number[] = [];
 	for (let n = 1; n < objects.length; n++) {
@@ -377,7 +403,7 @@ export function scriptToPdf(script: Screenplay): Uint8Array {
 	for (let n = 1; n < objects.length; n++) {
 		out += `${String(offsets[n]).padStart(10, '0')} 00000 n \n`;
 	}
-	out += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefAt}\n%%EOF\n`;
+	out += `trailer\n<< /Size ${objects.length} /Root 1 0 R /Info ${infoObj} 0 R >>\nstartxref\n${xrefAt}\n%%EOF\n`;
 
 	const bytes = new Uint8Array(out.length);
 	for (let i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 0xff;

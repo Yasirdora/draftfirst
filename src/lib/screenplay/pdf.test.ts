@@ -5,6 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import { PdfExportError, scriptToPdf, validatePdfCompatibility } from './pdf';
 import { paginate } from '@draftfirst/core/layout';
+import { parseFountain } from '@draftfirst/core/fountain';
+import { extractPdfPayload } from '@draftfirst/core/import';
 import type { Screenplay } from '@draftfirst/core';
 
 function el(type: any, text: string, extra: Record<string, unknown> = {}) {
@@ -225,5 +227,50 @@ describe('scriptToPdf — content', () => {
 		const pdf = scriptToPdf({ titlePage: [], elements: [] });
 		const src = decode(pdf);
 		expect(src).toContain('/Count 1');
+	});
+});
+
+describe('scriptToPdf — round trip and metadata', () => {
+	it('stamps /Producer, a UTF-16BE /Title, and the /Keywords payload in a trailer-referenced Info dict', () => {
+		const src = decode(scriptToPdf(SCRIPT));
+		expect(src).toContain('/Producer (Draft First)');
+		/* "The Long Way Home" as UTF-16BE hex with BOM */
+		const titleHex = 'FEFF' + [...'The Long Way Home'].map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join('');
+		expect(src).toContain(`/Title <${titleHex}>`);
+		const trailer = src.slice(src.indexOf('trailer'));
+		expect(trailer).toMatch(/\/Info \d+ 0 R/);
+		const infoNum = Number(trailer.match(/\/Info (\d+) 0 R/)![1]);
+		expect(src).toContain(`${infoNum} 0 obj\n<< /Producer (Draft First)`);
+	});
+
+	it('carries the complete screenplay home: pdf bytes → extract → parse → identical stream', () => {
+		const pdf = scriptToPdf(SCRIPT);
+		const fountain = extractPdfPayload(pdf);
+		expect(fountain).not.toBeNull();
+		const recovered = parseFountain(fountain!);
+		expect(recovered.elements.map((e) => [e.type, e.text])).toEqual(
+			SCRIPT.elements.map((e) => [e.type, e.text])
+		);
+		expect(recovered.titlePage.map((e) => [e.key, e.values])).toEqual(
+			SCRIPT.titlePage.map((e) => [e.key, e.values])
+		);
+		/* scene numbers survive the round trip too */
+		expect(recovered.elements[0]!.sceneNumber).toBe('1');
+		expect(recovered.elements[5]!.sceneNumber).toBe('2');
+	});
+
+	it('keeps screenplay punctuation byte-exact through the payload, even when WinAnsi-encoded on the page', () => {
+		const s: Screenplay = {
+			titlePage: [],
+			elements: [el('action', 'Molly’s pause—then “go.”')]
+		};
+		const fountain = extractPdfPayload(scriptToPdf(s));
+		expect(fountain).toContain('Molly’s pause—then “go.”');
+	});
+
+	it('omits /Title when the screenplay has no title', () => {
+		const src = decode(scriptToPdf({ titlePage: [], elements: [el('action', 'Body only.')] }));
+		expect(src).not.toContain('/Title');
+		expect(extractPdfPayload(scriptToPdf({ titlePage: [], elements: [el('action', 'Body only.')] }))).not.toBeNull();
 	});
 });
