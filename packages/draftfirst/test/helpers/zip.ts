@@ -1,8 +1,11 @@
 /**
  * Test-only ZIP writer — builds small archives (stored or deflated) so the
  * reader tests run against real bytes, not mocks. Uses the platform's native
- * CompressionStream; no Node APIs, no dependencies.
+ * CompressionStream; no Node APIs, no dependencies. CRC comes from the engine
+ * itself — one implementation, tested in both directions.
  */
+
+import { crc32 } from '../../src/crc32.js';
 
 interface CompressSession {
 	writable: {
@@ -50,21 +53,6 @@ async function deflateRaw(data: Uint8Array): Promise<Uint8Array> {
 		at += chunk.length;
 	}
 	return out;
-}
-
-let crcTable: Uint32Array | null = null;
-function crc32(bytes: Uint8Array): number {
-	if (crcTable === null) {
-		crcTable = new Uint32Array(256);
-		for (let n = 0; n < 256; n++) {
-			let c = n;
-			for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-			crcTable[n] = c >>> 0;
-		}
-	}
-	let crc = 0xffffffff;
-	for (let i = 0; i < bytes.length; i++) crc = crcTable[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
-	return (crc ^ 0xffffffff) >>> 0;
 }
 
 export interface TestZipEntry {
