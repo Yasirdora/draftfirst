@@ -1739,7 +1739,7 @@
 <style>
 	/* ---- design tokens ---------------------------------------------------- */
 	.stage {
-		--bg: #f0f1f3;
+		--bg: #ffffff;
 		--panel: rgba(255, 255, 255, 0.9);
 		--panel-solid: #ffffff;
 		--menu-bg: #ffffff;
@@ -1759,9 +1759,7 @@
 		--toast-bg: #2b2b2b;
 		--paper: #ffffff;
 		--paper-ink: #141414;
-		--paper-edge: rgba(0, 0, 0, 0.05);
 		--shadow-pill: 0 1px 2px rgba(16, 24, 32, 0.06), 0 8px 28px rgba(16, 24, 32, 0.1);
-		--shadow-sheet: 0 1px 2px rgba(16, 24, 32, 0.05), 0 20px 56px rgba(16, 24, 32, 0.14);
 		--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 		--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
@@ -1776,7 +1774,7 @@
 		overflow: hidden;
 	}
 	.stage.dark {
-		--bg: #131313;
+		--bg: #2a2a29;
 		--panel: rgba(18, 18, 18, 0.9);
 		--panel-solid: #121212;
 		--menu-bg: #292929;
@@ -1793,9 +1791,7 @@
 		--toast-bg: #404040;
 		--paper: #2a2a29;
 		--paper-ink: rgba(255, 255, 255, 0.85);
-		--paper-edge: rgba(255, 255, 255, 0.09);
 		--shadow-pill: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.45);
-		--shadow-sheet: 0 1px 2px rgba(0, 0, 0, 0.5), 0 20px 60px rgba(0, 0, 0, 0.6);
 	}
 
 	/* ---- floating chrome -------------------------------------------------- */
@@ -2003,9 +1999,14 @@
 	.scroll { flex: 1; overflow: auto; padding: 72px 0 30vh; min-width: 0; }
 
 	/* ---- the paper ---------------------------------------------------------
-	   Geometry matches the paginator core exactly: Courier 12pt ≈ 16px,
-	   9.6px per character, line-height 9in/55 — the engine's 55-line page.
-	   Font metrics live on the wrapper so the ghost layer inherits them. */
+		   Geometry matches the paginator core exactly: Courier 12pt ≈ 16px,
+		   9.6px per character, line-height 9in/55 — the engine's 55-line page.
+		   Font metrics live on the wrapper so the ghost layer inherits them.
+
+		   Borderless: the canvas is the window. There is no card, no edge, no
+		   shadow — the screenplay column simply lives on the reading surface.
+		   Page TRUTH (breaks, numbers, continuations) stays as quiet data from
+		   the paginator; page THEATRE is gone for good. */
 	.page-wrap {
 		position: relative;
 		width: 8.5in;
@@ -2022,11 +2023,7 @@
 		background: var(--paper);
 		color: var(--paper-ink);
 		padding: 1in 1in 1in 1.5in;
-		border: 0.5px solid var(--paper-edge);
-		border-radius: 2px;
-		box-shadow: var(--shadow-sheet);
 		outline: none;
-		transition: box-shadow 200ms ease;
 		box-sizing: border-box;
 	}
 	.sppage.focusmode :global(.b) { opacity: 0.24; transition: opacity 180ms ease; }
@@ -2044,17 +2041,23 @@
 	:global(.b:first-child) { margin-top: 0; }
 
 	:global(.b.pgb) {
-		margin-top: 1in;
-		border-top: 0.5px dashed var(--sep);
+		margin-top: calc((9in / 55) * 3);
+		border-top: 0.5px solid var(--ink-4);
 		padding-top: calc(9in / 55);
 		position: relative;
 	}
+	/* the page number is a quiet label straddling the hairline at the right
+	   margin — the paginator's truth, never the page's theatre */
 	:global(.b.pgb)::after {
 		content: attr(data-page) '.';
 		position: absolute;
 		right: 0;
-		top: -0.7in;
+		top: 0;
+		transform: translateY(-50%);
+		font-size: 12px;
 		color: var(--ink-4);
+		background: var(--paper);
+		padding: 0 6px;
 	}
 	/* scene continuation: (CONTINUED) hangs in the bottom margin under the page's
 	   last line; CONTINUED: sits atop the new page — gray margin annotations,

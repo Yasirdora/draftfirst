@@ -15,11 +15,11 @@ body {
 
 body {
 	font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Segoe UI', Roboto, sans-serif;
-	background: #f0f1f3;
+	background: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
 	body {
-		background: #131313;
+		background: #2a2a29;
 	}
 }
