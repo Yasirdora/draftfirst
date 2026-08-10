@@ -81,6 +81,7 @@
 	let sourceText = $state('');
 	let theme = $state<'light' | 'dark'>('light');
 	let exportMenuOn = $state(false);
+	let fileMenuOn = $state(false);
 	let elementMenuOn = $state(false);
 	/** True when the current block carries a "page break before" marker. */
 	let curPb = $state(false);
@@ -1240,6 +1241,7 @@
 		const t = e.target as HTMLElement;
 		if (!t.closest('.menu-pop') && !t.closest('[data-menu-trigger]')) {
 			exportMenuOn = false;
+			fileMenuOn = false;
 			elementMenuOn = false;
 			summonMenuOn = false;
 		}
@@ -1278,6 +1280,7 @@
 			else if (sourceMode) closeSource();
 			else {
 				exportMenuOn = false;
+				fileMenuOn = false;
 				elementMenuOn = false;
 			}
 		}
@@ -1362,15 +1365,20 @@
 			<button type="button" class="iconbtn" class:on={showSide} data-tip="Scenes panel" aria-label="Scenes panel" onclick={() => (showSide = !showSide)}>
 				<svg viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M6.2 2.5v11"/></svg>
 			</button>
-			<button type="button" class="iconbtn" data-tip="New screenplay" aria-label="New screenplay" onclick={newScript}>
-				<svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
-			</button>
-			<button type="button" class="iconbtn" data-tip="Open .draft / .fdx / .docx / .txt" aria-label="Open file" onclick={() => fileInput?.click()}>
-				<svg viewBox="0 0 16 16"><path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h3l1.5 2h4.5A1.5 1.5 0 0 1 14 7.5v4A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-6z"/></svg>
-			</button>
+			<span class="menu-anchor">
+				<button type="button" class="iconbtn" class:on={fileMenuOn} data-menu-trigger data-tip="New or open — .draft .fdx .docx .txt .pdf" aria-label="New or open screenplay" onclick={() => { fileMenuOn = !fileMenuOn; exportMenuOn = false; elementMenuOn = false; }}>
+					<svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
+				</button>
+				{#if fileMenuOn}
+					<div class="menu-pop" role="menu">
+						<button type="button" role="menuitem" onclick={() => { fileMenuOn = false; newScript(); }}><span>New screenplay</span></button>
+						<button type="button" role="menuitem" onclick={() => { fileMenuOn = false; fileInput?.click(); }}><span>Open screenplay…</span></button>
+					</div>
+				{/if}
+			</span>
 
 			<span class="menu-anchor">
-				<button type="button" class="iconbtn" class:on={exportMenuOn} data-menu-trigger data-tip="Save / export" aria-label="Save or export" onclick={() => { exportMenuOn = !exportMenuOn; elementMenuOn = false; }}>
+				<button type="button" class="iconbtn" class:on={exportMenuOn} data-menu-trigger data-tip="Save / export" aria-label="Save or export" onclick={() => { exportMenuOn = !exportMenuOn; fileMenuOn = false; elementMenuOn = false; }}>
 					<svg viewBox="0 0 16 16"><path d="M8 2v8m0 0L5 7m3 3 3-3M3 12.5h10"/></svg>
 				</button>
 				{#if exportMenuOn}
@@ -1519,7 +1527,7 @@
 	<!-- status pill: always present -->
 	<footer class="statuspill">
 		<span class="menu-anchor">
-			<button type="button" class="etype" data-menu-trigger onclick={() => { elementMenuOn = !elementMenuOn; exportMenuOn = false; }}>
+			<button type="button" class="etype" data-menu-trigger onclick={() => { elementMenuOn = !elementMenuOn; exportMenuOn = false; fileMenuOn = false; }}>
 				{LABEL[curType]}
 				<svg viewBox="0 0 16 16" class="chev"><path d="M4 6.5 8 10.5 12 6.5"/></svg>
 			</button>
