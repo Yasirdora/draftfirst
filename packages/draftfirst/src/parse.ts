@@ -4,8 +4,10 @@
  * Implements the authoring subset of the Fountain spec (fountain.io/syntax):
  * title page, scene headings (detected + forced `.`), action (forced `!`),
  * character cues (ALL CAPS, forced `@`, extensions, dual `^`), dialogue,
- * parentheticals, transitions (`TO:` + forced `>`), centered `> <`, lyrics `~`,
- * notes [[ ]], boneyard (omitted), sections #, synopses =, page breaks ===.
+ * parentheticals, transitions (`TO:`, the FADE opener/closer family, forced `>`),
+ * centered `> <`, lyrics `~`, notes [[ ]], boneyard (omitted), sections #,
+ * synopses =, page breaks ===. Title pages open on known keys (`Title:`,
+ * `Credit:`…) or on any run of 2+ keys — a lone `FADE IN:` is never metadata.
  * Beyond the spec: isolated known shot language (ANGLE ON, INSERT, … SHOT)
  * parses to the shot element. `!` always retains its standard meaning: Action.
  *
@@ -58,6 +60,27 @@ function sourceLimit(options: FountainParseOptions): number {
 const TITLE_KEY = /^([A-Za-z][A-Za-z0-9 '&./_-]*):[ \t]*(.*)$/;
 const TITLE_TRANSITION = /^[A-Z0-9 '()&.,/-]+ TO:$/;
 
+/* Keys that unambiguously open a title page on their own. A single leading
+   `Key: value` line is only a title page when its key is a known one —
+   otherwise beloved openers like `FADE IN:` would be eaten as metadata
+   (the classic Fountain gotcha). Two or more consecutive key lines are
+   always a title page, whatever keys they carry. */
+const KNOWN_TITLE_KEYS: ReadonlySet<string> = new Set([
+	'title',
+	'credit',
+	'author',
+	'authors',
+	'written by',
+	'source',
+	'contact',
+	'address',
+	'draft',
+	'draft date',
+	'date',
+	'revision',
+	'copyright'
+]);
+
 function parseTitlePage(lines: string[]): { entries: TitlePageEntry[]; consumed: number } {
 	const entries: TitlePageEntry[] = [];
 	let i = 0;
@@ -89,6 +112,11 @@ function parseTitlePage(lines: string[]): { entries: TitlePageEntry[]; consumed:
 			continue;
 		}
 		break;
+	}
+
+	/* one key alone is metadata only when the key is a known one */
+	if (entries.length === 1 && !KNOWN_TITLE_KEYS.has(entries[0].key.toLowerCase())) {
+		return { entries: [], consumed: 0 };
 	}
 	return { entries, consumed: i };
 }
@@ -179,6 +207,9 @@ function logicalLines(raw: string): LogicalLine[] {
 export const SCENE_DETECT: RegExp = /^(INT|EXT|EST|INT\.\/EXT|INT\/EXT|I\/E)([. ]|\.\/)/i;
 const SCENE_NUMBER = /#([^#]+)#\s*$/;
 export const TRANSITION_DETECT: RegExp = /^[A-Z0-9 '()&.,/-]+ TO:$/;
+/* Beloved openers/closers that carry no `TO:` — recognised as transitions on
+   import so a foreign script's `FADE IN:` never degrades to prose. */
+const FADE_OPENER: RegExp = /^FADE (IN|OUT|TO BLACK|TO WHITE)[.:]?$/;
 const FORCED_TRANSITION = /^>\s*(.+)$/;
 const CENTERED = /^>\s*(.+?)\s*<$/;
 const UPPERCASE_LINE = /[A-Z]/;
@@ -402,8 +433,8 @@ export function parseFountain(source: string, options: FountainParseOptions = {}
 			continue;
 		}
 
-		/* detected transition  CUT TO: / DISSOLVE TO: */
-		if (blankBefore && blankAfter && TRANSITION_DETECT.test(line) && isUpperCue(line)) {
+		/* detected transition  CUT TO: / DISSOLVE TO: / FADE IN: */
+		if (blankBefore && blankAfter && (TRANSITION_DETECT.test(line) || FADE_OPENER.test(line)) && isUpperCue(line)) {
 			push('transition', line);
 			prev = 'transition';
 			continue;

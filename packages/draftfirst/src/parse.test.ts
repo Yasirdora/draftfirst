@@ -65,6 +65,22 @@ describe('parseFountain · title page', () => {
 		const s = parseFountain('INT. KITCHEN - DAY\n\nAction.\n');
 		expect(s.titlePage).toEqual([]);
 	});
+
+	it('never eats a FADE IN: opener as a title-page key', () => {
+		const s = parseFountain('FADE IN:\n\nINT. KITCHEN - DAY\n\nAction.\n');
+		expect(s.titlePage).toEqual([]);
+		expect(s.elements[0]).toEqual({ type: 'transition', text: 'FADE IN:' });
+	});
+
+	it('treats a single unknown key line as body text, not metadata', () => {
+		const s = parseFountain('FLASHBACK:\n\nINT. KITCHEN - DAY\n');
+		expect(s.titlePage).toEqual([]);
+	});
+
+	it('still opens a title page on a single known key', () => {
+		const s = parseFountain('Title: Only This\n\nINT. KITCHEN - DAY\n');
+		expect(s.titlePage).toEqual([{ key: 'Title', values: ['Only This'] }]);
+	});
 });
 
 describe('parseFountain · scene headings', () => {

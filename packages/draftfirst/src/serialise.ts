@@ -17,6 +17,8 @@ import type { AnyElementType, Screenplay, ScreenplayElement } from './types.js';
 
 const SCENE_DETECT = /^(INT|EXT|EST|INT\.\/EXT|INT\/EXT|I\/E)([. ]|\.\/)/i;
 const TRANSITION_DETECT = /^[A-Z0-9 '()&.,/-]+ TO:$/;
+/* Matches the parser: canonical openers/closers print bare, never forced. */
+const FADE_OPENER = /^FADE (IN|OUT|TO BLACK|TO WHITE)[.:]?$/;
 
 const SHOT_LEADS = [
 	'ANGLE ON', 'CLOSE ON', 'CLOSEUP ON', 'CLOSEUP', 'POV', 'INSERT',
@@ -79,7 +81,7 @@ export function elementToFountain(el: ScreenplayElement): string {
 		case 'parenthetical':
 			return el.text;
 		case 'transition': {
-			return TRANSITION_DETECT.test(el.text) && isUpper(el.text)
+			return (TRANSITION_DETECT.test(el.text) || FADE_OPENER.test(el.text)) && isUpper(el.text)
 				? el.text
 				: `> ${escapeForcedTransition(el.text)}`;
 		}
