@@ -97,13 +97,30 @@ describe('writeDocx', () => {
 		expect(reread.elements.map((element) => element.type)).toEqual(['scene', 'pagebreak', 'scene']);
 	});
 
-	it('emits multi-line elements as one paragraph per line', async () => {
+	it('round-trips a multi-line element as ONE element, unflagged', async () => {
 		const script: Screenplay = {
 			titlePage: [],
-			elements: [{ type: 'action', text: 'First line.\nSecond line.' }]
+			elements: [
+				{ type: 'character', text: 'MARA' },
+				{ type: 'dialogue', text: 'First line.\nSecond line.' }
+			]
 		};
 		const document = await documentXmlOf(writeDocx(script));
-		expect(document).toContain('First line.');
-		expect(document).toContain('Second line.');
+		expect(document).toContain('<w:br/>');
+		const { script: reread, report } = await importDocx(writeDocx(script));
+		expect(reread.elements).toEqual([
+			{ type: 'character', text: 'MARA' },
+			{ type: 'dialogue', text: 'First line. Second line.' }
+		]);
+		expect(report.flagged).toEqual([]);
+	});
+
+	it('drops a multi-line title once, not between every line', async () => {
+		const script: Screenplay = {
+			titlePage: [{ key: 'Title', values: ['THE EMPTY', 'CINEMA'] }],
+			elements: [{ type: 'scene', text: 'INT. LOBBY - DAY' }]
+		};
+		const document = await documentXmlOf(writeDocx(script));
+		expect(document.match(/w:before="1440"/g)?.length ?? 0).toBe(1);
 	});
 });

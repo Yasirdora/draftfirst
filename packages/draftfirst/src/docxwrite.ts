@@ -9,7 +9,9 @@
  * parentheticals carry keepNext so Word never severs a speech across pages.
  *
  * The trust round trip closes here: what writeDocx emits, importDocx reads
- * back as the same element stream — the test suite proves it.
+ * back as the same element stream — the test suite proves it. Line breaks
+ * inside an element travel as in-paragraph <w:br/> runs and fold back into
+ * one element on import (their text rejoins with a single space).
  */
 
 import type { ElementType, Screenplay } from './types.js';
@@ -72,20 +74,14 @@ function paragraph(spec: ParaSpec, text: string): string {
 	if (spec.left !== undefined) props += `<w:ind w:left="${spec.left}"/>`;
 	if (spec.align !== undefined) props += `<w:jc w:val="${spec.align}"/>`;
 	if (text === '') return `<w:p><w:pPr>${props}</w:pPr></w:p>`;
-	return `<w:p><w:pPr>${props}</w:pPr><w:r><w:t xml:space="preserve">${encodeXmlEntities(text)}</w:t></w:r></w:p>`;
-}
-
-/** An element whose text carries line breaks becomes one paragraph per line. */
-function elementParagraphs(spec: ParaSpec, text: string): string {
-	const lines = text.split('\n');
-	return lines
-		.map((line, i) =>
-			paragraph(
-				{ ...spec, before: i === 0 ? spec.before : 0, after: i === lines.length - 1 ? spec.after : 0 },
-				line
-			)
-		)
+	/* Line breaks within an element are in-paragraph <w:br/> runs — the exact
+	   shape importDocx folds back into ONE element. Paragraph-per-line would
+	   re-import as siblings and flag the continuation as a guess. */
+	const runs = text
+		.split('\n')
+		.map((line, i) => `${i > 0 ? '<w:br/>' : ''}<w:t xml:space="preserve">${encodeXmlEntities(line)}</w:t>`)
 		.join('');
+	return `<w:p><w:pPr>${props}</w:pPr><w:r>${runs}</w:r></w:p>`;
 }
 
 const PAGE_BREAK = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
@@ -98,7 +94,11 @@ function titlePageParagraphs(script: Screenplay): string {
 	if (title.length === 0) return '';
 	const centered: ParaSpec = { before: 0, after: LINE, align: 'center' };
 	let out = '';
-	for (const line of title) out += paragraph({ ...centered, before: 6 * LINE }, line.toUpperCase());
+	/* the big drop belongs to the block's first line only — a two-line title
+	   must not open a canyon between its own lines */
+	for (let i = 0; i < title.length; i++) {
+		out += paragraph({ ...centered, before: i === 0 ? 6 * LINE : 0 }, title[i].toUpperCase());
+	}
 	for (const key of ['credit', 'author']) {
 		for (const line of get(key)) out += paragraph(centered, line);
 	}
@@ -124,7 +124,7 @@ export function writeDocx(script: Screenplay): Uint8Array {
 			continue;
 		}
 		if (!isPrinting(element.type)) continue;
-		body += elementParagraphs(paraSpec(element.type), element.text);
+		body += paragraph(paraSpec(element.type), element.text);
 	}
 	const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}${SECT_PR}</w:body></w:document>`;
