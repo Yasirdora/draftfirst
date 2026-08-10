@@ -17,6 +17,8 @@
 		TRANSITION_DETECT
 	} from '@draftfirst/core/fountain';
 	import { parseFdx, writeFdxWithDiagnostics } from '@draftfirst/core/fdx';
+	import { finalizeImport, importDocx, importPlainText, writeDocx } from '@draftfirst/core/import';
+	import type { ClassifiedLine, ImportResult } from '@draftfirst/core/import';
 	import { estimateRuntime, paginate } from '@draftfirst/core/layout';
 	import {
 		detachStructural,
@@ -98,6 +100,20 @@
 	let predictOn = $state(true);
 	let fileInput: HTMLInputElement | undefined = $state(undefined);
 
+	/* ---- import review: what the engine read, and where it needs your eye ---- */
+	let importReview = $state<{
+		name: string;
+		format: string;
+		warnings: string[];
+		classified: ClassifiedLine[];
+	} | null>(null);
+	/** Re-derived on every override — the sheet always shows the current read. */
+	const reviewResult = $derived(
+		importReview ? finalizeImport(importReview.classified, importReview.format, importReview.warnings) : null
+	);
+	/** True while a file hovers over the window, ready to drop-import. */
+	let dropOn = $state(false);
+
 	const scriptTitle = $derived(
 		titleEntries.find((e) => e.key.toLowerCase() === 'title')?.values[0] ?? 'Untitled'
 	);
@@ -108,6 +124,7 @@
 		toast = { type, msg };
 		toastTimer = setTimeout(() => (toast = null), 3000);
 	}
+	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 	/* ---- block helpers ---------------------------------------------------- */
 
@@ -1044,34 +1061,86 @@
 		downloadBytes(scriptToPdf(currentScript()), baseName() + '.pdf', 'application/pdf');
 		showToast('success', 'Exported ' + baseName() + '.pdf');
 	}
+	function exportDocx() {
+		exportMenuOn = false;
+		downloadBytes(
+			writeDocx(currentScript()),
+			baseName() + '.docx',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+		);
+		showToast('success', 'Exported ' + baseName() + '.docx');
+	}
 	function importFile(e: Event) {
 		const input = e.target as HTMLInputElement;
 		const file = input.files?.[0];
-		if (!file) return;
-		const reader = new FileReader();
-		reader.onload = () => {
-			const txt = String(reader.result ?? '');
-			try {
-				if (/\.fdx$/i.test(file.name) || /\.xml$/i.test(file.name)) {
-					const res = parseFdx(txt);
-					loadModel(res.script.elements, res.script.titlePage);
-					showToast(
-						res.warnings.length ? 'caution' : 'success',
-						res.warnings.length
-							? `Opened ${file.name} — ${res.warnings.length} note${res.warnings.length === 1 ? '' : 's'}, best effort`
-							: 'Opened ' + file.name
-					);
-				} else {
-					const script = parseFountain(txt);
-					loadModel(script.elements, script.titlePage);
-					showToast('success', 'Opened ' + file.name);
-				}
-			} catch (err) {
-				showToast('error', 'Import failed: ' + String(err));
-			}
-		};
-		reader.readAsText(file);
 		input.value = '';
+		if (file) void importFileObject(file);
+	}
+	/**
+	 * One pipeline for every path a file can arrive by — the open button or a
+	 * drop anywhere on the window. Exact formats (.fdx, .fountain, .draft)
+	 * commit straight away; inferred formats (.docx, .txt) pass through the
+	 * import review whenever the engine has anything to confess.
+	 */
+	async function importFileObject(file: File) {
+		try {
+			if (/\.fdx$/i.test(file.name) || /\.xml$/i.test(file.name)) {
+				const res = parseFdx(await file.text());
+				loadModel(res.script.elements, res.script.titlePage);
+				showToast(
+					res.warnings.length ? 'caution' : 'success',
+					res.warnings.length
+						? `Opened ${file.name} — ${res.warnings.length} note${res.warnings.length === 1 ? '' : 's'}, best effort`
+						: 'Opened ' + file.name
+				);
+			} else if (/\.docx$/i.test(file.name)) {
+				offerImportReview(file.name, await importDocx(new Uint8Array(await file.arrayBuffer())));
+			} else if (/\.txt$/i.test(file.name)) {
+				offerImportReview(file.name, importPlainText(await file.text()));
+			} else {
+				const script = parseFountain(await file.text());
+				loadModel(script.elements, script.titlePage);
+				showToast('success', 'Opened ' + file.name);
+			}
+		} catch (err) {
+			showToast('error', 'Import failed: ' + (err instanceof Error ? err.message : String(err)));
+		}
+	}
+	function offerImportReview(name: string, result: ImportResult) {
+		/* nothing to weigh — the engine read every line cleanly */
+		if (result.report.flagged.length === 0 && result.report.warnings.length === 0) {
+			loadModel(result.script.elements, result.script.titlePage);
+			showToast('success', 'Opened ' + name);
+			return;
+		}
+		importReview = {
+			name,
+			format: result.report.format,
+			warnings: result.report.warnings,
+			classified: result.classified
+		};
+	}
+	function overrideImportLine(lineIndex: number, type: EType) {
+		const line = importReview?.classified[lineIndex];
+		if (!line) return;
+		line.type = type;
+		line.confidence = 'high';
+		line.why = 'you chose this';
+	}
+	function commitImportReview() {
+		if (!importReview || !reviewResult) return;
+		loadModel(reviewResult.script.elements, reviewResult.script.titlePage);
+		showToast(
+			'success',
+			`Opened ${importReview.name} — ${plural(reviewResult.report.lines, 'line')}, ${plural(reviewResult.report.scenes, 'scene')}`
+		);
+		importReview = null;
+	}
+	function onDropFile(e: DragEvent) {
+		e.preventDefault();
+		dropOn = false;
+		const file = e.dataTransfer?.files?.[0];
+		if (file) void importFileObject(file);
 	}
 	function newScript() {
 		if (!confirm('Start a new screenplay? Export first if you want to keep this one.')) return;
@@ -1168,7 +1237,8 @@
 			return;
 		}
 		if (e.key === 'Escape') {
-			if (helpOn) helpOn = false;
+			if (importReview) importReview = null;
+			else if (helpOn) helpOn = false;
 			else if (titleModalOn) titleModalOn = false;
 			else if (sourceMode) closeSource();
 			else {
@@ -1231,7 +1301,21 @@
 	}
 </script>
 
-<svelte:window onmousedown={onWindowDown} onkeydown={onGlobalKey} onbeforeunload={flushSave} />
+<svelte:window
+	onmousedown={onWindowDown}
+	onkeydown={onGlobalKey}
+	onbeforeunload={flushSave}
+	ondragover={(e) => {
+		if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
+	}}
+	ondragenter={(e) => {
+		if (e.dataTransfer?.types.includes('Files')) dropOn = true;
+	}}
+	ondragleave={(e) => {
+		if (e.relatedTarget === null) dropOn = false;
+	}}
+	ondrop={onDropFile}
+/>
 
 <div class="stage" class:dark={theme === 'dark'}>
 	<!-- floating chrome: always present, never receding -->
@@ -1243,7 +1327,7 @@
 			<button type="button" class="iconbtn" data-tip="New screenplay" aria-label="New screenplay" onclick={newScript}>
 				<svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
 			</button>
-			<button type="button" class="iconbtn" data-tip="Open .draft / .fdx / .fountain" aria-label="Open file" onclick={() => fileInput?.click()}>
+			<button type="button" class="iconbtn" data-tip="Open .draft / .fdx / .docx / .txt" aria-label="Open file" onclick={() => fileInput?.click()}>
 				<svg viewBox="0 0 16 16"><path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h3l1.5 2h4.5A1.5 1.5 0 0 1 14 7.5v4A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-6z"/></svg>
 			</button>
 
@@ -1255,6 +1339,7 @@
 					<div class="menu-pop" role="menu">
 						<button type="button" role="menuitem" onclick={saveDraft}><span>Save draft</span><span class="trail">⌘S .draft</span></button>
 						<button type="button" role="menuitem" onclick={exportPdf}><span>PDF document</span><span class="trail">.pdf</span></button>
+						<button type="button" role="menuitem" onclick={exportDocx}><span>Word document</span><span class="trail">.docx</span></button>
 						<button type="button" role="menuitem" onclick={exportFdx}><span>Final Draft</span><span class="trail">.fdx</span></button>
 						<button type="button" role="menuitem" onclick={exportFountain}><span>Fountain</span><span class="trail">.fountain</span></button>
 						<button type="button" role="menuitem" onclick={exportTxt}><span>Plain text</span><span class="trail">.txt</span></button>
@@ -1287,7 +1372,7 @@
 					<svg viewBox="0 0 16 16"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7z"/></svg>
 				{/if}
 			</button>
-			<input bind:this={fileInput} type="file" accept=".draft,.fdx,.xml,.fountain,.txt" onchange={importFile} hidden />
+			<input bind:this={fileInput} type="file" accept=".draft,.fdx,.xml,.fountain,.txt,.docx" onchange={importFile} hidden />
 		</div>
 	</header>
 
@@ -1522,6 +1607,7 @@
 					<div class="krow"><span><kbd>Esc</kbd></span><span>close menus & overlays</span></div>
 					<h4>Automatic</h4>
 					<p class="keys-note">Typing <b>INT.</b> or <b>EXT.</b> promotes the line to a Scene Heading. The prediction engine suggests likely dialogue partners, document locations, and extensions such as (V.O.); accept a suggestion or keep typing. Page breaks come from the pagination engine rather than screen pixels. To force one, choose <b>Page Break</b> in the element menu.</p>
+					<p class="keys-note">Drop a <b>.docx</b>, <b>.txt</b>, <b>.fdx</b>, or <b>.fountain</b> file anywhere on the window to import it. Word and plain-text files pass through an import review first — the engine shows exactly which lines it was unsure about, and you can correct them before anything joins your draft.</p>
 				</div>
 			</div>
 		</div>
@@ -1548,6 +1634,66 @@
 					<button type="button" class="spbtn primary" onclick={saveTitleModal}>Save</button>
 				</div>
 			</div>
+		</div>
+	{/if}
+
+	<!-- import review: the engine shows its read before anything joins the draft -->
+	{#if importReview && reviewResult}
+		<div class="overlay" role="dialog" aria-modal="true" aria-labelledby="ir-heading">
+			<div class="modal-card review-card">
+				<div class="modal-head">
+					<span class="modal-title" id="ir-heading">Import review</span>
+					<span class="modal-sub">
+						{importReview.name} · {plural(reviewResult.report.lines, 'line')} · {plural(reviewResult.report.scenes, 'scene')} · {plural(reviewResult.report.characters.length, 'character')}
+					</span>
+					<button type="button" class="iconbtn" aria-label="Close" onclick={() => (importReview = null)}>
+						<svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+					</button>
+				</div>
+				{#if reviewResult.report.warnings.length > 0}
+					<div class="review-notes">
+						{#each reviewResult.report.warnings as warning (warning)}
+							<div class="review-note">{warning}</div>
+						{/each}
+					</div>
+				{/if}
+				{#if reviewResult.report.flagged.length > 0}
+					<div class="review-flaghead">Needs your eye — {reviewResult.report.flagged.length}</div>
+					<div class="review-list">
+						{#each reviewResult.report.flagged as flag (flag.lineIndex)}
+							<div class="review-row">
+								<div class="review-text">{flag.text}</div>
+								<div class="review-meta">
+									<select
+										class="review-type"
+										value={flag.type}
+										aria-label="Element type for this line"
+										onchange={(e) => overrideImportLine(flag.lineIndex, (e.target as HTMLSelectElement).value as EType)}
+									>
+										{#each TYPE_ORDER as t (t)}
+											<option value={t}>{LABEL[t]}</option>
+										{/each}
+									</select>
+									<span class="review-why">{flag.why}</span>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<div class="review-clear">Every line reads cleanly — nothing left to weigh.</div>
+				{/if}
+				<div class="modal-foot">
+					<button type="button" class="spbtn secondary" onclick={() => (importReview = null)}>Leave it</button>
+					<button type="button" class="spbtn primary" onclick={commitImportReview}>Bring it in</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- drop a file anywhere: one calm veil, no chrome -->
+	{#if dropOn}
+		<div class="dropveil" aria-hidden="true">
+			<span>Drop it — we will read it with care</span>
 		</div>
 	{/if}
 </div>
@@ -2052,6 +2198,79 @@
 	.stage.dark .spbtn.primary { color: #121212; }
 	.spbtn.secondary { background: var(--f1); color: var(--ink); }
 	.spbtn.secondary:hover { background: var(--f2); }
+
+	/* ---- import review ---------------------------------------------------- */
+	.review-card { width: min(560px, calc(100vw - 32px)); max-height: min(600px, calc(100vh - 64px)); }
+	.review-notes { display: flex; flex-direction: column; gap: 6px; }
+	.review-note {
+		font-size: 12px;
+		line-height: 1.45;
+		color: var(--ink-2);
+		background: var(--f1);
+		border-radius: 8px;
+		padding: 7px 10px;
+	}
+	.review-flaghead { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-3); }
+	.review-list {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		overflow-y: auto;
+		min-height: 0;
+		margin: -4px;
+		padding: 4px;
+	}
+	.review-row {
+		background: var(--f1);
+		border-radius: 10px;
+		padding: 10px 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 7px;
+	}
+	.review-text {
+		font-size: 13px;
+		line-height: 1.4;
+		color: var(--ink);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.review-meta { display: flex; align-items: center; gap: 8px; }
+	.review-type {
+		font: inherit;
+		font-size: 12px;
+		font-weight: 500;
+		color: var(--ink);
+		background: var(--f2);
+		border: 0;
+		border-radius: 7px;
+		padding: 3px 6px;
+		cursor: pointer;
+	}
+	.review-why { font-size: 11px; line-height: 1.35; color: var(--ink-3); flex: 1; }
+	.review-clear { font-size: 13px; color: var(--ink-3); }
+
+	/* ---- drop veil -------------------------------------------------------- */
+	.dropveil {
+		position: fixed;
+		inset: 0;
+		z-index: 900;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--mask);
+		pointer-events: none;
+		animation: fadein 150ms var(--ease-out);
+	}
+	.dropveil span {
+		font-size: 15px;
+		font-weight: 500;
+		color: #fff;
+		background: rgba(20, 20, 20, 0.72);
+		border-radius: 12px;
+		padding: 12px 20px;
+	}
 
 	.form { display: flex; flex-direction: column; gap: 12px; }
 	.form label { display: block; font-size: 12px; font-weight: 500; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
