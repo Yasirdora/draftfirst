@@ -92,6 +92,7 @@
 	let summonPb = $state(false);
 	const summon = newSummonState();
 	let titleModalOn = $state(false);
+	let newConfirmOn = $state(false);
 	let tpTitle = $state(''), tpAuthor = $state(''), tpCredit = $state(''), tpContact = $state('');
 	let toast = $state<{ type: 'success' | 'caution' | 'info' | 'error'; msg: string } | null>(null);
 	/** Sticky ghost dismissal: Esc means "not here" until the caret leaves the element. */
@@ -319,7 +320,7 @@
 	   Store model snapshots before mutations. Consecutive typing is grouped into
 	   one undo entry and snapshots never depend on editable HTML. */
 
-	interface Snap { els: ScreenplayElement[]; idx: number; off: number }
+	interface Snap { els: ScreenplayElement[]; idx: number; off: number; tp?: TitlePageEntry[] }
 	const undoStack: Snap[] = [];
 	const redoStack: Snap[] = [];
 	let snapTimer: ReturnType<typeof setTimeout> | null = null;
@@ -346,6 +347,7 @@
 		snapTimer = setTimeout(() => { typingBurst = false; }, 800);
 	}
 	function restoreSnap(s: Snap) {
+		if (s.tp) titleEntries = s.tp; /* whole-document restores carry their title page */
 		sheet.innerHTML = '';
 		appendElements(s.els);
 		lastSnap = JSON.stringify(modelFromDOM());
@@ -1167,10 +1169,25 @@
 		const file = e.dataTransfer?.files?.[0];
 		if (file) void importFileObject(file);
 	}
+	/* A blank document has nothing to lose — start without asking. Otherwise
+	   ask in our own voice (never the browser's), and keep the outgoing draft
+	   recoverable: it rides the undo stack, so ⌘Z brings it right back. */
 	function newScript() {
-		if (!confirm('Start a new screenplay? Export first if you want to keep this one.')) return;
-		loadModel([{ type: 'scene', text: '' }], []);
+		const blank = titleEntries.length === 0 && blocks().every((b) => isEmpty(b));
+		if (blank) startNew();
+		else newConfirmOn = true;
+	}
+	function startNew() {
+		newConfirmOn = false;
+		const before: Snap = { els: modelFromDOM(), idx: 0, off: 0, tp: titleEntries };
+		loadModel([{ type: 'scene', text: '' }], []); /* clears the undo stacks… */
+		undoStack.push(before); /* …so the outgoing draft survives as the one entry */
+		showToast('info', 'New screenplay — ⌘Z brings the previous draft back');
 		sheet.focus();
+	}
+	function exportThenNew() {
+		saveDraft();
+		startNew();
 	}
 
 	/* ---- title page modal --------------------------------------------------- */
@@ -1275,6 +1292,7 @@
 		}
 		if (e.key === 'Escape') {
 			if (importReview) importReview = null;
+			else if (newConfirmOn) newConfirmOn = false;
 			else if (helpOn) helpOn = false;
 			else if (titleModalOn) titleModalOn = false;
 			else if (sourceMode) closeSource();
@@ -1678,6 +1696,25 @@
 				<div class="modal-foot">
 					<button type="button" class="spbtn secondary" onclick={() => (titleModalOn = false)}>Cancel</button>
 					<button type="button" class="spbtn primary" onclick={saveTitleModal}>Save</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- new screenplay: asked in our own voice, never the browser's -->
+	{#if newConfirmOn}
+		<div class="overlay" role="dialog" aria-modal="true" aria-labelledby="new-heading">
+			<div class="modal-card">
+				<div class="modal-head">
+					<span class="modal-title" id="new-heading">Start a new screenplay?</span>
+					<button type="button" class="iconbtn" aria-label="Close" onclick={() => (newConfirmOn = false)}>
+						<svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+					</button>
+				</div>
+				<p class="modal-msg">The current draft will be replaced. ⌘Z brings it right back — or keep a copy first.</p>
+				<div class="modal-foot">
+					<button type="button" class="spbtn secondary" onclick={exportThenNew}>Export .draft first</button>
+					<button type="button" class="spbtn primary" onclick={startNew}>Start new</button>
 				</div>
 			</div>
 		</div>
@@ -2227,6 +2264,7 @@
 	.modal-head { display: flex; align-items: baseline; gap: 10px; }
 	.modal-title { font-size: 16px; font-weight: 500; color: var(--ink); }
 	.modal-sub { font-size: 12px; color: var(--ink-3); flex: 1; }
+	.modal-msg { margin: 0; font-size: 13px; line-height: 1.55; color: var(--ink-2); }
 	.modal-head .iconbtn { margin-left: auto; flex: 0 0 auto; }
 	.modal-foot { display: flex; justify-content: flex-end; gap: 8px; }
 
