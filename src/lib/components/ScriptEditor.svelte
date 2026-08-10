@@ -17,7 +17,7 @@
 		TRANSITION_DETECT
 	} from '@draftfirst/core/fountain';
 	import { parseFdx, writeFdxWithDiagnostics } from '@draftfirst/core/fdx';
-	import { finalizeImport, importDocx, importPlainText, writeDocx } from '@draftfirst/core/import';
+	import { finalizeImport, extractPdfPayload, importDocx, importPlainText, writeDocx } from '@draftfirst/core/import';
 	import type { ClassifiedLine, ImportResult } from '@draftfirst/core/import';
 	import { estimateRuntime, paginate } from '@draftfirst/core/layout';
 	import {
@@ -1097,6 +1097,17 @@
 				offerImportReview(file.name, await importDocx(new Uint8Array(await file.arrayBuffer())));
 			} else if (/\.txt$/i.test(file.name)) {
 				offerImportReview(file.name, importPlainText(await file.text()));
+			} else if (/\.pdf$/i.test(file.name)) {
+				/* a PDF we exported carries its own source home; a foreign one gets
+				   a kind refusal — parsing arbitrary PDFs is a road we do not travel */
+				const fountain = extractPdfPayload(new Uint8Array(await file.arrayBuffer()));
+				if (fountain === null) {
+					showToast('caution', `${file.name} carries no Draft First source — try .fdx, .docx, or .txt instead`);
+					return;
+				}
+				const script = parseFountain(fountain);
+				loadModel(script.elements, script.titlePage);
+				showToast('success', `Recovered ${file.name} — its source was embedded at export`);
 			} else {
 				const script = parseFountain(await file.text());
 				loadModel(script.elements, script.titlePage);
@@ -1372,7 +1383,7 @@
 					<svg viewBox="0 0 16 16"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7z"/></svg>
 				{/if}
 			</button>
-			<input bind:this={fileInput} type="file" accept=".draft,.fdx,.xml,.fountain,.txt,.docx" onchange={importFile} hidden />
+			<input bind:this={fileInput} type="file" accept=".draft,.fdx,.xml,.fountain,.txt,.docx,.pdf" onchange={importFile} hidden />
 		</div>
 	</header>
 
@@ -1607,7 +1618,7 @@
 					<div class="krow"><span><kbd>Esc</kbd></span><span>close menus & overlays</span></div>
 					<h4>Automatic</h4>
 					<p class="keys-note">Typing <b>INT.</b> or <b>EXT.</b> promotes the line to a Scene Heading. The prediction engine suggests likely dialogue partners, document locations, and extensions such as (V.O.); accept a suggestion or keep typing. Page breaks come from the pagination engine rather than screen pixels. To force one, choose <b>Page Break</b> in the element menu.</p>
-					<p class="keys-note">Drop a <b>.docx</b>, <b>.txt</b>, <b>.fdx</b>, or <b>.fountain</b> file anywhere on the window to import it. Word and plain-text files pass through an import review first — the engine shows exactly which lines it was unsure about, and you can correct them before anything joins your draft.</p>
+					<p class="keys-note">Drop a <b>.docx</b>, <b>.txt</b>, <b>.fdx</b>, or <b>.fountain</b> file anywhere on the window to import it. Word and plain-text files pass through an import review first — the engine shows exactly which lines it was unsure about, and you can correct them before anything joins your draft. A <b>.pdf</b> exported here carries its own source: drop it back in to recover the script exactly as you left it.</p>
 				</div>
 			</div>
 		</div>
