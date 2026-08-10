@@ -506,7 +506,14 @@
 
 	function handleEnter(el: HTMLElement, shift: boolean) {
 		if (shift) {
-			document.execCommand('insertLineBreak');
+			/* ⇧Enter is a same-type sibling line — the model's honest "line break".
+			   One element per line keeps the native round trip exact; a same-type
+			   block stacks with no gap, so it reads as one continuous passage.
+			   (The deprecated execCommand('insertLineBreak') path was also a lie:
+			   tidy() removed the <br> on the next keystroke.) */
+			const nb = mkBlock(typeOf(el), '');
+			el.after(nb);
+			focusBlock(nb, false);
 			syncAfterEdit();
 			return;
 		}
@@ -874,7 +881,6 @@
 	function dismissGhost() {
 		if (ghost) ghost = null;
 		unmarkGhosted();
-		sheet?.classList.remove('has-ghost');
 	}
 
 	let ghostTimer: ReturnType<typeof setTimeout> | null = null;
@@ -914,7 +920,6 @@
 			ghostedEl = el;
 			el.classList.add('ghosted');
 		}
-		sheet.classList.add('has-ghost');
 	}
 
 	/* offsetTop lands on the border box; a page-break block's text starts one
@@ -1118,6 +1123,14 @@
 		}
 	}
 	function offerImportReview(name: string, result: ImportResult) {
+		/* The editor has no lyric lane — present lyrics as the general text they
+		   become on the page, so the review never shows a type it cannot hold. */
+		for (const line of result.classified) {
+			if ((line.type as string) === 'lyrics') {
+				line.type = 'general';
+				line.why += ' — lyrics print as general text here';
+			}
+		}
 		/* nothing to weigh — the engine read every line cleanly */
 		if (result.report.flagged.length === 0 && result.report.warnings.length === 0) {
 			loadModel(result.script.elements, result.script.titlePage);
@@ -1239,6 +1252,17 @@
 		   keystroke; this catches modals, the drawer, and the source view */
 		if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's' && !t?.closest('.sppage')) {
 			e.preventDefault();
+			/* In the source view the textarea IS the document — commit it before
+			   saving, or ⌘S would download the stale pre-edit model. */
+			if (sourceMode) {
+				try {
+					const script = parseFountain(sourceText);
+					loadModel(script.elements, script.titlePage);
+				} catch (err) {
+					showToast('error', 'Source could not be parsed: ' + (err instanceof Error ? err.message : String(err)));
+					return;
+				}
+			}
 			saveDraft();
 			return;
 		}
@@ -1600,7 +1624,7 @@
 					<div class="krow"><span><kbd>⌥ ]</kbd> <kbd>⌥ [</kbd></span><span>cycle suggestions</span></div>
 					<div class="krow"><span><kbd>⇧ Tab</kbd></span><span>cycle elements back</span></div>
 					<div class="krow"><span><kbd>Enter</kbd></span><span>next logical element</span></div>
-					<div class="krow"><span><kbd>⇧ Enter</kbd></span><span>line break, same element</span></div>
+					<div class="krow"><span><kbd>⇧ Enter</kbd></span><span>new line, same element</span></div>
 					<div class="krow"><span><kbd>⌫</kbd></span><span>at line start: lift page break, else back to Action</span></div>
 					<div class="krow"><span><kbd>/</kbd></span><span>on empty line: element menu</span></div>
 					<div class="krow"><span><kbd>Enter</kbd> <kbd>Enter</kbd> <kbd>Enter</kbd></span><span>on empty lines: element menu</span></div>
@@ -1611,6 +1635,9 @@
 					<div class="krow"><span><kbd>⌘4</kbd></span><span>Parenthetical</span></div>
 					<div class="krow"><span><kbd>⌘5</kbd></span><span>Dialogue</span></div>
 					<div class="krow"><span><kbd>⌘6</kbd></span><span>Transition</span></div>
+					<div class="krow"><span><kbd>⌘7</kbd></span><span>Shot</span></div>
+					<div class="krow"><span><kbd>⌘8</kbd></span><span>General</span></div>
+					<div class="krow"><span><kbd>⌘9</kbd></span><span>Centered</span></div>
 					<h4>App</h4>
 					<div class="krow"><span><kbd>⌘S</kbd></span><span>save .draft</span></div>
 					<div class="krow"><span><kbd>⌘Z</kbd> <kbd>⇧⌘Z</kbd></span><span>undo / redo</span></div>
@@ -2372,9 +2399,7 @@
 		text-align: center;
 		animation: modalin 300ms var(--ease-out);
 	}
-	.welcome-mark { font-size: 28px; opacity: 0.85; }
 	.welcome-title { margin: 0; font-size: 36px; font-weight: 300; letter-spacing: 0.02em; color: var(--ink); }
-	.welcome-sub { margin: 0 0 8px; font-size: 13px; color: var(--ink-3); }
 	.welcome-input {
 		width: 100%;
 		font: inherit;
