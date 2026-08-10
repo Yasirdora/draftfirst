@@ -49,7 +49,7 @@
    app.html sets data-theme on <html> before the stylesheet loads — no flash —
    and the editor keeps it in sync as the mode or the OS setting changes. */
 :root[data-theme='dark'] {
-  /* Kimi-like near-black shell — deep, low contrast chrome */
+  /* Low-contrast dark application shell. */
   --bg:          #0A0A0A;
   --bg-deep:     #050505;
   --panel:       #141414;
@@ -118,7 +118,7 @@ button { cursor: pointer; }
 ::placeholder { color: var(--placeholder); opacity: 1; }
 
 /* ==========================================================================
-   App bar — Kimi-quiet: air, pill clusters, no heavy band
+   Application bar
    ========================================================================== */
 .app-bar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -191,7 +191,7 @@ button { cursor: pointer; }
   font-weight: 600;
 }
 .btn-primary:hover { opacity: 0.9; background: var(--ink); color: var(--bg); }
-/* Export stays the quiet bright pill (Kimi primary action energy) */
+/* Keep the primary export action visually distinct. */
 .app-bar .btn-primary {
   background: var(--ink);
   color: var(--bg);
@@ -200,7 +200,7 @@ button { cursor: pointer; }
 .btn-quiet:hover { color: var(--ink); background: var(--rule-soft); }
 @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
 
-/* Segmented view switch — soft elevated pill (Kimi chip cluster) */
+/* Segmented view switch. */
 .views {
   display: inline-flex;
   padding: 3px;
@@ -295,8 +295,7 @@ kbd, .menu .hint {
   width: max-content; max-width: min(calc(100vw - 32px), 680px);
   padding: 8px 12px;
 
-  /* Gemini-like floating pill composer */
-  /* Kimi-like floating composer bar */
+  /* Floating formatting controls. */
   background: var(--panel-veil);
   border: 1px solid var(--rule);
   border-radius: 22px;
@@ -962,4 +961,3 @@ kbd, .menu .hint {
   .sheet pre, .sheet blockquote, .sheet table { page-break-inside: avoid; }
   .sheet a { color: inherit; text-decoration: underline; }
 }
-

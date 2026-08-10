@@ -1,4 +1,5 @@
 node_modules
+.npm-cache
 
 # Output
 .output
@@ -7,6 +8,15 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
+/packages/draftfirst/dist
+/packages/draftfirst/coverage
+*.tsbuildinfo
+*.tgz
+
+# Local product research drafts
+/docs/EXTERNAL-PERSPECTIVE-*.txt
+/docs/MILESTONE-S*.md
+/docs/RESEARCH-SCREENWRITING.md
 
 # OS
 .DS_Store

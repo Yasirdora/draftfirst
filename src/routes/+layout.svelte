@@ -8,15 +8,15 @@
 </script>
 
 <svelte:head>
-	<title>Writing Desk — markdown editor, nothing leaves your browser</title>
+	<title>Draft First Screenwriting</title>
 	<meta
 		name="description"
-		content="Write in Markdown, see it typeset as you go, export clean HTML or print to PDF. No signup, no upload, no tracking — nothing leaves your browser."
+		content="A private, browser-based screenplay editor with professional formatting, Fountain, and FDX support."
 	/>
-	<meta name="application-name" content="Writing Desk" />
+	<meta name="application-name" content="Draft First" />
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-	<meta name="apple-mobile-web-app-title" content="Writing Desk" />
+	<meta name="apple-mobile-web-app-title" content="Draft First" />
 	<meta name="mobile-web-app-capable" content="yes" />
 	<meta name="color-scheme" content="light dark" />
 	<meta name="theme-color" media="(prefers-color-scheme: light)" content="#2A5B8C" />

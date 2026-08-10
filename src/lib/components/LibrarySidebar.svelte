@@ -187,7 +187,7 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
-		/* Kimi: sidebar blends into pure field */
+		/* Blend the sidebar into the application field. */
 		background: var(--bg);
 		border-right: 0;
 		z-index: 8;
@@ -237,7 +237,7 @@
 		color: var(--ink);
 	}
 
-	/* Kimi “New Chat” — soft elevated pill */
+	/* Primary library action. */
 	.library__new {
 		appearance: none;
 		display: flex;
@@ -357,7 +357,7 @@
 		text-align: center;
 	}
 
-	/* Kimi: quiet rows; the active row speaks in accent, adopted from writedown */
+	/* Use the accent only for the active document. */
 	.library__item {
 		display: flex;
 		align-items: stretch;

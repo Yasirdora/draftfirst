@@ -2403,7 +2403,7 @@
 					<span class="brand-caret"><Icon name="chevron-down" size={12} /></span>
 				</button>
 				<span class="brand-name">Writing Desk</span>
-				<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 				<ul
 					class="menu menu--left"
 					bind:this={fileMenuEl}
@@ -2595,7 +2595,7 @@
 			>
 				Export
 			</button>
-			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 			<ul
 				class="menu"
 				bind:this={exportMenuEl}
@@ -2659,7 +2659,7 @@
 	/>
 
 	<!-- Floating format bar: never steals selection (pointerdown preventDefault). -->
-	<!-- svelte-ignore a11y_interactive_supports_focus a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+	<!-- svelte-ignore a11y_interactive_supports_focus, a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 	<div
 		class="toolbar"
 		bind:this={toolbarEl}
@@ -2843,7 +2843,7 @@
 			>
 				<Icon name="more" />
 			</button>
-			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
 			<ul
 				class="menu menu-more"
 				bind:this={moreMenuEl}

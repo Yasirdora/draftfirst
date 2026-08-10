@@ -1,0 +1,7 @@
+# Cloudflare Pages project configuration.
+# Direct upload:  npx wrangler pages deploy   (builds nothing; publishes ./build)
+# Git integration: set build command `npm run build`, output dir `build` — these
+# values are read from this file automatically.
+name = "draftfirst"
+pages_build_output_dir = "./build"
+compatibility_date = "2026-08-01"

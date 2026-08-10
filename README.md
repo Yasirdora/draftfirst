@@ -1,74 +1,122 @@
-# Writing Desk
+# Draft First Screenwriting
 
-A privacy-first Markdown editor: write on a typeset page or in source, export clean HTML or print to PDF. **Nothing leaves your browser** — no accounts, no uploads, no tracking.
+Draft First is a privacy-first screenwriting workspace backed by a reusable,
+framework-independent TypeScript engine. It supports Fountain and a deliberately
+bounded subset of FDX, deterministic screenplay pagination, story-aware writing
+assistance, and continuity analysis without sending a writer's work to a server.
 
-This is a production SvelteKit port of the original single-file `writing-desk.html`.
+Development began in November 2025. The first public engine release was prepared
+in August 2026 after the document model, interoperability layer, pagination, and
+editor policies were separated into a tested package.
 
-## Features
+- Website: [draftfirst.xyz](https://draftfirst.xyz)
+- Package: [`@draftfirst/core`](./packages/draftfirst)
+- License: [MIT](./LICENSE)
 
-- **Dual surfaces** — Page (contenteditable), Markdown source, or split view
-- **Custom Markdown engine** — CommonMark + GFM tables, task lists, strikethrough (no raw HTML)
-- **Safe by design** — every string escaped; URLs filtered (`javascript:` blocked)
-- **localStorage only** — documents never leave the device
-- **Export** — `.md`, standalone `.html`, print / PDF
-- **Focus mode**, outline, floating format toolbar, offline after first visit (service worker)
+## Why this project exists
 
-## Stack
+Screenwriting software should be predictable, portable, and honest about file
+compatibility. Draft First separates document logic from interface code so the
+same tested engine can power a browser editor, command-line tool, desktop app,
+or integration without bringing along a UI framework.
 
-- SvelteKit 2 + Svelte 5 (runes)
-- TypeScript
-- `@sveltejs/adapter-static` (deploy anywhere as static files)
-- Vitest for pure markdown cores
+The engine provides:
 
-## Develop
+- a typed screenplay document model with runtime validation;
+- Fountain parsing, serialization, and normalization;
+- bounded FDX import and export with explicit compatibility diagnostics;
+- deterministic pagination and runtime estimates;
+- document-derived character, location, and continuity intelligence;
+- framework-free prediction and keyboard-choreography policies;
+- zero runtime dependencies, network requests, telemetry, or file-system access.
+
+## Install the engine
+
+```sh
+npm install @draftfirst/core
+```
+
+```ts
+import { parseFountain, validateScreenplay } from '@draftfirst/core';
+import { paginate } from '@draftfirst/core/layout';
+
+const screenplay = parseFountain(`INT. KITCHEN - NIGHT
+
+MARA
+We begin.`);
+
+const validation = validateScreenplay(screenplay);
+if (!validation.ok) {
+	console.error(validation.diagnostics);
+}
+
+const pages = paginate(screenplay);
+```
+
+The package API, supported formats, limitations, and security model are
+documented in the [`@draftfirst/core` README](./packages/draftfirst/README.md).
+The Svelte editor is intentionally not shipped in the npm package.
+
+## Repository structure
+
+```text
+packages/draftfirst/          Public @draftfirst/core package
+  src/                        Document, format, layout, and analysis modules
+  README.md                   Package API and compatibility contract
+src/lib/components/
+  ScriptEditor.svelte         Draft First web editor
+src/lib/screenplay/
+  pdf.ts                      App-only PDF export
+  sample.ts                   App-only sample screenplay
+src/routes/screenplay/        Screenwriting application route
+src/routes/notes/             Preserved local-first Markdown desk
+scripts/                      Package-boundary and release verification
+.github/workflows/            Continuous integration and npm publishing
+```
+
+PDF export remains app-only until its Unicode font embedding and text extraction
+are suitable for a stable public API. Keeping it outside the package avoids
+promising fidelity the first release cannot yet guarantee.
+
+## Development
+
+The public engine supports Node.js 20 or newer. Repository development and the
+web application use Node.js 22, as recorded in `.nvmrc`.
 
 ```sh
 npm install
 npm run dev
 ```
 
-## Test
+Useful verification commands:
 
 ```sh
-npm test
-npm run check
+npm run check             # Svelte and TypeScript checks
+npm test                  # application and package tests
+npm run package:verify    # API, types, tests, build, and package linting
+npm run package:smoke     # install the packed tarball in a clean consumer
+npm run quality           # complete release gate
 ```
 
-## Build & deploy
+Production builds are emitted to `build/` and can be served by any static host.
+The included Cloudflare Pages configuration uses the same build output.
 
-```sh
-npm run build
-npm run preview
-```
+## Compatibility and security
 
-Output is in `build/`. Host on any static file server (Netlify, Cloudflare Pages, GitHub Pages, S3, nginx, etc.).
+Draft First treats imported documents as untrusted input. Parsers enforce
+resource limits, FDX processing does not resolve external entities, and lossy or
+unsupported conversions return diagnostics. Applications should retain original
+production files and review those diagnostics before replacing them.
 
-### GitHub Pages note
+Please report security issues through
+[GitHub private vulnerability reporting](https://github.com/Yasirdora/draftfirst/security)
+instead of a public issue. See [SECURITY.md](./SECURITY.md) for the policy.
 
-If the site is served under a subpath, set `kit.paths.base` in Vite / Kit config accordingly.
+## Contributing
 
-## Architecture
-
-```
-src/lib/markdown/     Pure cores (Node-testable)
-  render.ts           MD → safe HTML
-  serialise.ts        contenteditable DOM → Markdown
-  format.ts           source-range format toggles
-src/lib/components/
-  WritingDesk.svelte  App shell, dual-surface sync, toolbar, export
-src/lib/utils/        storage, download, export HTML
-src/service-worker.ts Offline precache
-```
-
-The original single-file reference remains at `writing-desk.html`.
-
-## Privacy
-
-- No analytics
-- No third-party scripts or fonts
-- No network calls for document content
-- Service worker only caches this app’s own assets
+Contributions are welcome. Please read [CONTRIBUTING.md](./CONTRIBUTING.md) and
+run `npm run quality` before opening a pull request.
 
 ## License
 
-Use freely for personal or commercial projects unless otherwise noted.
+MIT © 2026 Yasir Dora.

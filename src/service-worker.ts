@@ -3,16 +3,12 @@
 /// <reference lib="webworker" />
 /// <reference types="@sveltejs/kit" />
 
-/**
- * Offline cache for Writing Desk.
- * Precaches the built app + static assets so the editor works after first visit
- * with no network — matching the original "nothing to fetch" promise.
- */
+/** Precaches application assets for offline editing after the first visit. */
 
 import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
-const CACHE = `writing-desk-${version}`;
+const CACHE = `draftfirst-${version}`;
 const ASSETS = [...build, ...files];
 
 sw.addEventListener('install', (event) => {

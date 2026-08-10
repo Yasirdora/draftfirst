@@ -1,0 +1,89 @@
+{
+	"name": "@draftfirst/core",
+	"version": "0.1.0",
+	"description": "Draft First Screenwriting Engine for Fountain, FDX, deterministic pagination, and story-aware analysis.",
+	"type": "module",
+	"sideEffects": false,
+	"license": "MIT",
+	"author": {
+		"name": "Yasir Dora",
+		"url": "https://ysr.design"
+	},
+	"homepage": "https://draftfirst.xyz",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Yasirdora/draftfirst.git",
+		"directory": "packages/draftfirst"
+	},
+	"bugs": {
+		"url": "https://github.com/Yasirdora/draftfirst/issues"
+	},
+	"keywords": [
+		"screenplay",
+		"screenwriting",
+		"fountain",
+		"fdx",
+		"pagination",
+		"typescript"
+	],
+	"files": [
+		"dist",
+		"README.md",
+		"CHANGELOG.md",
+		"LICENSE"
+	],
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./fountain": {
+			"types": "./dist/fountain.d.ts",
+			"import": "./dist/fountain.js"
+		},
+		"./fdx": {
+			"types": "./dist/fdx.d.ts",
+			"import": "./dist/fdx.js"
+		},
+		"./layout": {
+			"types": "./dist/layout.d.ts",
+			"import": "./dist/layout.js"
+		},
+		"./analysis": {
+			"types": "./dist/analysis.d.ts",
+			"import": "./dist/analysis.js"
+		},
+		"./editor": {
+			"types": "./dist/editor.d.ts",
+			"import": "./dist/editor.js"
+		}
+	},
+	"engines": {
+		"node": ">=20"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"clean": "tsc -b tsconfig.build.json --clean",
+		"build": "npm run clean && tsc -b tsconfig.build.json",
+		"typecheck": "tsc -p tsconfig.test.json --noEmit",
+		"test": "vitest run",
+		"test:coverage": "vitest run --coverage",
+		"lint:boundary": "node ../../scripts/check-package-boundary.mjs",
+		"lint:package": "publint",
+		"lint:types": "attw --pack . --profile esm-only",
+		"pack:check": "npm pack --dry-run",
+		"verify": "npm run lint:boundary && npm run typecheck && npm test && npm run build && npm run lint:package && npm run lint:types",
+		"prepack": "npm run build"
+	},
+	"devDependencies": {
+		"@arethetypeswrong/cli": "^0.18.2",
+		"@vitest/coverage-v8": "^4.1.10",
+		"publint": "^0.3.18",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.10"
+	}
+}

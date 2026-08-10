@@ -1,13 +1,13 @@
 {
-	"name": "Writing Desk",
-	"short_name": "Writing Desk",
-	"description": "Markdown editor — typeset as you type. Nothing leaves your browser.",
+	"name": "Draft First Screenwriting",
+	"short_name": "Draft First",
+	"description": "A private, browser-based screenplay editor with Fountain and FDX support.",
 	"start_url": "/",
 	"display": "standalone",
 	"background_color": "#E8EBEE",
 	"theme_color": "#2A5B8C",
 	"lang": "en",
-	"categories": ["productivity", "utilities"],
+	"categories": ["productivity", "writing"],
 	"icons": [
 		{
 			"src": "/favicon.svg",
