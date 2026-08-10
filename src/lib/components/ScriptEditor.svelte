@@ -1376,7 +1376,7 @@
 						{#each TYPE_ORDER as t, i (t)}
 							<button type="button" role="menuitem" class:sel={i === summonIndex} onclick={() => applySummon(t)}>
 								<span>{LABEL[t]}</span>
-								<span class="trail">⌘{i + 1}{t === curType ? ' ✓' : ''}</span>
+								<span class="trail">⌘{i + 1}</span>
 							</button>
 						{/each}
 						<div class="menu-sep"></div>
@@ -1408,7 +1408,7 @@
 					{#each TYPE_ORDER as t, i (t)}
 						<button type="button" role="menuitem" class:sel={t === curType} onclick={() => chooseElement(t)}>
 							<span>{LABEL[t]}</span>
-							<span class="trail">{i < 9 ? '⌘' + (i + 1) : ''}{t === curType ? ' ✓' : ''}</span>
+							<span class="trail">{i < 9 ? '⌘' + (i + 1) : ''}</span>
 						</button>
 					{/each}
 					<div class="menu-sep"></div>
@@ -1471,9 +1471,7 @@
 	{#if welcomeOn}
 		<div class="overlay welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-heading">
 			<div class="welcome-inner">
-				<span class="welcome-mark">✒</span>
 				<h1 class="welcome-title" id="welcome-heading">Name your screenplay</h1>
-				<p class="welcome-sub">Free forever. Nothing leaves this device unless you export it.</p>
 				<input
 					class="welcome-input"
 					bind:value={welcomeTitle}
@@ -2139,30 +2137,31 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 12px;
-		width: min(400px, calc(100vw - 32px));
+		gap: 24px;
+		width: min(440px, calc(100vw - 32px));
 		text-align: center;
 		animation: modalin 300ms var(--ease-out);
 	}
 	.welcome-mark { font-size: 28px; opacity: 0.85; }
-	.welcome-title { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: 0.01em; color: var(--ink); }
+	.welcome-title { margin: 0; font-size: 36px; font-weight: 300; letter-spacing: 0.02em; color: var(--ink); }
 	.welcome-sub { margin: 0 0 8px; font-size: 13px; color: var(--ink-3); }
 	.welcome-input {
 		width: 100%;
 		font: inherit;
-		font-size: 15px;
+		font-size: 20px;
 		text-align: center;
-		letter-spacing: 0.04em;
-		padding: 12px 14px;
-		border: 0.5px solid var(--sep);
-		border-radius: 12px;
-		background: var(--panel-solid);
+		letter-spacing: 0.06em;
+		padding: 8px 0;
+		border: none;
+		border-bottom: 1px solid var(--sep);
+		border-radius: 0;
+		background: transparent;
 		color: var(--ink);
 		outline: none;
-		transition: box-shadow 150ms ease;
+		transition: border-color 200ms ease;
 	}
-	.welcome-input:focus { box-shadow: 0 0 0 2px var(--accent); border-color: transparent; }
-	.welcome-actions { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 4px; }
+	.welcome-input:focus { border-color: var(--ink); box-shadow: none; }
+	.welcome-actions { display: flex; flex-direction: column; align-items: center; gap: 16px; margin-top: 12px; }
 	.welcome-link {
 		border: 0;
 		background: transparent;
