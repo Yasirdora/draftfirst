@@ -1,0 +1,1748 @@
+<script lang="ts">
+	/**
+	 * Writing Desk — main editor shell.
+	 *
+	 * Architecture (mirrors the original single-file app):
+	 *   markdown cores  → $lib/markdown/*  (render, serialise, format)
+	 *   this component  → dual surfaces, toolbar, menus, persistence, export
+	 *
+	 * Critical rule: selection is remembered on each surface and restored before
+	 * any toolbar command. Focus is the wrong thing to hang commands on —
+	 * pressing a toolbar button moves focus, so we never trust activeElement alone.
+	 */
+	import { onMount } from 'svelte';
+	import {
+		renderMarkdown,
+		outlineOf,
+		countWords,
+		safeUrl
+	} from '$lib/markdown/render';
+	import { serialiseMarkdown } from '$lib/markdown/serialise';
+	import {
+		MARKS,
+		inlineMarks,
+		toggleMark,
+		blockKind,
+		setBlockKind,
+		toggleBlockKind,
+		toggleLink,
+		insertBlock,
+		clearFormatting
+	} from '$lib/markdown/format';
+	import { SAMPLE } from '$lib/markdown/sample';
+	import type { FormatResult, InlineMarks, ViewMode } from '$lib/markdown/types';
+	import {
+		STYLES,
+		OTHER_TOKENS,
+		OTHER_NAMES,
+		SNIPPETS,
+		BLOCK_FOR,
+		NARROW
+	} from '$lib/editor/constants';
+	import { loadState, saveState } from '$lib/utils/storage';
+	import { download } from '$lib/utils/download';
+	import { documentName } from '$lib/utils/document-name';
+	import { exportStandaloneHtml } from '$lib/utils/export-html';
+
+	/* ---------- reactive app state -------------------------------------- */
+
+	let doc = $state('');
+	let view = $state<ViewMode>('page');
+	let focus = $state(false);
+	let dragging = $state(false);
+	let keyboardUp = $state(false);
+
+	let saveLabel = $state('Saved');
+	let saveOn = $state(false);
+
+	let wordCount = $state(0);
+	let charCount = $state(0);
+	let readTime = $state(0);
+	let cursorPos = $state('Line 1, column 1');
+
+	/** Toolbar reflection of caret context. */
+	let styleToken = $state('Aa');
+	let styleName = $state('Normal text');
+	let marks = $state({ bold: false, italic: false, strike: false, code: false, link: false });
+	let activeBlock = $state('paragraph');
+	let inTable = $state(false);
+
+	/* Open menu id: null | outline | file | export | style | more */
+	let openMenu = $state<string | null>(null);
+
+	/* Outline items rebuilt when the outline menu opens. */
+	let outlineItems = $state<{ level: number; text: string; line: number }[]>([]);
+
+	/* ---------- DOM refs ------------------------------------------------ */
+
+	let deskEl: HTMLDivElement | undefined = $state();
+	let editor: HTMLTextAreaElement | undefined = $state();
+	let sheet: HTMLElement | undefined = $state();
+	let readingPane: HTMLElement | undefined = $state();
+	let fileInput: HTMLInputElement | undefined = $state();
+	let toolbarEl: HTMLElement | undefined = $state();
+
+	/* Menu elements (ported to body for overflow clipping). */
+	let outlineMenuEl: HTMLUListElement | undefined = $state();
+	let fileMenuEl: HTMLUListElement | undefined = $state();
+	let exportMenuEl: HTMLUListElement | undefined = $state();
+	let styleMenuEl: HTMLUListElement | undefined = $state();
+	let moreMenuEl: HTMLUListElement | undefined = $state();
+
+	let outlineBtnEl: HTMLButtonElement | undefined = $state();
+	let fileBtnEl: HTMLButtonElement | undefined = $state();
+	let exportBtnEl: HTMLButtonElement | undefined = $state();
+	let styleBtnEl: HTMLButtonElement | undefined = $state();
+	let moreBtnEl: HTMLButtonElement | undefined = $state();
+
+	/* ---------- selection memory ---------------------------------------- */
+
+	type Surface = 'page' | 'source';
+	let lastSurface: Surface = 'page';
+	let savedSourceSelection: { start: number; end: number } | null = null;
+	let savedPageRange: Range | null = null;
+	let viewBeforeFocus: ViewMode | null = null;
+
+	let saveTimer = 0;
+	let statusTimer = 0;
+	let dragDepth = 0;
+	let ready = $state(false);
+
+	const isNarrow = () => typeof window !== 'undefined' && window.innerWidth <= NARROW;
+
+	const onPage = () =>
+		Boolean(sheet && (document.activeElement === sheet || sheet.contains(document.activeElement)));
+	const onSource = () => Boolean(editor && document.activeElement === editor);
+
+	function surface(): Surface {
+		if (view === 'page') return 'page';
+		if (view === 'source') return 'source';
+		return lastSurface;
+	}
+
+	function rememberSource() {
+		if (!editor) return;
+		savedSourceSelection = { start: editor.selectionStart, end: editor.selectionEnd };
+		lastSurface = 'source';
+	}
+
+	function rememberPage() {
+		if (!sheet) return;
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return;
+		const range = selection.getRangeAt(0);
+		if (!sheet.contains(range.commonAncestorContainer)) return;
+		savedPageRange = range.cloneRange();
+		lastSurface = 'page';
+	}
+
+	function restoreSelection() {
+		if (!editor || !sheet) return;
+
+		if (surface() === 'source') {
+			if (onSource()) {
+				rememberSource();
+				return;
+			}
+			editor.focus();
+			if (savedSourceSelection) {
+				editor.setSelectionRange(savedSourceSelection.start, savedSourceSelection.end);
+			}
+			return;
+		}
+
+		if (onPage()) {
+			rememberPage();
+			return;
+		}
+
+		sheet.focus();
+		const selection = window.getSelection();
+		if (!selection || !savedPageRange || !sheet.contains(savedPageRange.commonAncestorContainer))
+			return;
+		selection.removeAllRanges();
+		selection.addRange(savedPageRange);
+	}
+
+	/* ---------- persistence --------------------------------------------- */
+
+	function persist() {
+		clearTimeout(saveTimer);
+		saveTimer = window.setTimeout(() => {
+			const result = saveState({ doc, view, focus });
+			if (result.ok) {
+				saveLabel = 'Saved';
+			} else {
+				saveLabel = result.message;
+			}
+			saveOn = true;
+			clearTimeout(statusTimer);
+			statusTimer = window.setTimeout(() => {
+				saveOn = false;
+			}, 1400);
+		}, 400);
+	}
+
+	function updateCounts() {
+		const words = countWords(doc);
+		wordCount = words;
+		charCount = doc.length;
+		readTime = Math.max(words > 0 ? 1 : 0, Math.round(words / 220));
+	}
+
+	function enableTaskBoxes() {
+		if (!sheet) return;
+		sheet.querySelectorAll('input[type="checkbox"]').forEach((box) => {
+			const input = box as HTMLInputElement;
+			input.disabled = false;
+			input.setAttribute('contenteditable', 'false');
+		});
+	}
+
+	/** Repaint the page from source. Never while someone is typing on it. */
+	function renderDocument() {
+		if (!sheet) return;
+		// The only innerHTML path — and only ever with our own renderer output.
+		sheet.innerHTML = renderMarkdown(doc);
+		enableTaskBoxes();
+		updateCounts();
+	}
+
+	function pageChanged() {
+		if (!sheet || !editor) return;
+		let markdown: string;
+		try {
+			markdown = serialiseMarkdown(sheet);
+		} catch {
+			saveLabel = 'Could not read the page — switch to Markdown to check it';
+			saveOn = true;
+			return;
+		}
+		doc = markdown;
+		if (!onSource()) editor.value = doc;
+		updateCounts();
+		updateCursor();
+		persist();
+	}
+
+	function sourceChanged() {
+		if (!editor || !sheet) return;
+		doc = editor.value;
+		if (!onPage()) {
+			sheet.innerHTML = renderMarkdown(doc);
+			enableTaskBoxes();
+		}
+		updateCounts();
+		persist();
+	}
+
+	function setDoc(text: string) {
+		if (!editor) return;
+		doc = text;
+		if (editor.value !== text) editor.value = text;
+		renderDocument();
+		updateCursor();
+		updateToolbar();
+		persist();
+	}
+
+	function applyView() {
+		if (isNarrow() && view === 'split') view = 'page';
+	}
+
+	function updateCursor() {
+		if (!editor) return;
+		const upto = editor.value.slice(0, editor.selectionStart);
+		const line = upto.split('\n').length;
+		const column = upto.length - upto.lastIndexOf('\n');
+		cursorPos = 'Line ' + line + ', column ' + column;
+	}
+
+	/* ---------- menus --------------------------------------------------- */
+
+	function menuEl(id: string): HTMLUListElement | undefined {
+		if (id === 'outline') return outlineMenuEl;
+		if (id === 'file') return fileMenuEl;
+		if (id === 'export') return exportMenuEl;
+		if (id === 'style') return styleMenuEl;
+		if (id === 'more') return moreMenuEl;
+		return undefined;
+	}
+
+	function menuBtn(id: string): HTMLButtonElement | undefined {
+		if (id === 'outline') return outlineBtnEl;
+		if (id === 'file') return fileBtnEl;
+		if (id === 'export') return exportBtnEl;
+		if (id === 'style') return styleBtnEl;
+		if (id === 'more') return moreBtnEl;
+		return undefined;
+	}
+
+	/**
+	 * Port menus to document.body so scroll containers (toolbar) cannot clip them.
+	 * Fixed positioning against the trigger button.
+	 */
+	function placeMenu(menu: HTMLElement, button: HTMLElement) {
+		if (menu.parentNode !== document.body) document.body.appendChild(menu);
+
+		menu.style.position = 'fixed';
+		menu.style.visibility = 'hidden';
+		menu.hidden = false;
+
+		const anchor = button.getBoundingClientRect();
+		const width = menu.offsetWidth;
+		const height = menu.offsetHeight;
+		const margin = 8;
+
+		let left = menu.classList.contains('menu-style') ? anchor.left : anchor.right - width;
+		left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+		const below = anchor.bottom + margin + height <= window.innerHeight;
+		const top = below ? anchor.bottom + 6 : Math.max(margin, anchor.top - height - 6);
+
+		menu.style.left = Math.round(left) + 'px';
+		menu.style.top = Math.round(top) + 'px';
+		menu.style.right = 'auto';
+		menu.style.bottom = 'auto';
+		menu.style.visibility = '';
+	}
+
+	function closeMenus() {
+		openMenu = null;
+		for (const id of ['outline', 'file', 'export', 'style', 'more']) {
+			const menu = menuEl(id);
+			if (menu) menu.hidden = true;
+		}
+	}
+
+	function toggleMenu(id: string, onOpen?: () => void) {
+		const willOpen = openMenu !== id;
+		closeMenus();
+		if (!willOpen) return;
+
+		const menu = menuEl(id);
+		const button = menuBtn(id);
+		if (!menu || !button) return;
+
+		onOpen?.();
+		openMenu = id;
+		placeMenu(menu, button);
+	}
+
+	function rebuildOutline() {
+		outlineItems = outlineOf(doc);
+	}
+
+	function jumpToHeading(heading: { level: number; text: string; line: number }, index: number) {
+		if (!sheet || !editor) return;
+		if (view === 'page') {
+			const found = sheet.querySelectorAll('h1, h2, h3, h4, h5, h6')[index];
+			if (found && 'scrollIntoView' in found) {
+				(found as HTMLElement).scrollIntoView({ block: 'start' });
+			}
+			return;
+		}
+		jumpToLine(heading.line);
+	}
+
+	function jumpToLine(index: number) {
+		if (!editor) return;
+		const lines = doc.split('\n');
+		let offset = 0;
+		for (let i = 0; i < index && i < lines.length; i++) offset += lines[i].length + 1;
+		if (view === 'page') {
+			view = 'split';
+			applyView();
+		}
+		editor.focus();
+		editor.setSelectionRange(offset, offset);
+		const ratio = offset / Math.max(1, doc.length);
+		editor.scrollTop = ratio * editor.scrollHeight - editor.clientHeight / 3;
+		updateCursor();
+	}
+
+	/* ---------- page editing helpers ------------------------------------ */
+
+	function run(name: string, value?: string) {
+		try {
+			// execCommand remains the only cross-browser contenteditable command API.
+			document.execCommand(name, false, value);
+		} catch {
+			/* ignore */
+		}
+	}
+
+	function currentBlock(): HTMLElement | null {
+		if (!sheet) return null;
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return null;
+		let node: Node | null = selection.getRangeAt(0).startContainer;
+		if (node.nodeType === 3) node = node.parentNode;
+		while (node && node !== sheet) {
+			if (
+				node.nodeType === 1 &&
+				/^(H[1-6]|P|DIV|BLOCKQUOTE|PRE|LI|TABLE)$/.test((node as Element).tagName)
+			) {
+				return node as HTMLElement;
+			}
+			node = node.parentNode;
+		}
+		return null;
+	}
+
+	function ancestorTag(tag: string): HTMLElement | null {
+		if (!sheet) return null;
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return null;
+		let node: Node | null = selection.getRangeAt(0).startContainer;
+		while (node && node !== sheet) {
+			if (node.nodeType === 1 && (node as Element).tagName === tag) return node as HTMLElement;
+			node = node.parentNode;
+		}
+		return null;
+	}
+
+	function pageState() {
+		const block = currentBlock();
+		let kind = 'paragraph';
+
+		if (block) {
+			const tag = block.tagName;
+			if (/^H[1-6]$/.test(tag)) kind = 'h' + tag[1];
+			else if (tag === 'BLOCKQUOTE') kind = 'quote';
+			else if (tag === 'PRE') kind = 'code';
+			else if (tag === 'LI') {
+				const list = block.parentNode as HTMLElement | null;
+				kind = block.querySelector('input[type="checkbox"]')
+					? 'task'
+					: list && list.tagName === 'OL'
+						? 'ol'
+						: 'ul';
+			}
+		}
+
+		const query = (name: string) => {
+			try {
+				return document.queryCommandState(name);
+			} catch {
+				return false;
+			}
+		};
+
+		return {
+			kind,
+			marks: {
+				bold: query('bold'),
+				italic: query('italic'),
+				strike: query('strikeThrough'),
+				code: Boolean(ancestorTag('CODE')),
+				link: Boolean(ancestorTag('A'))
+			}
+		};
+	}
+
+	function toggleTag(tagName: string) {
+		const existing = ancestorTag(tagName);
+		if (existing) {
+			const parent = existing.parentNode;
+			if (!parent) return;
+			while (existing.firstChild) parent.insertBefore(existing.firstChild, existing);
+			parent.removeChild(existing);
+			return;
+		}
+
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+
+		const range = selection.getRangeAt(0);
+		const wrapper = document.createElement(tagName.toLowerCase());
+		try {
+			wrapper.appendChild(range.extractContents());
+			range.insertNode(wrapper);
+			selection.removeAllRanges();
+			const after = document.createRange();
+			after.selectNodeContents(wrapper);
+			selection.addRange(after);
+		} catch {
+			/* selection across blocks */
+		}
+	}
+
+	function toggleTaskItem() {
+		const block = currentBlock();
+		if (!block || block.tagName !== 'LI') run('insertUnorderedList');
+		const item = currentBlock();
+		if (!item || item.tagName !== 'LI') return;
+
+		const existing = item.querySelector('input[type="checkbox"]');
+		if (existing) {
+			existing.remove();
+			item.classList.remove('task');
+			return;
+		}
+
+		const box = document.createElement('input');
+		box.type = 'checkbox';
+		box.setAttribute('contenteditable', 'false');
+		item.classList.add('task');
+		item.insertBefore(box, item.firstChild);
+	}
+
+	function currentCell(): HTMLTableCellElement | null {
+		if (!sheet) return null;
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return null;
+		let node: Node | null = selection.getRangeAt(0).startContainer;
+		if (node.nodeType === 3) node = node.parentNode;
+		while (node && node !== sheet) {
+			if (node.nodeType === 1) {
+				const tag = (node as Element).tagName;
+				if (tag === 'TD' || tag === 'TH') return node as HTMLTableCellElement;
+			}
+			node = node.parentNode;
+		}
+		return null;
+	}
+
+	function placeCaretIn(node: Node | null) {
+		const selection = window.getSelection();
+		if (!selection || !node) return;
+		const range = document.createRange();
+		range.selectNodeContents(node);
+		range.collapse(true);
+		selection.removeAllRanges();
+		selection.addRange(range);
+	}
+
+	const cellIndex = (cell: HTMLTableCellElement) =>
+		Array.prototype.indexOf.call(cell.parentElement!.children, cell);
+
+	function bodyOf(table: HTMLTableElement) {
+		if (table.tBodies[0]) return table.tBodies[0];
+		const body = document.createElement('tbody');
+		table.appendChild(body);
+		return body;
+	}
+
+	function addRow(cell: HTMLTableCellElement, after: boolean) {
+		const table = cell.closest('table')!;
+		const row = cell.parentElement as HTMLTableRowElement;
+		const width = table.rows[0].cells.length;
+		const fresh = document.createElement('tr');
+		for (let i = 0; i < width; i++) fresh.appendChild(document.createElement('td'));
+
+		if (table.tHead && row.parentElement === table.tHead) {
+			const body = bodyOf(table);
+			body.insertBefore(fresh, body.firstChild);
+		} else {
+			row.parentElement!.insertBefore(fresh, after ? row.nextSibling : row);
+		}
+		placeCaretIn(fresh.cells[0]);
+	}
+
+	function addColumn(cell: HTMLTableCellElement, after: boolean) {
+		const table = cell.closest('table')!;
+		const at = cellIndex(cell) + (after ? 1 : 0);
+		for (const row of Array.from(table.rows)) {
+			const heading = Boolean(table.tHead && row.parentElement === table.tHead);
+			const fresh = document.createElement(heading ? 'th' : 'td');
+			row.insertBefore(fresh, row.cells[at] || null);
+		}
+		placeCaretIn(table.rows[0].cells[at]);
+	}
+
+	function removeRow(cell: HTMLTableCellElement) {
+		const table = cell.closest('table')!;
+		const row = cell.parentElement as HTMLTableRowElement;
+
+		if (table.tHead && row.parentElement === table.tHead) {
+			const first = table.tBodies[0] && table.tBodies[0].rows[0];
+			if (!first) {
+				table.remove();
+				return;
+			}
+			const promoted = document.createElement('tr');
+			for (const source of Array.from(first.cells)) {
+				const heading = document.createElement('th');
+				while (source.firstChild) heading.appendChild(source.firstChild);
+				promoted.appendChild(heading);
+			}
+			table.tHead.replaceChild(promoted, row);
+			first.remove();
+			placeCaretIn(promoted.cells[0]);
+			return;
+		}
+
+		const fallback = row.nextElementSibling || row.previousElementSibling;
+		row.remove();
+		if (table.rows.length === 0) table.remove();
+		else placeCaretIn(((fallback as HTMLTableRowElement) || table.rows[0]).cells[0]);
+	}
+
+	function removeColumn(cell: HTMLTableCellElement) {
+		const table = cell.closest('table')!;
+		const at = cellIndex(cell);
+		if (table.rows[0].cells.length <= 1) {
+			table.remove();
+			return;
+		}
+		for (const row of Array.from(table.rows)) {
+			if (row.cells[at]) row.cells[at].remove();
+		}
+		placeCaretIn(table.rows[0].cells[Math.max(0, at - 1)]);
+	}
+
+	const TABLE_ACTIONS: Record<string, (cell: HTMLTableCellElement) => void> = {
+		rowAbove: (cell) => addRow(cell, false),
+		rowBelow: (cell) => addRow(cell, true),
+		columnLeft: (cell) => addColumn(cell, false),
+		columnRight: (cell) => addColumn(cell, true),
+		removeRow,
+		removeColumn,
+		removeTable: (cell) => cell.closest('table')!.remove()
+	};
+
+	function insertPageBlock(name: string) {
+		if (!sheet) return;
+		const html = renderMarkdown(SNIPPETS[name].text);
+		const holder = document.createElement('div');
+		holder.innerHTML = html; // our own output from our own snippet
+
+		const selection = window.getSelection();
+		const block = currentBlock();
+		const target = block && block.parentNode === sheet ? block : sheet.lastChild;
+		const nodes = Array.from(holder.childNodes);
+		if (nodes.length === 0) return;
+
+		for (const node of nodes) {
+			if (target && target.parentNode === sheet) sheet.insertBefore(node, target.nextSibling);
+			else sheet.appendChild(node);
+		}
+
+		const trailing = document.createElement('p');
+		trailing.appendChild(document.createElement('br'));
+		sheet.insertBefore(trailing, nodes[nodes.length - 1].nextSibling);
+
+		if (selection) {
+			const range = document.createRange();
+			range.selectNodeContents(nodes[0]);
+			range.collapse(true);
+			selection.removeAllRanges();
+			selection.addRange(range);
+		}
+	}
+
+	function pageLink() {
+		if (ancestorTag('A')) {
+			run('unlink');
+			return;
+		}
+
+		const selection = window.getSelection();
+		let address: string | null;
+		try {
+			address = window.prompt('Link address', 'https://');
+		} catch {
+			return;
+		}
+		if (!address) return;
+		const href = safeUrl(address);
+		if (!href) return;
+
+		if (selection && !selection.isCollapsed) {
+			run('createLink', href);
+			return;
+		}
+
+		let label: string | null;
+		try {
+			label = window.prompt('Link text', href);
+		} catch {
+			label = href;
+		}
+		if (!label || !sheet) return;
+
+		const anchorNode = document.createElement('a');
+		anchorNode.href = href;
+		anchorNode.textContent = label;
+
+		if (selection && selection.rangeCount > 0) {
+			const range = selection.getRangeAt(0);
+			range.insertNode(anchorNode);
+			range.setStartAfter(anchorNode);
+			range.collapse(true);
+			selection.removeAllRanges();
+			selection.addRange(range);
+		} else {
+			sheet.appendChild(anchorNode);
+		}
+	}
+
+	function pageCommand(name: string, argument?: string) {
+		const before = pageState();
+
+		if (name === 'bold') run('bold');
+		else if (name === 'italic') run('italic');
+		else if (name === 'strike') run('strikeThrough');
+		else if (name === 'code') toggleTag('CODE');
+		else if (name === 'link') pageLink();
+		else if (name === 'style') run('formatBlock', '<' + (BLOCK_FOR[argument || ''] || 'p') + '>');
+		else if (name === 'quote') run('formatBlock', before.kind === 'quote' ? '<p>' : '<blockquote>');
+		else if (name === 'ul') run('insertUnorderedList');
+		else if (name === 'ol') run('insertOrderedList');
+		else if (name === 'task') toggleTaskItem();
+		else if (name === 'clear') {
+			run('removeFormat');
+			run('unlink');
+		} else if (TABLE_ACTIONS[name]) {
+			const cell = currentCell();
+			if (cell) TABLE_ACTIONS[name](cell);
+		} else if (SNIPPETS[name]) insertPageBlock(name);
+
+		enableTaskBoxes();
+		rememberPage();
+		pageChanged();
+		updateToolbar();
+	}
+
+	/** Every command goes through here so toolbar and keyboard agree. */
+	function command(name: string, argument?: string) {
+		if (!editor) return;
+		restoreSelection();
+
+		if (surface() === 'page') {
+			pageCommand(name, argument);
+			return;
+		}
+
+		const text = editor.value;
+		const start = editor.selectionStart;
+		const end = editor.selectionEnd;
+		let result;
+
+		// Core helpers are behavior-preserving JS ports; call through loosely typed.
+		const fmt = {
+			toggleMark,
+			toggleLink,
+			setBlockKind,
+			clearFormatting,
+			insertBlock,
+			toggleBlockKind
+		} as {
+			toggleMark: (t: string, s: number, e: number, k: string) => FormatResult;
+			toggleLink: (t: string, s: number, e: number, p?: string) => FormatResult;
+			setBlockKind: (t: string, s: number, e: number, k: string) => FormatResult;
+			clearFormatting: (t: string, s: number, e: number) => FormatResult;
+			insertBlock: (
+				t: string,
+				s: number,
+				e: number,
+				snippet: string,
+				caret?: number | null
+			) => FormatResult;
+			toggleBlockKind: (t: string, s: number, e: number, k: string) => FormatResult;
+		};
+
+		if ((MARKS as Record<string, unknown>)[name])
+			result = fmt.toggleMark(text, start, end, name);
+		else if (name === 'link') result = fmt.toggleLink(text, start, end);
+		else if (name === 'style')
+			result = fmt.setBlockKind(text, start, end, argument || 'paragraph');
+		else if (name === 'clear') result = fmt.clearFormatting(text, start, end);
+		else if (SNIPPETS[name])
+			result = fmt.insertBlock(
+				text,
+				start,
+				end,
+				SNIPPETS[name].text,
+				SNIPPETS[name].caret
+			);
+		else result = fmt.toggleBlockKind(text, start, end, name);
+
+		editor.value = result.text;
+		sourceChanged();
+		editor.focus();
+		editor.setSelectionRange(result.start, result.end);
+		rememberSource();
+		updateCursor();
+		updateToolbar();
+	}
+
+	function updateToolbar() {
+		if (!editor) return;
+		let nextMarks: InlineMarks;
+		let kind: string;
+
+		if (surface() === 'source') {
+			const text = editor.value;
+			nextMarks = inlineMarks(
+				text,
+				editor.selectionStart,
+				editor.selectionEnd
+			) as InlineMarks;
+			kind = blockKind(text, editor.selectionStart) as string;
+		} else {
+			const current = pageState();
+			nextMarks = current.marks;
+			kind = current.kind;
+		}
+
+		marks = {
+			bold: Boolean(nextMarks.bold),
+			italic: Boolean(nextMarks.italic),
+			strike: Boolean(nextMarks.strike),
+			code: Boolean(nextMarks.code),
+			link: Boolean(nextMarks.link)
+		};
+		activeBlock = kind;
+		inTable = surface() === 'page' && Boolean(currentCell());
+
+		const style = STYLES.find((item) => item.kind === kind);
+		styleToken = style ? style.token : OTHER_TOKENS[kind] || 'Aa';
+		styleName = style ? style.label : OTHER_NAMES[kind] || 'Normal text';
+
+		if (focus) markWritingBlock();
+	}
+
+	function markWritingBlock() {
+		if (!sheet) return;
+		const previous = sheet.querySelector('.is-writing');
+		if (previous) previous.classList.remove('is-writing');
+		if (!focus) return;
+
+		let block = currentBlock();
+		while (block && block.parentNode !== sheet) block = block.parentNode as HTMLElement | null;
+		if (block && block.parentNode === sheet) block.classList.add('is-writing');
+	}
+
+	function setFocusMode(on: boolean) {
+		if (on === focus) return;
+		focus = on;
+		if (on) {
+			viewBeforeFocus = view;
+			view = 'page';
+		} else if (viewBeforeFocus) {
+			view = viewBeforeFocus;
+			viewBeforeFocus = null;
+		}
+		applyView();
+		markWritingBlock();
+		if (on && sheet) sheet.focus();
+		persist();
+	}
+
+	function setView(next: ViewMode) {
+		view = next;
+		applyView();
+		persist();
+	}
+
+	/* ---------- file / export ------------------------------------------- */
+
+	function openFile(file: File) {
+		const reader = new FileReader();
+		reader.addEventListener('load', () => {
+			setDoc(String(reader.result));
+			editor?.focus();
+		});
+		reader.readAsText(file);
+	}
+
+	function onExport(kind: string) {
+		if (kind === 'md') download(doc, documentName(doc) + '.md', 'text/markdown');
+		else if (kind === 'html') exportStandaloneHtml(doc);
+		else if (kind === 'print') setTimeout(() => window.print(), 60);
+	}
+
+	function clearDesk() {
+		if (doc.trim() !== '' && !confirm('Clear the desk? This cannot be undone.')) return;
+		setDoc('');
+		editor?.focus();
+	}
+
+	/* ---------- event handlers ------------------------------------------ */
+
+	function onToolbarPointer(event: Event) {
+		const t = event.target as HTMLElement;
+		if (t.closest('button')) event.preventDefault();
+	}
+
+	function onToolbarClick(event: MouseEvent) {
+		const button = (event.target as HTMLElement).closest('button');
+		if (!button || button.id === 'styleBtn' || button.id === 'moreBtn') return;
+		const ds = (button as HTMLElement).dataset;
+		if (ds.mark) command(ds.mark);
+		else if (ds.block) command(ds.block);
+		else if (ds.insert) command(ds.insert);
+		else if (ds.action) command(ds.action);
+	}
+
+	function onMoreMenuClick(event: MouseEvent) {
+		const button = (event.target as HTMLElement).closest('button');
+		if (!button) return;
+		const ds = (button as HTMLElement).dataset;
+		if (ds.mark) command(ds.mark);
+		else if (ds.table) command(ds.table);
+		else if (ds.block) command(ds.block);
+		else if (ds.insert) command(ds.insert);
+		else if (ds.action) command(ds.action);
+		closeMenus();
+	}
+
+	function onSheetKeydown(event: KeyboardEvent) {
+		if (event.key !== 'Tab') return;
+		const cell = currentCell();
+		if (!cell) return;
+		event.preventDefault();
+		const cells = Array.from(cell.closest('table')!.querySelectorAll('th, td'));
+		const next = cells[cells.indexOf(cell) + (event.shiftKey ? -1 : 1)] as HTMLElement | undefined;
+		if (next) placeCaretIn(next);
+		else if (!event.shiftKey) addRow(cell, true);
+		rememberPage();
+		pageChanged();
+		updateToolbar();
+	}
+
+	function onSheetPaste(event: ClipboardEvent) {
+		if (!event.clipboardData) return;
+		event.preventDefault();
+		run('insertText', event.clipboardData.getData('text/plain'));
+		pageChanged();
+	}
+
+	function onReadingPaneMouseDown(event: MouseEvent) {
+		if (event.target !== readingPane || !sheet) return;
+		event.preventDefault();
+		sheet.focus();
+		const last = sheet.lastElementChild;
+		const selection = window.getSelection();
+		if (!last || !selection) return;
+		const range = document.createRange();
+		range.selectNodeContents(last);
+		range.collapse(false);
+		selection.removeAllRanges();
+		selection.addRange(range);
+	}
+
+	function onEditorKeydown(event: KeyboardEvent) {
+		if (!editor) return;
+		const meta = event.metaKey || event.ctrlKey;
+
+		if (meta) {
+			const key = event.key.toLowerCase();
+			if (event.altKey && '0123'.indexOf(key) !== -1) {
+				event.preventDefault();
+				command('style', key === '0' ? 'paragraph' : 'h' + key);
+				return;
+			}
+			if (!event.altKey) {
+				if (key === 'b') {
+					event.preventDefault();
+					command('bold');
+					return;
+				}
+				if (key === 'i') {
+					event.preventDefault();
+					command('italic');
+					return;
+				}
+				if (key === 'k') {
+					event.preventDefault();
+					command('link');
+					return;
+				}
+				if (key === 'e') {
+					event.preventDefault();
+					command('code');
+					return;
+				}
+				if (key === 'x' && event.shiftKey) {
+					event.preventDefault();
+					command('strike');
+					return;
+				}
+				if (key === '7' && event.shiftKey) {
+					event.preventDefault();
+					command('ol');
+					return;
+				}
+				if (key === '8' && event.shiftKey) {
+					event.preventDefault();
+					command('ul');
+					return;
+				}
+			}
+		}
+
+		if (event.key === 'Tab') {
+			event.preventDefault();
+			const start = editor.selectionStart;
+			const end = editor.selectionEnd;
+			if (start === end) {
+				const text = editor.value.slice(0, start) + '  ' + editor.value.slice(end);
+				setDoc(text);
+				editor.setSelectionRange(start + 2, start + 2);
+			} else {
+				const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+				const block = editor.value.slice(lineStart, end);
+				const shifted = event.shiftKey
+					? block.replace(/^ {1,2}/gm, '')
+					: block.replace(/^/gm, '  ');
+				const text = editor.value.slice(0, lineStart) + shifted + editor.value.slice(end);
+				setDoc(text);
+				editor.setSelectionRange(lineStart, lineStart + shifted.length);
+			}
+			return;
+		}
+
+		/* Continue a list on Enter; end it on an empty item. */
+		if (event.key === 'Enter' && !event.shiftKey) {
+			const start = editor.selectionStart;
+			if (start !== editor.selectionEnd) return;
+			const lineStart = editor.value.lastIndexOf('\n', start - 1) + 1;
+			const line = editor.value.slice(lineStart, start);
+			const marker = /^(\s*)([-+*]|\d{1,9}[.)])(\s+)(\[[ xX]\]\s+)?/.exec(line);
+			if (!marker) return;
+
+			event.preventDefault();
+			const rest = line.slice(marker[0].length);
+
+			if (rest.trim() === '') {
+				const text = editor.value.slice(0, lineStart) + editor.value.slice(start);
+				setDoc(text);
+				editor.setSelectionRange(lineStart, lineStart);
+				return;
+			}
+
+			let next = marker[1] + marker[2] + marker[3];
+			if (/\d/.test(marker[2])) {
+				const number = parseInt(marker[2], 10) + 1;
+				next = marker[1] + number + marker[2].slice(-1) + marker[3];
+			}
+			if (marker[4]) next += '[ ] ';
+
+			const insert = '\n' + next;
+			const text = editor.value.slice(0, start) + insert + editor.value.slice(start);
+			setDoc(text);
+			editor.setSelectionRange(start + insert.length, start + insert.length);
+		}
+	}
+
+	function onEditorScroll() {
+		if (!editor || !readingPane || view !== 'split') return;
+		const range = editor.scrollHeight - editor.clientHeight;
+		if (range <= 0) return;
+		const ratio = editor.scrollTop / range;
+		readingPane.scrollTop = ratio * (readingPane.scrollHeight - readingPane.clientHeight);
+	}
+
+	/* ---------- lifecycle ----------------------------------------------- */
+
+	onMount(() => {
+		try {
+			document.execCommand('styleWithCSS', false, 'false');
+			document.execCommand('defaultParagraphSeparator', false, 'p');
+		} catch {
+			/* older engines */
+		}
+
+		const restored = loadState();
+		doc = restored.doc === '' ? SAMPLE : restored.doc;
+		view = restored.view;
+		focus = restored.focus;
+		applyView();
+
+		if (editor) editor.value = doc;
+		renderDocument();
+		updateCursor();
+		updateToolbar();
+		ready = true;
+
+		const onDocClick = () => closeMenus();
+		const onKey = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') {
+				if (openMenu) closeMenus();
+				else if (focus) setFocusMode(false);
+			}
+		};
+		const onSelChange = () => {
+			if (onPage()) {
+				rememberPage();
+				updateToolbar();
+			}
+		};
+		const onResize = () => {
+			if (isNarrow() && view === 'split') {
+				applyView();
+				persist();
+			}
+		};
+
+		const onDragEnter = (event: DragEvent) => {
+			if (!event.dataTransfer || !Array.from(event.dataTransfer.types).includes('Files')) return;
+			dragDepth++;
+			dragging = true;
+		};
+		const onDragOver = (event: DragEvent) => event.preventDefault();
+		const onDragLeave = () => {
+			dragDepth = Math.max(0, dragDepth - 1);
+			if (dragDepth === 0) dragging = false;
+		};
+		const onDrop = (event: DragEvent) => {
+			event.preventDefault();
+			dragDepth = 0;
+			dragging = false;
+			const file = event.dataTransfer?.files?.[0];
+			if (file) openFile(file);
+		};
+
+		document.addEventListener('click', onDocClick);
+		document.addEventListener('keydown', onKey);
+		document.addEventListener('selectionchange', onSelChange);
+		window.addEventListener('resize', onResize);
+		window.addEventListener('dragenter', onDragEnter);
+		window.addEventListener('dragover', onDragOver);
+		window.addEventListener('dragleave', onDragLeave);
+		window.addEventListener('drop', onDrop);
+
+		const viewport = window.visualViewport;
+		const followKeyboard = () => {
+			if (!viewport) return;
+			const overlap = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
+			keyboardUp = overlap > 120;
+			document.documentElement.style.setProperty(
+				'--keyboard-offset',
+				-Math.round(overlap) + 'px'
+			);
+		};
+		if (viewport) {
+			viewport.addEventListener('resize', followKeyboard);
+			viewport.addEventListener('scroll', followKeyboard);
+			followKeyboard();
+		}
+
+		return () => {
+			document.removeEventListener('click', onDocClick);
+			document.removeEventListener('keydown', onKey);
+			document.removeEventListener('selectionchange', onSelChange);
+			window.removeEventListener('resize', onResize);
+			window.removeEventListener('dragenter', onDragEnter);
+			window.removeEventListener('dragover', onDragOver);
+			window.removeEventListener('dragleave', onDragLeave);
+			window.removeEventListener('drop', onDrop);
+			if (viewport) {
+				viewport.removeEventListener('resize', followKeyboard);
+				viewport.removeEventListener('scroll', followKeyboard);
+			}
+			// Return menus to the component tree if we ported them
+			for (const el of [outlineMenuEl, fileMenuEl, exportMenuEl, styleMenuEl, moreMenuEl]) {
+				if (el && el.parentNode === document.body) el.remove();
+			}
+			clearTimeout(saveTimer);
+			clearTimeout(statusTimer);
+		};
+	});
+</script>
+
+<!--
+  Root shell. data-view / focus-mode / dragging / keyboard-up drive CSS.
+  All chrome lives here so print styles can hide it cleanly.
+-->
+<div
+	class="desk"
+	class:focus-mode={focus}
+	class:dragging
+	class:keyboard-up={keyboardUp}
+	data-view={view}
+	bind:this={deskEl}
+>
+	<header class="app-bar">
+		<div class="brand">
+			<svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+				<rect width="32" height="32" rx="7" fill="var(--accent)"></rect>
+				<path
+					d="M8 24l1.5-5L20 8.5a2.1 2.1 0 013 3L12.5 22z"
+					fill="none"
+					stroke="var(--on-accent)"
+					stroke-width="2.2"
+					stroke-linejoin="round"
+				></path>
+				<path
+					d="M8 24h16"
+					stroke="var(--on-accent)"
+					stroke-width="2.2"
+					stroke-linecap="round"
+				></path>
+			</svg>
+			<span class="brand-name">Writing Desk</span>
+			<span class="brand-tag">markdown, typeset as you type — nothing leaves your browser</span>
+		</div>
+
+		<span class="save-status" class:on={saveOn} role="status" aria-live="polite">{saveLabel}</span>
+
+		<div class="views" role="group" aria-label="View">
+			<button
+				type="button"
+				data-view-btn="page"
+				aria-pressed={view === 'page'}
+				title="Page"
+				aria-label="Page"
+				onclick={() => setView('page')}
+			>
+				<svg viewBox="0 0 24 24" aria-hidden="true"
+					><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v4h4" /><path d="M9 12h6M9 16h6" /></svg
+				>
+			</button>
+			<button
+				type="button"
+				data-view-btn="split"
+				aria-pressed={view === 'split'}
+				title="Page and Markdown side by side"
+				aria-label="Split"
+				onclick={() => setView('split')}
+			>
+				<svg viewBox="0 0 24 24" aria-hidden="true"
+					><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 4v16" /></svg
+				>
+			</button>
+			<button
+				type="button"
+				data-view-btn="source"
+				aria-pressed={view === 'source'}
+				title="Markdown"
+				aria-label="Markdown"
+				onclick={() => setView('source')}
+			>
+				<svg viewBox="0 0 24 24" aria-hidden="true"
+					><path d="M8.5 8 4 12l4.5 4M15.5 8 20 12l-4.5 4M13.6 5.5l-3.2 13" /></svg
+				>
+			</button>
+		</div>
+
+		<div class="menu-wrap">
+			<button
+				type="button"
+				class="btn btn-quiet"
+				bind:this={outlineBtnEl}
+				aria-haspopup="true"
+				aria-expanded={openMenu === 'outline'}
+				onclick={(e) => {
+					e.stopPropagation();
+					toggleMenu('outline', rebuildOutline);
+				}}
+			>
+				Outline
+			</button>
+			<ul class="menu menu-outline" bind:this={outlineMenuEl} hidden>
+				{#if outlineItems.length === 0}
+					<li class="empty">No headings yet.</li>
+				{:else}
+					{#each outlineItems as heading, index (heading.line + ':' + index)}
+						<li>
+							<button
+								type="button"
+								class="lv{heading.level}"
+								onclick={() => jumpToHeading(heading, index)}
+							>
+								{heading.text || '(untitled)'}
+							</button>
+						</li>
+					{/each}
+				{/if}
+			</ul>
+		</div>
+
+		<button
+			type="button"
+			class="btn btn-quiet"
+			aria-pressed={focus}
+			title="Dim everything but the paragraph you are writing. Escape leaves."
+			onclick={() => setFocusMode(!focus)}
+		>
+			Focus
+		</button>
+
+		<div class="menu-wrap">
+			<button
+				type="button"
+				class="btn"
+				bind:this={fileBtnEl}
+				aria-haspopup="true"
+				aria-expanded={openMenu === 'file'}
+				onclick={(e) => {
+					e.stopPropagation();
+					toggleMenu('file');
+				}}
+			>
+				File
+			</button>
+			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+			<ul
+				class="menu"
+				bind:this={fileMenuEl}
+				hidden
+				onmousedown={(e) => {
+					if ((e.target as HTMLElement).closest('button')) e.preventDefault();
+				}}
+				onclick={() => closeMenus()}
+			>
+				<li>
+					<button type="button" onclick={() => fileInput?.click()}>Open a .md file…</button>
+				</li>
+				<li>
+					<button
+						type="button"
+						onclick={() => {
+							setDoc(SAMPLE);
+							editor?.focus();
+						}}>Load the sample document</button
+					>
+				</li>
+				<li><button type="button" onclick={clearDesk}>Clear the desk</button></li>
+				<li class="menu-note">Or drop a file anywhere on the window.</li>
+			</ul>
+		</div>
+
+		<div class="menu-wrap">
+			<button
+				type="button"
+				class="btn btn-primary"
+				bind:this={exportBtnEl}
+				aria-haspopup="true"
+				aria-expanded={openMenu === 'export'}
+				onclick={(e) => {
+					e.stopPropagation();
+					toggleMenu('export');
+				}}
+			>
+				Export
+			</button>
+			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+			<ul
+				class="menu"
+				bind:this={exportMenuEl}
+				hidden
+				onmousedown={(e) => {
+					if ((e.target as HTMLElement).closest('button')) e.preventDefault();
+				}}
+				onclick={() => closeMenus()}
+			>
+				<li>
+					<button type="button" onclick={() => onExport('md')}>Markdown (.md)</button>
+				</li>
+				<li>
+					<button type="button" onclick={() => onExport('html')}>Standalone HTML</button>
+				</li>
+				<li>
+					<button type="button" onclick={() => onExport('print')}>Print / save as PDF…</button>
+				</li>
+				<li class="menu-note">
+					The HTML export carries its own styles and needs nothing else to open.
+				</li>
+			</ul>
+		</div>
+
+		<input
+			type="file"
+			bind:this={fileInput}
+			accept=".md,.markdown,.txt,text/markdown,text/plain"
+			hidden
+			onchange={(event) => {
+				const input = event.currentTarget;
+				const file = input.files?.[0];
+				if (file) openFile(file);
+				input.value = '';
+			}}
+		/>
+	</header>
+
+	<!-- Floating format bar: never steals selection (pointerdown preventDefault). -->
+	<!-- svelte-ignore a11y_interactive_supports_focus a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+	<div
+		class="toolbar"
+		bind:this={toolbarEl}
+		role="toolbar"
+		aria-label="Formatting"
+		aria-controls="editor"
+		tabindex="-1"
+		onmousedown={onToolbarPointer}
+		onpointerdown={onToolbarPointer}
+		onclick={onToolbarClick}
+	>
+		<div class="menu-wrap">
+			<button
+				type="button"
+				class="tool tool--style"
+				id="styleBtn"
+				bind:this={styleBtnEl}
+				aria-haspopup="true"
+				aria-expanded={openMenu === 'style'}
+				title={styleName}
+				aria-label={'Paragraph style: ' + styleName}
+				onclick={(e) => {
+					e.stopPropagation();
+					toggleMenu('style');
+				}}
+			>
+				<span>{styleToken}</span>
+				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+			</button>
+			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+			<ul
+				class="menu menu-style"
+				bind:this={styleMenuEl}
+				hidden
+				onmousedown={(e) => {
+					if ((e.target as HTMLElement).closest('button')) e.preventDefault();
+				}}
+			>
+				{#each STYLES as style (style.kind)}
+					<li>
+						<button
+							type="button"
+							onclick={() => {
+								command('style', style.kind);
+								closeMenus();
+							}}
+						>
+							<span class="tick">{activeBlock === style.kind ? '✓' : ''}</span>
+							<span class="style-token">{style.token}</span>
+							<span class={style.menu}>{style.label}</span>
+							<span class="hint">{style.hint}</span>
+						</button>
+					</li>
+				{/each}
+			</ul>
+		</div>
+
+		<span class="tool-sep"></span>
+
+		<button
+			type="button"
+			class="tool"
+			data-mark="bold"
+			aria-pressed={marks.bold}
+			title="Bold (⌘B)"
+			aria-label="Bold"
+		>
+			<svg viewBox="0 0 24 24" aria-hidden="true"
+				><path d="M7 5h6.5a3.5 3.5 0 0 1 0 7H7zM7 12h7.5a3.5 3.5 0 0 1 0 7H7z" /></svg
+			>
+		</button>
+		<button
+			type="button"
+			class="tool"
+			data-mark="italic"
+			aria-pressed={marks.italic}
+			title="Italic (⌘I)"
+			aria-label="Italic"
+		>
+			<svg viewBox="0 0 24 24" aria-hidden="true"
+				><path d="M15 5h-5M14 19H9M13.5 5 10.5 19" /></svg
+			>
+		</button>
+		<button
+			type="button"
+			class="tool tool--secondary"
+			data-mark="strike"
+			aria-pressed={marks.strike}
+			title="Strikethrough (⌘⇧X)"
+			aria-label="Strikethrough"
+		>
+			<svg viewBox="0 0 24 24" aria-hidden="true"
+				><path
+					d="M5 12h14M16 7.5C15.2 6 13.7 5.2 12 5.2 9.6 5.2 8 6.4 8 8.2c0 1.3.9 2.2 2.6 2.8M8.4 16c.7 1.7 2.3 2.6 4 2.6 2.5 0 4.1-1.2 4.1-3 0-.6-.2-1.2-.5-1.6"
+				/></svg
+			>
+		</button>
+		<button
+			type="button"
+			class="tool tool--secondary"
+			data-mark="code"
+			aria-pressed={marks.code}
+			title="Code (⌘E)"
+			aria-label="Inline code"
+		>
+			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-5 4 5 4M15 8l5 4-5 4" /></svg>
+		</button>
+		<button
+			type="button"
+			class="tool"
+			data-action="link"
+			aria-pressed={marks.link}
+			title="Link (⌘K)"
+			aria-label="Link"
+		>
+			<svg viewBox="0 0 24 24" aria-hidden="true"
+				><path
+					d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 1 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 1 0 5.66 5.66l1-1"
+				/></svg
+			>
+		</button>
+
+		<span class="tool-sep"></span>
+
+		<button
+			type="button"
+			class="tool"
+			data-block="ul"
+			aria-pressed={activeBlock === 'ul'}
+			title="Bulleted list"
+			aria-label="Bulleted list"
+		>
+			<svg viewBox="0 0 24 24" aria-hidden="true"
+				><path d="M9 6h11M9 12h11M9 18h11" /><circle
+					cx="4.5"
+					cy="6"
+					r="1.3"
+					fill="currentColor"
+					stroke="none"
+				/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle
+					cx="4.5"
+					cy="18"
+					r="1.3"
+					fill="currentColor"
+					stroke="none"
+				/></svg
+			>
+		</button>
+		<button
+			type="button"
+			class="tool tool--secondary"
+			data-block="ol"
+			aria-pressed={activeBlock === 'ol'}
+			title="Numbered list"
+			aria-label="Numbered list"
+		>
+			<svg viewBox="0 0 24 24" aria-hidden="true"
+				><path
+					d="M10 6h10M10 12h10M10 18h10M4 5.5h1.4V9M3.4 14.2c0-.7.6-1.2 1.3-1.2.7 0 1.3.5 1.3 1.1 0 1.2-2.6 1.6-2.6 3.4h2.8"
+				/></svg
+			>
+		</button>
+
+		<span class="tool-spacer"></span>
+
+		<div class="menu-wrap">
+			<button
+				type="button"
+				class="tool"
+				id="moreBtn"
+				bind:this={moreBtnEl}
+				aria-haspopup="true"
+				aria-expanded={openMenu === 'more'}
+				title="More formatting"
+				aria-label="More formatting"
+				onclick={(e) => {
+					e.stopPropagation();
+					toggleMenu('more', () => {
+						inTable = surface() === 'page' && Boolean(currentCell());
+					});
+				}}
+			>
+				<svg viewBox="0 0 24 24" aria-hidden="true"
+					><circle cx="5" cy="12" r="1.4" fill="currentColor" stroke="none" /><circle
+						cx="12"
+						cy="12"
+						r="1.4"
+						fill="currentColor"
+						stroke="none"
+					/><circle cx="19" cy="12" r="1.4" fill="currentColor" stroke="none" /></svg
+				>
+			</button>
+			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
+			<ul
+				class="menu menu-more"
+				bind:this={moreMenuEl}
+				hidden
+				onmousedown={(e) => {
+					if ((e.target as HTMLElement).closest('button')) e.preventDefault();
+				}}
+				onclick={onMoreMenuClick}
+			>
+				<li class="only-narrow">
+					<button type="button" data-mark="strike"
+						><span class="tick">{marks.strike ? '✓' : ''}</span>Strikethrough<span class="hint"
+							>⌘⇧X</span
+						></button
+					>
+				</li>
+				<li class="only-narrow">
+					<button type="button" data-mark="code"
+						><span class="tick">{marks.code ? '✓' : ''}</span>Inline code<span class="hint"
+							>⌘E</span
+						></button
+					>
+				</li>
+				<li class="only-narrow">
+					<button type="button" data-block="ol"
+						><span class="tick">{activeBlock === 'ol' ? '✓' : ''}</span>Numbered list</button
+					>
+				</li>
+				<li class="only-narrow separator"></li>
+				<li>
+					<button type="button" data-block="task"
+						><span class="tick">{activeBlock === 'task' ? '✓' : ''}</span>Task list</button
+					>
+				</li>
+				<li>
+					<button type="button" data-block="quote"
+						><span class="tick">{activeBlock === 'quote' ? '✓' : ''}</span>Quote</button
+					>
+				</li>
+				<li>
+					<button type="button" data-insert="codeblock"
+						><span class="tick"></span>Code block<span class="hint">```</span></button
+					>
+				</li>
+				<li>
+					<button type="button" data-insert="table"><span class="tick"></span>Table</button>
+				</li>
+				<li>
+					<button type="button" data-insert="rule"
+						><span class="tick"></span>Divider<span class="hint">---</span></button
+					>
+				</li>
+				<li>
+					<button type="button" data-insert="image"><span class="tick"></span>Image</button>
+				</li>
+				<li>
+					<button type="button" data-action="clear"
+						><span class="tick"></span>Clear formatting</button
+					>
+				</li>
+				{#if inTable}
+					<li class="only-table separator"></li>
+					<li class="only-table">
+						<button type="button" data-table="rowAbove"
+							><span class="tick"></span>Insert row above</button
+						>
+					</li>
+					<li class="only-table">
+						<button type="button" data-table="rowBelow"
+							><span class="tick"></span>Insert row below<span class="hint">Tab</span></button
+						>
+					</li>
+					<li class="only-table">
+						<button type="button" data-table="columnLeft"
+							><span class="tick"></span>Insert column left</button
+						>
+					</li>
+					<li class="only-table">
+						<button type="button" data-table="columnRight"
+							><span class="tick"></span>Insert column right</button
+						>
+					</li>
+					<li class="only-table">
+						<button type="button" data-table="removeRow"
+							><span class="tick"></span>Delete row</button
+						>
+					</li>
+					<li class="only-table">
+						<button type="button" data-table="removeColumn"
+							><span class="tick"></span>Delete column</button
+						>
+					</li>
+					<li class="only-table">
+						<button type="button" data-table="removeTable"
+							><span class="tick"></span>Delete table</button
+						>
+					</li>
+				{/if}
+			</ul>
+		</div>
+	</div>
+
+	<main class="workspace">
+		<div class="editor-pane">
+			<textarea
+				id="editor"
+				bind:this={editor}
+				spellcheck="true"
+				autocapitalize="sentences"
+				autocomplete="off"
+				aria-label="Markdown source"
+				placeholder="# Start writing&#10;&#10;Markdown on the left, the page on the right."
+				onfocus={rememberSource}
+				oninput={() => {
+					sourceChanged();
+					updateCursor();
+					updateToolbar();
+					rememberSource();
+				}}
+				onclick={() => {
+					rememberSource();
+					updateCursor();
+					updateToolbar();
+				}}
+				onkeyup={() => {
+					rememberSource();
+					updateCursor();
+					updateToolbar();
+				}}
+				onselect={() => {
+					rememberSource();
+					updateCursor();
+					updateToolbar();
+				}}
+				onmouseup={rememberSource}
+				onkeydown={onEditorKeydown}
+				onscroll={onEditorScroll}
+			></textarea>
+		</div>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="reading-pane" bind:this={readingPane} onmousedown={onReadingPaneMouseDown}>
+			<!-- contenteditable sheet: HTML is set via renderDocument() only (never reactive {@html}) -->
+			<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+			<article
+				class="sheet"
+				bind:this={sheet}
+				contenteditable="true"
+				spellcheck="true"
+				role="textbox"
+				aria-multiline="true"
+				aria-label="Document"
+				data-placeholder="Start writing…"
+				onfocus={() => {
+					rememberPage();
+					updateToolbar();
+				}}
+				oninput={() => {
+					rememberPage();
+					pageChanged();
+				}}
+				onblur={pageChanged}
+				onchange={(event) => {
+					if ((event.target as HTMLInputElement).type === 'checkbox') pageChanged();
+				}}
+				onkeyup={() => {
+					rememberPage();
+					updateToolbar();
+				}}
+				onmouseup={() => {
+					rememberPage();
+					updateToolbar();
+				}}
+				onkeydown={onSheetKeydown}
+				onpaste={onSheetPaste}
+			></article>
+		</div>
+	</main>
+
+	<footer class="status-bar">
+		<span><b>{wordCount.toLocaleString()}</b> words</span>
+		<span><b>{charCount.toLocaleString()}</b> characters</span>
+		<span><b>{readTime.toLocaleString()}</b> min read</span>
+		<span class="spacer"></span>
+		<span>{cursorPos}</span>
+		<span title="What this editor understands"
+			>Saved as CommonMark + tables, task lists, strikethrough</span
+		>
+	</footer>
+
+	<div class="drop-hint" aria-hidden="true">Drop a Markdown file to open it</div>
+
+	{#if !ready}
+		<!-- Prevent interaction flash before localStorage restore -->
+	{/if}
+</div>

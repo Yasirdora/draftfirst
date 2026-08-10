@@ -1,0 +1,452 @@
+/* Global Writing Desk styles */
+/* Writing Desk — ported design system (UI chrome + document sheet + print). */
+/* ==========================================================================
+   Writing Desk — single-file, dependency-free, offline-first.
+
+   Two token scopes, kept deliberately separate:
+   1. UI tokens on :root — theme-aware (light/dark) chrome around the tool.
+   2. Document tokens on .sheet — the page you are writing is always paper:
+      white, serif, print-safe, and unaffected by the UI theme.
+
+   Written to the platform as it stood in 2020: CSS Grid, custom properties,
+   prefers-color-scheme, ES2020 syntax. No :has(), no container queries, no
+   <dialog>, no popover — none of which had shipped. Everything here still
+   runs unchanged today.
+   ========================================================================== */
+:root {
+  --bg:          #E8EBEE;
+  --bg-deep:     #DDE2E7;
+  --panel:       #FFFFFF;
+  --panel-2:     #F4F6F8;   /* editor background */
+  --panel-veil:  rgba(255,255,255,.86);   /* the floating bar, over the page */
+  --ink:         #1D2733;
+  --muted:       #61707F;
+  --rule:        #D9DEE4;
+  --rule-soft:   #EBEEF1;
+  --accent:      #2A5B8C;   /* ink blue (UI only) */
+  --on-accent:   #FFFFFF;
+  --accent-deep: #1E4468;
+  --accent-soft: #E4EDF5;
+  --danger:      #B3402F;
+  --placeholder: #A6B1BC;
+  --shadow-sheet: 0 1px 2px rgba(16,24,32,.08), 0 18px 48px rgba(16,24,32,.16);
+  --font-ui:   -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-doc:  Charter, "Bitstream Charter", Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:          #14181D;
+    --bg-deep:     #0F1216;
+    --panel:       #1C2229;
+    --panel-2:     #14181D;
+    --panel-veil:  rgba(28,34,41,.86);
+    --ink:         #E6EAEF;
+    --muted:       #8B98A5;
+    --rule:        #323B45;
+    --rule-soft:   #262E37;
+    --accent:      #79B4E0;
+    --on-accent:   #08192B;
+    --accent-deep: #93C4EA;
+    --accent-soft: #1B2C3C;
+    --danger:      #E06A56;
+    --placeholder: #5A6673;
+    --shadow-sheet: 0 1px 2px rgba(0,0,0,.4), 0 22px 56px rgba(0,0,0,.5);
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--bg);
+}
+/* App shell: fills the viewport; data-view / focus-mode live here (not on body). */
+.desk {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+::placeholder { color: var(--placeholder); opacity: 1; }
+
+/* ==========================================================================
+   App bar
+   ========================================================================== */
+.app-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--rule);
+  flex: none;
+}
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+.brand-mark { width: 26px; height: 26px; flex: none; }
+.brand-name { font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+.brand-tag { color: var(--muted); font-size: 12.5px; }
+@media (max-width: 900px) { .brand-tag { display: none; } }
+
+.save-status {
+  font-size: 12.5px; color: var(--muted);
+  opacity: 0; transition: opacity .3s ease;
+}
+.save-status.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .save-status { transition: none; } }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  background: var(--panel);
+  font-weight: 550;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.btn:hover { background: var(--rule-soft); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
+.btn-quiet { border-color: transparent; color: var(--muted); background: transparent; }
+.btn-quiet:hover { color: var(--ink); background: var(--rule-soft); }
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+
+/* Segmented view switch */
+.views { display: inline-flex; padding: 2px; gap: 2px; background: var(--rule-soft); border-radius: 8px; }
+.views button {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: transparent; color: var(--muted);
+  width: 34px; height: 28px; padding: 0; border-radius: 6px;
+}
+.views button svg {
+  width: 17px; height: 17px;
+  fill: none; stroke: currentColor; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.views button:hover { color: var(--ink); }
+.views button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(16,24,32,.10); }
+
+/* Menus — plain absolutely-positioned lists; <dialog> and popover came later. */
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20;
+  min-width: 210px; margin: 0; padding: 4px; list-style: none;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 9px;
+  box-shadow: 0 10px 30px rgba(16,24,32,.18);
+}
+.menu[hidden] { display: none; }
+.menu button {
+  display: block; width: 100%; text-align: left;
+  padding: 7px 10px; border: 0; border-radius: 6px; background: none;
+}
+.menu button:hover { background: var(--rule-soft); }
+.menu .menu-note { padding: 4px 10px 8px; color: var(--muted); font-size: 12px; }
+.menu-outline { max-height: 55vh; overflow: auto; min-width: 260px; }
+.menu-outline button { color: var(--ink); }
+.menu-outline .lv2 { padding-left: 24px; }
+.menu-outline .lv3 { padding-left: 38px; }
+.menu-outline .lv4, .menu-outline .lv5, .menu-outline .lv6 { padding-left: 52px; }
+.menu-outline .empty { padding: 8px 10px; color: var(--muted); }
+
+/* ==========================================================================
+   Formatting toolbar
+
+   A floating bar, the way a phone editor does it: it hovers over the document
+   rather than taking a band out of the top of the window, and on a phone it
+   rides above the software keyboard.
+
+   Three things this has to get right, and they are the whole job:
+   1. It must never cover the line being written, so the panes carry enough
+      bottom padding to sit clear of it.
+   2. Its menus open upward, because it lives at the bottom.
+   3. It must not steal the selection when pressed — handled in the script,
+      but it is the reason this bar can float at all.
+   ========================================================================== */
+.toolbar {
+  position: fixed;
+  left: 50%;
+  bottom: var(--bar-bottom, 46px);
+  z-index: 15;
+  transform: translateX(-50%) translateY(var(--keyboard-offset, 0px));
+
+  display: flex; align-items: center; gap: 2px;
+  width: max-content; max-width: min(calc(100vw - 32px), 680px);
+  padding: 6px 8px;
+
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(16,24,32,.06),
+    0 8px 24px -6px rgba(16,24,32,.20),
+    0 16px 48px -12px rgba(16,24,32,.16);
+
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.toolbar::-webkit-scrollbar { display: none; }
+
+@supports (backdrop-filter: blur(1px)) {
+  .toolbar {
+    background: var(--panel-veil);
+    backdrop-filter: saturate(180%) blur(16px);
+  }
+}
+
+[data-theme] .toolbar,
+.toolbar { transition: opacity .18s ease, transform .18s ease; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .toolbar { animation: rise .22s cubic-bezier(.2,.9,.3,1); }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; }
+}
+
+.tool {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  flex: none;
+  min-width: 34px; height: 34px; padding: 0 8px;
+  border: 1px solid transparent; border-radius: 9px;
+  background: none; color: var(--muted);
+  transition: background-color .12s ease, color .12s ease;
+}
+.tool:hover { background: var(--rule-soft); color: var(--ink); }
+.tool[aria-pressed="true"], .tool[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent); }
+.tool svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.tool--style { min-width: 0; padding: 0 7px 0 9px; gap: 3px; font-size: 13px; font-weight: 650; }
+.tool--style span { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tool--style svg { width: 13px; height: 13px; }
+@media (prefers-reduced-motion: reduce) { .tool { transition: none; } }
+
+.tool-sep { flex: none; width: 1px; height: 20px; margin: 0 6px; background: var(--rule); }
+.tool-spacer { flex: 0 0 4px; }
+
+.menu-style button, .menu-more button { display: flex; align-items: center; gap: 10px; }
+.menu-style .tick, .menu-more .tick { width: 14px; color: var(--accent); font-weight: 700; }
+.menu-style .style-token {
+  flex: none; width: 26px;
+  color: var(--muted); font-size: 11.5px; font-weight: 700;
+  letter-spacing: .02em; text-align: left;
+}
+.menu-style button:hover .style-token { color: var(--ink); }
+.menu-style .as-h1 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.menu-style .as-h2 { font-size: 16px; font-weight: 700; }
+.menu-style .as-h3 { font-size: 14px; font-weight: 700; }
+.menu-more .hint { margin-left: auto; color: var(--placeholder); font-size: 11.5px; }
+.only-narrow { display: none; }
+.menu .separator { height: 1px; margin: 4px 6px; background: var(--rule); }
+.menu-style { min-width: 250px; }
+
+/* Room for the bar to float over, so it never sits on the last line. */
+#editor { padding-bottom: 120px; }
+.reading-pane { padding-bottom: 120px; }
+
+/* A window narrow enough that two columns would be two unusable columns.
+   This is about the layout, not the toolbar — hence its own breakpoint. */
+@media (max-width: 720px) {
+  .views button[data-view-btn="split"] { display: none; }
+}
+
+/* Phone-sized: the bar goes full width just above the keyboard, targets grow
+   to something a thumb can hit, and the three occasional tools move into the
+   overflow rather than being squeezed. Above this width the pill still fits
+   all eight comfortably, so it keeps them. */
+@media (max-width: 480px) {
+  .toolbar {
+    left: 8px; right: 8px;
+    width: auto; max-width: none;
+    bottom: var(--bar-bottom, 41px);
+    transform: translateY(var(--keyboard-offset, 0px));
+    padding: 6px;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; }
+  }
+
+  .tool { min-width: 42px; height: 42px; border-radius: 10px; }
+  .tool svg { width: 20px; height: 20px; }
+  .tool--style { padding: 0 12px; font-size: 14px; }
+
+  .tool--secondary { display: none; }
+  .only-narrow { display: block; }
+
+  .status-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 14;
+    padding-bottom: calc(7px + env(safe-area-inset-bottom));
+  }
+
+  /* While the keyboard is up the counts step aside and the bar takes the
+     space directly above it, exactly as a phone editor does. */
+  .desk.keyboard-up .status-bar { display: none; }
+  .desk.keyboard-up .toolbar { --bar-bottom: calc(8px + env(safe-area-inset-bottom)); }
+
+  #editor, .reading-pane { padding-bottom: 130px; }
+}
+
+/* ==========================================================================
+   Workspace
+   ========================================================================== */
+.workspace {
+  flex: 1 1 auto; min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--bg-deep);
+}
+.desk[data-view="source"] .workspace { grid-template-columns: 1fr; }
+.desk[data-view="page"]   .workspace { grid-template-columns: 1fr; }
+.desk[data-view="source"] .reading-pane { display: none; }
+.desk[data-view="page"]   .editor-pane  { display: none; }
+
+.editor-pane { display: flex; flex-direction: column; min-width: 0; background: var(--panel-2); }
+.reading-pane { min-width: 0; overflow: auto; border-left: 1px solid var(--rule); padding: 28px 20px; }
+.desk[data-view="page"] .reading-pane { border-left: 0; }
+
+#editor {
+  flex: 1 1 auto; width: 100%; min-height: 0;
+  padding: 28px max(20px, calc(50% - 27rem));
+  border: 0; resize: none; outline: none;
+  background: transparent; color: var(--ink);
+  font-family: var(--font-mono); font-size: 14.5px; line-height: 1.75;
+  tab-size: 4;
+}
+/* Focus mode: the chrome recedes and everything but the paragraph being
+   written is dimmed. The app bar fades rather than disappearing, so there is
+   always a way back — and Escape leaves as well. */
+.desk.focus-mode .app-bar {
+  opacity: .18;
+  transition: opacity .2s ease;
+}
+.desk.focus-mode .app-bar:hover,
+.desk.focus-mode .app-bar:focus-within { opacity: 1; }
+.desk.focus-mode .status-bar { opacity: 0; pointer-events: none; }
+.desk.focus-mode .reading-pane { padding-top: 6vh; }
+
+.desk.focus-mode .sheet > * {
+  opacity: .28;
+  transition: opacity .18s ease;
+}
+.desk.focus-mode .sheet > .is-writing,
+.desk.focus-mode .sheet:not(:focus-within) > * { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .desk.focus-mode .app-bar,
+  .desk.focus-mode .sheet > * { transition: none; }
+}
+
+.drop-hint {
+  position: fixed; inset: 0; z-index: 30;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(16,24,32,.45); color: #fff; font-size: 18px; font-weight: 600;
+}
+.desk.dragging .drop-hint { display: flex; }
+
+/* ==========================================================================
+   Status bar
+   ========================================================================== */
+.status-bar {
+  flex: none; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 7px 16px;
+  background: var(--panel); border-top: 1px solid var(--rule);
+  color: var(--muted); font-size: 12.5px;
+}
+.status-bar .spacer { margin-left: auto; }
+.status-bar b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ==========================================================================
+   The sheet — document tokens live here, not on :root.
+   The page you are writing is paper, whatever the UI theme is doing.
+   ========================================================================== */
+.sheet {
+  --paper:      #FFFFFF;
+  --doc-ink:    #16202B;
+  --doc-muted:  #5A6875;
+  --doc-rule:   #DFE4E9;
+  --doc-accent: #2A5B8C;
+  --doc-code-bg:#F2F4F7;
+
+  max-width: 44rem; margin: 0 auto; padding: 44px 48px 60px;
+  background: var(--paper); color: var(--doc-ink);
+  font-family: var(--font-doc); font-size: 17px; line-height: 1.62;
+  border-radius: 4px; box-shadow: var(--shadow-sheet);
+  overflow-wrap: break-word;
+  min-height: 60vh;
+  outline: none;
+  caret-color: var(--doc-accent);
+}
+@media (max-width: 700px) { .sheet { padding: 28px 22px 40px; } }
+
+/* The page is where you type, so it says so when it is empty. */
+.sheet:empty::before,
+.sheet > p:only-child:empty::before {
+  content: attr(data-placeholder);
+  color: #98A3AE;
+  pointer-events: none;
+}
+.sheet:focus-visible { box-shadow: var(--shadow-sheet), 0 0 0 2px var(--accent-soft); }
+.sheet li.task input { cursor: pointer; }
+
+.sheet > :first-child { margin-top: 0; }
+.sheet > :last-child { margin-bottom: 0; }
+.sheet h1, .sheet h2, .sheet h3, .sheet h4, .sheet h5, .sheet h6 {
+  font-family: var(--font-ui); line-height: 1.25; margin: 1.9em 0 .55em;
+  letter-spacing: -0.012em;
+}
+.sheet h1 { font-size: 1.9em; margin-top: .2em; }
+.sheet h2 { font-size: 1.42em; padding-bottom: .2em; border-bottom: 1px solid var(--doc-rule); }
+.sheet h3 { font-size: 1.18em; }
+.sheet h4 { font-size: 1.02em; }
+.sheet h5, .sheet h6 { font-size: .95em; color: var(--doc-muted); }
+.sheet p { margin: 0 0 1.05em; }
+.sheet a { color: var(--doc-accent); text-underline-offset: 2px; }
+.sheet strong { font-weight: 700; }
+.sheet del { color: var(--doc-muted); }
+.sheet ul, .sheet ol { margin: 0 0 1.05em; padding-left: 1.5em; }
+.sheet li { margin: .28em 0; }
+.sheet li > ul, .sheet li > ol { margin: .28em 0; }
+.sheet li.task { list-style: none; margin-left: -1.35em; }
+.sheet li.task input { margin-right: .5em; }
+.sheet blockquote {
+  margin: 0 0 1.05em; padding: .1em 0 .1em 1.1em;
+  border-left: 3px solid var(--doc-rule); color: var(--doc-muted);
+}
+.sheet hr { border: 0; border-top: 1px solid var(--doc-rule); margin: 2em 0; }
+.sheet code {
+  font-family: var(--font-mono); font-size: .86em;
+  background: var(--doc-code-bg); padding: .12em .35em; border-radius: 4px;
+}
+.sheet pre {
+  margin: 0 0 1.05em; padding: 14px 16px; overflow: auto;
+  background: var(--doc-code-bg); border-radius: 7px;
+}
+.sheet pre code { background: none; padding: 0; font-size: .82em; line-height: 1.55; }
+.sheet img { max-width: 100%; height: auto; border-radius: 4px; }
+.sheet table { border-collapse: collapse; margin: 0 0 1.05em; width: 100%; font-size: .93em; }
+.sheet th, .sheet td { border: 1px solid var(--doc-rule); padding: .45em .7em; text-align: left; }
+.sheet th { background: var(--doc-code-bg); font-family: var(--font-ui); font-size: .92em; }
+.sheet .footnotes { font-size: .9em; color: var(--doc-muted); }
+
+/* ==========================================================================
+   Print — the sheet only, edge to edge, no chrome.
+   ========================================================================== */
+@media print {
+  .app-bar, .status-bar, .editor-pane, .drop-hint, .toolbar, .menu { display: none !important; }
+  html, body, .desk { height: auto; background: #fff; }
+  .workspace { display: block; }
+  .reading-pane { overflow: visible; border: 0; padding: 0; }
+  .sheet { max-width: none; margin: 0; padding: 0; box-shadow: none; border-radius: 0; font-size: 11.5pt; }
+  .sheet h1, .sheet h2, .sheet h3 { page-break-after: avoid; }
+  .sheet pre, .sheet blockquote, .sheet table { page-break-inside: avoid; }
+  .sheet a { color: inherit; text-decoration: underline; }
+}
+
