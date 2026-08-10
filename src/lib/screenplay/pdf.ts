@@ -217,11 +217,12 @@ function bodyStream(
 		const text = renderText(line);
 		if (text !== '') ops.push(textOp(lineX(line.indent), lineY(i), text));
 
-		/* scene numbers print in both margins, aligned with the heading */
+		/* scene numbers print in both margins, aligned with the heading; a
+		   pathologically long number clamps at the page edge, never negative */
 		const sn = line.type === 'scene' ? sceneNumberByElement.get(line.element) : undefined;
 		if (sn) {
 			const y = lineY(i);
-			ops.push(textOp(MARGIN_LEFT - CHAR_W * (sn.length + 1), y, sn));
+			ops.push(textOp(Math.max(CHAR_W, MARGIN_LEFT - CHAR_W * (sn.length + 1)), y, sn));
 			ops.push(textOp(lineX(TEXT_RIGHT_CHARS + 1), y, sn));
 		}
 	});
