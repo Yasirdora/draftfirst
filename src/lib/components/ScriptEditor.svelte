@@ -1359,7 +1359,7 @@
 	<!-- floating chrome: always present, never receding -->
 	<header class="chrome">
 		<div class="pill">
-			<span class="doctitle">{scriptTitle}</span>
+			<span class="brandmark">eDraft</span>
 			<span class="vsep"></span>
 
 			<button type="button" class="iconbtn" class:on={showSide} data-tip="Scenes panel" aria-label="Scenes panel" onclick={() => (showSide = !showSide)}>
@@ -1826,14 +1826,13 @@
 		border-radius: 12px;
 		box-shadow: var(--shadow-pill);
 	}
-	.doctitle {
+	/* The pill carries the brand, not the document name — the document's own
+	   name lives on its title page and in its export filenames. */
+	.brandmark {
 		font-size: 13px;
-		font-weight: 500;
-		color: var(--ink-2);
-		max-width: 180px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		font-weight: 600;
+		color: var(--ink);
+		letter-spacing: 0.01em;
 	}
 	.vsep { width: 0.5px; height: 18px; background: var(--sep); margin: 0 6px; }
 
