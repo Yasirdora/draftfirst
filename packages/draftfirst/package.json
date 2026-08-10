@@ -23,6 +23,8 @@
 		"screenwriting",
 		"fountain",
 		"fdx",
+		"docx",
+		"import",
 		"pagination",
 		"typescript"
 	],
@@ -58,6 +60,10 @@
 		"./editor": {
 			"types": "./dist/editor.d.ts",
 			"import": "./dist/editor.js"
+		},
+		"./import": {
+			"types": "./dist/import.d.ts",
+			"import": "./dist/import.js"
 		}
 	},
 	"engines": {
