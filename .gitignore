@@ -31,3 +31,9 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# iOS / Xcode
+/ios/build/
+/ios/DerivedData/
+**/xcuserdata/
+**/*.xcuserstate

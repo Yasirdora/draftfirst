@@ -1,0 +1,5 @@
+engine: @draftfirst/core 0.1.0
+file: edraft-engine.js
+bytes: 25576
+sha256: 2ede8043c4920c821129e406188b952ea9c8ca001c90dcdf22e0cca0748edac3
+built: 2026-08-11T23:06:50.094Z
