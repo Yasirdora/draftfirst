@@ -83,6 +83,7 @@
 	let exportMenuOn = $state(false);
 	let fileMenuOn = $state(false);
 	let elementMenuOn = $state(false);
+	let appMenuOn = $state(false);
 	/** True when the current block carries a "page break before" marker. */
 	let curPb = $state(false);
 	/** Element menu opened by Enter×3 on empty blocks or by `/`. */
@@ -321,8 +322,9 @@
 	   one undo entry and snapshots never depend on editable HTML. */
 
 	interface Snap { els: ScreenplayElement[]; idx: number; off: number; tp?: TitlePageEntry[] }
-	const undoStack: Snap[] = [];
-	const redoStack: Snap[] = [];
+	/* $state so the ⋮ menu can grey out Undo/Redo when a stack is empty. */
+	const undoStack = $state<Snap[]>([]);
+	const redoStack = $state<Snap[]>([]);
 	let snapTimer: ReturnType<typeof setTimeout> | null = null;
 	let lastSnap = '';
 	let typingBurst = false;
@@ -1231,6 +1233,22 @@
 		try { localStorage.setItem(THEME_KEY, theme); } catch { /* ignore */ }
 	}
 
+	/* ---- the ⋮ menu ----------------------------------------------------------
+	   One data-driven list: adding an action is one entry here, not new markup. */
+	type AppMenuEntry =
+		| { kind: 'sep' }
+		| { kind: 'item'; label: string; trail?: string; checked?: boolean; disabled?: boolean; action: () => void };
+	const appMenu = $derived<AppMenuEntry[]>([
+		{ kind: 'item', label: 'Undo', trail: '⌘Z', disabled: undoStack.length === 0, action: undo },
+		{ kind: 'item', label: 'Redo', trail: '⇧⌘Z', disabled: redoStack.length === 0, action: redo },
+		{ kind: 'sep' },
+		{ kind: 'item', label: 'Title page', action: openTitleModal },
+		{ kind: 'item', label: 'Fountain source', action: openSource },
+		{ kind: 'item', label: 'Keyboard shortcuts', trail: '?', action: () => (helpOn = true) },
+		{ kind: 'sep' },
+		{ kind: 'item', label: 'Dark mode', checked: theme === 'dark', action: toggleTheme }
+	]);
+
 	/* ---- autosave + boot ---------------------------------------------------- */
 
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1260,6 +1278,7 @@
 			exportMenuOn = false;
 			fileMenuOn = false;
 			elementMenuOn = false;
+			appMenuOn = false;
 			summonMenuOn = false;
 		}
 	}
@@ -1300,6 +1319,7 @@
 				exportMenuOn = false;
 				fileMenuOn = false;
 				elementMenuOn = false;
+				appMenuOn = false;
 			}
 		}
 	}
@@ -1378,13 +1398,40 @@
 	<header class="chrome">
 		<div class="pill">
 			<span class="brandmark">eDraft</span>
+			<span class="menu-anchor">
+				<button type="button" class="iconbtn" class:on={appMenuOn} data-menu-trigger data-tip="More — title page, source, shortcuts, theme" aria-label="More options" onclick={() => { appMenuOn = !appMenuOn; fileMenuOn = false; exportMenuOn = false; elementMenuOn = false; }}>
+					<svg viewBox="0 0 16 16"><circle cx="8" cy="3.4" r="1.35" style="fill:currentColor;stroke:none" /><circle cx="8" cy="8" r="1.35" style="fill:currentColor;stroke:none" /><circle cx="8" cy="12.6" r="1.35" style="fill:currentColor;stroke:none" /></svg>
+				</button>
+				{#if appMenuOn}
+					<div class="menu-pop" role="menu" aria-label="More options">
+						{#each appMenu as entry, i (i)}
+							{#if entry.kind === 'item'}
+								<button
+									type="button"
+									role={entry.checked == null ? 'menuitem' : 'menuitemcheckbox'}
+									aria-checked={entry.checked == null ? undefined : entry.checked}
+									disabled={entry.disabled ?? false}
+									onclick={() => { appMenuOn = false; entry.action(); }}
+								>
+									<span>{entry.label}</span>
+									{#if entry.trail != null || entry.checked != null}
+										<span class="trail">{entry.checked != null ? (entry.checked ? '✓' : '') : entry.trail}</span>
+									{/if}
+								</button>
+							{:else}
+								<div class="menu-sep"></div>
+							{/if}
+						{/each}
+					</div>
+				{/if}
+			</span>
 			<span class="vsep"></span>
 
 			<button type="button" class="iconbtn" class:on={showSide} data-tip="Scenes panel" aria-label="Scenes panel" onclick={() => (showSide = !showSide)}>
 				<svg viewBox="0 0 16 16"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M6.2 2.5v11"/></svg>
 			</button>
 			<span class="menu-anchor">
-				<button type="button" class="iconbtn" class:on={fileMenuOn} data-menu-trigger data-tip="New or open — .draft .fdx .docx .txt .pdf" aria-label="New or open screenplay" onclick={() => { fileMenuOn = !fileMenuOn; exportMenuOn = false; elementMenuOn = false; }}>
+				<button type="button" class="iconbtn" class:on={fileMenuOn} data-menu-trigger data-tip="New or open — .draft .fdx .docx .txt .pdf" aria-label="New or open screenplay" onclick={() => { fileMenuOn = !fileMenuOn; exportMenuOn = false; elementMenuOn = false; appMenuOn = false; }}>
 					<svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>
 				</button>
 				{#if fileMenuOn}
@@ -1396,7 +1443,7 @@
 			</span>
 
 			<span class="menu-anchor">
-				<button type="button" class="iconbtn" class:on={exportMenuOn} data-menu-trigger data-tip="Save / export" aria-label="Save or export" onclick={() => { exportMenuOn = !exportMenuOn; fileMenuOn = false; elementMenuOn = false; }}>
+				<button type="button" class="iconbtn" class:on={exportMenuOn} data-menu-trigger data-tip="Save / export" aria-label="Save or export" onclick={() => { exportMenuOn = !exportMenuOn; fileMenuOn = false; elementMenuOn = false; appMenuOn = false; }}>
 					<svg viewBox="0 0 16 16"><path d="M8 2v8m0 0L5 7m3 3 3-3M3 12.5h10"/></svg>
 				</button>
 				{#if exportMenuOn}
@@ -1414,24 +1461,8 @@
 
 			<span class="vsep"></span>
 
-			<button type="button" class="iconbtn" data-tip="Title page" aria-label="Title page" onclick={openTitleModal}>
-				<svg viewBox="0 0 16 16"><path d="M4 2.5h8A1.5 1.5 0 0 1 13.5 4v8a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 12V4A1.5 1.5 0 0 1 4 2.5zM5.5 5.5h5M5.5 8h5M5.5 10.5h3"/></svg>
-			</button>
-			<button type="button" class="iconbtn" data-tip="Fountain source" aria-label="Fountain source" onclick={openSource}>
-				<svg viewBox="0 0 16 16"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5"/></svg>
-			</button>
 			<button type="button" class="iconbtn" class:on={focusMode} data-tip="Focus mode" aria-label="Focus mode" onclick={() => (focusMode = !focusMode)}>
 				<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6"/></svg>
-			</button>
-			<button type="button" class="iconbtn" data-tip="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts" onclick={() => (helpOn = !helpOn)}>
-				<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2"/><path d="M6.2 6.2c0-1 .8-1.8 1.8-1.8s1.8.8 1.8 1.8c0 1.2-1.8 1.4-1.8 2.6M8 11.4v.1"/></svg>
-			</button>
-			<button type="button" class="iconbtn" data-tip={theme === 'dark' ? 'Light mode' : 'Dark mode'} aria-label="Toggle theme" onclick={toggleTheme}>
-				{#if theme === 'dark'}
-					<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.4M8 13.1v1.4M1.5 8h1.4M13.1 8h1.4M3.4 3.4l1 1M11.6 11.6l1 1M12.6 3.4l-1 1M4.4 11.6l-1 1"/></svg>
-				{:else}
-					<svg viewBox="0 0 16 16"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7z"/></svg>
-				{/if}
 			</button>
 			<input bind:this={fileInput} type="file" accept=".draft,.fdx,.xml,.fountain,.txt,.docx,.pdf" onchange={importFile} hidden />
 		</div>
@@ -1545,7 +1576,7 @@
 	<!-- status pill: always present -->
 	<footer class="statuspill">
 		<span class="menu-anchor">
-			<button type="button" class="etype" data-menu-trigger onclick={() => { elementMenuOn = !elementMenuOn; exportMenuOn = false; fileMenuOn = false; }}>
+			<button type="button" class="etype" data-menu-trigger onclick={() => { elementMenuOn = !elementMenuOn; exportMenuOn = false; fileMenuOn = false; appMenuOn = false; }}>
 				{LABEL[curType]}
 				<svg viewBox="0 0 16 16" class="chev"><path d="M4 6.5 8 10.5 12 6.5"/></svg>
 			</button>
@@ -1943,6 +1974,8 @@
 		white-space: nowrap;
 	}
 	.menu-pop button:hover { background: var(--f1); }
+	.menu-pop button:disabled { opacity: 0.38; cursor: default; }
+	.menu-pop button:disabled:hover { background: transparent; }
 	.menu-pop button.sel { background: var(--f2); }
 	.menu-pop .trail { color: var(--ink-3); font-size: 12px; }
 	@keyframes pop {
