@@ -16,6 +16,9 @@ body {
 body {
 	font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Segoe UI', Roboto, sans-serif;
 	background: #ffffff;
+	/* iOS must never inflate text or zoom on input focus — geometry is ours */
+	-webkit-text-size-adjust: 100%;
+	text-size-adjust: 100%;
 }
 
 @media (prefers-color-scheme: dark) {

@@ -1956,12 +1956,17 @@
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
+		/* mobile Safari's URL bar eats vh — the dynamic unit tracks reality */
+		height: 100dvh;
 		background: var(--bg);
 		color: var(--ink);
 		font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Segoe UI', Roboto, sans-serif;
 		font-size: 14px;
 		line-height: 20px;
 		overflow: hidden;
+		/* never rubber-band the whole stage, never flash grey on taps */
+		overscroll-behavior: none;
+		-webkit-tap-highlight-color: transparent;
 	}
 	.stage.dark {
 		--bg: #2a2a29;
@@ -1987,9 +1992,9 @@
 	/* ---- floating chrome -------------------------------------------------- */
 	.chrome {
 		position: absolute;
-		top: 12px;
-		left: 0;
-		right: 0;
+		top: calc(12px + env(safe-area-inset-top));
+		left: env(safe-area-inset-left);
+		right: env(safe-area-inset-right);
 		display: flex;
 		justify-content: center;
 		z-index: 500;
@@ -2098,7 +2103,7 @@
 	}
 
 	/* ---- layout ------------------------------------------------------------ */
-	.main { display: flex; flex: 1; min-height: 0; }
+	.main { display: flex; flex: 1; min-height: 0; position: relative; }
 
 	.drawer {
 		width: 264px;
@@ -2328,7 +2333,7 @@
 	/* ---- status pill -------------------------------------------------------- */
 	.statuspill {
 		position: absolute;
-		bottom: 14px;
+		bottom: calc(14px + env(safe-area-inset-bottom));
 		left: 50%;
 		transform: translateX(-50%);
 		display: flex;
@@ -2640,6 +2645,61 @@
 		border-radius: 6px;
 	}
 	.welcome-link:hover { color: var(--ink); background: var(--f1); }
+
+	/* ---- scrollbars: thin and calm, never bulky on hover ----------------------
+	   Default desktop scrollbars are 15px slabs that thicken on hover and sit on
+	   top of the text column. Ours stay a quiet 8px — hover deepens the colour,
+	   never the size. */
+	.stage * {
+		scrollbar-width: thin;
+		scrollbar-color: var(--f3) transparent;
+	}
+	.stage ::-webkit-scrollbar { width: 8px; height: 8px; }
+	.stage ::-webkit-scrollbar-track { background: transparent; }
+	.stage ::-webkit-scrollbar-corner { background: transparent; }
+	.stage ::-webkit-scrollbar-thumb {
+		background: var(--f3);
+		border: 2px solid transparent;
+		border-radius: 6px;
+		background-clip: padding-box;
+	}
+	.stage ::-webkit-scrollbar-thumb:hover { background: var(--ink-4); }
+
+	/* ---- touch & small screens -------------------------------------------------
+	   On a phone the page goes fluid: the 6-inch text column keeps its screenplay
+	   proportions as fractions of the viewport (character 2.2/6 ≈ 37%, paren
+	   1.6/6 ≈ 27%, dialogue 1/6 ≈ 17%), the drawer floats instead of squeezing,
+	   and touch rules hold everywhere — no tap flash, no double-tap delay, no
+	   iOS focus zoom (any focused input renders at 16px or more). */
+	.stage button { touch-action: manipulation; }
+
+	@media (max-width: 760px) {
+		.scroll { padding: calc(64px + env(safe-area-inset-top)) 0 45vh; }
+		.page-wrap { width: 100%; }
+		.sppage { width: 100%; min-height: 0; padding: 16px 20px 24px; }
+
+		/* inches become the same fractions of the fluid line */
+		:global(.b) { width: 100%; }
+		:global(.b.el-character) { margin-left: 37%; width: 50%; }
+		:global(.b.el-parenthetical) { margin-left: 27%; width: 37%; }
+		:global(.b.el-dialogue) { margin-left: 17%; width: 58%; }
+		/* the whisper rides the same column — the desktop layer is pinned to the
+		   1.5in paper margin, which does not exist on a phone */
+		.ghost-layer { left: 20px; width: calc(100% - 40px); }
+		.gline { width: 100%; }
+		.gline.el-character { margin-left: 37%; width: 50%; }
+		.gline.el-parenthetical { margin-left: 27%; width: 37%; }
+
+		/* a 264px panel cannot share a phone screen — it floats above the page */
+		.drawer { position: absolute; top: 0; bottom: 0; left: 0; z-index: 400; box-shadow: var(--shadow-pill); }
+		.drawer.closed { margin-left: -280px; }
+
+		/* iOS zooms on any focused input under 16px */
+		.row.renaming input, .modal-card .form input { font-size: 16px; }
+
+		/* the status line wraps rather than clipping on narrow glass */
+		.statuspill { max-width: calc(100vw - 32px); white-space: normal; text-align: center; }
+	}
 
 	/* ---- motion accessibility ------------------------------------------------- */
 	@media (prefers-reduced-motion: reduce) {
