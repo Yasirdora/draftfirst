@@ -2673,7 +2673,10 @@
 	   iOS focus zoom (any focused input renders at 16px or more). */
 	.stage button { touch-action: manipulation; }
 
-	@media (max-width: 760px) {
+	@media (max-width: 880px) {
+		/* anything narrower than the fixed 8.5in page plus breathing room gets the
+		   fluid layout — the old 760px line left a 761–880px band where the page
+		   overflowed and a horizontal scrollbar appeared */
 		.scroll { padding: calc(64px + env(safe-area-inset-top)) 0 45vh; }
 		.page-wrap { width: 100%; }
 		.sppage { width: 100%; min-height: 0; padding: 16px 20px 24px; }
