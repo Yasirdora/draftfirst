@@ -299,18 +299,22 @@ This is the design problem that decides whether we feel native. Our answer:
 
 ## 8. Phased roadmap
 
-**Phase 0 — foundation spike (nothing user-facing ships)**
-- [ ] Verify toolchain on this machine: `xcodebuild -version` (**prerequisite —
-      not yet confirmed**).
-- [ ] Engine: add `bundle:ios` script (esbuild IIFE → `dist/ios/edraft-engine.js`),
-      CI checksum pin.
-- [ ] Xcode project: iOS 26 target, SwiftUI, `EngineFacade` over JSC.
-- [ ] Proof screen (internal): type → engine parse/predict/paginate round-trips.
-- [ ] **Spike A:** ghost whisper inside `UITextView` via `NSTextStorage`.
-- [ ] **Spike B:** benchmark — full paginate + predict loop on a 110-page script,
-      interpreter-mode JSC, oldest supported device class. Numbers decide nothing
-      about architecture (keystroke-scale is trivial); they decide whether
-      pagination runs on a background queue.
+**Phase 0 — foundation spike (COMPLETE, 2026-08-12)**
+- [x] Verify toolchain: **Xcode 26.6, iOS 26.5 SDK + simulator runtime, Swift 6.3.3**
+      (developer dir override: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`).
+- [x] Engine bundle step: `npm run ios:engine` — tsc → esbuild IIFE (25 KB) →
+      `ios/eDraft/Resources/edraft-engine.js`, sha256-pinned in `ENGINE-CHECKSUM.txt`,
+      **auto-verified in the real JavaScriptCore CLI on every build** (12-check smoke).
+- [x] Xcode project: iOS 26 target, SwiftUI, `EngineFacade` over JSC
+      (classic pbxproj; all engine calls serialized on one queue).
+- [x] Proof screen: parse → predict → ghost → paginate round-trip on every
+      keystroke — screenshot-verified on iPhone 17 simulator.
+- [x] **Spike A:** ghost whisper lives inside `UITextView` (`ScriptTextView`) —
+      caret can never enter the ghost; typing strips it; accept commits it.
+- [x] **Spike B:** interpreter-mode (`--useJIT=false`, honest iOS conditions),
+      195-page / 4,713-element document: parse 61 ms, full paginate 61 ms,
+      ~4.8 ms per end-of-document prediction. **Verdict:** no-JIT is a non-issue
+      for typing; pagination runs on a background queue, exactly as planned.
 
 **Phase 1 — the writer (TestFlight-able)**
 Editor core: custom text view, element styling, choreography, whispers + accessory
