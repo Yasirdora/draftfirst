@@ -23,7 +23,8 @@
 		"package:verify": "npm run verify --workspace=@draftfirst/core && npm run pack:check --workspace=@draftfirst/core",
 		"package:smoke": "node scripts/package-smoke.mjs",
 		"quality": "npm run check && npm test && npm run build && npm run package:verify && npm run package:smoke",
-		"deploy": "npm run build && npx wrangler@latest pages deploy build"
+		"deploy": "npm run build && npx wrangler@latest pages deploy build",
+		"ios:engine": "node scripts/ios-engine-sync.mjs"
 	},
 	"dependencies": {
 		"@draftfirst/core": "0.1.0"
@@ -36,6 +37,7 @@
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
+		"esbuild": "^0.28.2",
 		"linkedom": "^0.18.13",
 		"svelte": "^5.56.1",
 		"svelte-check": "^4.6.0",
