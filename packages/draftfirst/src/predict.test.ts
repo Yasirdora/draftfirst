@@ -582,6 +582,33 @@ describe('predict · action-line promotion (becomes)', () => {
 	it('ordinary prose gets silence', () => {
 		expect(predict(doc([]), { type: 'action', text: 'The rain', index: 0 })).toEqual([]);
 	});
+
+	it('an action line opening a transition predicts AND promises promotion', () => {
+		const out = predict(doc([]), { type: 'action', text: 'CUT', index: 0 });
+		expect(out.length).toBeGreaterThan(0);
+		expect(out[0]).toMatchObject({ text: 'CUT TO:', becomes: 'transition' });
+	});
+
+	it('every FADE opening offers the fade family as transitions', () => {
+		const out = predict(doc([]), { type: 'action', text: 'FADE', index: 0 });
+		expect(texts(out)).toEqual(['FADE IN:', 'FADE OUT.', 'FADE TO BLACK.', 'FADE TO WHITE.']);
+		expect(out.every((p) => p.becomes === 'transition')).toBe(true);
+	});
+
+	it('a slugline opening still promotes to scene — transitions never hijack it', () => {
+		const out = predict(doc([]), { type: 'action', text: 'IN', index: 0 });
+		expect(out[0]?.becomes).toBe('scene');
+	});
+
+	it('house transitions rank before the defaults', () => {
+		const script = doc([el('scene', 'INT. STUDIO - DAY'), el('transition', 'LIGHTS OUT.')]);
+		const out = predict(script, { type: 'action', text: 'LI', index: 2 });
+		expect(out[0]).toMatchObject({ text: 'LIGHTS OUT.', becomes: 'transition' });
+	});
+
+	it('prose that merely shares letters gets silence', () => {
+		expect(predict(doc([]), { type: 'action', text: 'Cutting through the crowd', index: 0 })).toEqual([]);
+	});
 });
 
 describe('ghostSuffix', () => {

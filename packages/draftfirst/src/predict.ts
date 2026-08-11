@@ -624,13 +624,18 @@ export function predict(script: Screenplay, ctx: PredictContext): Prediction[] {
 		case 'shot':
 			return shotCandidates(script, ctx.text);
 		case 'action': {
-			/* Promote an action block when its text clearly begins a scene heading. */
+			/* Promote an action block whose text clearly begins a scene heading
+			   or a transition — the two openings an action line can grow into.
+			   Scene prefixes and transition openings never share letters, so
+			   one typed line can only mean one of them. */
 			const typed = ctx.text.trim();
 			if (typed.length < 2) return [];
 			const up = typed.toUpperCase();
 			const couldBeSlug = SCENE_PREFIXES.some((p) => p.startsWith(up)) || SCENE_HEAD_RE.test(ctx.text);
-			if (!couldBeSlug) return [];
-			return sceneCandidates(script, ctx.text, index).map((p) => ({ ...p, becomes: 'scene' }));
+			if (couldBeSlug) {
+				return sceneCandidates(script, ctx.text, index).map((p) => ({ ...p, becomes: 'scene' }));
+			}
+			return transitionCandidates(script, up).map((p) => ({ ...p, becomes: 'transition' }));
 		}
 		default:
 			return [];
