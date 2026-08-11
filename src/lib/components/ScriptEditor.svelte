@@ -611,13 +611,27 @@
 	   (or `afterEl` itself when the fragment held nothing printable). */
 	function insertFragment(src: string, afterEl: HTMLElement): HTMLElement {
 		const parsed = parseFountain(src);
-		const frag: ScreenplayElement[] = [
-			...parsed.titlePage.map((tp) => ({
-				type: 'action' as const,
-				text: tp.key + ':' + (tp.values.length ? ' ' + tp.values.join(' ') : '')
-			})),
-			...parsed.elements
-		];
+		/* Fountain structure declares itself with blank lines between blocks.
+		   Without them the paste is prose — a chat, an email, another app, or
+		   our own rendered page — so the import classifier types it line by
+		   line: MARCUS / (wryly) / CUT TO: land as themselves on arrival. */
+		const fountainShaped = /\n\s*\n/.test(src);
+		let frag: ScreenplayElement[];
+		if (fountainShaped) {
+			frag = [
+				...parsed.titlePage.map((tp) => ({
+					type: 'action' as const,
+					text: tp.key + ':' + (tp.values.length ? ' ' + tp.values.join(' ') : '')
+				})),
+				...parsed.elements
+			];
+		} else {
+			try {
+				frag = importPlainText(src, { format: 'paste' }).script.elements;
+			} catch {
+				frag = parsed.elements; /* oversized paste: the fountain read stands */
+			}
+		}
 		let anchor = afterEl;
 		let pendingPb = false;
 		let pendingStructural: ScreenplayElement[] = [];
@@ -658,8 +672,9 @@
 		if (!whole) {
 			el.textContent = full.slice(0, off) + lines[0];
 			tidy(el);
-			/* a pasted slugline earns its heading immediately, as typing would */
-			if (typeOf(el) === 'action' && SCENE_DETECT.test(textOf(el))) setType(el, 'scene');
+			/* a pasted slugline or transition earns its type immediately, as typing would */
+			if (SCENE_DETECT.test(textOf(el))) setType(el, 'scene');
+			else if (TRANSITION_DETECT.test(textOf(el))) setType(el, 'transition');
 		}
 		const anchor = whole ? insertFragment(txt, el) : insertFragment(lines.slice(1).join('\n'), el);
 		if (whole) {
