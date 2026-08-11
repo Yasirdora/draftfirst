@@ -16,6 +16,7 @@ All notable changes to the Draft First Screenwriting Engine will be documented h
 
 ### Fixed
 
+- Paste classification of blank-line-free text (chat apps, AI exports, prose): an uppercase cue-shaped line now interrupts an attached speech run as a new speaker instead of folding into the previous dialogue, colon-bearing uppercase lines are read as labels rather than cues, and uppercase camera framing (`CLOSE ON`, `INSERT`, `POV`, `SHOT -`…) classifies as `shot` with the prose beneath it read as what the camera sees. Shouted dialogue keeps its terminal punctuation, so shouts stay speech.
 - Fountain import no longer eats a foreign script's opener: a lone leading `Key:` line is a title page only for known keys (`Title:`, `Credit:`…) or a run of two or more keys, so `FADE IN:` stays in the body where it belongs — and the FADE opener/closer family is now detected as transitions on import and serialised bare.
 - `.docx` round trip preserves multi-line elements: line breaks inside an element travel as in-paragraph `<w:br/>` runs and fold back into one element on import, instead of returning as sibling elements with the continuation flagged low-confidence. Multi-line title pages drop once instead of between every line.
 - Text import normalises mid-line tabs (Word tab stops, typewriter layout) to spaces instead of leaking raw tab characters into element text.

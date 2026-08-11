@@ -115,6 +115,58 @@ describe('classifyLines', () => {
 		expect(types).toEqual(['scene', 'action']);
 	});
 
+	it('recognizes the shot family', () => {
+		const types = typesOf([
+			{ text: 'CLOSE ON MARA' },
+			{ text: 'ANGLE ON THE DOOR' },
+			{ text: 'INSERT - THE NOTE' },
+			{ text: 'POV MARA - THE HALLWAY' },
+			{ text: 'SHOT - CLOSE UP ON KEYBOARD' },
+			{ text: 'ESTABLISHING SHOT - MANHATTAN' }
+		]);
+		expect(types).toEqual(['shot', 'shot', 'shot', 'shot', 'shot', 'shot']);
+	});
+
+	it('does not read a mixed-case line opening with a shot word as a shot', () => {
+		const [line] = classifyLines([{ text: 'Insert the coin and turn.' }]);
+		expect(line?.type).toBe('action');
+	});
+
+	it('reads prose directly under a shot as what the camera sees', () => {
+		const classified = classifyLines([{ text: 'CLOSE ON MARA' }, { text: 'Her hand trembles.' }]);
+		expect(classified.map((line) => line.type)).toEqual(['shot', 'action']);
+		expect(classified[1]?.confidence).toBe('high');
+	});
+
+	it('lets an uppercase cue interrupt an attached speech — pasted text has no blank lines', () => {
+		const types = typesOf([
+			{ text: 'MARA' },
+			{ text: 'We need to talk.' },
+			{ text: 'JONAH', attached: true },
+			{ text: 'About what?', attached: true }
+		]);
+		expect(types).toEqual(['character', 'dialogue', 'character', 'dialogue']);
+	});
+
+	it('still reads attached mixed-case prose as continuing speech', () => {
+		const types = typesOf([
+			{ text: 'MARA' },
+			{ text: 'We need to talk' },
+			{ text: 'about the rent.', attached: true }
+		]);
+		expect(types).toEqual(['character', 'dialogue', 'dialogue']);
+	});
+
+	it('keeps shouted dialogue with terminal punctuation inside the speech', () => {
+		const types = typesOf([{ text: 'MARA' }, { text: 'GET OUT!', attached: true }]);
+		expect(types).toEqual(['character', 'dialogue']);
+	});
+
+	it('reads a colon-bearing uppercase line as a label, not a cue', () => {
+		const [line] = classifyLines([{ text: 'SECTION HEADING: ACT I - THE CORE ELEMENTS' }]);
+		expect(line?.type).toBe('action');
+	});
+
 	it('upgrades a transition when a scene follows it', () => {
 		const [transition] = classifyLines([
 			{ text: 'THE END', indentInches: 6.0 },

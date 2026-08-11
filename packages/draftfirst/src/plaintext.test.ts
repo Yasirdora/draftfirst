@@ -91,6 +91,46 @@ describe('importPlainText', () => {
 		expect(report.format).toBe('paste');
 	});
 
+	it('classifies a pasted stream with no blank lines line by line', () => {
+		/* clipboard text from chat apps arrives fully attached — every line borders
+		   the next, so cues and camera framing must break the speech run */
+		const source = [
+			'INT. WRITERDUET DASHBOARD - DAY',
+			'A glowing canvas floats in the void.',
+			'SECTION HEADING: ACT I - THE CORE ELEMENTS',
+			'MARCUS',
+			"We're starting with a Scene Heading — also called a slugline.",
+			'AVA',
+			'(wryly)',
+			'Right below it comes Action text.',
+			'SHOT - CLOSE UP ON KEYBOARD',
+			'The mechanical keys clack sharply.',
+			'MARCUS (O.S.)',
+			'That was a Shot element.',
+			'CUT TO:',
+			'EXT. EXPORT SUITE - NIGHT',
+			'FADE OUT.'
+		].join('\n');
+		const { classified } = importPlainText(source, { format: 'paste' });
+		expect(classified.map((line) => line.type)).toEqual([
+			'scene',
+			'action',
+			'action',
+			'character',
+			'dialogue',
+			'character',
+			'parenthetical',
+			'dialogue',
+			'shot',
+			'action',
+			'character',
+			'dialogue',
+			'transition',
+			'scene',
+			'transition'
+		]);
+	});
+
 	it('refuses sources over the size limit', () => {
 		expect(() => importPlainText('x'.repeat(100), { maxSourceCharacters: 10 })).toThrow(PlainTextImportError);
 	});

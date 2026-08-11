@@ -73,6 +73,7 @@ export interface ImportResult {
 
 const SCENE_INTRO = /^(INT\.?\/EXT\.?|INT\/EXT|I\/E|INT|EXT|EST)[.\s]/i;
 const FADE_OR_IRIS = /^(FADE (IN|OUT|TO)\b|IRIS (IN|OUT)\b)/i;
+const SHOT_INTRO = /^(ANGLE ON|CLOSER? ON|CLOSEUP|INSERT|POV|WIDE( ON| SHOT)?|CRANE SHOT|TRACKING SHOT|AERIAL( SHOT)?|ESTABLISHING SHOT|SHOT)\b/;
 const MAX_CUE_CHARACTERS = 42;
 const TERMINAL_PUNCT = /[.!?…]$/;
 const TRAILING_PARENS = /(\s*\([^()]*\)\s*)+$/;
@@ -92,6 +93,9 @@ function cueShape(text: string): boolean {
 	if (!isUppercaseForm(text)) return false;
 	const core = text.replace(TRAILING_PARENS, '').trim();
 	if (core.length === 0 || core.length > MAX_CUE_CHARACTERS) return false;
+	/* a speaker's name never carries a colon — colon lines are labels
+	   ("SYNOPSIS: …", "SECTION HEADING: …"), not people */
+	if (core.includes(':')) return false;
 	return !TERMINAL_PUNCT.test(core);
 }
 
@@ -138,12 +142,17 @@ function classifyLine(raw: RawLine, text: string, prev: ClassifiedLine | undefin
 		return verdict(raw, 'transition', 'high', 'transition shape');
 	}
 
-	/* 4. a fully bracketed line reads as a parenthetical */
+	/* 4. uppercase camera framing is a shot designation, never a speaker */
+	if (uppercase && SHOT_INTRO.test(text)) {
+		return verdict(raw, 'shot', 'medium', 'camera framing reads as a shot');
+	}
+
+	/* 5. a fully bracketed line reads as a parenthetical */
 	if (text.startsWith('(') && text.endsWith(')')) {
 		return verdict(raw, 'parenthetical', 'medium', 'a line in brackets reads as a parenthetical');
 	}
 
-	/* 5. speech position: after a cue, text is what the character says. A
+	/* 6. speech position: after a cue, text is what the character says. A
 	   parenthetical only exists inside a speech, so what follows it is
 	   speech too — only continuing a finished speech needs true attachment. */
 	if (prev?.type === 'character') {
@@ -153,18 +162,24 @@ function classifyLine(raw: RawLine, text: string, prev: ClassifiedLine | undefin
 		return verdict(raw, 'dialogue', 'medium', 'follows the parenthetical');
 	}
 	if (attached && prev?.type === 'dialogue') {
+		/* pasted streams carry no blank lines, so an uppercase cue-shaped
+		   line inside a speech run is a new speaker far more often than a
+		   shouted continuation — shouts keep their terminal punctuation */
+		if (cueShape(text)) {
+			return verdict(raw, 'character', 'medium', 'uppercase cue interrupts the speech above it');
+		}
 		return verdict(raw, 'dialogue', 'medium', 'continues the speech');
 	}
 
-	/* 6. explicit alignment — cues never sit right or centered */
+	/* 7. explicit alignment — cues never sit right or centered */
 	if (raw.align === 'center') return verdict(raw, 'centered', 'high', 'centered');
 	if (raw.align === 'right') return verdict(raw, 'transition', 'medium', 'right-aligned');
 
-	/* 7. far-right layout is transition position */
+	/* 8. far-right layout is transition position */
 	const indent = raw.indentInches ?? 0;
 	if (indent >= 5) return verdict(raw, 'transition', 'medium', `far-right indent of ${indent}"`);
 
-	/* 8. the uppercase cue shape — layout only decides how sure we are */
+	/* 9. the uppercase cue shape — layout only decides how sure we are */
 	if (cueShape(text)) {
 		if (indent >= 1.5) {
 			return verdict(raw, 'character', 'high', `uppercase cue at a ${indent}" indent`);
@@ -172,13 +187,14 @@ function classifyLine(raw: RawLine, text: string, prev: ClassifiedLine | undefin
 		return verdict(raw, 'character', 'medium', 'uppercase cue shape');
 	}
 
-	/* 9. a bare middle indent is speech layout with no other signal — a guess */
+	/* 10. a bare middle indent is speech layout with no other signal — a guess */
 	if (indent >= 0.7) return verdict(raw, 'dialogue', 'low', `indented ${indent}" — reads as speech`);
 
-	/* 10. directly under a heading, prose describes that scene */
+	/* 11. directly under a heading or a shot, prose describes what we see */
 	if (prev?.type === 'scene') return verdict(raw, 'action', 'high', 'describes the scene above it');
+	if (prev?.type === 'shot') return verdict(raw, 'action', 'high', 'describes what the shot frames');
 
-	/* 11. prose is action */
+	/* 12. prose is action */
 	return verdict(raw, 'action', 'medium', 'no stronger signal — treated as action');
 }
 
