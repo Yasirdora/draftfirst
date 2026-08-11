@@ -56,11 +56,14 @@ export interface SceneHeadingParts {
 	time: string;
 }
 
+/** Cue extensions — (V.O.), (O.S.), (O.C.), (CONT'D), (SUBTITLE)…
+   One source of truth, shared by stripping (smarttype) and preserving
+   (rename). Stateless use only: .replace/.match reset lastIndex. */
+export const CUE_EXTENSION_RE: RegExp = /\s*\((?:V\.?O\.?|O\.?S\.?|O\.?C\.?|CONT['’]?D|SUBTITLE|PRE-?LAP|FILTERED|INTO (?:PHONE|RADIO|COMMS?)[^)]*)\)\s*/gi;
+
 /** Strip cue extensions — (V.O.), (O.S.), (O.C.), (CONT'D), (SUBTITLE)… */
 export function stripCueExtensions(cue: string): string {
-	return cue
-		.replace(/\s*\((?:V\.?O\.?|O\.?S\.?|O\.?C\.?|CONT['’]?D|SUBTITLE|PRE-?LAP|FILTERED|INTO (?:PHONE|RADIO|COMMS?)[^)]*)\)\s*/gi, '')
-		.trim();
+	return cue.replace(CUE_EXTENSION_RE, '').trim();
 }
 
 /** Split a scene heading into prefix / location / time parts.

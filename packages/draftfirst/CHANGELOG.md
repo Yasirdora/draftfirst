@@ -7,6 +7,7 @@ All notable changes to the Draft First Screenwriting Engine will be documented h
 
 ### Added
 
+- Character renaming as a document-wide refactor behind `@draftfirst/core/analysis`: `renameCharacter` rewrites every cue by base name — case-insensitively, extensions (`(O.S.)`, `(CONT'D)`) and dual-dialogue flags preserved, prose never touched — pure, copy-on-first-write, and a true no-op (same array reference) when nothing matches. `nameDriftGroups` unions near-miss cue names (MARA / MARIA / MARIE) into one-click merge candidates; merging is always the writer's call, never automatic. `normalizeCueName` is the shared canonical cue form, and the extension pattern is exported as `CUE_EXTENSION_RE` so stripping (SmartType) and preserving (rename) share one source of truth.
 - Universal import behind `@draftfirst/core/import`: a shared classifier that gives every imported line a type, a confidence, and a plain-language reason, with low-confidence lines flagged in an `ImportReport` for writer review.
 - Dependency-free `.docx` import: hand-rolled ZIP reader (stored + deflated via the platform's native `DecompressionStream`, CRC-32 integrity, size caps) and OOXML reading for styles, indents, alignment, page breaks, tracked changes, tables, and images.
 - Plain-text and paste import covering typewriter layout and reflowed prose, with pagination artifacts (`(MORE)`, `CONTINUED`, page numbers) stripped and counted.

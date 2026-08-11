@@ -68,6 +68,28 @@ function formatGroup(group: string[], counts: Map<string, number>): string {
 	return group.map((n) => `${n} (${counts.get(n) ?? 0}×)`).join('  ·  ');
 }
 
+/** Group cue names that look like one character mistyped. Pairs within a
+   keystroke (two for long names) are unioned, so MARA / MARIA / MARIE land
+   in one group even when the outer pair never matched directly. Detection
+   only — merging is always the writer's call, never automatic. */
+export function nameDriftGroups(names: string[]): string[][] {
+	const parent = names.map((_, i) => i);
+	const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+	for (let i = 0; i < names.length; i++) {
+		for (let j = i + 1; j < names.length; j++) {
+			if (nearMiss(names[i], names[j])) parent[find(i)] = find(j);
+		}
+	}
+	const groups = new Map<number, string[]>();
+	names.forEach((name, i) => {
+		const root = find(i);
+		const group = groups.get(root);
+		if (group) group.push(name);
+		else groups.set(root, [name]);
+	});
+	return [...groups.values()].filter((group) => group.length > 1);
+}
+
 /** Levenshtein distance, early-capped at 3 — we only care about near misses. */
 function editDistance(a: string, b: string): number {
 	if (Math.abs(a.length - b.length) > 2) return 3;

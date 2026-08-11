@@ -6,8 +6,9 @@
 	 * analysis, prediction, and keyboard policies come from the framework-free
 	 * engine package.
 	 */
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { isPrinting, type AnyElementType, type ScreenplayElement, type TitlePageEntry } from '@draftfirst/core';
+	import { nameDriftGroups, normalizeCueName, renameCharacter } from '@draftfirst/core/analysis';
 	import {
 		looksLikeCue,
 		normalizeElementText,
@@ -70,6 +71,11 @@
 	let wordCount = $state(0);
 	let sceneRows = $state<Array<{ text: string; page: number; idx: number }>>([]);
 	let castRows = $state<Array<{ name: string; count: number }>>([]);
+	/** Cast rename: the row in edit mode, the draft value, and live duplicate groups. */
+	let renamingCast = $state<string | null>(null);
+	let renameValue = $state('');
+	let renameInput: HTMLInputElement | undefined = $state(undefined);
+	let driftRows = $state<Array<{ keep: string; names: Array<{ name: string; count: number }> }>>([]);
 	let curType = $state<EType>('action');
 	let focusMode = $state(false);
 	let showSide = $state(false);
@@ -846,6 +852,14 @@
 		}
 		castRows = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
 
+		/* Near-miss names surface as one-click merges — the survivor leads. */
+		driftRows = nameDriftGroups([...counts.keys()]).map((group) => {
+			const ranked = group
+				.map((name) => ({ name, count: counts.get(name) ?? 0 }))
+				.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+			return { keep: ranked[0].name, names: ranked };
+		});
+
 		autosave(script);
 	}
 
@@ -1188,6 +1202,80 @@
 		startNew();
 	}
 
+	/* ---- cast rename + merge -------------------------------------------------
+	   Every rename lands as exactly one undoable step: loadModel clears the
+	   stacks, so the pre-rename snapshot goes back on as the sole entry. */
+
+	function beginRename(name: string) {
+		renamingCast = name;
+		renameValue = name;
+		void tick().then(() => { renameInput?.focus(); renameInput?.select(); });
+	}
+
+	/** Live line under the edit field — what Enter will do, before it does it. */
+	const renameHint = $derived.by(() => {
+		if (!renamingCast) return '';
+		const mine = castRows.find((r) => r.name === renamingCast)?.count ?? 0;
+		const cues = `${mine} cue${mine === 1 ? '' : 's'}`;
+		const to = normalizeCueName(renameValue);
+		if (to === '') return 'A name needs letters';
+		if (to === renamingCast) return `${cues} · Enter to rename · Esc`;
+		const existing = castRows.find((r) => r.name === to);
+		if (existing) return `Merges into ${to} (${existing.count} + ${mine} cues) · Enter to merge · Esc`;
+		return `${to} · ${cues} will change · Enter to rename · Esc`;
+	});
+
+	function onRenameKey(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			const from = renamingCast;
+			const to = normalizeCueName(renameValue);
+			renamingCast = null;
+			if (from && to !== '' && to !== from) applyRename(from, to);
+		} else if (e.key === 'Escape') {
+			e.preventDefault();
+			e.stopPropagation();
+			renamingCast = null;
+		}
+	}
+
+	function commitRename(elements: ScreenplayElement[], titlePage: TitlePageEntry[], message: string) {
+		const b = currentBlock();
+		const before: Snap = { els: modelFromDOM(), idx: b ? blocks().indexOf(b) : 0, off: b ? caretOffset(b) : 0, tp: titleEntries };
+		loadModel(elements, titlePage);
+		undoStack.push(before);
+		const bs = blocks();
+		const seat = bs[Math.min(before.idx, bs.length - 1)];
+		sheet.focus(); /* the panel held DOM focus — ⌘Z must hear the next keystroke */
+		if (seat) { setCaret(seat, Math.min(before.off, textOf(seat).length)); onCaretMove(); }
+		renamingCast = null;
+		showToast('success', message);
+	}
+
+	function applyRename(from: string, to: string) {
+		const script = currentScript();
+		const merging = castRows.some((r) => r.name === to);
+		const { elements, changed } = renameCharacter(script, from, to);
+		if (changed === 0) return;
+		const cues = `${changed} cue${changed === 1 ? '' : 's'}`;
+		commitRename(elements, script.titlePage, merging ? `${from} merged into ${to} — ${cues} · ⌘Z to undo` : `${from} is now ${to} — ${cues} renamed · ⌘Z to undo`);
+	}
+
+	function applyMerge(group: { keep: string; names: Array<{ name: string }> }) {
+		const script = currentScript();
+		let elements = script.elements;
+		const others: string[] = [];
+		let total = 0;
+		for (const { name } of group.names) {
+			if (name === group.keep) continue;
+			const r = renameCharacter({ ...script, elements }, name, group.keep);
+			elements = r.elements;
+			if (r.changed > 0) { others.push(name); total += r.changed; }
+		}
+		if (total === 0) return;
+		commitRename(elements, script.titlePage, `${others.join(' · ')} merged into ${group.keep} — ${total} cue${total === 1 ? '' : 's'} · ⌘Z to undo`);
+	}
+
 	/* ---- title page modal --------------------------------------------------- */
 
 	function openTitleModal() {
@@ -1486,10 +1574,37 @@
 					{/if}
 				{:else if sideTab === 'cast'}
 					{#if castRows.length === 0}
-						<div class="empty">Characters appear here as you write dialogue.</div>
+						<div class="empty">Characters appear here as you write dialogue.<br /><br />Click a name to rename them everywhere at once — one ⌘Z takes it back.</div>
 					{:else}
+						{#if driftRows.length > 0}
+							<div class="drift">
+								<div class="drift-head">Possible duplicates</div>
+								{#each driftRows as group (group.keep)}
+									<div class="drift-row">
+										<span class="drift-names">{#each group.names as n, i (n.name)}{#if i > 0}&nbsp;·&nbsp;{/if}<b>{n.name}</b>&nbsp;{n.count}×{/each}</span>
+										<button type="button" class="drift-merge" onclick={() => applyMerge(group)}>Keep {group.keep}</button>
+									</div>
+								{/each}
+							</div>
+						{/if}
 						{#each castRows as row (row.name)}
-							<div class="row static"><span class="txt">{row.name}</span><span class="pg">{row.count}</span></div>
+							{#if renamingCast === row.name}
+								<div class="row renaming">
+									<input
+										bind:this={renameInput}
+										bind:value={renameValue}
+										spellcheck="false"
+										aria-label="Rename {row.name}"
+										onkeydown={onRenameKey}
+										onblur={() => (renamingCast = null)}
+									/>
+									<span class="rhint">{renameHint}</span>
+								</div>
+							{:else}
+								<button type="button" class="row" onclick={() => beginRename(row.name)}>
+									<span class="txt">{row.name}</span><span class="pg">{row.count}</span>
+								</button>
+							{/if}
 						{/each}
 					{/if}
 				{/if}
@@ -2027,6 +2142,41 @@
 	.sidebody .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.sidebody .pg { margin-left: auto; color: var(--ink-3); font-size: 12px; }
 	.sidebody .empty { color: var(--ink-3); padding: 14px 8px; font-size: 13px; line-height: 1.6; }
+
+	/* cast rename: the row becomes the field, the hint says what Enter will do */
+	.sidebody .row.renaming { flex-direction: column; align-items: stretch; gap: 4px; padding: 6px 8px; cursor: default; }
+	.sidebody .row.renaming:hover { background: transparent; }
+	.sidebody .renaming input {
+		font: inherit;
+		font-size: 13px;
+		color: var(--ink);
+		background: var(--f1);
+		border: 0.5px solid var(--sep);
+		border-radius: 7px;
+		padding: 5px 8px;
+		outline: none;
+		text-transform: uppercase;
+	}
+	.sidebody .renaming input:focus { border-color: var(--ink-3); }
+	.sidebody .rhint { font-size: 11px; color: var(--ink-3); line-height: 1.4; }
+
+	/* possible duplicates: quiet card above the cast list */
+	.sidebody .drift { margin: 6px 8px 10px; padding: 10px 10px 6px; border: 0.5px solid var(--sep); border-radius: 10px; }
+	.sidebody .drift-head { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-3); margin-bottom: 6px; }
+	.sidebody .drift-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 12px; color: var(--ink-2); }
+	.sidebody .drift-names b { font-weight: 600; color: var(--ink); }
+	.sidebody .drift-merge {
+		border: 0.5px solid var(--sep);
+		background: transparent;
+		color: var(--ink);
+		font: inherit;
+		font-size: 12px;
+		padding: 3px 9px;
+		border-radius: 7px;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.sidebody .drift-merge:hover { background: var(--f1); }
 	kbd {
 		font: 11px/1 ui-monospace, 'SF Mono', Menlo, monospace;
 		border: 0.5px solid var(--sep);
