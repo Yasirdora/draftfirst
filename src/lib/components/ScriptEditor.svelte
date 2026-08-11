@@ -37,7 +37,6 @@
 		type Prediction,
 		type StructuralAnchor
 	} from '@draftfirst/core/editor';
-	import { continuityReport, type ContinuityNote } from '@draftfirst/core/analysis';
 	import { SAMPLE_FOUNTAIN } from '$lib/screenplay/sample';
 	import { scriptToPdf } from '$lib/screenplay/pdf';
 	import { download, downloadBytes } from '$lib/utils/download';
@@ -71,11 +70,10 @@
 	let wordCount = $state(0);
 	let sceneRows = $state<Array<{ text: string; page: number; idx: number }>>([]);
 	let castRows = $state<Array<{ name: string; count: number }>>([]);
-	let checkRows = $state<ContinuityNote[]>([]);
 	let curType = $state<EType>('action');
 	let focusMode = $state(false);
 	let showSide = $state(false);
-	let sideTab = $state<'scenes' | 'cast' | 'check'>('scenes');
+	let sideTab = $state<'scenes' | 'cast'>('scenes');
 	let helpOn = $state(false);
 	let sourceMode = $state(false);
 	let sourceText = $state('');
@@ -848,8 +846,6 @@
 		}
 		castRows = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([name, count]) => ({ name, count }));
 
-		checkRows = continuityReport(script);
-
 		autosave(script);
 	}
 
@@ -1399,7 +1395,7 @@
 		<div class="pill">
 			<span class="brandmark">eDraft</span>
 			<span class="menu-anchor">
-				<button type="button" class="iconbtn" class:on={appMenuOn} data-menu-trigger data-tip="More — title page, source, shortcuts, theme" aria-label="More options" onclick={() => { appMenuOn = !appMenuOn; fileMenuOn = false; exportMenuOn = false; elementMenuOn = false; }}>
+				<button type="button" class="iconbtn" class:on={appMenuOn} data-menu-trigger data-tip="More" aria-label="More options" onclick={() => { appMenuOn = !appMenuOn; fileMenuOn = false; exportMenuOn = false; elementMenuOn = false; }}>
 					<svg viewBox="0 0 16 16"><circle cx="8" cy="3.4" r="1.35" style="fill:currentColor;stroke:none" /><circle cx="8" cy="8" r="1.35" style="fill:currentColor;stroke:none" /><circle cx="8" cy="12.6" r="1.35" style="fill:currentColor;stroke:none" /></svg>
 				</button>
 				{#if appMenuOn}
@@ -1472,9 +1468,9 @@
 		<!-- drawer: scenes / cast / keys -->
 		<aside class="drawer" class:closed={!showSide} aria-hidden={!showSide}>
 			<div class="seg" role="radiogroup" aria-label="Panel view">
-				{#each ['scenes', 'cast', 'check'] as tab (tab)}
+				{#each ['scenes', 'cast'] as tab (tab)}
 					<button type="button" role="radio" aria-checked={sideTab === tab} class:sel={sideTab === tab}
-						onclick={() => (sideTab = tab as typeof sideTab)}>{tab[0].toUpperCase() + tab.slice(1)}{#if tab === 'check' && checkRows.length > 0}<span class="cbadge">{checkRows.length}</span>{/if}</button>
+						onclick={() => (sideTab = tab as typeof sideTab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>
 				{/each}
 			</div>
 			<div class="sidebody">
@@ -1494,18 +1490,6 @@
 					{:else}
 						{#each castRows as row (row.name)}
 							<div class="row static"><span class="txt">{row.name}</span><span class="pg">{row.count}</span></div>
-						{/each}
-					{/if}
-				{:else}
-					{#if checkRows.length === 0}
-						<div class="empty">Nothing inconsistent found.<br /><br />This is the pass a script coordinator makes: names and locations spelled one way throughout, sequences you opened closed again, every heading carrying a time of day.</div>
-					{:else}
-						{#each checkRows as note, i (i)}
-							<div class="cnote">
-								<div class="ck">{note.kind}</div>
-								<div class="cd">{note.detail}</div>
-								<div class="cw">{note.why}</div>
-							</div>
 						{/each}
 					{/if}
 				{/if}
@@ -2043,26 +2027,6 @@
 	.sidebody .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.sidebody .pg { margin-left: auto; color: var(--ink-3); font-size: 12px; }
 	.sidebody .empty { color: var(--ink-3); padding: 14px 8px; font-size: 13px; line-height: 1.6; }
-	.sidebody .cnote { padding: 10px 8px; border-radius: 8px; }
-	.sidebody .cnote:hover { background: var(--f1); }
-	.sidebody .cnote + .cnote { border-top: 0.5px solid var(--sep); border-radius: 0; }
-	.sidebody .ck { font-size: 13px; font-weight: 600; color: var(--ink); line-height: 1.4; }
-	.sidebody .cd { font-size: 12px; color: var(--ink-2); margin-top: 3px; line-height: 1.5; overflow-wrap: anywhere; }
-	.sidebody .cw { font-size: 12px; color: var(--ink-3); margin-top: 3px; line-height: 1.5; }
-	.cbadge {
-		display: inline-block;
-		min-width: 15px;
-		margin-left: 5px;
-		padding: 1px 4px;
-		border-radius: 8px;
-		background: var(--ink);
-		color: var(--panel-solid);
-		font-size: 10px;
-		font-weight: 600;
-		line-height: 1.3;
-		text-align: center;
-		vertical-align: 1px;
-	}
 	kbd {
 		font: 11px/1 ui-monospace, 'SF Mono', Menlo, monospace;
 		border: 0.5px solid var(--sep);
@@ -2468,6 +2432,8 @@
 	@media (hover: hover) and (pointer: fine) {
 		[data-tip]:hover::after { opacity: 1; transform: translateX(-50%) scale(1); }
 	}
+	/* an open menu mutes every tooltip — chrome never argues with itself */
+	.stage:has(.menu-pop) [data-tip]::after { display: none; }
 
 	/* ---- welcome (first run) ----------------------------------------------- */
 	.overlay.welcome { background: var(--bg); }
