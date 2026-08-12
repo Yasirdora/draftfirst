@@ -4,7 +4,7 @@ import SwiftUI
 struct EDraftApp: App {
 	var body: some Scene {
 		WindowGroup {
-			ProofView()
+			EditorView()
 		}
 	}
 }

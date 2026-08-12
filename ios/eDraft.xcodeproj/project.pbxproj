@@ -9,18 +9,36 @@
 /* Begin PBXBuildFile section */
 		EDA0ED000000000000000020 /* eDraftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000010 /* eDraftApp.swift */; };
 		EDA0ED000000000000000021 /* EngineFacade.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000011 /* EngineFacade.swift */; };
-		EDA0ED000000000000000022 /* ProofView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000012 /* ProofView.swift */; };
 		EDA0ED000000000000000023 /* ScriptTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000013 /* ScriptTextView.swift */; };
 		EDA0ED000000000000000024 /* edraft-engine.js in Resources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000014 /* edraft-engine.js */; };
+		EDA0ED000000000000000025 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000016 /* EditorView.swift */; };
+		EDA0ED000000000000000026 /* WhisperBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000017 /* WhisperBar.swift */; };
+		EDA0ED000000000000000027 /* DiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000018 /* DiagnosticsView.swift */; };
+		EDA0ED000000000000000028 /* BlockMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000019 /* BlockMapper.swift */; };
+		EDA0ED000000000000000029 /* DocumentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDA0ED00000000000000001A /* DocumentStore.swift */; };
+		EDA0ED00000000000000002A /* CourierPrime-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000060 /* CourierPrime-Regular.ttf */; };
+		EDA0ED00000000000000002B /* CourierPrime-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000061 /* CourierPrime-Bold.ttf */; };
+		EDA0ED00000000000000002C /* CourierPrime-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000062 /* CourierPrime-Italic.ttf */; };
+		EDA0ED00000000000000002D /* CourierPrime-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000063 /* CourierPrime-BoldItalic.ttf */; };
+		EDA0ED00000000000000002E /* OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = EDA0ED000000000000000064 /* OFL.txt */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		EDA0ED000000000000000010 /* eDraftApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = eDraftApp.swift; sourceTree = "<group>"; };
 		EDA0ED000000000000000011 /* EngineFacade.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineFacade.swift; sourceTree = "<group>"; };
-		EDA0ED000000000000000012 /* ProofView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProofView.swift; sourceTree = "<group>"; };
 		EDA0ED000000000000000013 /* ScriptTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptTextView.swift; sourceTree = "<group>"; };
 		EDA0ED000000000000000014 /* edraft-engine.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "edraft-engine.js"; sourceTree = "<group>"; };
 		EDA0ED000000000000000015 /* eDraft.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eDraft.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EDA0ED000000000000000016 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
+		EDA0ED000000000000000017 /* WhisperBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhisperBar.swift; sourceTree = "<group>"; };
+		EDA0ED000000000000000018 /* DiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsView.swift; sourceTree = "<group>"; };
+		EDA0ED000000000000000019 /* BlockMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockMapper.swift; sourceTree = "<group>"; };
+		EDA0ED00000000000000001A /* DocumentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentStore.swift; sourceTree = "<group>"; };
+		EDA0ED000000000000000060 /* CourierPrime-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CourierPrime-Regular.ttf"; sourceTree = "<group>"; };
+		EDA0ED000000000000000061 /* CourierPrime-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CourierPrime-Bold.ttf"; sourceTree = "<group>"; };
+		EDA0ED000000000000000062 /* CourierPrime-Italic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CourierPrime-Italic.ttf"; sourceTree = "<group>"; };
+		EDA0ED000000000000000063 /* CourierPrime-BoldItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CourierPrime-BoldItalic.ttf"; sourceTree = "<group>"; };
+		EDA0ED000000000000000064 /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL.txt"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -54,11 +72,21 @@
 			isa = PBXGroup;
 			children = (
 				EDA0ED000000000000000010 /* eDraftApp.swift */,
+				EDA0ED000000000000000008 /* Editing */,
 				EDA0ED000000000000000005 /* Engine */,
 				EDA0ED000000000000000006 /* Views */,
 				EDA0ED000000000000000007 /* Resources */,
 			);
 			path = eDraft;
+			sourceTree = "<group>";
+		};
+		EDA0ED000000000000000008 /* Editing */ = {
+			isa = PBXGroup;
+			children = (
+				EDA0ED000000000000000019 /* BlockMapper.swift */,
+				EDA0ED00000000000000001A /* DocumentStore.swift */,
+			);
+			path = Editing;
 			sourceTree = "<group>";
 		};
 		EDA0ED000000000000000005 /* Engine */ = {
@@ -72,8 +100,10 @@
 		EDA0ED000000000000000006 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				EDA0ED000000000000000012 /* ProofView.swift */,
+				EDA0ED000000000000000016 /* EditorView.swift */,
 				EDA0ED000000000000000013 /* ScriptTextView.swift */,
+				EDA0ED000000000000000017 /* WhisperBar.swift */,
+				EDA0ED000000000000000018 /* DiagnosticsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -82,8 +112,21 @@
 			isa = PBXGroup;
 			children = (
 				EDA0ED000000000000000014 /* edraft-engine.js */,
+				EDA0ED000000000000000009 /* Fonts */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		EDA0ED000000000000000009 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				EDA0ED000000000000000060 /* CourierPrime-Regular.ttf */,
+				EDA0ED000000000000000061 /* CourierPrime-Bold.ttf */,
+				EDA0ED000000000000000062 /* CourierPrime-Italic.ttf */,
+				EDA0ED000000000000000063 /* CourierPrime-BoldItalic.ttf */,
+				EDA0ED000000000000000064 /* OFL.txt */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -145,6 +188,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				EDA0ED000000000000000024 /* edraft-engine.js in Resources */,
+				EDA0ED00000000000000002A /* CourierPrime-Regular.ttf in Resources */,
+				EDA0ED00000000000000002B /* CourierPrime-Bold.ttf in Resources */,
+				EDA0ED00000000000000002C /* CourierPrime-Italic.ttf in Resources */,
+				EDA0ED00000000000000002D /* CourierPrime-BoldItalic.ttf in Resources */,
+				EDA0ED00000000000000002E /* OFL.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -157,8 +205,12 @@
 			files = (
 				EDA0ED000000000000000020 /* eDraftApp.swift in Sources */,
 				EDA0ED000000000000000021 /* EngineFacade.swift in Sources */,
-				EDA0ED000000000000000022 /* ProofView.swift in Sources */,
+				EDA0ED000000000000000028 /* BlockMapper.swift in Sources */,
+				EDA0ED000000000000000029 /* DocumentStore.swift in Sources */,
+				EDA0ED000000000000000025 /* EditorView.swift in Sources */,
 				EDA0ED000000000000000023 /* ScriptTextView.swift in Sources */,
+				EDA0ED000000000000000026 /* WhisperBar.swift in Sources */,
+				EDA0ED000000000000000027 /* DiagnosticsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -295,6 +347,12 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIFonts = (
+					CourierPrime-Regular.ttf,
+					CourierPrime-Bold.ttf,
+					CourierPrime-Italic.ttf,
+					CourierPrime-BoldItalic.ttf,
+				);
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -318,6 +376,12 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIFonts = (
+					CourierPrime-Regular.ttf,
+					CourierPrime-Bold.ttf,
+					CourierPrime-Italic.ttf,
+					CourierPrime-BoldItalic.ttf,
+				);
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
