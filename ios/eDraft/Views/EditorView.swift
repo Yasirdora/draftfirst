@@ -231,38 +231,42 @@ struct EditorView: View {
 
 	private func applyElement(_ type: String) {
 		let source = text as NSString
-		let line = BlockMapper.line(containing: min(caret, source.length), in: styledLines) ?? styledLines.last
-		let lineIsBlank: Bool = {
-			guard let line else { return true }
-			return source.substring(with: line.range)
-				.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-		}()
+
+		// The caret's ACTUAL line — which may be blank. A choice made on a
+		// blank line must never touch the previous line.
+		var lineRange = source.lineRange(for: NSRange(location: min(caret, source.length), length: 0))
+		if lineRange.length > 0, source.character(at: lineRange.location + lineRange.length - 1) == 10 {
+			lineRange.length -= 1
+		}
+		let content = source.substring(with: lineRange)
+		let isBlank = content.trimmingCharacters(in: .whitespaces).isEmpty
 
 		switch type {
 		case "scene":
-			if lineIsBlank { insertAtCaret("INT. ") }
+			guard isBlank else { return }
+			insertAtCaret("INT. ")
 		case "transition":
-			if lineIsBlank { insertAtCaret("CUT TO:") }
+			guard isBlank else { return }
+			insertAtCaret("CUT TO:")
 		case "parenthetical":
-			if lineIsBlank {
+			if isBlank {
 				insertAtCaret("(")
-			} else if let line {
-				let content = source.substring(with: line.range)
+			} else {
 				guard !content.hasPrefix("(") else { return }
-				replace(line.range, with: "(\(content))")
+				replace(lineRange, with: "(\(content))")
 			}
 		case "character":
-			guard let line, !lineIsBlank else { return }
-			replace(line.range, with: source.substring(with: line.range).uppercased())
+			guard !isBlank else { return }
+			replace(lineRange, with: content.uppercased())
 		case "dialogue":
-			guard let line, !lineIsBlank else { return }
-			let content = source.substring(with: line.range)
-			guard content.hasPrefix("("), content.hasSuffix(")") else { return }
-			replace(line.range, with: String(content.dropFirst().dropLast()))
+			guard !isBlank, content.hasPrefix("("), content.hasSuffix(")") else { return }
+			replace(lineRange, with: String(content.dropFirst().dropLast()))
 		case "action":
-			guard let line, !lineIsBlank, line.type == "character" else { return }
-			let content = source.substring(with: line.range)
-			replace(line.range, with: content.capitalized)
+			// The honest conversion: a cue read aloud as description.
+			guard !isBlank else { return }
+			let styled = BlockMapper.line(containing: min(caret, source.length), in: styledLines)
+			guard styled?.type == "character" else { return }
+			replace(lineRange, with: content.capitalized)
 		case "pagebreak":
 			insertAtCaret(caret >= source.length ? "\n\n===" : "\n\n===\n\n")
 		default:

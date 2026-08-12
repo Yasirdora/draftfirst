@@ -243,23 +243,41 @@ struct ScriptTextView: UIViewRepresentable {
 
 		// MARK: WhisperBar (inputAccessoryView)
 
+		private var barContainer: UIView?
+		private var barExpanded = false
+		private var barHeight: CGFloat {
+			barExpanded ? WhisperBar.expandedHeight : WhisperBar.collapsedHeight
+		}
+
 		func installAccessoryBar(on view: EditorTextView) {
 			let host = UIHostingController(rootView: makeBar())
 			host.view.backgroundColor = .clear
-			let container = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 46))
+			let container = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: WhisperBar.collapsedHeight))
 			container.autoresizingMask = [.flexibleWidth, .flexibleHeight]
 			host.view.frame = container.bounds
 			host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
 			container.addSubview(host.view)
 			view.inputAccessoryView = container
 			barHost = host
+			barContainer = container
 			// The accessory bar occupies the bottom of the text view.
-			view.contentInset.bottom = 46 + 8
-			view.verticalScrollIndicatorInsets.bottom = 46
+			view.contentInset.bottom = WhisperBar.collapsedHeight + 8
+			view.verticalScrollIndicatorInsets.bottom = WhisperBar.collapsedHeight
 		}
 
 		func updateAccessoryBar() {
 			barHost?.rootView = makeBar()
+		}
+
+		/// The inline picker grows the accessory view — no system presentation.
+		func setPickerExpanded(_ expanded: Bool) {
+			guard expanded != barExpanded else { return }
+			barExpanded = expanded
+			barContainer?.frame.size.height = barHeight
+			guard let view = textView else { return }
+			view.reloadInputViews()
+			view.contentInset.bottom = barHeight + 8
+			view.verticalScrollIndicatorInsets.bottom = barHeight
 		}
 
 		private func makeBar() -> WhisperBar {
@@ -272,7 +290,8 @@ struct ScriptTextView: UIViewRepresentable {
 				onDismissKeyboard: { [weak self] in
 					self?.parent.onDismissKeyboard()
 					self?.textView?.resignFirstResponder()
-				}
+				},
+				onPickerToggle: { [weak self] open in self?.setPickerExpanded(open) }
 			)
 		}
 
@@ -297,7 +316,7 @@ struct ScriptTextView: UIViewRepresentable {
 				  let duration = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval
 			else { return }
 			let overlap = view.convert(frame, from: nil).intersection(view.bounds).height
-			let bottom = max(overlap, 46) + 8
+			let bottom = max(overlap, barHeight) + 8
 			UIView.animate(withDuration: duration) {
 				view.contentInset.bottom = bottom
 				view.verticalScrollIndicatorInsets.bottom = bottom - 8

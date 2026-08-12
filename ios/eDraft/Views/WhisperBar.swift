@@ -2,7 +2,11 @@ import SwiftUI
 
 /// The bar pinned above the keyboard — the touch expression of the Tab key.
 ///
-/// Left: the element under the caret (tap for the element menu).
+/// Left: the element under the caret. Tapping it expands the element picker
+/// INLINE in the bar itself — no system presentation (menus and dialogs are
+/// fragile inside a UIKit-hosted inputAccessoryView; an inline row cannot
+/// fail). The picker acts on the caret's actual line, blank or not.
+///
 /// Center: the current whisper. Accept it three ways — tap, or the way it was
 /// meant to be done on glass: **swipe right**.
 /// Right: dismiss the keyboard.
@@ -14,12 +18,18 @@ struct WhisperBar: View {
 	let onAccept: () -> Void
 	let onElement: (String) -> Void
 	let onDismissKeyboard: () -> Void
+	/// Reports picker expansion so the host can resize the accessory view.
+	let onPickerToggle: (Bool) -> Void
 
 	@State private var drag: CGFloat = 0
-	@GestureState private var pressing = false
+	@State private var pickerOpen = false
 
 	/// Distance that commits the accept.
 	private let acceptThreshold: CGFloat = 56
+
+	/// Collapsed bar height; the picker row adds its own height when open.
+	static let collapsedHeight: CGFloat = 46
+	static let expandedHeight: CGFloat = 46 + 52
 
 	private static let elementMenu: [(name: String, type: String)] = [
 		("Scene Heading", "scene"),
@@ -32,6 +42,17 @@ struct WhisperBar: View {
 	]
 
 	var body: some View {
+		VStack(spacing: 0) {
+			if pickerOpen { elementPickerRow }
+			mainRow
+		}
+		.frame(maxWidth: .infinity)
+		.background(.bar)
+	}
+
+	// MARK: - Main row
+
+	private var mainRow: some View {
 		HStack(spacing: 10) {
 			elementChip
 			Spacer(minLength: 8)
@@ -40,39 +61,57 @@ struct WhisperBar: View {
 			dismissButton
 		}
 		.padding(.horizontal, 12)
-		.frame(height: 46)
-		.frame(maxWidth: .infinity)
-		.background(.bar)
+		.frame(height: Self.collapsedHeight)
 	}
 
 	// MARK: - Element chip
 
-	@State private var showElementPicker = false
-
 	private var elementChip: some View {
-		// A confirmation dialog instead of a Menu: SwiftUI menus are fragile
-		// inside a UIKit-hosted inputAccessoryView; action sheets are not.
 		Button {
-			showElementPicker = true
+			withAnimation(.easeInOut(duration: 0.18)) { pickerOpen.toggle() }
+			onPickerToggle(pickerOpen)
 		} label: {
 			HStack(spacing: 4) {
 				Text(elementName)
 					.font(.callout.weight(.medium))
-				Image(systemName: "chevron.up.chevron.down")
+				Image(systemName: pickerOpen ? "chevron.down" : "chevron.up.chevron.down")
 					.font(.caption2.weight(.semibold))
 					.foregroundStyle(.secondary)
 			}
 			.padding(.horizontal, 12)
 			.padding(.vertical, 7)
-			.background(Color.primary.opacity(0.06), in: Capsule())
+			.background(pickerOpen ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.06), in: Capsule())
 		}
 		.buttonStyle(.plain)
-		.confirmationDialog("Element", isPresented: $showElementPicker, titleVisibility: .hidden) {
-			ForEach(Self.elementMenu, id: \.type) { item in
-				Button(item.name) { onElement(item.type) }
+		.accessibilityLabel("Element: \(elementName)")
+		.accessibilityHint("Shows element choices")
+	}
+
+	// MARK: - Inline element picker (replaces any system menu/dialog)
+
+	private var elementPickerRow: some View {
+		ScrollView(.horizontal, showsIndicators: false) {
+			HStack(spacing: 8) {
+				ForEach(Self.elementMenu, id: \.type) { item in
+					Button {
+						withAnimation(.easeInOut(duration: 0.15)) { pickerOpen = false }
+						onPickerToggle(false)
+						onElement(item.type)
+					} label: {
+						Text(item.name)
+							.font(.callout)
+							.padding(.horizontal, 14)
+							.padding(.vertical, 9)
+							.background(Color.primary.opacity(0.06), in: Capsule())
+							.overlay(Capsule().strokeBorder(Color.primary.opacity(0.12)))
+					}
+					.buttonStyle(.plain)
+				}
 			}
-			Button("Cancel", role: .cancel) {}
+			.padding(.horizontal, 12)
 		}
+		.frame(height: 52)
+		.transition(.move(edge: .bottom).combined(with: .opacity))
 	}
 
 	// MARK: - Whisper pill (swipe right to accept)
