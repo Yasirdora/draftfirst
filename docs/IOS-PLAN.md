@@ -316,9 +316,14 @@ This is the design problem that decides whether we feel native. Our answer:
       ~4.8 ms per end-of-document prediction. **Verdict:** no-JIT is a non-issue
       for typing; pagination runs on a background queue, exactly as planned.
 
-**Phase 1 — the writer (TestFlight-able)**
+**Phase 1 — the writer (IN PROGRESS, started 2026-08-12)**
 Editor core: custom text view, element styling, choreography, whispers + accessory
 bar, undo/redo, autosave, Library with iCloud, new/open/sample, dark mode.
+
+Done so far: styled screenplay surface (Courier Prime, engine GEOMETRY),
+swipe-right / tap-to-accept whispers + WhisperBar, cue-in-progress prediction
+and styling, line-accurate BlockMapper, autosave, theme, rename, diagnostics.
+Next: undo/redo, empty-line next-element whispers, Library with iCloud.
 
 **Phase 2 — the professional**
 Import all four formats, export all five, Scenes/Cast sheets, character rename,
