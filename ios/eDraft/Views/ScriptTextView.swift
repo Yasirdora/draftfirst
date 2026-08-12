@@ -17,17 +17,25 @@ struct ScriptTextView: UIViewRepresentable {
 	var ghost: String
 	/// UTF-16 offset where the ghost renders (end of the block being typed).
 	var ghostLocation: Int
-	var whisperWhy: String
+	/// The full candidate a whisper commits — shown on the WhisperBar pill.
+	var whisperCandidate: String
 	var currentElementName: String
 	/// Element index of a cue being typed (bare all-caps line) — styled as a
 	/// character cue even though Fountain can't prove it until dialogue follows.
 	var cueElementIndex: Int?
 	/// One-shot caret positioning request (used after accepting a ghost).
 	var caretRequest: Int?
+	/// Whether an accepted whisper can be reverted (shows the Undo pill).
+	var canUndoAccept: Bool
 
 	var onTextChange: (String, Int) -> Void
 	var onCaretChange: (Int) -> Void
 	var onAccept: () -> Void
+	/// Space-to-accept, QuickType-style: commit the candidate plus the space.
+	var onAcceptSpace: () -> Void
+	var onUndoAccept: () -> Void
+	/// Backspace consult: returns true when the keystroke was consumed as undo.
+	var onBackspace: (Int) -> Bool
 	var onElement: (String) -> Void
 	var onDismissKeyboard: () -> Void
 
@@ -181,6 +189,13 @@ struct ScriptTextView: UIViewRepresentable {
 
 			view.textStorage.setAttributedString(styled)
 
+			// A full rebuild drops typing attributes; the next keystroke must
+			// not inherit the style of whatever it follows (bold after a heading).
+			view.typingAttributes = [
+				.font: ScriptTextView.regularFont,
+				.foregroundColor: UIColor.label
+			]
+
 			let targetCaret: Int
 			if let requested = parent.caretRequest {
 				targetCaret = min(requested, (body as NSString).length)
@@ -284,8 +299,10 @@ struct ScriptTextView: UIViewRepresentable {
 			WhisperBar(
 				elementName: parent.currentElementName,
 				ghost: parent.ghost,
-				why: parent.whisperWhy,
+				candidate: parent.whisperCandidate,
+				canUndo: parent.canUndoAccept,
 				onAccept: { [weak self] in self?.parent.onAccept() },
+				onUndo: { [weak self] in self?.parent.onUndoAccept() },
 				onElement: { [weak self] type in self?.parent.onElement(type) },
 				onDismissKeyboard: { [weak self] in
 					self?.parent.onDismissKeyboard()
@@ -345,7 +362,17 @@ struct ScriptTextView: UIViewRepresentable {
 		// MARK: UITextViewDelegate
 
 		func textView(_ view: UITextView, shouldChangeTextIn range: NSRange, replacementText replacement: String) -> Bool {
+			// Backspace at the post-accept caret reverts the accept (QuickType).
+			if replacement.isEmpty, range.length == 1,
+			   parent.onBackspace(range.location + range.length) {
+				return false
+			}
 			if ghostLength > 0 {
+				// Space commits the whisper — the candidate, then the space.
+				if replacement == " " {
+					parent.onAcceptSpace()
+					return false
+				}
 				// Strip the ghost first so the edit applies to real content only.
 				let storage = view.textStorage
 				storage.deleteCharacters(in: NSRange(location: ghostLocation, length: ghostLength))
@@ -364,11 +391,24 @@ struct ScriptTextView: UIViewRepresentable {
 
 		func textViewDidChange(_ view: UITextView) {
 			guard !syncing else { return }
-			let caret = view.selectedRange.location
-			let content = (view.textStorage.string as NSString).substring(to: contentLength)
+			let storage = view.textStorage
+			var caret = view.selectedRange.location
+			let content: String
+			if ghostLength > 0 {
+				// Edits that bypass shouldChangeTextIn (undo, dictation) can land
+				// while the ghost is in storage. Excise it where it lies — never
+				// assume the ghost is the tail of the document.
+				content = (storage.string as NSString).replacingCharacters(
+					in: NSRange(location: ghostLocation, length: ghostLength), with: "")
+				if caret > ghostLocation { caret = max(ghostLocation, caret - ghostLength) }
+				ghostLength = 0
+			} else {
+				content = storage.string
+			}
+			caret = min(caret, (content as NSString).length)
 			parent.onTextChange(content, caret)
 			// Keep the caret visible above the keyboard/accessory bar.
-			view.scrollRangeToVisible(NSRange(location: caret, length: 0))
+			view.scrollRangeToVisible(NSRange(location: min(caret, storage.length), length: 0))
 		}
 
 		private func reportCaret() {

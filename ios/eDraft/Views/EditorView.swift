@@ -21,8 +21,10 @@ struct EditorView: View {
 	@State private var cueElementIndex: Int?
 	@State private var ghost = ""
 	@State private var ghostLocation = 0
-	@State private var whisperWhy = ""
+	@State private var whisperCandidate = ""
 	@State private var caretRequest: Int?
+	/// Snapshot for reverting the last accepted whisper (backspace or Undo pill).
+	@State private var undoSnapshot: (beforeText: String, beforeCaret: Int, afterCaret: Int)?
 
 	@State private var showDiagnostics = false
 	@State private var showRename = false
@@ -46,13 +48,17 @@ struct EditorView: View {
 				elements: elements,
 				ghost: ghost,
 				ghostLocation: ghostLocation,
-				whisperWhy: whisperWhy,
+				whisperCandidate: whisperCandidate,
 				currentElementName: currentElementName,
 				cueElementIndex: cueElementIndex,
 				caretRequest: caretRequest,
+				canUndoAccept: undoSnapshot != nil,
 				onTextChange: handleTextChange,
 				onCaretChange: handleCaretChange,
-				onAccept: acceptGhost,
+				onAccept: { acceptGhost() },
+				onAcceptSpace: { acceptGhost(appending: " ") },
+				onUndoAccept: undoAccept,
+				onBackspace: consumeBackspace,
 				onElement: applyElement,
 				onDismissKeyboard: {}
 			)
@@ -137,6 +143,7 @@ struct EditorView: View {
 	// MARK: - Engine loop
 
 	private func handleTextChange(_ newText: String, _ newCaret: Int) {
+		undoSnapshot = nil // any fresh typing retires the undo offer
 		text = newText
 		caret = newCaret
 		caretRequest = nil
@@ -160,10 +167,16 @@ struct EditorView: View {
 			styledLines = BlockMapper.map(text: text, elements: all)
 
 			let source = text as NSString
-			guard let line = BlockMapper.line(containing: min(caret, source.length), in: styledLines) ?? styledLines.last else {
+			// The caret's true line: the one holding it, or the one ending
+			// exactly at it. No "last line" fallback — a wrong line whispers
+			// a wrong ghost (and silently killed whispers mid-document).
+			let pos = min(caret, source.length)
+			guard let line = styledLines.first(where: {
+				NSLocationInRange(pos, $0.range) || $0.range.location + $0.range.length == pos
+			}) else {
 				currentElementName = "Action"
 				ghost = ""
-				whisperWhy = ""
+				whisperCandidate = ""
 				cueElementIndex = nil
 				return
 			}
@@ -176,7 +189,7 @@ struct EditorView: View {
 			// Whispers live where the writing happens: the end of the line.
 			guard caret == lineEnd else {
 				ghost = ""
-				whisperWhy = ""
+				whisperCandidate = ""
 				cueElementIndex = nil
 				return
 			}
@@ -201,32 +214,81 @@ struct EditorView: View {
 			if let first = predictions.first(where: { !($0.hint ?? false) }) {
 				let suffix = try engine.ghostSuffix(candidate: first.text, blockText: lineText)
 				ghost = suffix
-				ghostLocation = lineEnd
-				whisperWhy = first.why
+				ghostLocation = suffix.isEmpty ? 0 : lineEnd
+				whisperCandidate = suffix.isEmpty ? "" : first.text
 			} else {
 				ghost = ""
-				whisperWhy = ""
+				whisperCandidate = ""
 			}
 		} catch {
 			ghost = ""
-			whisperWhy = ""
+			whisperCandidate = ""
 			cueElementIndex = nil
 		}
 	}
 
 	// MARK: - Accept & element actions
 
-	private func acceptGhost() {
-		guard !ghost.isEmpty else { return }
+	/// Commit the whispered candidate. When the ghost is a strict suffix of
+	/// the candidate, the completion owns the casing of the fragment it
+	/// matched — a typed "d" accepting "DAY" writes "DAY", never "dAY".
+	/// Glue suffixes (a leading space) insert as-is. `append` folds a
+	/// trailing keystroke into the same atomic mutation (space-to-accept).
+	private func acceptGhost(appending append: String = "") {
+		guard !ghost.isEmpty, !whisperCandidate.isEmpty else { return }
 		let source = text as NSString
 		let location = min(ghostLocation, source.length)
-		text = source.replacingCharacters(in: NSRange(location: location, length: 0), with: ghost)
-		caret = location + (ghost as NSString).length
+		let candidate = whisperCandidate as NSString
+		let suffix = ghost as NSString
+
+		let beforeText = text
+		let beforeCaret = caret
+
+		let committed: String
+		if candidate.length > suffix.length, candidate.hasSuffix(suffix as String) {
+			let matched = candidate.length - suffix.length
+			let range = NSRange(location: max(0, location - matched), length: min(matched, location))
+			committed = source.replacingCharacters(in: range, with: candidate as String)
+			caret = range.location + candidate.length
+		} else {
+			committed = source.replacingCharacters(in: NSRange(location: location, length: 0), with: suffix as String)
+			caret = location + suffix.length
+		}
+
+		var finalText = committed
+		if !append.isEmpty {
+			finalText = (committed as NSString).replacingCharacters(
+				in: NSRange(location: caret, length: 0), with: append)
+			caret += (append as NSString).length
+		}
+
+		undoSnapshot = (beforeText, beforeCaret, caret)
+		text = finalText
 		caretRequest = caret
 		ghost = ""
-		whisperWhy = ""
+		whisperCandidate = ""
 		refreshEngine()
 		scheduleSave()
+	}
+
+	/// Revert the last accepted whisper — the backspace-undo Apple teaches.
+	private func undoAccept() {
+		guard let snapshot = undoSnapshot else { return }
+		undoSnapshot = nil
+		text = snapshot.beforeText
+		caret = snapshot.beforeCaret
+		caretRequest = caret
+		ghost = ""
+		whisperCandidate = ""
+		refreshEngine()
+		scheduleSave()
+	}
+
+	/// A backspace at the exact post-accept caret reverts the accept.
+	private func consumeBackspace(at location: Int) -> Bool {
+		guard let snapshot = undoSnapshot, location == snapshot.afterCaret else { return false }
+		undoAccept()
+		return true
 	}
 
 	private func applyElement(_ type: String) {

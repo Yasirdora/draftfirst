@@ -14,8 +14,13 @@ struct WhisperBar: View {
 
 	let elementName: String
 	let ghost: String
-	let why: String
+	/// The full word a swipe commits ("DAY", "MARA (CONT'D)") — never the
+	/// engine's reasoning. The pill's only job is to say what you get.
+	let candidate: String
+	/// True briefly after an accept — the center pill becomes Undo.
+	let canUndo: Bool
 	let onAccept: () -> Void
+	let onUndo: () -> Void
 	let onElement: (String) -> Void
 	let onDismissKeyboard: () -> Void
 	/// Reports picker expansion so the host can resize the accessory view.
@@ -56,12 +61,43 @@ struct WhisperBar: View {
 		HStack(spacing: 10) {
 			elementChip
 			Spacer(minLength: 8)
-			whisperPill
+			centerPill
 			Spacer(minLength: 8)
 			dismissButton
 		}
 		.padding(.horizontal, 12)
 		.frame(height: Self.collapsedHeight)
+	}
+
+	/// The bar's voice: the whisper while one is live, Undo right after an
+	/// accept, silence otherwise.
+	@ViewBuilder
+	private var centerPill: some View {
+		if !candidate.isEmpty {
+			whisperPill
+		} else if canUndo {
+			undoPill
+		}
+	}
+
+	// MARK: - Undo pill (shown right after an accept)
+
+	private var undoPill: some View {
+		Button(action: onUndo) {
+			HStack(spacing: 6) {
+				Image(systemName: "arrow.uturn.backward")
+					.font(.caption.weight(.bold))
+				Text("Undo")
+					.font(.callout)
+			}
+			.padding(.horizontal, 14)
+			.padding(.vertical, 8)
+			.foregroundStyle(.secondary)
+			.background(Capsule().fill(Color.primary.opacity(0.06)))
+			.overlay(Capsule().strokeBorder(Color.primary.opacity(0.12)))
+		}
+		.buttonStyle(.plain)
+		.accessibilityLabel("Undo accepted suggestion")
 	}
 
 	// MARK: - Element chip
@@ -119,16 +155,10 @@ struct WhisperBar: View {
 	private var whisperPill: some View {
 		let accepted = drag >= acceptThreshold
 		return HStack(spacing: 8) {
-			Text(ghost)
+			Text(candidate)
 				.font(.system(.callout, design: .monospaced))
 				.lineLimit(1)
 				.minimumScaleFactor(0.7)
-			if !why.isEmpty {
-				Text("· \(why)")
-					.font(.caption2)
-					.foregroundStyle(.secondary)
-					.lineLimit(1)
-			}
 			Image(systemName: "chevron.right")
 				.font(.caption.weight(.bold))
 				.foregroundStyle(accepted ? Color.white : Color.accentColor)
@@ -141,16 +171,16 @@ struct WhisperBar: View {
 		)
 		.overlay(Capsule().strokeBorder(Color.accentColor.opacity(accepted ? 0 : 0.35)))
 		.offset(x: min(drag, acceptThreshold + 24))
-		.opacity(ghost.isEmpty ? 0 : 1)
+		.opacity(candidate.isEmpty ? 0 : 1)
 		.animation(.spring(response: 0.25, dampingFraction: 0.7), value: accepted)
 		.gesture(
 			DragGesture(minimumDistance: 4)
 				.onChanged { value in
-					guard !ghost.isEmpty else { return }
+					guard !candidate.isEmpty else { return }
 					drag = max(0, value.translation.width)
 				}
 				.onEnded { _ in
-					guard !ghost.isEmpty else { return }
+					guard !candidate.isEmpty else { return }
 					if drag >= acceptThreshold {
 						UIImpactFeedbackGenerator(style: .light).impactOccurred()
 						onAccept()
@@ -159,12 +189,12 @@ struct WhisperBar: View {
 				}
 		)
 		.onTapGesture {
-			guard !ghost.isEmpty else { return }
+			guard !candidate.isEmpty else { return }
 			UIImpactFeedbackGenerator(style: .light).impactOccurred()
 			onAccept()
 		}
-		.accessibilityLabel(ghost.isEmpty ? "No suggestion" : "Suggestion: \(ghost)")
-		.accessibilityHint(ghost.isEmpty ? "" : "Double-tap or swipe right to accept")
+		.accessibilityLabel(candidate.isEmpty ? "No suggestion" : "Suggestion: \(candidate)")
+		.accessibilityHint(candidate.isEmpty ? "" : "Double-tap or swipe right to accept")
 	}
 
 	// MARK: - Dismiss keyboard
