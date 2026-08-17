@@ -39,21 +39,22 @@ struct EditorChrome: UIViewRepresentable {
         Coordinator(self)
     }
 
-    /// The row has exactly one natural height; without this the representable
-    /// would accept the full proposed height and the safe-area inset would
-    /// swallow the writing surface.
+    /// The row has exactly one natural height plus the orientation-aware
+    /// gap above it; without this the representable would accept the full
+    /// proposed height and the safe-area inset would swallow the writing
+    /// surface.
     func sizeThatFits(
         _ proposal: ProposedViewSize,
-        uiView: UIStackView,
+        uiView: ChromeContainerView,
         context: Context
     ) -> CGSize? {
         CGSize(
             width: proposal.width ?? UIView.noIntrinsicMetric,
-            height: ChromeMetrics.controlSize
+            height: ChromeMetrics.controlSize + uiView.topGap
         )
     }
 
-    func makeUIView(context: Context) -> UIStackView {
+    func makeUIView(context: Context) -> ChromeContainerView {
         let coordinator = context.coordinator
 
         let back = ChromeButton.circle(
@@ -107,10 +108,10 @@ struct EditorChrome: UIViewRepresentable {
         coordinator.elementButton = element
         coordinator.undoButton = undo
         coordinator.settingsButton = settings
-        return row
+        return ChromeContainerView(row: row)
     }
 
-    func updateUIView(_ row: UIStackView, context: Context) {
+    func updateUIView(_ container: ChromeContainerView, context: Context) {
         let coordinator = context.coordinator
         coordinator.chrome = self
         coordinator.elementButton?.update(
@@ -333,8 +334,52 @@ enum ChromeMetrics {
     /// Rendered air between separate capsules — 10 pt keeps five controls
     /// breathable without crowding the element pill.
     static let spacing: CGFloat = 10
+    /// Minimum gap between the physical screen edge and the controls.
+    /// Portrait earns this free from the safe area (the Dynamic Island
+    /// pushes the row down); an iPhone in landscape has no top inset at
+    /// all, so without a floor the controls would touch the glass.
+    static let minimumTopGap: CGFloat = 8
     /// One uniform glyph: 18 pt medium, matching Apple's top bars.
     static let symbol = UIImage.SymbolConfiguration(font: .systemFont(ofSize: 18, weight: .medium))
+}
+
+/// Hosts the chrome row and owns the air above it. The representable is
+/// already placed below the safe area, so the gap is the shortfall between
+/// the window's real top inset (59 pt in portrait, 0 in landscape on a
+/// notched iPhone) and the minimum the controls need — portrait therefore
+/// keeps its exact approved layout, and only unsafe orientations pad.
+final class ChromeContainerView: UIView {
+    let row: UIStackView
+    private var rowTop: NSLayoutConstraint!
+
+    init(row: UIStackView) {
+        self.row = row
+        super.init(frame: .zero)
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        rowTop = row.topAnchor.constraint(equalTo: topAnchor)
+        NSLayoutConstraint.activate([
+            rowTop,
+            row.leadingAnchor.constraint(equalTo: leadingAnchor),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor),
+            row.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    var topGap: CGFloat {
+        let systemTop = window?.safeAreaInsets.top ?? 0
+        return max(0, ChromeMetrics.minimumTopGap - systemTop)
+    }
+
+    override func layoutSubviews() {
+        // Rotation changes the window's insets without touching this view's
+        // own safe area, so recompute on every layout pass.
+        rowTop.constant = topGap
+        super.layoutSubviews()
+    }
 }
 
 enum ChromeButton {
