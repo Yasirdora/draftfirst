@@ -1,7 +1,55 @@
 import SwiftUI
+import UIKit
+
+/// Applies the writer's chosen appearance to every window the app owns —
+/// document browser, editor, sheets — so the in-app choice is absolute and
+/// the system theme never silently overrides part of the app. SwiftUI's
+/// preferredColorScheme cannot reach a DocumentGroupLaunchScene, which is
+/// why a view-scoped override left the browser on the system theme.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    private var defaultsObserver: NSObjectProtocol?
+
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        Self.applyAppearance()
+        // Any preference write (the document menu's Appearance picker)
+        // re-styles every window immediately — no relaunch, no stale window.
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Self.applyAppearance()
+        }
+        return true
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        Self.applyAppearance()
+    }
+
+    static func applyAppearance() {
+        let style: UIUserInterfaceStyle = switch AppearancePreference(
+            rawValue: UserDefaults.standard.string(forKey: "appearance") ?? ""
+        ) ?? .dark {
+        case .light: .light
+        case .dark: .dark
+        }
+        for scene in UIApplication.shared.connectedScenes {
+            guard let windowScene = scene as? UIWindowScene else { continue }
+            for window in windowScene.windows {
+                window.overrideUserInterfaceStyle = style
+            }
+        }
+    }
+}
 
 @main
 struct DraftFirstApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
 #if EDITOR_PREVIEW
         WindowGroup {

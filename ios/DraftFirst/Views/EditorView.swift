@@ -11,6 +11,8 @@ struct EditorView: View {
     @Environment(\.dismiss) private var dismissEditor
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
+    // The scheme itself is applied at scene level in DraftFirstApp (browser
+    // and editor can never disagree); this binding is the menu's write path.
     @AppStorage("appearance") private var appearance: AppearancePreference = .dark
 
     init(document: Binding<DraftFirstDocument>, startsAtEnd: Bool = false) {
@@ -26,7 +28,6 @@ struct EditorView: View {
             Color.screenplayPaper.ignoresSafeArea()
             ScriptTextView(editor: editor)
         }
-        .preferredColorScheme(appearance.colorScheme)
         // Transient, non-modal notices — element toasts on swipe, sync
         // arrivals — one capsule just under the chrome row.
         .overlay(alignment: .top) {
