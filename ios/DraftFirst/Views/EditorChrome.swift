@@ -200,13 +200,16 @@ struct EditorChrome: UIViewRepresentable {
         /// for the preferences a writer touches once (suggestions, page
         /// size, rename, feedback, about).
         func settingsMenu() -> UIMenu {
+            // No trailing ellipses: modern iOS menus drop them (the HIG
+            // reserves "…" for legacy AppKit menus), and every row here
+            // opens its destination directly.
             let navigator = UIAction(
-                title: "Navigator…", image: UIImage(systemName: "list.bullet")
+                title: "Navigator", image: UIImage(systemName: "map")
             ) { [weak self] _ in
                 self?.chrome.showStory()
             }
             let titlePage = UIAction(
-                title: "Title Page…", image: UIImage(systemName: "doc.text")
+                title: "Title Page", image: UIImage(systemName: "doc.text")
             ) { [weak self] _ in
                 self?.chrome.showTitlePage()
             }
@@ -262,7 +265,7 @@ struct EditorChrome: UIViewRepresentable {
             )
 
             let settings = UIAction(
-                title: "Settings…", image: UIImage(systemName: "gear")
+                title: "Settings", image: UIImage(systemName: "gear")
             ) { [weak self] _ in
                 self?.chrome.showSettings()
             }
