@@ -15,6 +15,12 @@ struct ScriptTextView: UIViewRepresentable {
         let textView = ScreenplayTextView(usingTextLayoutManager: false)
         textView.delegate = context.coordinator
         textView.backgroundColor = .clear
+        // The native header treatment: iOS 26's own progressive blur at the
+        // scroll view's top edge. Lines scrolling toward the chrome melt
+        // into the system's glass exactly as in Apple's apps; at rest the
+        // header is fully transparent and the controls float as pure glass.
+        // No custom backdrop view — the system renderer owns this look.
+        textView.topEdgeEffect.style = .soft
         textView.alwaysBounceVertical = true
         textView.keyboardDismissMode = .interactive
         textView.textContainerInset = UIEdgeInsets(top: 24, left: 22, bottom: 40, right: 22)

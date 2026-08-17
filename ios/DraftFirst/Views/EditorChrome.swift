@@ -343,8 +343,7 @@ enum ChromeMetrics {
     static let symbol = UIImage.SymbolConfiguration(font: .systemFont(ofSize: 18, weight: .medium))
 }
 
-/// Hosts the chrome row, the air above it, and the material backdrop
-/// behind it.
+/// Hosts the chrome row and the air above it.
 ///
 /// The gap: the representable is already placed below the safe area, so the
 /// gap is the shortfall between the window's real top inset (59 pt in
@@ -352,30 +351,19 @@ enum ChromeMetrics {
 /// controls need — portrait therefore keeps its exact approved layout, and
 /// only unsafe orientations pad.
 ///
-/// The backdrop imitates the system navigation bar — the header Apple's own
-/// apps use. Three details make it read as native rather than as a band:
-/// chrome material (dark and quiet against the paper, never a gray slab),
-/// coverage from the very top edge of the screen (painted above the
-/// container's bounds, so no two-tone strip around the Dynamic Island), and
-/// a dissolve that only begins past the controls. The tail overlaps resting
-/// text without stealing layout height, and touches outside the container's
-/// bounds fall through to the text view on their own.
+/// There is deliberately no backdrop view here: the header's glass comes
+/// from the system — the controls are iOS 26 glass and the text view's
+/// topEdgeEffect renders the progressive blur as content scrolls under.
 final class ChromeContainerView: UIView {
     let row: UIStackView
     private var rowTop: NSLayoutConstraint!
-    private let backdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemChromeMaterial))
-    private let backdropMask = CAGradientLayer()
-    /// How far the blur tail fades out below the controls.
-    private let fadeBelow: CGFloat = 14
 
     init(row: UIStackView) {
         self.row = row
         super.init(frame: .zero)
-        // The blur must span the full screen width, so the 16 pt side air
-        // lives on the row itself rather than as SwiftUI padding that would
-        // narrow the backdrop with the container.
-        backdrop.layer.mask = backdropMask
-        addSubview(backdrop)
+        // The 16 pt side air lives on the row itself rather than as SwiftUI
+        // padding, keeping the container full-bleed for whatever backdrop
+        // treatment the system applies.
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
         rowTop = row.topAnchor.constraint(equalTo: topAnchor)
@@ -405,21 +393,6 @@ final class ChromeContainerView: UIView {
         // own safe area, so recompute on every layout pass.
         rowTop.constant = topGap
         super.layoutSubviews()
-        let top = screenTopOffset
-        let totalHeight = top + bounds.height + fadeBelow
-        backdrop.frame = CGRect(x: 0, y: -top, width: bounds.width, height: totalHeight)
-        // Solid from the screen's top edge through the controls, then a
-        // linear dissolve over the tail.
-        let solidEnd = (top + bounds.height) / totalHeight
-        backdropMask.colors = [
-            UIColor.white.cgColor,
-            UIColor.white.cgColor,
-            UIColor.clear.cgColor
-        ]
-        backdropMask.locations = [0, NSNumber(value: Double(solidEnd)), 1]
-        backdropMask.startPoint = CGPoint(x: 0.5, y: 0)
-        backdropMask.endPoint = CGPoint(x: 0.5, y: 1)
-        backdropMask.frame = backdrop.bounds
     }
 }
 
