@@ -225,7 +225,7 @@ struct ScriptTextView: UIViewRepresentable {
         }
 
         @objc private func swipeCycledElementKind(_ recognizer: UISwipeGestureRecognizer) {
-            editor?.cycleActiveKind(backwards: recognizer.direction == .left)
+            editor?.cycleActiveKind(backwards: recognizer.direction == .left, announced: true)
             swipeHaptic.selectionChanged()
         }
 

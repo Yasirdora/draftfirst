@@ -25,6 +25,21 @@ final class EditorState {
     @ObservationIgnored var onNativeRedo: (() -> Bool)?
     @ObservationIgnored var onClearNativeUndo: (() -> Void)?
 
+    /// A transient, non-modal notice ("Updated from iCloud", the swipe
+    /// element toast). The view renders it as a capsule under the chrome.
+    var banner: String?
+    @ObservationIgnored private var bannerTask: Task<Void, Never>?
+
+    func showBanner(_ text: String) {
+        bannerTask?.cancel()
+        banner = text
+        bannerTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.6))
+            guard let self, !Task.isCancelled else { return }
+            banner = nil
+        }
+    }
+
     /// The last source this state published or was created with, so the
     /// document binding can tell its own echoes — and unchanged redeliveries
     /// at launch — apart from genuinely external document changes.
@@ -36,6 +51,20 @@ final class EditorState {
     @ObservationIgnored private var predictionTask: Task<Void, Never>?
     @ObservationIgnored private var sourceTask: Task<Void, Never>?
     @ObservationIgnored private var statsTask: Task<Void, Never>?
+    /// The identity-free engine model costs one struct allocation per element
+    /// to build, and prediction, persistence, and pagination all need it
+    /// several times per second. Cached per revision: every content mutation
+    /// bumps `revision`, so the cache is self-invalidating and never stale.
+    @ObservationIgnored private var cachedEngineModel: DraftFirstEngine.Screenplay?
+    @ObservationIgnored private var cachedEngineModelRevision = -1
+
+    private var currentEngineModel: DraftFirstEngine.Screenplay {
+        if cachedEngineModelRevision == revision, let cachedEngineModel { return cachedEngineModel }
+        let model = screenplay.engineModel
+        cachedEngineModel = model
+        cachedEngineModelRevision = revision
+        return model
+    }
     @ObservationIgnored private var undoStack: [EditorSnapshot] = []
     @ObservationIgnored private var redoStack: [EditorSnapshot] = []
     @ObservationIgnored private var lastTypingSnapshotAt = Date.distantPast
@@ -72,6 +101,7 @@ final class EditorState {
         predictionTask?.cancel()
         sourceTask?.cancel()
         statsTask?.cancel()
+        bannerTask?.cancel()
     }
 
     func titlePageValue(for key: String) -> String? {
@@ -220,7 +250,7 @@ final class EditorState {
         commitChange(liveTyping: !structural)
     }
 
-    func cycleActiveKind(backwards: Bool) {
+    func cycleActiveKind(backwards: Bool, announced: Bool = false) {
         guard let index = activeElementIndex else { return }
         let previous = index > 0 ? screenplay.elements[index - 1].type : nil
         let current = screenplay.elements[index].type
@@ -229,7 +259,85 @@ final class EditorState {
             within: Choreography.tabSetFor(previous: previous?.engineKind),
             backwards: backwards
         )
-        onChangeElementKind?(ScreenplayKind(engineKind: kind))
+        let newKind = ScreenplayKind(engineKind: kind)
+        onChangeElementKind?(newKind)
+        // Swipes announce themselves so the gesture is learnable and a
+        // misfire is visible; hardware Tab users already watch the pill.
+        if announced { showBanner(newKind.title) }
+    }
+
+    /// Applies a document changed outside this editor — iCloud delivery,
+    /// conflict resolution, a Files.app move — without throwing the writer
+    /// back to page 1 or discarding undo. Unchanged elements keep their
+    /// identity, so the caret and the text surface's range map survive; both
+    /// undo timelines stay intact; nothing is published back (a sync must
+    /// never become a write-after-read).
+    func applyExternalSource(_ source: String) {
+        // No flush: publishing now would clobber the incoming sync with our
+        // stale model. Cancel the debounced write instead — last-writer-wins
+        // is the document store's semantics, and the sync is the newer write.
+        sourceTask?.cancel()
+        guard let parsed = try? Fountain.parse(source) else { return }
+        let fresh = Screenplay(engineModel: parsed)
+
+        // Monotonic alignment: each old element lends its identity to the
+        // earliest unclaimed fresh element of the same type and text.
+        var lists: [String: [Int]] = [:]
+        for (index, element) in fresh.elements.enumerated() {
+            lists[Self.identityKey(for: element), default: []].append(index)
+        }
+        var offsets: [String: Int] = [:]
+        var merged = fresh.elements
+        var lastUsed = -1
+        for old in screenplay.elements {
+            let key = Self.identityKey(for: old)
+            guard let list = lists[key] else { continue }
+            var cursor = offsets[key] ?? 0
+            while cursor < list.count && list[cursor] <= lastUsed { cursor += 1 }
+            guard cursor < list.count else { continue }
+            merged[list[cursor]].id = old.id
+            lastUsed = list[cursor]
+            offsets[key] = cursor + 1
+        }
+
+        // The caret keeps its element when the element survived; otherwise it
+        // falls back to the nearest surviving predecessor, then the top.
+        let survivingIDs = Set(merged.map(\.id))
+        let caretID: UUID?
+        let caretOffset: Int
+        if let activeElementID, survivingIDs.contains(activeElementID),
+           let element = merged.first(where: { $0.id == activeElementID }) {
+            caretID = activeElementID
+            caretOffset = min(selectionOffset, element.text.utf16.count)
+        } else if let activeElementID,
+                  let oldIndex = screenplay.elements.firstIndex(where: { $0.id == activeElementID }),
+                  let predecessor = screenplay.elements[..<oldIndex]
+                      .reversed()
+                      .first(where: { survivingIDs.contains($0.id) }) {
+            caretID = predecessor.id
+            caretOffset = merged.first(where: { $0.id == predecessor.id })?.text.utf16.count ?? 0
+        } else {
+            caretID = merged.first?.id
+            caretOffset = 0
+        }
+
+        // One undoable step in the snapshot timeline; UIKit's native timeline
+        // is deliberately left alone — that history is the writer's.
+        recordSnapshot(structural: true)
+        screenplay.titlePage = fresh.titlePage
+        screenplay.elements = merged.isEmpty ? [ScriptElement(type: .action, text: "")] : merged
+        activeElementID = caretID
+        selectionOffset = max(0, caretOffset)
+        revision += 1
+        updateUndoAvailability()
+        lastKnownSource = serializedSource()
+        scheduleStatsRefresh()
+        refreshPredictions()
+        showBanner("Updated from iCloud")
+    }
+
+    private static func identityKey(for element: ScriptElement) -> String {
+        "\(element.type.rawValue)\u{1F}\(element.text)"
     }
 
     func nextKind(after kind: ScreenplayKind, text: String) -> ScreenplayKind {
@@ -351,12 +459,23 @@ final class EditorState {
         predictionTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(65))
             guard let self, !Task.isCancelled else { return }
-            let result = PredictionEngine.predict(
-                screenplay.engineModel,
-                type: element.type.engineKind,
-                text: element.text,
-                index: index
-            ).map {
+            let model = self.currentEngineModel
+            let kind = element.type.engineKind
+            let text = element.text
+            // The engine is pure Foundation and Sendable — prediction runs
+            // off the main actor so a feature-length vocabulary never stalls
+            // the caret. The generation and identity guards below discard a
+            // result that arrives after the writer moved on.
+            let enginePredictions = await Task.detached(priority: .userInitiated) {
+                PredictionEngine.predict(model, type: kind, text: text, index: index)
+            }.value
+            guard !Task.isCancelled,
+                  generation == predictionGeneration,
+                  activeElementID == element.id,
+                  activeElementIndex == index,
+                  screenplay.elements.indices.contains(index),
+                  screenplay.elements[index].text == element.text else { return }
+            let result = enginePredictions.map {
                 EnginePrediction(
                     text: $0.text,
                     why: $0.why,
@@ -364,12 +483,6 @@ final class EditorState {
                     hint: $0.hint
                 )
             }
-            guard !Task.isCancelled,
-                  generation == predictionGeneration,
-                  activeElementID == element.id,
-                  activeElementIndex == index,
-                  screenplay.elements.indices.contains(index),
-                  screenplay.elements[index].text == element.text else { return }
             let filtered = mode == .formatOnly
                 ? result.filter { ($0.hint ?? false) || $0.becomes != nil }
                 : result
@@ -481,7 +594,17 @@ final class EditorState {
         statsTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(800))
             guard let self, !Task.isCancelled else { return }
-            stats = screenplayStats()
+            let model = self.currentEngineModel
+            let scheduledRevision = self.revision
+            let linesPerPage = PageFormat.current.linesPerPage
+            // Pagination walks and wraps every element — off the main actor,
+            // so page math on a feature script never hitches the keystroke
+            // that triggered it.
+            let computed = await Task.detached(priority: .utility) {
+                Self.screenplayStats(for: model, linesPerPage: linesPerPage)
+            }.value
+            guard !Task.isCancelled, self.revision == scheduledRevision else { return }
+            self.stats = computed
         }
     }
 
@@ -492,24 +615,32 @@ final class EditorState {
     }
 
     private func serializedSource() -> String {
-        Fountain.serialise(screenplay.engineModel)
+        Fountain.serialise(currentEngineModel)
     }
 
-    /// Precise stats from the native paginator. The Swift-only estimate
-    /// remains as the unreachable-in-practice guard below it.
-    private func screenplayStats() -> ScreenplayStats {
-        guard let pages = try? Paginator.paginate(
-            screenplay.engineModel,
-            linesPerPage: PageFormat.current.linesPerPage
-        ) else {
-            return Self.quickStats(for: screenplay)
+    /// Precise stats from the native paginator over the cached engine model,
+    /// with the line-count estimate as the unreachable-in-practice guard.
+    /// `nonisolated`: pure function of its inputs, called from detached tasks.
+    private nonisolated static func screenplayStats(
+        for model: DraftFirstEngine.Screenplay,
+        linesPerPage: Int
+    ) -> ScreenplayStats {
+        let words = model.elements.reduce(0) {
+            $0 + $1.text.split(whereSeparator: \.isWhitespace).count
+        }
+        guard let pages = try? Paginator.paginate(model, linesPerPage: linesPerPage) else {
+            let lines = model.elements.reduce(0) { $0 + max(1, $1.text.count / 60) }
+            let estimated = max(1, Int(ceil(Double(lines) / Double(linesPerPage))))
+            return ScreenplayStats(
+                pages: estimated,
+                runtime: estimated <= 1 ? "~1 minute" : "~\(estimated) minutes",
+                words: words
+            )
         }
         return ScreenplayStats(
             pages: max(1, pages.count),
             runtime: Paginator.estimateRuntime(pages),
-            words: screenplay.elements.reduce(0) {
-                $0 + $1.text.split(whereSeparator: \.isWhitespace).count
-            }
+            words: words
         )
     }
 

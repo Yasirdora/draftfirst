@@ -27,6 +27,20 @@ struct EditorView: View {
             ScriptTextView(editor: editor)
         }
         .preferredColorScheme(appearance.colorScheme)
+        // Transient, non-modal notices — element toasts on swipe, sync
+        // arrivals — one capsule just under the chrome row.
+        .overlay(alignment: .top) {
+            if let banner = editor.banner {
+                Text(banner)
+                    .font(.footnote.weight(.medium))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 56)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.18), value: editor.banner)
         // DocumentGroupLaunchScene retires the system document chrome; keep
         // the navigation bar hidden so no system back button or title can
         // reappear. The chrome row below is UIKit-hosted (see EditorChrome):
@@ -81,14 +95,12 @@ struct EditorView: View {
         }
         .onChange(of: document.source) { _, newSource in
             // A genuinely external change (conflict resolution, another
-            // device) reloads the editor. The echo of our own publish never
-            // does, and neither does an unchanged redelivery at launch —
+            // device) is applied in place: caret, scroll, and both undo
+            // timelines survive. The echo of our own publish never does
+            // this, and neither does an unchanged redelivery at launch —
             // that is what lastKnownSource is for.
             guard newSource != editor.lastKnownSource else { return }
-            editor.flushPendingWork()
-            let fresh = EditorState(source: newSource)
-            wire(fresh)
-            editor = fresh
+            editor.applyExternalSource(newSource)
         }
         .onChange(of: scenePhase) { _, phase in
             // Backgrounding mid-keystroke must not strand the debounced
