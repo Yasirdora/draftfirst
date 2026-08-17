@@ -48,7 +48,12 @@ struct EditorView: View {
         // its menus present through the system window-level path, so they
         // morph from their source and capture input while open.
         .toolbarVisibility(.hidden, for: .navigationBar)
-        .safeAreaInset(edge: .top, spacing: 0) {
+        // safeAreaBar, not safeAreaInset: the accessory is our chrome row,
+        // and the system paints its own native bar treatment behind it —
+        // the transparent, progressively blurring header Apple's apps get
+        // from a real navigation bar. No hand-rolled backdrop can match it
+        // because none of them ARE it.
+        .safeAreaBar(edge: .top, spacing: 0) {
             EditorChrome(
                 editor: editor,
                 closeDocument: closeDocument,
