@@ -250,7 +250,7 @@ final class EditorState {
         commitChange(liveTyping: !structural)
     }
 
-    func cycleActiveKind(backwards: Bool, announced: Bool = false) {
+    func cycleActiveKind(backwards: Bool) {
         guard let index = activeElementIndex else { return }
         let previous = index > 0 ? screenplay.elements[index - 1].type : nil
         let current = screenplay.elements[index].type
@@ -259,11 +259,7 @@ final class EditorState {
             within: Choreography.tabSetFor(previous: previous?.engineKind),
             backwards: backwards
         )
-        let newKind = ScreenplayKind(engineKind: kind)
-        onChangeElementKind?(newKind)
-        // Swipes announce themselves so the gesture is learnable and a
-        // misfire is visible; hardware Tab users already watch the pill.
-        if announced { showBanner(newKind.title) }
+        onChangeElementKind?(ScreenplayKind(engineKind: kind))
     }
 
     /// Applies a document changed outside this editor — iCloud delivery,
