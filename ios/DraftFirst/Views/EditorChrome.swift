@@ -74,7 +74,9 @@ struct EditorChrome: UIViewRepresentable {
         let undo = ChromeButton.circle(
             systemName: "arrow.uturn.backward",
             label: "Undo",
-            hint: "Long press for redo",
+            // The long-press-for-redo hint is set in updateUIView, where
+            // it can be withdrawn whenever Redo is not actually offered.
+            hint: nil,
             target: coordinator,
             action: #selector(Coordinator.undoTapped)
         )
@@ -133,41 +135,37 @@ struct EditorChrome: UIViewRepresentable {
         config?.baseForegroundColor = canUndo || redoOnly ? .label : .secondaryLabel
         undo.configuration = config
         undo.accessibilityLabel = redoOnly ? "Redo" : "Undo"
-        // The long-press menu presents the counterpart of the button's
-        // current direction: Redo while undoing, Undo in redo-only mode —
-        // never an echo of what the tap already does.
-        undo.menu = redoOnly
+        // The long-press menu exists only when it offers a real action.
+        // In redo-only mode the counterpart (Undo) is unavailable by
+        // definition — that is what redo-only means — so any menu there
+        // could only ever hold a permanently disabled item, which reads
+        // as broken. The same goes for a grayed-out Redo before anything
+        // has been undone. No actionable counterpart, no menu; the tap
+        // still carries whichever direction is live.
+        let redoAvailableOnLongPress = !redoOnly && canRedo
+        undo.menu = redoAvailableOnLongPress
             ? UIMenu(children: [
                 UIAction(
-                    title: "Undo",
-                    image: UIImage(systemName: "arrow.uturn.backward"),
-                    attributes: canUndo ? [] : .disabled
-                ) { [weak coordinator] _ in
-                    coordinator?.chrome.editor.undo()
-                }
-            ])
-            : UIMenu(children: [
-                UIAction(
                     title: "Redo",
-                    image: UIImage(systemName: "arrow.uturn.forward"),
-                    attributes: canRedo ? [] : .disabled
+                    image: UIImage(systemName: "arrow.uturn.forward")
                 ) { [weak coordinator] _ in
                     coordinator?.chrome.editor.redo()
                 }
             ])
-        undo.accessibilityCustomActions = [
-            UIAccessibilityCustomAction(name: redoOnly ? "Undo" : "Redo") { [weak coordinator] _ in
-                guard let coordinator else { return false }
-                if redoOnly {
-                    guard coordinator.chrome.canUndo else { return false }
-                    coordinator.chrome.editor.undo()
-                } else {
-                    guard coordinator.chrome.canRedo else { return false }
+            : nil
+        // VoiceOver gets the same rule: the rotor offers Redo only when
+        // the menu would, and the hint never promises a menu that is
+        // not there.
+        undo.accessibilityHint = redoAvailableOnLongPress ? "Long press for redo" : nil
+        undo.accessibilityCustomActions = redoAvailableOnLongPress
+            ? [
+                UIAccessibilityCustomAction(name: "Redo") { [weak coordinator] _ in
+                    guard let coordinator, coordinator.chrome.canRedo else { return false }
                     coordinator.chrome.editor.redo()
+                    return true
                 }
-                return true
-            }
-        ]
+            ]
+            : []
     }
 
     @MainActor
