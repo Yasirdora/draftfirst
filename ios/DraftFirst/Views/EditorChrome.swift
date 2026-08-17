@@ -133,19 +133,38 @@ struct EditorChrome: UIViewRepresentable {
         config?.baseForegroundColor = canUndo || redoOnly ? .label : .secondaryLabel
         undo.configuration = config
         undo.accessibilityLabel = redoOnly ? "Redo" : "Undo"
-        undo.menu = UIMenu(children: [
-            UIAction(
-                title: "Redo",
-                image: UIImage(systemName: "arrow.uturn.forward"),
-                attributes: canRedo ? [] : .disabled
-            ) { [weak coordinator] _ in
-                coordinator?.chrome.editor.redo()
-            }
-        ])
+        // The long-press menu presents the counterpart of the button's
+        // current direction: Redo while undoing, Undo in redo-only mode —
+        // never an echo of what the tap already does.
+        undo.menu = redoOnly
+            ? UIMenu(children: [
+                UIAction(
+                    title: "Undo",
+                    image: UIImage(systemName: "arrow.uturn.backward"),
+                    attributes: canUndo ? [] : .disabled
+                ) { [weak coordinator] _ in
+                    coordinator?.chrome.editor.undo()
+                }
+            ])
+            : UIMenu(children: [
+                UIAction(
+                    title: "Redo",
+                    image: UIImage(systemName: "arrow.uturn.forward"),
+                    attributes: canRedo ? [] : .disabled
+                ) { [weak coordinator] _ in
+                    coordinator?.chrome.editor.redo()
+                }
+            ])
         undo.accessibilityCustomActions = [
-            UIAccessibilityCustomAction(name: "Redo") { [weak coordinator] _ in
-                guard let coordinator, coordinator.chrome.canRedo else { return false }
-                coordinator.chrome.editor.redo()
+            UIAccessibilityCustomAction(name: redoOnly ? "Undo" : "Redo") { [weak coordinator] _ in
+                guard let coordinator else { return false }
+                if redoOnly {
+                    guard coordinator.chrome.canUndo else { return false }
+                    coordinator.chrome.editor.undo()
+                } else {
+                    guard coordinator.chrome.canRedo else { return false }
+                    coordinator.chrome.editor.redo()
+                }
                 return true
             }
         ]
