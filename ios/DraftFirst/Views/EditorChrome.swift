@@ -343,8 +343,7 @@ enum ChromeMetrics {
     static let symbol = UIImage.SymbolConfiguration(font: .systemFont(ofSize: 18, weight: .medium))
 }
 
-/// Hosts the chrome row, the air above it, and the Liquid Glass backdrop
-/// behind it.
+/// Hosts the chrome row and the air above it.
 ///
 /// The gap: the representable is already placed below the safe area, so the
 /// gap is the shortfall between the window's real top inset (59 pt in
@@ -352,34 +351,18 @@ enum ChromeMetrics {
 /// controls need — portrait therefore keeps its exact approved layout, and
 /// only unsafe orientations pad.
 ///
-/// The backdrop is genuine Liquid Glass (UIGlassEffect, clear style) — the
-/// material iOS 26 bars are made of: fully transparent at rest, refracting
-/// and glossing whatever scrolls beneath it. The view overflows the screen
-/// on three sides so no glass edge highlight is ever visible, and the
-/// bottom edge dissolves through a gradient mask, the same progressive
-/// fade Safari's top bar has. The fade tail paints past the container's
-/// bounds without stealing layout height, and touches outside the bounds
-/// fall through to the text view on their own.
+/// There is deliberately no backdrop. The native iOS 26 header is not a
+/// bar: the page runs uninterrupted to the top edge of the screen and the
+/// controls float over it as glass — the gloss lives IN the buttons
+/// themselves, not in a sheet behind them. Every material, blur band, or
+/// glass layer tried here read as exactly what it was: a layer.
 final class ChromeContainerView: UIView {
     let row: UIStackView
     private var rowTop: NSLayoutConstraint!
-    private let backdrop = UIVisualEffectView(effect: UIGlassEffect(style: .clear))
-    private let backdropMask = CAGradientLayer()
-    /// How far below the controls the glass takes to dissolve fully.
-    private let fadeBelow: CGFloat = 22
-    /// How far the glass overflows the screen's top and side edges, pushing
-    /// its specular edge highlights offscreen — only the faded bottom edge
-    /// remains, never a visible slab outline.
-    private let overflow: CGFloat = 24
 
     init(row: UIStackView) {
         self.row = row
         super.init(frame: .zero)
-        // The glass must span the full screen width, so the 16 pt side air
-        // lives on the row itself rather than as SwiftUI padding that would
-        // narrow the backdrop with the container.
-        backdrop.layer.mask = backdropMask
-        addSubview(backdrop)
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
         rowTop = row.topAnchor.constraint(equalTo: topAnchor)
@@ -409,24 +392,6 @@ final class ChromeContainerView: UIView {
         // own safe area, so recompute on every layout pass.
         rowTop.constant = topGap
         super.layoutSubviews()
-        let above = screenTopOffset + overflow
-        let totalHeight = above + bounds.height + fadeBelow
-        backdrop.frame = CGRect(
-            x: -overflow, y: -above,
-            width: bounds.width + overflow * 2, height: totalHeight
-        )
-        // Full glass from offscreen through the controls, then a linear
-        // dissolve across the tail.
-        let solidEnd = (above + bounds.height) / totalHeight
-        backdropMask.colors = [
-            UIColor.white.cgColor,
-            UIColor.white.cgColor,
-            UIColor.clear.cgColor
-        ]
-        backdropMask.locations = [0, NSNumber(value: Double(solidEnd)), 1]
-        backdropMask.startPoint = CGPoint(x: 0.5, y: 0)
-        backdropMask.endPoint = CGPoint(x: 0.5, y: 1)
-        backdropMask.frame = backdrop.bounds
     }
 }
 
