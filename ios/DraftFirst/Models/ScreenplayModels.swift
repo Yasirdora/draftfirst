@@ -109,23 +109,29 @@ struct ScriptElement: Identifiable, Codable, Equatable, Sendable {
     var text: String
     var dual: Bool?
     var sceneNumber: String?
+    /// Section depth (`#` count). Carried losslessly even though the editor
+    /// has no section UI yet — a collaborator's outline must survive a
+    /// round-trip through eDraft untouched.
+    var depth: Int?
 
     init(
         id: UUID = UUID(),
         type: ScreenplayKind,
         text: String,
         dual: Bool? = nil,
-        sceneNumber: String? = nil
+        sceneNumber: String? = nil,
+        depth: Int? = nil
     ) {
         self.id = id
         self.type = type
         self.text = text
         self.dual = dual
         self.sceneNumber = sceneNumber
+        self.depth = depth
     }
 
     private enum CodingKeys: String, CodingKey {
-        case type, text, dual, sceneNumber
+        case type, text, dual, sceneNumber, depth
     }
 
     init(from decoder: Decoder) throws {
@@ -135,6 +141,7 @@ struct ScriptElement: Identifiable, Codable, Equatable, Sendable {
         text = try container.decode(String.self, forKey: .text)
         dual = try container.decodeIfPresent(Bool.self, forKey: .dual)
         sceneNumber = try container.decodeIfPresent(String.self, forKey: .sceneNumber)
+        depth = try container.decodeIfPresent(Int.self, forKey: .depth)
     }
 }
 
@@ -171,9 +178,8 @@ struct Screenplay: Codable, Equatable, Sendable {
 // MARK: - Native engine model conversion
 
 extension Screenplay {
-    /// The engine package's identity-free model. Section depth has no app
-    /// representation and is intentionally dropped, matching the behavior of
-    /// the former JavaScript bridge (which decoded into `ScriptElement`).
+    /// The engine package's identity-free model. Every field the engine
+    /// carries — dual, sceneNumber, section depth — round-trips losslessly.
     var engineModel: DraftFirstEngine.Screenplay {
         DraftFirstEngine.Screenplay(
             titlePage: titlePage.map {
@@ -184,7 +190,8 @@ extension Screenplay {
                     type: $0.type.engineKind,
                     text: $0.text,
                     dual: $0.dual,
-                    sceneNumber: $0.sceneNumber
+                    sceneNumber: $0.sceneNumber,
+                    depth: $0.depth
                 )
             }
         )
@@ -200,7 +207,8 @@ extension Screenplay {
                     type: ScreenplayKind(engineKind: $0.type),
                     text: $0.text,
                     dual: $0.dual,
-                    sceneNumber: $0.sceneNumber
+                    sceneNumber: $0.sceneNumber,
+                    depth: $0.depth
                 )
             }
         )
