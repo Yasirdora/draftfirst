@@ -61,7 +61,8 @@ struct EditorView: View {
                 canUndo: editor.canUndo,
                 canRedo: editor.canRedo
             )
-            .padding(.horizontal, 16)
+            // No horizontal padding here: the container insets the row
+            // itself so its material backdrop can span the full width.
         }
         .sheet(item: $presentedPanel, onDismiss: { panelFullyDismissed = true }) { panel in
             switch panel {

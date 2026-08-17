@@ -338,30 +338,50 @@ enum ChromeMetrics {
     /// Portrait earns this free from the safe area (the Dynamic Island
     /// pushes the row down); an iPhone in landscape has no top inset at
     /// all, so without a floor the controls would touch the glass.
-    static let minimumTopGap: CGFloat = 8
+    static let minimumTopGap: CGFloat = 10
     /// One uniform glyph: 18 pt medium, matching Apple's top bars.
     static let symbol = UIImage.SymbolConfiguration(font: .systemFont(ofSize: 18, weight: .medium))
 }
 
-/// Hosts the chrome row and owns the air above it. The representable is
-/// already placed below the safe area, so the gap is the shortfall between
-/// the window's real top inset (59 pt in portrait, 0 in landscape on a
-/// notched iPhone) and the minimum the controls need — portrait therefore
-/// keeps its exact approved layout, and only unsafe orientations pad.
+/// Hosts the chrome row, the air above it, and the progressive material
+/// backdrop behind it.
+///
+/// The gap: the representable is already placed below the safe area, so the
+/// gap is the shortfall between the window's real top inset (59 pt in
+/// portrait, 0 in landscape on a notched iPhone) and the minimum the
+/// controls need — portrait therefore keeps its exact approved layout, and
+/// only unsafe orientations pad.
+///
+/// The backdrop: a system-material blur that is solid behind the controls
+/// and dissolves across a short tail below them — the way Safari's and
+/// Messages' headers let scrolling content melt away instead of hard-clipping
+/// at a solid band. It paints below the container's bounds (clipsToBounds is
+/// untouched) so the tail overlaps the resting text without stealing layout
+/// height, and because the tail lies outside the container's bounds, touches
+/// there fall through to the text view automatically.
 final class ChromeContainerView: UIView {
     let row: UIStackView
     private var rowTop: NSLayoutConstraint!
+    private let backdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+    private let backdropMask = CAGradientLayer()
+    /// How far the blur tail fades out below the controls.
+    private let fadeBelow: CGFloat = 18
 
     init(row: UIStackView) {
         self.row = row
         super.init(frame: .zero)
+        // The blur must span the full screen width, so the 16 pt side air
+        // lives on the row itself rather than as SwiftUI padding that would
+        // narrow the backdrop with the container.
+        backdrop.layer.mask = backdropMask
+        addSubview(backdrop)
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
         rowTop = row.topAnchor.constraint(equalTo: topAnchor)
         NSLayoutConstraint.activate([
             rowTop,
-            row.leadingAnchor.constraint(equalTo: leadingAnchor),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor),
+            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             row.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
     }
@@ -379,6 +399,21 @@ final class ChromeContainerView: UIView {
         // own safe area, so recompute on every layout pass.
         rowTop.constant = topGap
         super.layoutSubviews()
+        backdrop.frame = CGRect(
+            x: 0, y: 0,
+            width: bounds.width, height: bounds.height + fadeBelow
+        )
+        // Solid across the controls, then a linear dissolve over the tail.
+        let solidEnd = bounds.height / (bounds.height + fadeBelow)
+        backdropMask.colors = [
+            UIColor.white.cgColor,
+            UIColor.white.cgColor,
+            UIColor.clear.cgColor
+        ]
+        backdropMask.locations = [0, NSNumber(value: Double(solidEnd)), 1]
+        backdropMask.startPoint = CGPoint(x: 0.5, y: 0)
+        backdropMask.endPoint = CGPoint(x: 0.5, y: 1)
+        backdropMask.frame = backdrop.bounds
     }
 }
 
