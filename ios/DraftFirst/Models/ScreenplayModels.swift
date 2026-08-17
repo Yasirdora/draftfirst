@@ -160,10 +160,10 @@ struct Screenplay: Codable, Equatable, Sendable {
             TitlePageEntry(key: "Credit", values: ["written by"])
         ],
         elements: [
-            ScriptElement(type: .transition, text: "FADE IN:"),
-            // A single empty Action, never an empty Scene: an invisible
-            // uppercase kind under the caret would capitalize everything the
-            // writer types. Scene promotion comes from the prediction engine.
+            // A truly blank page: a single empty Action, never an empty
+            // Scene — an invisible uppercase kind under the caret would
+            // capitalize everything the writer types. Scene promotion
+            // comes from the prediction engine.
             ScriptElement(type: .action, text: "")
         ]
     )

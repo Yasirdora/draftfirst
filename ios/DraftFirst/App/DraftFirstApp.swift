@@ -66,7 +66,7 @@ struct DraftFirstApp: App {
         DocumentGroup(newDocument: DraftFirstDocument()) { file in
             // A writer resumes where the writing ends: the caret opens at the
             // end of the document, never stranded on the first element. For a
-            // blank screenplay that is the empty Action after FADE IN:.
+            // blank screenplay that is its single empty Action.
             EditorView(document: file.$document, startsAtEnd: true)
         }
 #endif

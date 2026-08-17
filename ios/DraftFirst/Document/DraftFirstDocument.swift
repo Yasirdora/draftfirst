@@ -54,11 +54,11 @@ struct DraftFirstDocument: FileDocument {
         return data
     }
 
+    /// A new screenplay is a blank page, not a pre-written ritual: title
+    /// page plus nothing. FADE IN: is the writer's to type, not ours.
     private static let blankSource = """
     Title: Untitled Screenplay
     Credit: written by
-
-    FADE IN:
 
 
     """

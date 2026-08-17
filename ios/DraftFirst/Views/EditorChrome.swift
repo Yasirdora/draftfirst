@@ -204,7 +204,7 @@ struct EditorChrome: UIViewRepresentable {
             // reserves "…" for legacy AppKit menus), and every row here
             // opens its destination directly.
             let navigator = UIAction(
-                title: "Navigator", image: UIImage(systemName: "map")
+                title: "Navigator", image: UIImage(systemName: "safari")
             ) { [weak self] _ in
                 self?.chrome.showStory()
             }

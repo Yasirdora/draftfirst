@@ -40,15 +40,17 @@ final class DraftFirstDocumentTests: XCTestCase {
         XCTAssertThrowsError(try DraftFirstDocument.decode(latin1))
     }
 
-    /// A brand-new document opens as title page + FADE IN:, with the title
-    /// already readable from the title page for the document browser.
+    /// A brand-new document opens as a title page and one empty Action —
+    /// a truly blank page — with the title already readable from the title
+    /// page for the document browser.
     @MainActor
     func testBlankDocumentParsesToOpeningState() throws {
         let editor = EditorState(source: try DraftFirstDocument.decode(
             DraftFirstDocument().source.data(using: .utf8)
         ))
-        XCTAssertEqual(editor.screenplay.elements.first?.type, .transition)
-        XCTAssertEqual(editor.screenplay.elements.first?.text, "FADE IN:")
+        XCTAssertEqual(editor.screenplay.elements.count, 1)
+        XCTAssertEqual(editor.screenplay.elements.first?.type, .action)
+        XCTAssertEqual(editor.screenplay.elements.first?.text, "")
         XCTAssertEqual(editor.screenplay.title, "Untitled Screenplay")
     }
 }
