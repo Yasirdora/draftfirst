@@ -1,6 +1,6 @@
-# Draft First for iOS
+# eDraft for iOS
 
-Draft First is a native iOS 26 screenplay editor built with SwiftUI, UIKit text editing, Liquid Glass controls, and the native `DraftFirstEngine` Swift package — no JavaScript runtime, no bridge.
+eDraft is a native iOS 26 screenplay editor built with SwiftUI, UIKit text editing, Liquid Glass controls, and the native `DraftFirstEngine` Swift package — no JavaScript runtime, no bridge. (The product is eDraft; `DraftFirst` survives only in code identifiers — the Xcode project, bundle ID, and engine package.)
 
 ## Run
 
@@ -33,7 +33,7 @@ Inline suggestions come from the native prediction engine for character, locatio
 - **Space** accepts an actionable inline completion and adds one trailing space.
 - **Keep typing** rejects the completion without interrupting native input.
 - Apple autocorrection, spell checking, dictation, selection, and Writing Tools remain native.
-- The overlapping system inline predictor is disabled because Draft First supplies screenplay-aware completions.
+- The overlapping system inline predictor is disabled because eDraft supplies screenplay-aware completions.
 
 Editor preview builds must use a separate bundle identifier so they never replace the regular app or its document-browser launch state:
 

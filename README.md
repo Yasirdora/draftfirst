@@ -1,14 +1,16 @@
-# Draft First Screenwriting
+# eDraft Screenwriting
 
 [![npm version](https://img.shields.io/npm/v/%40draftfirst%2Fcore?label=%40draftfirst%2Fcore&color=cb3837)](https://www.npmjs.com/package/@draftfirst/core)
 [![npm downloads](https://img.shields.io/npm/dm/%40draftfirst%2Fcore?color=cb3837)](https://www.npmjs.com/package/@draftfirst/core)
 [![CI](https://github.com/Yasirdora/draftfirst/actions/workflows/ci.yml/badge.svg)](https://github.com/Yasirdora/draftfirst/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-2ea44f.svg)](./LICENSE)
 
-Draft First is a privacy-first screenwriting workspace backed by a reusable,
+eDraft is a privacy-first screenwriting workspace backed by a reusable,
 framework-independent TypeScript engine. It supports Fountain and a deliberately
 bounded subset of FDX, deterministic screenplay pagination, story-aware writing
 assistance, and continuity analysis without sending a writer's work to a server.
+(The product is eDraft; the repository, npm scope, and code identifiers remain
+`draftfirst`.)
 
 Development began in November 2025. The first public engine release was prepared
 in August 2026 after the document model, interoperability layer, pagination, and
@@ -22,7 +24,7 @@ editor policies were separated into a tested package.
 ## Why this project exists
 
 Screenwriting software should be predictable, portable, and honest about file
-compatibility. Draft First separates document logic from interface code so the
+compatibility. eDraft separates document logic from interface code so the
 same tested engine can power a browser editor, command-line tool, desktop app,
 or integration without bringing along a UI framework.
 
