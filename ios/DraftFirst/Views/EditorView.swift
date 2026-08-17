@@ -26,10 +26,15 @@ struct EditorView: View {
     var body: some View {
         ZStack {
             Color.screenplayPaper.ignoresSafeArea()
+            // The page extends under the transparent navigation bar, so
+            // scrolling lines pass beneath the platform's glass the way
+            // they do in Apple's own apps; the bar's safe-area inset keeps
+            // the resting first line clear of it.
             ScriptTextView(editor: editor)
+                .ignoresSafeArea(.container, edges: .top)
         }
-        // Transient, non-modal notices — element toasts on swipe, sync
-        // arrivals — one capsule just under the chrome row.
+        // Transient, non-modal notices — sync arrivals — one capsule just
+        // under the navigation bar.
         .overlay(alignment: .top) {
             if let banner = editor.banner {
                 Text(banner)
@@ -37,35 +42,36 @@ struct EditorView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
                     .background(.ultraThinMaterial, in: Capsule())
-                    .padding(.top, 56)
+                    .padding(.top, 8)
                     .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.18), value: editor.banner)
-        // DocumentGroupLaunchScene retires the system document chrome; keep
-        // the navigation bar hidden so no system back button or title can
-        // reappear. The chrome row below is UIKit-hosted (see EditorChrome):
-        // its menus present through the system window-level path, so they
-        // morph from their source and capture input while open.
-        .toolbarVisibility(.hidden, for: .navigationBar)
-        // Plain safeAreaInset: safeAreaBar paints the system's bar material,
-        // which is a tint — at rest it reads as a solid band. The header's
-        // glass lives in ChromeContainerView as a plain masked blur instead.
-        .safeAreaInset(edge: .top, spacing: 0) {
-            EditorChrome(
-                editor: editor,
-                closeDocument: closeDocument,
-                showStory: { present(.story) },
-                showTitlePage: { present(.titlePage) },
-                showSettings: { present(.settings) },
-                setAppearance: { appearance = $0 },
-                activeKind: editor.activeKind,
-                contextualKinds: editor.contextualKinds,
-                canUndo: editor.canUndo,
-                canRedo: editor.canRedo
-            )
-            // No horizontal padding here: the container insets the row
-            // itself so its material backdrop can span the full width.
+        // The header is the real navigation bar — the platform's own
+        // transparent glass — with our UIKit controls placed per slot (see
+        // EditorChrome). DocumentGroupLaunchScene has already retired the
+        // system document chrome, but the stack's own back chevron still
+        // appears beside ours; ours wins because it flushes pending work
+        // before dismissing.
+        .navigationBarBackButtonHidden(true)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                BackToolbarControl(chrome: chrome)
+            }
+            ToolbarItem(placement: .principal) {
+                ElementToolbarControl(chrome: chrome)
+            }
+            // Two separate trailing items, never one merged capsule: iOS 26
+            // fuses adjacent trailing controls into a single glass cluster,
+            // and a fixed spacer is the system's own seam between them.
+            ToolbarItem(placement: .topBarTrailing) {
+                UndoToolbarControl(chrome: chrome)
+            }
+            ToolbarSpacer(.fixed, placement: .topBarTrailing)
+            ToolbarItem(placement: .topBarTrailing) {
+                SettingsToolbarControl(chrome: chrome)
+            }
         }
         .sheet(item: $presentedPanel, onDismiss: { panelFullyDismissed = true }) { panel in
             switch panel {
@@ -118,6 +124,24 @@ struct EditorView: View {
         guard panelFullyDismissed, presentedPanel == nil else { return }
         panelFullyDismissed = false
         presentedPanel = panel
+    }
+
+    /// The toolbar controls' shared input. Built in body so every tracked
+    /// read (active kind, undo availability, …) invalidates the controls
+    /// through SwiftUI's normal update pass.
+    private var chrome: EditorChrome {
+        EditorChrome(
+            editor: editor,
+            closeDocument: closeDocument,
+            showStory: { present(.story) },
+            showTitlePage: { present(.titlePage) },
+            showSettings: { present(.settings) },
+            setAppearance: { appearance = $0 },
+            activeKind: editor.activeKind,
+            contextualKinds: editor.contextualKinds,
+            canUndo: editor.canUndo,
+            canRedo: editor.canRedo
+        )
     }
 
     private func wire(_ editor: EditorState) {

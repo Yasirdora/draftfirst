@@ -82,10 +82,14 @@ private struct EditorPreviewHost: View {
     }
 
     var body: some View {
-        EditorView(
-            document: $document,
-            startsAtEnd: EditorPreviewConfiguration.usesPredictionFixture
-        )
+        // The editor's chrome lives in the navigation bar; the preview
+        // supplies the stack a DocumentGroup would provide in production.
+        NavigationStack {
+            EditorView(
+                document: $document,
+                startsAtEnd: EditorPreviewConfiguration.usesPredictionFixture
+            )
+        }
     }
 }
 
