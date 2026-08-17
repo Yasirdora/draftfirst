@@ -343,7 +343,7 @@ enum ChromeMetrics {
     static let symbol = UIImage.SymbolConfiguration(font: .systemFont(ofSize: 18, weight: .medium))
 }
 
-/// Hosts the chrome row and the air above it.
+/// Hosts the chrome row, the air above it, and the header's glass.
 ///
 /// The gap: the representable is already placed below the safe area, so the
 /// gap is the shortfall between the window's real top inset (59 pt in
@@ -351,18 +351,35 @@ enum ChromeMetrics {
 /// controls need — portrait therefore keeps its exact approved layout, and
 /// only unsafe orientations pad.
 ///
-/// There is deliberately no backdrop. The native iOS 26 header is not a
-/// bar: the page runs uninterrupted to the top edge of the screen and the
-/// controls float over it as glass — the gloss lives IN the buttons
-/// themselves, not in a sheet behind them. Every material, blur band, or
-/// glass layer tried here read as exactly what it was: a layer.
+/// The glass is a plain blur chosen to match the page's luminance — never
+/// a material. Every bar material and glass effect carries a tint, and at
+/// rest a tint reads as a solid band; a luminance-matched blur over the
+/// flat page is invisible at rest and only reveals itself when text
+/// scrolls beneath, which is exactly the "transparent gradient glass" of
+/// Apple's own headers. The gradient mask dissolves the effect below the
+/// controls, the view overflows the screen's top and sides so coverage is
+/// continuous, and the fade tail paints past the container's bounds
+/// without stealing layout height or touches.
 final class ChromeContainerView: UIView {
     let row: UIStackView
     private var rowTop: NSLayoutConstraint!
+    private let backdrop = UIVisualEffectView()
+    private let backdropMask = CAGradientLayer()
+    /// How far below the controls the blur takes to dissolve fully.
+    private let fadeBelow: CGFloat = 28
+    /// How far the blur overflows the screen's top and side edges so
+    /// coverage is continuous — no untreated strip around the island.
+    private let overflow: CGFloat = 24
 
     init(row: UIStackView) {
         self.row = row
         super.init(frame: .zero)
+        // The blur must span the full screen width, so the 16 pt side air
+        // lives on the row itself rather than as SwiftUI padding that would
+        // narrow the backdrop with the container.
+        backdrop.layer.mask = backdropMask
+        addSubview(backdrop)
+        updateBackdropEffect()
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
         rowTop = row.topAnchor.constraint(equalTo: topAnchor)
@@ -387,11 +404,45 @@ final class ChromeContainerView: UIView {
         max(0, ChromeMetrics.minimumTopGap - screenTopOffset)
     }
 
+    /// Dark paper gets a .dark blur, light paper an .extraLight one: each
+    /// is near-invisible over its own page at rest, so the header is
+    /// transparent glass rather than a tinted band. Recomputed on trait
+    /// changes because the app's appearance override is window-level.
+    private func updateBackdropEffect() {
+        let dark = traitCollection.userInterfaceStyle == .dark
+        backdrop.effect = UIBlurEffect(style: dark ? .dark : .extraLight)
+    }
+
+    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+        super.traitCollectionDidChange(previous)
+        if traitCollection.userInterfaceStyle != previous?.userInterfaceStyle {
+            updateBackdropEffect()
+        }
+    }
+
     override func layoutSubviews() {
         // Rotation changes the window's insets without touching this view's
         // own safe area, so recompute on every layout pass.
         rowTop.constant = topGap
         super.layoutSubviews()
+        let above = screenTopOffset + overflow
+        let totalHeight = above + bounds.height + fadeBelow
+        backdrop.frame = CGRect(
+            x: -overflow, y: -above,
+            width: bounds.width + overflow * 2, height: totalHeight
+        )
+        // Full strength from offscreen through the controls, then a linear
+        // dissolve across the tail.
+        let solidEnd = (above + bounds.height) / totalHeight
+        backdropMask.colors = [
+            UIColor.white.cgColor,
+            UIColor.white.cgColor,
+            UIColor.clear.cgColor
+        ]
+        backdropMask.locations = [0, NSNumber(value: Double(solidEnd)), 1]
+        backdropMask.startPoint = CGPoint(x: 0.5, y: 0)
+        backdropMask.endPoint = CGPoint(x: 0.5, y: 1)
+        backdropMask.frame = backdrop.bounds
     }
 }
 

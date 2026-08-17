@@ -58,6 +58,17 @@ struct ScriptTextView: UIViewRepresentable {
         let shouldExerciseLowercaseAction = CommandLine.arguments.contains("-qa-action-lowercase")
         let shouldExerciseUppercaseCharacter = CommandLine.arguments.contains("-qa-character-uppercase")
         let shouldExerciseQuickTypeScene = CommandLine.arguments.contains("-qa-quicktype-scene")
+        // Visual-QA fixture: scroll content under the header so its blur
+        // can be verified from a screenshot, not guessed from a rest state.
+        if CommandLine.arguments.contains("-qa-header-scroll") {
+            Task { @MainActor in
+                await Task.yield()
+                textView.setContentOffset(
+                    CGPoint(x: 0, y: -textView.adjustedContentInset.top + 160),
+                    animated: false
+                )
+            }
+        }
         if CommandLine.arguments.contains("-show-keyboard")
             || shouldExerciseSpaceAcceptance
             || shouldExercisePredictionUndo

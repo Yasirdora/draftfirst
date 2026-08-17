@@ -48,12 +48,10 @@ struct EditorView: View {
         // its menus present through the system window-level path, so they
         // morph from their source and capture input while open.
         .toolbarVisibility(.hidden, for: .navigationBar)
-        // safeAreaBar, not safeAreaInset: the accessory is our chrome row,
-        // and the system paints its own native bar treatment behind it —
-        // the transparent, progressively blurring header Apple's apps get
-        // from a real navigation bar. No hand-rolled backdrop can match it
-        // because none of them ARE it.
-        .safeAreaBar(edge: .top, spacing: 0) {
+        // Plain safeAreaInset: safeAreaBar paints the system's bar material,
+        // which is a tint — at rest it reads as a solid band. The header's
+        // glass lives in ChromeContainerView as a plain masked blur instead.
+        .safeAreaInset(edge: .top, spacing: 0) {
             EditorChrome(
                 editor: editor,
                 closeDocument: closeDocument,
