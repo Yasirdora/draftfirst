@@ -12,13 +12,16 @@ extension UTType {
 
 struct DraftFirstDocument: FileDocument {
     static var readableContentTypes: [UTType] {
-        // Reading plain text keeps migration paths open (paste-ready .txt and
-        // .fountain files); writing is always our own screenplay type.
+        // Plain text covers the migration paths — paste-ready .txt and
+        // .fountain files (the imported fountain UTI conforms to it).
         [.draftFirstScreenplay, .plainText]
     }
 
     static var writableContentTypes: [UTType] {
-        [.draftFirstScreenplay]
+        // Both readable types are writable: a screenplay's source IS plain
+        // text (Fountain), so a .txt or .fountain opened in place saves back
+        // in place — never a read-only trap that would strand an hour of work.
+        [.draftFirstScreenplay, .plainText]
     }
 
     var source: String
@@ -28,18 +31,27 @@ struct DraftFirstDocument: FileDocument {
     }
 
     init(configuration: ReadConfiguration) throws {
-        guard let data = configuration.file.regularFileContents,
-              let source = String(data: data, encoding: .utf8) else {
-            throw CocoaError(.fileReadCorruptFile)
-        }
-        self.source = source
+        self.source = try Self.decode(configuration.file.regularFileContents)
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: try Self.encode(source))
+    }
+
+    /// UTF-8 is the only on-disk encoding; anything else is corruption,
+    /// never a silent lossy conversion.
+    static func decode(_ data: Data?) throws -> String {
+        guard let data, let source = String(data: data, encoding: .utf8) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        return source
+    }
+
+    static func encode(_ source: String) throws -> Data {
         guard let data = source.data(using: .utf8) else {
             throw CocoaError(.fileWriteInapplicableStringEncoding)
         }
-        return FileWrapper(regularFileWithContents: data)
+        return data
     }
 
     private static let blankSource = """
