@@ -1591,9 +1591,50 @@ final class ScreenplayTextView: UITextView {
         ]
     }
 
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        updateTopBarClearance()
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
+        updateTopBarClearance()
         onLayout?(bounds.width, traitCollection)
+    }
+
+    /// The page extends under the transparent navigation bar, so the resting
+    /// first line must start exactly at the bar's bottom edge — measured, not
+    /// assumed. SwiftUI's safe-area delivery differs between hosts (the QA
+    /// preview's NavigationStack propagates it into UIKit's automatic inset
+    /// adjustment; DocumentGroup's host does not), so any clearance derived
+    /// from safeAreaInsets alone is wrong in one of them. The bar's own frame
+    /// is the ground truth everywhere; whatever share the system's automatic
+    /// adjustment already contributes is subtracted, so the two never
+    /// double up. Rotation and bar show/hide both re-land here through
+    /// layoutSubviews.
+    private func updateTopBarClearance() {
+        guard window != nil, let barBottom = measuredTopBarBottom() else { return }
+        let systemContribution = adjustedContentInset.top - contentInset.top
+        let top = max(barBottom - systemContribution, 0)
+        guard abs(contentInset.top - top) > 0.5 else { return }
+        contentInset.top = top
+        verticalScrollIndicatorInsets.top = top
+    }
+
+    /// The navigation bar's bottom edge in this view's coordinates, or nil
+    /// when no bar floats above us — the system's own adjustment then owns
+    /// the clearance, exactly as before.
+    private func measuredTopBarBottom() -> CGFloat? {
+        var responder: UIResponder? = next
+        while let current = responder {
+            if let navigationController = current as? UINavigationController {
+                let bar = navigationController.navigationBar
+                guard !bar.isHidden, bar.window != nil else { return nil }
+                return max(bar.convert(bar.bounds, to: self).maxY, 0)
+            }
+            responder = current.next
+        }
+        return nil
     }
 
     @objc private func tabForward() { onTab?(false) }

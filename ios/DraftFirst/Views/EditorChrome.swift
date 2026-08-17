@@ -1,9 +1,11 @@
 import SwiftUI
 import UIKit
 
-/// The editor's commands as genuine system-toolbar content: (back) on the
-/// leading edge, (element selector) as the principal item, (undo/redo) and
-/// (document menu) trailing — the idiom of Apple's own document apps.
+/// The editor's commands as genuine system-toolbar content: the system's own
+/// close button leads (DocumentGroup installs it as a custom leading item no
+/// SwiftUI modifier can retire — a second chevron beside it read as a bug),
+/// (element selector) is the principal item, and (undo/redo) plus
+/// (document menu) trail — the idiom of Apple's own document apps.
 ///
 /// The header itself is no longer ours to draw. Every hand-rolled backdrop
 /// we tried — bar materials, masked blurs, glass sheets — read as a band
@@ -24,7 +26,6 @@ import UIKit
 /// them changes.
 struct EditorChrome {
     let editor: EditorState
-    let closeDocument: () -> Void
     let showStory: () -> Void
     let showTitlePage: () -> Void
     let showSettings: () -> Void
@@ -51,7 +52,6 @@ final class ChromeCoordinator {
 
     init(chrome: EditorChrome) { self.chrome = chrome }
 
-    @objc func backTapped() { chrome.closeDocument() }
     // Primary-action menus still deliver the target action; the tap only
     // ever presents the menu, so this stays empty by design.
     @objc func settingsTapped() {}
@@ -203,33 +203,6 @@ private func controlSizeThatFits(
     _ proposal: ProposedViewSize, uiView: UIButton
 ) -> CGSize? {
     CGSize(width: ChromeMetrics.controlSize, height: ChromeMetrics.controlSize)
-}
-
-/// The leading back button.
-struct BackToolbarControl: UIViewRepresentable {
-    let chrome: EditorChrome
-
-    func makeCoordinator() -> ChromeCoordinator { ChromeCoordinator(chrome: chrome) }
-
-    func makeUIView(context: Context) -> UIButton {
-        let button = ChromeButton.circle(
-            systemName: "chevron.left",
-            label: "All Screenplays",
-            hint: "Closes this screenplay and returns to Documents",
-            target: context.coordinator,
-            action: #selector(ChromeCoordinator.backTapped)
-        )
-        context.coordinator.button = button
-        return button
-    }
-
-    func updateUIView(_ button: UIButton, context: Context) {
-        context.coordinator.chrome = chrome
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIButton, context: Context) -> CGSize? {
-        controlSizeThatFits(proposal, uiView: uiView)
-    }
 }
 
 /// The principal element selector: a glass pill showing the active element.

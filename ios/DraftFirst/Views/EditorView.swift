@@ -8,7 +8,6 @@ struct EditorView: View {
     /// animating its dismissal — the "button reacts but nothing happens"
     /// report. Presents are gated until `onDismiss` confirms the way is clear.
     @State private var panelFullyDismissed = true
-    @Environment(\.dismiss) private var dismissEditor
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
     // The scheme itself is applied at scene level in DraftFirstApp (browser
@@ -49,16 +48,14 @@ struct EditorView: View {
         .animation(.easeInOut(duration: 0.18), value: editor.banner)
         // The header is the real navigation bar — the platform's own
         // transparent glass — with our UIKit controls placed per slot (see
-        // EditorChrome). DocumentGroupLaunchScene has already retired the
-        // system document chrome, but the stack's own back chevron still
-        // appears beside ours; ours wins because it flushes pending work
-        // before dismissing.
-        .navigationBarBackButtonHidden(true)
+        // EditorChrome). The leading close button is the system's own:
+        // DocumentGroup installs a custom leading item that
+        // navigationBarBackButtonHidden cannot retire, and a second chevron
+        // beside it reads as a bug. The flush our button used to guarantee
+        // happens in onDisappear instead, so no keystroke is lost on the
+        // way out, whichever path closes the document.
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                BackToolbarControl(chrome: chrome)
-            }
             ToolbarItem(placement: .principal) {
                 ElementToolbarControl(chrome: chrome)
             }
@@ -104,6 +101,12 @@ struct EditorView: View {
             }
 #endif
         }
+        .onDisappear {
+            // The close button belongs to the system, so disappearance is
+            // the last guaranteed moment to land debounced work — keyboard
+            // dismissal, backgrounding, and close all pass through here.
+            editor.flushPendingWork()
+        }
         .onChange(of: document.source) { _, newSource in
             // A genuinely external change (conflict resolution, another
             // device) is applied in place: caret, scroll, and both undo
@@ -132,7 +135,6 @@ struct EditorView: View {
     private var chrome: EditorChrome {
         EditorChrome(
             editor: editor,
-            closeDocument: closeDocument,
             showStory: { present(.story) },
             showTitlePage: { present(.titlePage) },
             showSettings: { present(.settings) },
@@ -148,11 +150,6 @@ struct EditorView: View {
         editor.onSourceChange = { source in
             document.source = source
         }
-    }
-
-    private func closeDocument() {
-        editor.flushPendingWork()
-        dismissEditor()
     }
 
     private var panelDetents: Set<PresentationDetent> {
