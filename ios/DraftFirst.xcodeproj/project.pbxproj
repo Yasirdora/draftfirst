@@ -19,6 +19,7 @@
 		DF260000000000000000010D /* EditorChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF260000000000000000000F /* EditorChrome.swift */; };
 		DF260000000000000000010E /* ScreenplayEditPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000010 /* ScreenplayEditPlanner.swift */; };
 		DF2700000000000000000101 /* ScreenplayEditPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */; };
+		DF2700000000000000000103 /* DraftFirstDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2700000000000000000003 /* DraftFirstDocumentTests.swift */; };
 		DF2800000000000000000101 /* DraftFirstEngine in Frameworks */ = {isa = PBXBuildFile; productRef = DF2800000000000000000900 /* DraftFirstEngine */; };
 		DF2600000000000000000111 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000011 /* Assets.xcassets */; };
 		DF2600000000000000000112 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000012 /* PrivacyInfo.xcprivacy */; };
@@ -51,6 +52,7 @@
 		DF2600000000000000000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DF2600000000000000000012 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenplayEditPlannerTests.swift; sourceTree = "<group>"; };
+		DF2700000000000000000003 /* DraftFirstDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftFirstDocumentTests.swift; sourceTree = "<group>"; };
 		DF2700000000000000000002 /* DraftFirstTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DraftFirstTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -164,6 +166,7 @@
 			isa = PBXGroup;
 			children = (
 				DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */,
+				DF2700000000000000000003 /* DraftFirstDocumentTests.swift */,
 			);
 			path = DraftFirstTests;
 			sourceTree = "<group>";
@@ -285,6 +288,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DF2700000000000000000101 /* ScreenplayEditPlannerTests.swift in Sources */,
+				DF2700000000000000000103 /* DraftFirstDocumentTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
