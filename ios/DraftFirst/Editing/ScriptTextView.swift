@@ -1,0 +1,1651 @@
+import SwiftUI
+import UIKit
+
+/// A native UITextView screenplay surface. Ordinary typing is never intercepted:
+/// UIKit owns composition, autocorrection, dictation, selection, and undo. Draft
+/// First steps in only for screenplay-level actions such as Return and Tab.
+struct ScriptTextView: UIViewRepresentable {
+    let editor: EditorState
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(editor: editor)
+    }
+
+    func makeUIView(context: Context) -> ScreenplayTextView {
+        let textView = ScreenplayTextView(usingTextLayoutManager: false)
+        textView.delegate = context.coordinator
+        textView.backgroundColor = .clear
+        textView.alwaysBounceVertical = true
+        textView.keyboardDismissMode = .interactive
+        textView.textContainerInset = UIEdgeInsets(top: 24, left: 22, bottom: 40, right: 22)
+        textView.textContainer.lineFragmentPadding = 0
+        textView.autocorrectionType = .yes
+        textView.spellCheckingType = .yes
+        // Autocapitalization is the keyboard's own job, switched per element
+        // kind in updateTypingTraits (which runs before the keyboard first
+        // appears and on every caret or kind change): .allCharacters for
+        // scene headings, characters, transitions, and shots; .sentences for
+        // everything else. The keyboard therefore types a scene heading in
+        // capitals directly — the document is never rewritten mid-word, so
+        // QuickType suggestion generation and acceptance stay fully native.
+        // The model layer still normalizes casing as a backstop for paths the
+        // trait cannot reach (paste, IME confirmation, import, tests).
+        textView.autocapitalizationType = .sentences
+        // Scene headings are dash-delimited ("INT. LAB - DAY"); UIKit's smart
+        // dashes would rewrite " - " into an en/em dash and break both the
+        // Fountain round-trip and the prediction engine's dash parsing.
+        textView.smartDashesType = .no
+        textView.smartQuotesType = .yes
+        textView.smartInsertDeleteType = .yes
+        textView.inlinePredictionType = .no
+        textView.writingToolsBehavior = .limited
+        textView.isFindInteractionEnabled = true
+        textView.adjustsFontForContentSizeCategory = true
+        // UITextView owns its standard inherited-tint caret, selection handles,
+        // loupe, edit menu, and insertion-point animations without an overlay.
+        textView.accessibilityLabel = "Screenplay editor"
+        textView.accessibilityHint = "Return advances to the next screenplay element. Space accepts an actionable suggestion."
+
+        context.coordinator.attach(to: textView)
+        context.coordinator.renderModel(selecting: nil, offset: nil)
+#if EDITOR_PREVIEW
+        let isPredictionFixture = EditorPreviewConfiguration.usesPredictionFixture
+            || CommandLine.arguments.contains("-ordinary-space-fixture")
+        let shouldExerciseSpaceAcceptance = CommandLine.arguments.contains("-qa-accept-with-space")
+        let shouldExercisePredictionUndo = CommandLine.arguments.contains("-qa-undo-redo-prediction")
+        let shouldExerciseOrdinarySpace = CommandLine.arguments.contains("-qa-ordinary-space")
+        let shouldExerciseFirstCharacterBackspace = CommandLine.arguments.contains("-qa-first-character-backspace")
+        let shouldExerciseLowercaseAction = CommandLine.arguments.contains("-qa-action-lowercase")
+        let shouldExerciseUppercaseCharacter = CommandLine.arguments.contains("-qa-character-uppercase")
+        let shouldExerciseQuickTypeScene = CommandLine.arguments.contains("-qa-quicktype-scene")
+        if CommandLine.arguments.contains("-show-keyboard")
+            || shouldExerciseSpaceAcceptance
+            || shouldExercisePredictionUndo
+            || shouldExerciseOrdinarySpace
+            || shouldExerciseFirstCharacterBackspace
+            || shouldExerciseLowercaseAction
+            || shouldExerciseUppercaseCharacter
+            || shouldExerciseQuickTypeScene {
+            let coordinator = context.coordinator
+            Task { @MainActor in
+                await Task.yield()
+                if isPredictionFixture {
+                    textView.selectedRange = NSRange(location: textView.textStorage.length, length: 0)
+                }
+                textView.becomeFirstResponder()
+                if isPredictionFixture {
+                    textView.scrollRangeToVisible(textView.selectedRange)
+                }
+                if shouldExerciseSpaceAcceptance || shouldExercisePredictionUndo {
+                    for _ in 0..<400 where !coordinator.isActionableGhostReady() {
+                        try? await Task.sleep(for: .milliseconds(25))
+                    }
+                    precondition(
+                        coordinator.isActionableGhostReady(),
+                        "Prediction fixture did not produce an actionable inline suggestion."
+                    )
+                    let range = textView.selectedRange
+                    let shouldInsertNormally = coordinator.textView(
+                        textView,
+                        shouldChangeTextIn: range,
+                        replacementText: " "
+                    )
+                    precondition(!shouldInsertNormally, "Space did not accept the inline suggestion.")
+                    precondition(
+                        textView.text == "INT. " && editor.activeKind == .scene,
+                        "Space acceptance did not complete and promote the scene heading."
+                    )
+                    if shouldExercisePredictionUndo {
+                        for _ in 0..<20 where !editor.canUndo {
+                            try? await Task.sleep(for: .milliseconds(10))
+                        }
+                        precondition(editor.canUndo, "Accepted suggestion was not undoable.")
+                        editor.undo()
+                        precondition(
+                            textView.text == "IN" && editor.activeKind == .action,
+                            "Undo did not restore the typed prefix and element type."
+                        )
+                        for _ in 0..<20 where !editor.canRedo {
+                            try? await Task.sleep(for: .milliseconds(10))
+                        }
+                        precondition(editor.canRedo, "Accepted suggestion was not redoable.")
+                        editor.redo()
+                        precondition(
+                            textView.text == "INT. " && editor.activeKind == .scene,
+                            "Redo did not restore the accepted suggestion."
+                        )
+                    }
+                } else if shouldExerciseOrdinarySpace {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    let shouldInsertNormally = coordinator.textView(
+                        textView,
+                        shouldChangeTextIn: textView.selectedRange,
+                        replacementText: " "
+                    )
+                    precondition(shouldInsertNormally, "An ordinary Space was incorrectly intercepted.")
+                } else if shouldExerciseFirstCharacterBackspace {
+                    coordinator.exerciseFirstCharacterBackspaceRegression()
+                } else if shouldExerciseLowercaseAction {
+                    coordinator.exerciseLowercaseActionRegression()
+                } else if shouldExerciseUppercaseCharacter {
+                    coordinator.exerciseUppercaseCharacterRegression()
+                } else if shouldExerciseQuickTypeScene {
+                    await coordinator.exerciseQuickTypeSceneRegression()
+                }
+            }
+        }
+#endif
+        return textView
+    }
+
+    func updateUIView(_ textView: ScreenplayTextView, context: Context) {
+        context.coordinator.rebindIfNeeded(to: editor)
+        context.coordinator.renderExternalChangeIfNeeded()
+        context.coordinator.updateGhost()
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, UITextViewDelegate, UIGestureRecognizerDelegate {
+        private weak var editor: EditorState?
+        private weak var textView: ScreenplayTextView?
+        private var renderedRevision = -1
+        private var applyingModel = false
+        private var ranges: [ElementRange] = []
+        private var pendingEdit: PendingEdit?
+        private var documentWidth: CGFloat = 0
+        private var traitSignature = ""
+        private var pendingLayoutRefresh = false
+        /// The resume point is framed exactly once: the first layout with a
+        /// real width. Later layouts must never yank the writer's scroll.
+        private var didFrameInitialPosition = false
+        private var acceptSuggestionAvailable = false
+        private let ghostOverlay = GhostTextOverlay()
+        private let swipeHaptic = UISelectionFeedbackGenerator()
+        private lazy var acceptSuggestionAccessibilityAction = UIAccessibilityCustomAction(
+            name: "Accept suggestion",
+            target: self,
+            selector: #selector(acceptSuggestionFromAccessibility)
+        )
+        private lazy var nextElementAccessibilityAction = UIAccessibilityCustomAction(
+            name: "Next element",
+            target: self,
+            selector: #selector(cycleElementKindFromAccessibilityNext)
+        )
+        private lazy var previousElementAccessibilityAction = UIAccessibilityCustomAction(
+            name: "Previous element",
+            target: self,
+            selector: #selector(cycleElementKindFromAccessibilityPrevious)
+        )
+
+        init(editor: EditorState) {
+            self.editor = editor
+            super.init()
+        }
+
+        func attach(to textView: ScreenplayTextView) {
+            self.textView = textView
+            ghostOverlay.onAccept = { [weak self] in self?.acceptPrediction() }
+            textView.addSubview(ghostOverlay)
+            textView.onTab = { [weak self] backwards in
+                self?.editor?.cycleActiveKind(backwards: backwards)
+            }
+            textView.onAcceptPrediction = { [weak self] in
+                self?.acceptPrediction()
+            }
+            textView.onLayout = { [weak self] width, traits in
+                self?.layoutChanged(width: width, traits: traits)
+            }
+
+            editor?.onAcceptPrediction = { [weak self] in self?.acceptPrediction() }
+            editor?.onPredictionChange = { [weak self] in self?.updateGhost() }
+            editor?.onChangeElementKind = { [weak self] kind in self?.changeKind(to: kind) }
+            editor?.onJumpToElement = { [weak self] id in self?.jump(to: id) }
+            editor?.onNativeUndo = { [weak self] in self?.performNativeUndo() ?? false }
+            editor?.onNativeRedo = { [weak self] in self?.performNativeRedo() ?? false }
+            editor?.onClearNativeUndo = { [weak self] in self?.clearNativeUndoHistory() }
+
+            installSwipeGestures(on: textView)
+            updateAccessibilityActions()
+        }
+
+        /// Touch counterpart to the hardware Tab key — one fluid gesture where
+        /// a phone has no Tab. Swipe right cycles to the next element, swipe
+        /// left to the previous; both feed the exact same `cycleActiveKind`
+        /// channel as Tab / ⇧Tab, so the mode order and its context rules are
+        /// never duplicated. Gated to the text area while editing, so reading
+        /// scrolls and screen-edge system gestures stay untouched.
+        private func installSwipeGestures(on textView: ScreenplayTextView) {
+            for direction: UISwipeGestureRecognizer.Direction in [.left, .right] {
+                let swipe = UISwipeGestureRecognizer(target: self, action: #selector(swipeCycledElementKind(_:)))
+                swipe.direction = direction
+                swipe.delegate = self
+                textView.addGestureRecognizer(swipe)
+            }
+            swipeHaptic.prepare()
+        }
+
+        @objc private func swipeCycledElementKind(_ recognizer: UISwipeGestureRecognizer) {
+            editor?.cycleActiveKind(backwards: recognizer.direction == .left)
+            swipeHaptic.selectionChanged()
+        }
+
+        /// A swipe counts only while editing, and only when it begins inside
+        /// the text container — never in the margins where iOS owns the
+        /// screen-edge gestures. Recognizers that are not ours pass through.
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard gestureRecognizer is UISwipeGestureRecognizer else { return true }
+            guard let textView, textView.isFirstResponder else { return false }
+            let inset = textView.textContainerInset
+            let textArea = textView.bounds.inset(by: UIEdgeInsets(
+                top: 0, left: inset.left, bottom: 0, right: inset.right
+            ))
+            return textArea.contains(gestureRecognizer.location(in: textView))
+        }
+
+        /// EditorView swaps in a fresh EditorState after a genuinely external
+        /// document change. The coordinator outlives that swap, so it must
+        /// rebind: point at the new state, rewire its callbacks, and force a
+        /// full re-render. Without this the surface stays bound to a
+        /// deallocated state — the editor goes permanently dead.
+        func rebindIfNeeded(to editor: EditorState) {
+            guard self.editor !== editor else { return }
+            self.editor = editor
+            renderedRevision = -1
+            wireEditorCallbacks(for: editor)
+        }
+
+        private func wireEditorCallbacks(for editor: EditorState) {
+            editor.onAcceptPrediction = { [weak self] in self?.acceptPrediction() }
+            editor.onPredictionChange = { [weak self] in self?.updateGhost() }
+            editor.onChangeElementKind = { [weak self] kind in self?.changeKind(to: kind) }
+            editor.onJumpToElement = { [weak self] id in self?.jump(to: id) }
+            editor.onNativeUndo = { [weak self] in self?.performNativeUndo() ?? false }
+            editor.onNativeRedo = { [weak self] in self?.performNativeRedo() ?? false }
+            editor.onClearNativeUndo = { [weak self] in self?.clearNativeUndoHistory() }
+        }
+
+        func renderExternalChangeIfNeeded() {
+            guard textView?.markedTextRange == nil,
+                  let editor,
+                  editor.revision != renderedRevision else { return }
+            renderModel(selecting: editor.activeElementID, offset: editor.selectionOffset)
+        }
+
+        func renderModel(selecting elementID: UUID?, offset requestedOffset: Int?) {
+            guard let editor, let textView else { return }
+            let selectedID = elementID ?? editor.activeElementID
+            let selectedOffset = requestedOffset ?? editor.selectionOffset
+            let rendered = makeAttributedString(
+                elements: editor.screenplay.elements,
+                width: contentWidth(for: textView),
+                traitCollection: textView.traitCollection
+            )
+
+            applyingModel = true
+            textView.textStorage.setAttributedString(rendered.string)
+            ranges = rendered.ranges
+            if let selectedID, let mapped = ranges.first(where: { $0.id == selectedID }) {
+                let offset = min(max(0, selectedOffset), mapped.range.length)
+                textView.selectedRange = NSRange(location: mapped.range.location + offset, length: 0)
+            }
+            applyingModel = false
+            renderedRevision = editor.revision
+            updateTypingTraits()
+            updateGhost()
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            updateSelection(from: textView)
+            reportNativeUndoAvailability()
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            hideGhost()
+            editor?.flushPendingWork()
+        }
+
+        func textViewDidChangeSelection(_ textView: UITextView) {
+            guard !applyingModel else { return }
+            updateSelection(from: textView)
+            updateTypingTraits()
+            updateGhost()
+        }
+
+        func textViewDidChange(_ textView: UITextView) {
+            guard !applyingModel, let editor else { return }
+            guard textView.markedTextRange == nil else {
+                hideGhost()
+                return
+            }
+
+            if let pendingEdit, applyIncrementalEdit(pendingEdit) {
+                self.pendingEdit = nil
+            } else {
+                self.pendingEdit = nil
+                synchronizeModelFromNativeText()
+            }
+            renderedRevision = editor.revision
+            updateTypingTraits()
+            updateGhost()
+            reportNativeUndoAvailability()
+            applyDeferredLayoutIfNeeded()
+        }
+
+        func textView(
+            _ textView: UITextView,
+            shouldChangeTextIn range: NSRange,
+            replacementText text: String
+        ) -> Bool {
+            guard let editor else { return true }
+
+            if textView.markedTextRange != nil {
+                pendingEdit = nil
+                hideGhost()
+                return true
+            }
+
+            if text == "\t" {
+                editor.cycleActiveKind(backwards: false)
+                return false
+            }
+
+            let mapped = elementRange(at: range.location)
+            let index = mapped.flatMap { mapped in
+                editor.screenplay.elements.firstIndex(where: { $0.id == mapped.id })
+            }
+
+            if let mapped, let index, shouldAcceptPredictionWithSpace(
+                editor: editor,
+                textView: textView,
+                mapped: mapped,
+                elementIndex: index,
+                range: range,
+                replacement: text
+            ) {
+                acceptPrediction(appendingSpace: true)
+                return false
+            }
+
+            let source = textView.text as NSString
+            if ScreenplayEditPlanner.touchesParagraphBoundary(
+                in: source,
+                range: range,
+                replacement: text
+            ) {
+                let deleted = range.location >= 0 && NSMaxRange(range) <= source.length
+                    ? source.substring(with: range)
+                    : ""
+                let isBoundaryDeletion = text.isEmpty
+                    && deleted == "\n"
+                    && textView.selectedRange.length == 0
+                    && (textView.selectedRange.location == range.location
+                        || textView.selectedRange.location == NSMaxRange(range))
+
+                if text == "\n",
+                   range.length == 0,
+                   let index,
+                   editor.screenplay.elements[index].text
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .isEmpty,
+                   editor.screenplay.elements[index].type != .action {
+                    var elements = editor.screenplay.elements
+                    elements[index].type = .action
+                    elements[index].text = ""
+                    applyModelEdit(
+                        elements,
+                        activeID: elements[index].id,
+                        offset: 0,
+                        selection: NSRange(location: mapped?.range.location ?? range.location, length: 0),
+                        actionName: "Change Element"
+                    )
+                    return false
+                }
+
+                let intent: ScreenplayEditPlanner.Intent
+                if isBoundaryDeletion {
+                    intent = textView.selectedRange.location == NSMaxRange(range)
+                        ? .backspaceAtElementStart
+                        : .boundaryDeletion
+                } else if text == "\n" {
+                    intent = .returnKey
+                } else if text.contains("\n") || text.contains("\r") {
+                    intent = .multilinePaste
+                } else {
+                    intent = .replacement
+                }
+                if applyStructuralReplacement(
+                    range: range,
+                    replacement: text,
+                    intent: intent,
+                    actionName: structuralActionName(replacement: text)
+                ) {
+                    return false
+                }
+            }
+
+            guard let mapped else {
+                pendingEdit = nil
+                return true
+            }
+
+            // Ordinary letters—including the first character in a paragraph—
+            // remain UIKit edits. Casing of uppercase kinds is produced by the
+            // keyboard itself (see updateTypingTraits): the document is never
+            // mutated behind UIKit's back mid-word, which is what broke
+            // QuickType suggestion generation and acceptance in scene headings.
+            // A boundary is recognized only by the actual newline character
+            // handled above.
+            editor.prepareForNativeEdit()
+            if !text.contains("\n"),
+               range.location >= mapped.range.location,
+               NSMaxRange(range) <= NSMaxRange(mapped.range) {
+                pendingEdit = PendingEdit(
+                    elementID: mapped.id,
+                    replacedRange: range,
+                    insertedLength: (text as NSString).length
+                )
+            } else {
+                pendingEdit = nil
+            }
+            return true
+        }
+
+        func updateGhost() {
+            guard let editor,
+                  let textView,
+                  textView.isFirstResponder,
+                  textView.markedTextRange == nil,
+                  let suffix = editor.currentSuggestionSuffix,
+                  !suffix.isEmpty,
+                  textView.selectedRange.length == 0,
+                  let mapped = elementRange(at: textView.selectedRange.location),
+                  textView.selectedRange.location == NSMaxRange(mapped.range),
+                  editor.activeKind != .transition,
+                  editor.activeKind != .centered else {
+                hideGhost()
+                return
+            }
+
+            var suggestionAttributes = textView.typingAttributes
+            suggestionAttributes[.foregroundColor] = editor.currentPrediction?.hint == true
+                ? UIColor.tertiaryLabel
+                : UIColor.secondaryLabel
+
+            let isPresented = ghostOverlay.present(
+                in: textView,
+                base: textView.attributedText,
+                suffix: suffix,
+                insertionLocation: textView.selectedRange.location,
+                paragraphRange: mapped.range,
+                attributes: suggestionAttributes,
+                revision: editor.revision
+            )
+            let isActionable = editor.currentPrediction?.hint != true
+            ghostOverlay.isUserInteractionEnabled = isActionable
+            setAcceptSuggestionAccessibilityAvailable(isPresented && isActionable)
+            if isPresented {
+                textView.bringSubviewToFront(ghostOverlay)
+            }
+        }
+
+        private func hideGhost() {
+            ghostOverlay.hide()
+            setAcceptSuggestionAccessibilityAvailable(false)
+        }
+
+        private func setAcceptSuggestionAccessibilityAvailable(_ available: Bool) {
+            acceptSuggestionAvailable = available
+            updateAccessibilityActions()
+        }
+
+        /// VoiceOver gets the same structural controls as touch and hardware:
+        /// element cycling is always present; accepting a suggestion only
+        /// while a ghost is on screen.
+        private func updateAccessibilityActions() {
+            guard let textView else { return }
+            var actions = [nextElementAccessibilityAction, previousElementAccessibilityAction]
+            if acceptSuggestionAvailable {
+                actions.append(acceptSuggestionAccessibilityAction)
+            }
+            textView.accessibilityCustomActions = actions
+        }
+
+        @objc private func cycleElementKindFromAccessibilityNext() -> Bool {
+            editor?.cycleActiveKind(backwards: false)
+            return true
+        }
+
+        @objc private func cycleElementKindFromAccessibilityPrevious() -> Bool {
+            editor?.cycleActiveKind(backwards: true)
+            return true
+        }
+
+        @objc private func acceptSuggestionFromAccessibility() -> Bool {
+            guard !ghostOverlay.isHidden else { return false }
+            acceptPrediction()
+            return true
+        }
+
+#if EDITOR_PREVIEW
+        func isActionableGhostReady() -> Bool {
+            guard let editor,
+                  editor.currentPrediction?.hint != true,
+                  let suffix = editor.currentSuggestionSuffix,
+                  !suffix.isEmpty else { return false }
+            return ghostOverlay.isPresenting(
+                suffix: suffix,
+                insertionLocation: textView?.selectedRange.location ?? NSNotFound,
+                revision: editor.revision
+            )
+        }
+
+        /// Typing into an Action element must never capitalize the writer's
+        /// text. Regression cover for all-caps-everywhere reports.
+        func exerciseLowercaseActionRegression() {
+            guard let editor,
+                  let textView,
+                  let actionElement = editor.screenplay.elements.last,
+                  actionElement.type == .action,
+                  let mapped = ranges.first(where: { $0.id == actionElement.id }) else {
+                preconditionFailure("Lowercase fixture expected a trailing Action element.")
+            }
+
+            textView.selectedRange = NSRange(location: NSMaxRange(mapped.range), length: 0)
+            textView.insertText(" The basement stays quiet.")
+
+            precondition(
+                textView.text.contains("The basement stays quiet."),
+                "Typing in an Action element was uppercased."
+            )
+            precondition(
+                editor.screenplay.elements.last?.text.hasSuffix("The basement stays quiet.") == true,
+                "The model did not mirror the typed Action text."
+            )
+        }
+
+        /// Lowercase characters typed into a Character element must become
+        /// uppercase — on device through the keyboard's all-characters mode,
+        /// and for programmatic input through the model's backstop. Regression
+        /// cover for the stuck all-characters keyboard: the trait must follow
+        /// the caret, and Action elements must never be capitalized by it.
+        func exerciseUppercaseCharacterRegression() {
+            guard let editor,
+                  let textView,
+                  let characterElement = editor.screenplay.elements.last,
+                  characterElement.type == .character,
+                  characterElement.text == "EL",
+                  let mapped = ranges.first(where: { $0.id == characterElement.id }) else {
+                preconditionFailure("Uppercase fixture expected a trailing Character element containing EL.")
+            }
+
+            precondition(
+                textView.autocapitalizationType == .allCharacters,
+                "The keyboard trait must follow the caret into a Character element."
+            )
+
+            textView.selectedRange = NSRange(location: NSMaxRange(mapped.range), length: 0)
+            textView.insertText("na")
+
+            precondition(
+                textView.text.contains("ELNA"),
+                "Typing into a Character element was not uppercased by the model."
+            )
+            precondition(
+                editor.screenplay.elements.last?.text == "ELNA",
+                "The model did not store the uppercased Character text."
+            )
+        }
+
+        /// Inside a scene heading the keyboard itself must be in all-
+        /// characters mode, a QuickType-style word replacement ("BEDR" →
+        /// "bedroom") must land as "BEDROOM" atomically, and its trailing
+        /// space must land natively. Regression cover for two keyboard-context
+        /// failures: accepted suggestions dropping (storage was rewritten
+        /// behind UIKit's back mid-word) and suggestion generation freezing
+        /// (a re-entrant input operation from inside the delegate callback).
+        /// Steps yield between edits so each lands in its own UndoManager
+        /// event group, mirroring real typing.
+        func exerciseQuickTypeSceneRegression() async {
+            guard let editor,
+                  let textView,
+                  let scene = editor.screenplay.elements.first,
+                  scene.type == .scene,
+                  scene.text == "INT. BED",
+                  let mapped = ranges.first(where: { $0.id == scene.id }) else {
+                preconditionFailure("QuickType fixture expected a Scene element containing INT. BED.")
+            }
+
+            let flattened = { ScreenplayEditPlanner.flattenedText(editor.screenplay.elements) }
+            precondition(flattened() == textView.text, "Fixture did not start mirrored.")
+
+            // 1) With the caret inside a Scene element the keyboard trait is
+            //    all-characters, so a real keyboard types capitals directly.
+            //    Programmatic insertion bypasses the trait, which exercises
+            //    the model's uppercase backstop instead.
+            let end = NSMaxRange(mapped.range)
+            textView.selectedRange = NSRange(location: end, length: 0)
+            precondition(
+                textView.autocapitalizationType == .allCharacters,
+                "Scene headings must put the keyboard in all-characters mode."
+            )
+            textView.insertText("r")
+            precondition(
+                editor.screenplay.elements.first?.text == "INT. BEDR",
+                "A typed letter did not land uppercased in the model."
+            )
+            precondition(flattened() == textView.text, "Model and surface diverged after typing.")
+            precondition(
+                textView.selectedRange.location == end + 1,
+                "The caret did not advance past the typed letter."
+            )
+            try? await Task.sleep(for: .milliseconds(50))
+
+            // 2) QuickType acceptance replaces the current word with the
+            //    suggestion through the same input entry point UIKit uses.
+            guard let remapped = ranges.first(where: { $0.id == scene.id }) else {
+                preconditionFailure("The Scene element lost its range mapping after typing.")
+            }
+            let wordStart = NSMaxRange(remapped.range) - 4
+            guard let wordBegin = textView.position(from: textView.beginningOfDocument, offset: wordStart),
+                  let wordEnd = textView.position(from: wordBegin, offset: 4),
+                  let wordRange = textView.textRange(from: wordBegin, to: wordEnd) else {
+                preconditionFailure("Could not form the QuickType replacement range.")
+            }
+            textView.replace(wordRange, withText: "bedroom")
+            precondition(
+                editor.screenplay.elements.first?.text == "INT. BEDROOM",
+                "The QuickType suggestion did not land uppercased in the model."
+            )
+            precondition(
+                flattened() == textView.text,
+                "Model and surface diverged after QuickType acceptance."
+            )
+            try? await Task.sleep(for: .milliseconds(50))
+
+            // 3) The trailing space QuickType appends must land natively.
+            precondition(
+                !isActionableGhostReady(),
+                "The QuickType fixture unexpectedly shows an inline suggestion."
+            )
+            textView.insertText(" ")
+            precondition(
+                editor.screenplay.elements.first?.text == "INT. BEDROOM ",
+                "The trailing space after the suggestion did not land."
+            )
+            precondition(flattened() == textView.text, "Model and surface diverged after the space.")
+            try? await Task.sleep(for: .milliseconds(50))
+
+            // 4) Undo and redo must keep the model and the surface consistent
+            //    and return to the exact final text, no matter how UIKit
+            //    grouped the edits on its native timeline.
+            guard let undoManager = textView.undoManager else {
+                preconditionFailure("The text view has no undo manager.")
+            }
+            precondition(undoManager.canUndo, "Scene-heading edits were not undoable.")
+            while undoManager.canUndo {
+                undoManager.undo()
+                precondition(
+                    flattened() == textView.text,
+                    "Model and surface diverged during undo: \(textView.text)"
+                )
+            }
+            while undoManager.canRedo { undoManager.redo() }
+            precondition(
+                textView.text == "INT. BEDROOM " && flattened() == textView.text,
+                "Redo did not restore the final text: \(textView.text)"
+            )
+            print("QA-QUICKTYPE ok: \(textView.text)")
+        }
+
+        func exerciseFirstCharacterBackspaceRegression() {
+            guard let editor,
+                  let textView,
+                  let index = editor.screenplay.elements.firstIndex(where: {
+                    $0.type == .character && $0.text == "ELENA"
+                  }),
+                  let mapped = ranges.first(where: {
+                    $0.id == editor.screenplay.elements[index].id
+                  }) else {
+                preconditionFailure("Backspace fixture did not contain ELENA as a Character element.")
+            }
+
+            let before = editor.screenplay.elements
+            let deletion = NSRange(location: mapped.range.location, length: 1)
+            textView.selectedRange = NSRange(location: NSMaxRange(deletion), length: 0)
+            textView.deleteBackward()
+
+            let after = editor.screenplay.elements
+            precondition(after.count == before.count, "Deleting E changed the screenplay structure.")
+            precondition(after[index].id == before[index].id, "Deleting E replaced the Character identity.")
+            precondition(after[index].type == .character, "Deleting E changed the Character element type.")
+            precondition(after[index].text == "LENA", "Deleting E did not leave LENA.")
+            if index + 1 < before.count {
+                precondition(after[index + 1] == before[index + 1], "Deleting E changed the following element.")
+            }
+            precondition(textView.selectedRange == NSRange(location: deletion.location, length: 0))
+
+            guard let undoManager = textView.undoManager, undoManager.canUndo else {
+                preconditionFailure("The native Backspace edit was not undoable.")
+            }
+            undoManager.undo()
+            precondition(editor.screenplay.elements == before, "Undo did not restore the exact screenplay model.")
+            precondition(undoManager.canRedo, "The native Backspace edit was not redoable.")
+            undoManager.redo()
+            precondition(editor.screenplay.elements == after, "Redo did not restore the exact deletion.")
+        }
+#endif
+
+        private func shouldAcceptPredictionWithSpace(
+            editor: EditorState,
+            textView: UITextView,
+            mapped: ElementRange,
+            elementIndex: Int,
+            range: NSRange,
+            replacement: String
+        ) -> Bool {
+            guard replacement == " ",
+                  range.length == 0,
+                  textView.selectedRange.length == 0,
+                  range.location == textView.selectedRange.location,
+                  range.location == NSMaxRange(mapped.range),
+                  mapped.id == editor.activeElementID,
+                  editor.activeElementIndex == elementIndex,
+                  editor.screenplay.elements[elementIndex].text
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .isEmpty == false,
+                  let prediction = editor.currentPrediction,
+                  prediction.hint != true,
+                  let suffix = editor.currentSuggestionSuffix,
+                  !suffix.isEmpty,
+                  // When the ghost itself begins with a space (e.g. " DAY"
+                  // after a scene-heading dash), the space the user is typing
+                  // is that leading space — not an accept. Insert it literally
+                  // so they can still type EVENING/NIGHT; a second space accepts.
+                  !suffix.hasPrefix(" "),
+                  ghostOverlay.isPresenting(
+                    suffix: suffix,
+                    insertionLocation: range.location,
+                    revision: editor.revision
+                  ) else { return false }
+            return true
+        }
+
+        private func synchronizeModelFromNativeText() {
+            guard let editor, let textView else { return }
+            let previousText = ScreenplayEditPlanner.flattenedText(editor.screenplay.elements)
+            guard let difference = ScreenplayEditPlanner.replacementBetween(
+                previousText,
+                textView.text
+            ) else { return }
+
+            editor.prepareForNativeEdit()
+            let source = previousText as NSString
+            if !ScreenplayEditPlanner.touchesParagraphBoundary(
+                in: source,
+                range: difference.0,
+                replacement: difference.1
+            ),
+               let mapped = elementRange(at: difference.0.location),
+               difference.0.location >= mapped.range.location,
+               NSMaxRange(difference.0) <= NSMaxRange(mapped.range) {
+                let edit = PendingEdit(
+                    elementID: mapped.id,
+                    replacedRange: difference.0,
+                    insertedLength: (difference.1 as NSString).length
+                )
+                if applyIncrementalEdit(edit) { return }
+            }
+
+            // UIKit owns the transaction (IME, Writing Tools, or native undo),
+            // while the planner mirrors its final range without re-registering
+            // a second undo action or reassigning later elements by line number.
+            let nativeSelection = textView.selectedRange
+            guard let plan = ScreenplayEditPlanner.plan(
+                elements: editor.screenplay.elements,
+                replacing: difference.0,
+                with: difference.1,
+                intent: .replacement,
+                kindForNewElement: { previous, text in
+                    editor.kindForInsertedElement(after: previous, text: text)
+                }
+            ) else { return }
+            editor.replaceAllElements(
+                plan.elements,
+                activeID: plan.activeElementID,
+                offset: plan.activeOffset,
+                structural: false,
+                recordsUndo: false
+            )
+            renderModel(selecting: plan.activeElementID, offset: plan.activeOffset)
+            restoreSelection(nativeSelection)
+        }
+
+        private func applyIncrementalEdit(_ edit: PendingEdit) -> Bool {
+            guard let editor,
+                  let textView,
+                  let rangeIndex = ranges.firstIndex(where: { $0.id == edit.elementID }) else {
+                return false
+            }
+
+            let delta = edit.insertedLength - edit.replacedRange.length
+            let newLength = ranges[rangeIndex].range.length + delta
+            guard newLength >= 0 else { return false }
+
+            ranges[rangeIndex].range.length = newLength
+            if delta != 0, rangeIndex + 1 < ranges.count {
+                for index in (rangeIndex + 1)..<ranges.count {
+                    ranges[index].range.location += delta
+                }
+            }
+
+            let updatedRange = ranges[rangeIndex].range
+            guard NSMaxRange(updatedRange) <= textView.textStorage.length else { return false }
+            var text = textView.textStorage.attributedSubstring(from: updatedRange).string
+            if let elementIndex = editor.screenplay.elements.firstIndex(where: {
+                $0.id == edit.elementID
+            }), editor.screenplay.elements[elementIndex].type.uppercasesInput {
+                let uppercased = text.uppercased()
+                // Preserve UIKit's native undo range. The screenplay kinds that
+                // uppercase normal Latin text keep the same UTF-16 length; for
+                // rare expanding case mappings, leave the native text untouched.
+                if uppercased != text,
+                   (uppercased as NSString).length == (text as NSString).length {
+                    applyingModel = true
+                    textView.textStorage.replaceCharacters(in: updatedRange, with: uppercased)
+                    applyingModel = false
+                    text = uppercased
+                }
+            }
+            let offset = max(
+                0,
+                min(updatedRange.length, textView.selectedRange.location - updatedRange.location)
+            )
+            editor.applyLiveText(id: edit.elementID, text: text, selectionOffset: offset)
+            return true
+        }
+
+        private func applyStructuralReplacement(
+            range: NSRange,
+            replacement: String,
+            intent: ScreenplayEditPlanner.Intent,
+            actionName: String
+        ) -> Bool {
+            guard let editor,
+                  let plan = ScreenplayEditPlanner.plan(
+                    elements: editor.screenplay.elements,
+                    replacing: range,
+                    with: replacement,
+                    intent: intent,
+                    kindForNewElement: { previous, text in
+                        editor.kindForInsertedElement(after: previous, text: text)
+                    }
+                  ) else { return false }
+            applyModelEdit(
+                plan.elements,
+                activeID: plan.activeElementID,
+                offset: plan.activeOffset,
+                selection: plan.selection,
+                actionName: actionName
+            )
+            return true
+        }
+
+        private func structuralActionName(replacement: String) -> String {
+            if replacement == "\n" { return "Insert Paragraph" }
+            if replacement.isEmpty { return "Delete" }
+            if replacement.contains("\n") || replacement.contains("\r") { return "Paste" }
+            return "Edit"
+        }
+
+        private func acceptPrediction(appendingSpace: Bool = false) {
+            guard let editor,
+                  let prediction = editor.currentPrediction,
+                  prediction.hint != true,
+                  let index = editor.activeElementIndex,
+                  let suggestion = editor.currentSuggestionText else { return }
+
+            hideGhost()
+            var elements = editor.screenplay.elements
+            if let becomes = prediction.becomes { elements[index].type = becomes }
+            var completed = elements[index].type.uppercasesInput ? suggestion.uppercased() : suggestion
+            if appendingSpace, !completed.hasSuffix(" ") {
+                completed.append(" ")
+            }
+            elements[index].text = completed
+            let id = elements[index].id
+            let offset = (elements[index].text as NSString).length
+            let location = ranges.first(where: { $0.id == id })?.range.location ?? 0
+            applyModelEdit(
+                elements,
+                activeID: id,
+                offset: offset,
+                selection: NSRange(location: location + offset, length: 0),
+                actionName: "Accept Suggestion"
+            )
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        }
+
+        private func applyModelEdit(
+            _ elements: [ScriptElement],
+            activeID: UUID,
+            offset: Int,
+            selection: NSRange,
+            actionName: String
+        ) {
+            guard let editor else { return }
+            editor.prepareForNativeEdit()
+            let previousState = ModelUndoState(
+                elements: editor.screenplay.elements,
+                activeElementID: editor.activeElementID,
+                selectionOffset: editor.selectionOffset,
+                selection: textView?.selectedRange ?? NSRange(location: 0, length: 0)
+            )
+            if let undoManager = textView?.undoManager {
+                editor.replaceAllElements(
+                    elements,
+                    activeID: activeID,
+                    offset: offset,
+                    structural: true,
+                    recordsUndo: false
+                )
+                registerModelUndo(previousState, actionName: actionName, with: undoManager)
+            } else {
+                editor.replaceAllElements(
+                    elements,
+                    activeID: activeID,
+                    offset: offset,
+                    structural: true
+                )
+            }
+            renderModel(selecting: activeID, offset: offset)
+            restoreSelection(selection)
+            reportNativeUndoAvailability(afterUIKitSettles: true)
+        }
+
+        private func registerModelUndo(
+            _ state: ModelUndoState,
+            actionName: String,
+            with undoManager: UndoManager
+        ) {
+            undoManager.registerUndo(withTarget: self) { target in
+                target.restoreModelUndoState(state, actionName: actionName)
+            }
+            undoManager.setActionName(actionName)
+        }
+
+        private func restoreModelUndoState(_ state: ModelUndoState, actionName: String) {
+            guard let editor, let undoManager = textView?.undoManager else { return }
+            let inverse = ModelUndoState(
+                elements: editor.screenplay.elements,
+                activeElementID: editor.activeElementID,
+                selectionOffset: editor.selectionOffset,
+                selection: textView?.selectedRange ?? NSRange(location: 0, length: 0)
+            )
+            registerModelUndo(inverse, actionName: actionName, with: undoManager)
+            editor.replaceAllElements(
+                state.elements,
+                activeID: state.activeElementID,
+                offset: state.selectionOffset,
+                structural: true,
+                recordsUndo: false
+            )
+            renderModel(selecting: state.activeElementID, offset: state.selectionOffset)
+            restoreSelection(state.selection)
+            reportNativeUndoAvailability(afterUIKitSettles: true)
+        }
+
+        private func changeKind(to kind: ScreenplayKind) {
+            guard let editor, let index = editor.activeElementIndex else { return }
+            var elements = editor.screenplay.elements
+            elements[index].type = kind
+            if kind.uppercasesInput { elements[index].text = elements[index].text.uppercased() }
+            let id = elements[index].id
+            let offset = min(editor.selectionOffset, (elements[index].text as NSString).length)
+            let location = ranges.first(where: { $0.id == id })?.range.location ?? 0
+            applyModelEdit(
+                elements,
+                activeID: id,
+                offset: offset,
+                selection: NSRange(location: location + offset, length: 0),
+                actionName: "Change Element"
+            )
+        }
+
+        private func jump(to id: UUID) {
+            guard let textView, let mapped = ranges.first(where: { $0.id == id }) else { return }
+            textView.selectedRange = NSRange(location: mapped.range.location, length: 0)
+            textView.scrollRangeToVisible(mapped.range)
+            updateSelection(from: textView)
+        }
+
+        private func performNativeUndo() -> Bool {
+            guard let undoManager = textView?.undoManager, undoManager.canUndo else {
+                reportNativeUndoAvailability()
+                return false
+            }
+            undoManager.undo()
+            reportNativeUndoAvailability(afterUIKitSettles: true)
+            return true
+        }
+
+        private func performNativeRedo() -> Bool {
+            guard let undoManager = textView?.undoManager, undoManager.canRedo else {
+                reportNativeUndoAvailability()
+                return false
+            }
+            undoManager.redo()
+            reportNativeUndoAvailability(afterUIKitSettles: true)
+            return true
+        }
+
+        private func clearNativeUndoHistory() {
+            textView?.undoManager?.removeAllActions()
+            editor?.reportNativeUndoAvailability(canUndo: false, canRedo: false)
+        }
+
+        private func reportNativeUndoAvailability(afterUIKitSettles: Bool = false) {
+            if afterUIKitSettles {
+                Task { @MainActor [weak self] in
+                    await Task.yield()
+                    self?.reportNativeUndoAvailability()
+                }
+                return
+            }
+
+            let undoManager = textView?.undoManager
+            editor?.reportNativeUndoAvailability(
+                canUndo: undoManager?.canUndo == true,
+                canRedo: undoManager?.canRedo == true
+            )
+        }
+
+        private func updateSelection(from textView: UITextView) {
+            guard let mapped = elementRange(at: textView.selectedRange.location) else { return }
+            editor?.selectionChanged(
+                elementID: mapped.id,
+                offset: min(mapped.range.length, max(0, textView.selectedRange.location - mapped.range.location))
+            )
+        }
+
+        private func restoreSelection(_ requestedRange: NSRange) {
+            guard let textView else { return }
+            let length = textView.textStorage.length
+            let location = min(max(0, requestedRange.location), length)
+            let selectionLength = min(max(0, requestedRange.length), length - location)
+            applyingModel = true
+            textView.selectedRange = NSRange(location: location, length: selectionLength)
+            applyingModel = false
+            updateSelection(from: textView)
+            updateTypingTraits()
+            updateGhost()
+        }
+
+        private func updateTypingTraits() {
+            guard let editor, let textView else { return }
+            textView.typingAttributes = attributes(
+                for: editor.activeKind,
+                width: contentWidth(for: textView),
+                traitCollection: textView.traitCollection,
+                spacingAfter: 0
+            )
+
+            // The keyboard uppercases scene headings, characters, transitions,
+            // and shots itself; everywhere else it applies ordinary sentence
+            // capitalization. Assigning the trait alone does not reach an
+            // already-visible keyboard — that unreliability is what produced
+            // the original stuck-in-caps report — so a real change is followed
+            // by reloadInputViews(), Apple's documented mechanism for making a
+            // live keyboard re-read its input traits. The value comparison
+            // keeps that reload to genuine transitions only.
+            let desired: UITextAutocapitalizationType = editor.activeKind.uppercasesInput
+                ? .allCharacters
+                : .sentences
+            if textView.autocapitalizationType != desired {
+                textView.autocapitalizationType = desired
+                if textView.isFirstResponder {
+                    textView.reloadInputViews()
+                }
+            }
+        }
+
+        private func layoutChanged(width: CGFloat, traits: UITraitCollection) {
+            let nextTraitSignature = [
+                traits.preferredContentSizeCategory.rawValue,
+                String(traits.userInterfaceStyle.rawValue),
+                String(traits.accessibilityContrast.rawValue),
+                String(traits.legibilityWeight.rawValue),
+                String(traits.layoutDirection.rawValue)
+            ].joined(separator: "|")
+            guard abs(width - documentWidth) > 1 || nextTraitSignature != traitSignature else { return }
+            guard let textView else { return }
+            if textView.markedTextRange != nil {
+                pendingLayoutRefresh = true
+                return
+            }
+            let nativeSelection = textView.selectedRange
+            pendingLayoutRefresh = false
+            documentWidth = width
+            traitSignature = nextTraitSignature
+            guard renderedRevision >= 0 else { return }
+            renderModel(selecting: editor?.activeElementID, offset: editor?.selectionOffset)
+            restoreSelection(nativeSelection)
+            if !didFrameInitialPosition, editor?.opensAtEnd == true {
+                didFrameInitialPosition = true
+                textView.scrollRangeToVisible(textView.selectedRange)
+            }
+        }
+
+        private func applyDeferredLayoutIfNeeded() {
+            guard pendingLayoutRefresh,
+                  let textView,
+                  textView.markedTextRange == nil else { return }
+            layoutChanged(width: textView.bounds.width, traits: textView.traitCollection)
+        }
+
+        private func elementRange(at location: Int) -> ElementRange? {
+            if let exact = ranges.first(where: {
+                ($0.range.length == 0 && $0.range.location == location) ||
+                NSLocationInRange(location, $0.range)
+            }) { return exact }
+            if let preceding = ranges.last(where: { NSMaxRange($0.range) <= location }) { return preceding }
+            return ranges.first
+        }
+
+        private func makeAttributedString(
+            elements: [ScriptElement],
+            width: CGFloat,
+            traitCollection: UITraitCollection
+        ) -> (string: NSAttributedString, ranges: [ElementRange]) {
+            let result = NSMutableAttributedString()
+            var mapped: [ElementRange] = []
+            for (index, element) in elements.enumerated() {
+                let location = result.length
+                let nextSpacing = index + 1 < elements.count
+                    ? spacing(before: elements[index + 1].type)
+                    : 0
+                let style = attributes(
+                    for: element.type,
+                    width: width,
+                    traitCollection: traitCollection,
+                    spacingAfter: nextSpacing
+                )
+                result.append(NSAttributedString(string: element.text, attributes: style))
+                mapped.append(ElementRange(
+                    id: element.id,
+                    range: NSRange(location: location, length: (element.text as NSString).length)
+                ))
+                if index < elements.count - 1 {
+                    result.append(NSAttributedString(string: "\n", attributes: style))
+                }
+            }
+            return (result, mapped)
+        }
+
+        private func attributes(
+            for kind: ScreenplayKind,
+            width: CGFloat,
+            traitCollection: UITraitCollection,
+            spacingAfter: CGFloat
+        ) -> [NSAttributedString.Key: Any] {
+            let resolvedFont = font(for: kind, traits: traitCollection)
+            let resolvedLineHeight = max(22, ceil(resolvedFont.lineHeight * 1.1))
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.minimumLineHeight = resolvedLineHeight
+            paragraph.maximumLineHeight = resolvedLineHeight
+            // Paragraph space belongs to the preceding paragraph. UIKit can
+            // then draw its standard insertion caret at the next baseline,
+            // without stretching the caret through screenplay whitespace.
+            paragraph.paragraphSpacing = UIFontMetrics(forTextStyle: .body).scaledValue(
+                for: spacingAfter,
+                compatibleWith: traitCollection
+            )
+
+            switch kind {
+            case .character:
+                paragraph.firstLineHeadIndent = width * 0.38
+                paragraph.headIndent = width * 0.38
+                paragraph.tailIndent = -(width * 0.14)
+            case .parenthetical:
+                paragraph.firstLineHeadIndent = width * 0.27
+                paragraph.headIndent = width * 0.27
+                paragraph.tailIndent = -(width * 0.30)
+            case .dialogue:
+                paragraph.firstLineHeadIndent = width * 0.17
+                paragraph.headIndent = width * 0.17
+                paragraph.tailIndent = -(width * 0.17)
+            case .transition:
+                paragraph.alignment = .right
+            case .centered:
+                paragraph.alignment = .center
+            default:
+                break
+            }
+
+            return [
+                .font: resolvedFont,
+                .foregroundColor: UIColor.label,
+                .paragraphStyle: paragraph
+            ]
+        }
+
+        private func font(for kind: ScreenplayKind, traits: UITraitCollection) -> UIFont {
+            let weight: UIFont.Weight = (kind == .scene || kind == .shot) ? .semibold : .regular
+            let base = UIFont.monospacedSystemFont(ofSize: 16, weight: weight)
+            return UIFontMetrics(forTextStyle: .body).scaledFont(for: base, compatibleWith: traits)
+        }
+
+        private func spacing(before kind: ScreenplayKind) -> CGFloat {
+            switch kind {
+            case .scene: 24
+            case .action, .character, .transition, .shot, .general, .centered: 14
+            case .dialogue, .parenthetical: 0
+            default: 10
+            }
+        }
+
+        private func contentWidth(for textView: UITextView) -> CGFloat {
+            max(280, textView.bounds.width - textView.textContainerInset.left - textView.textContainerInset.right)
+        }
+
+        private struct ElementRange {
+            let id: UUID
+            var range: NSRange
+        }
+
+        private struct PendingEdit {
+            let elementID: UUID
+            let replacedRange: NSRange
+            let insertedLength: Int
+        }
+
+        private struct ModelUndoState {
+            let elements: [ScriptElement]
+            let activeElementID: UUID?
+            let selectionOffset: Int
+            let selection: NSRange
+        }
+    }
+}
+
+/// Draws the completion with the same TextKit stack as the editor without ever
+/// inserting prediction text into the real document. Matching containers and
+/// paragraph attributes keep baselines, indents, and line wrapping identical.
+@MainActor
+private final class GhostTextOverlay: UIView {
+    var onAccept: (() -> Void)?
+
+    private let storage = NSTextStorage()
+    private let layoutManager = NSLayoutManager()
+    private let textContainer = NSTextContainer(size: .zero)
+    private var ghostGlyphRange = NSRange(location: 0, length: 0)
+    private var ghostHitRect = CGRect.null
+    private var drawingOrigin = CGPoint.zero
+    /// The ghost line's rect in the host text view's content coordinates.
+    /// The overlay's frame is this rect (plus a glyph overhang margin) — never
+    /// the document: a plain `draw(_:)` view's backing store is sized to its
+    /// bounds, so spanning a feature-length script would allocate hundreds of
+    /// megabytes to draw a dozen glyphs.
+    private var hostLineRect = CGRect.null
+    private var renderedKey: RenderKey?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isOpaque = false
+        backgroundColor = .clear
+        isHidden = true
+        isAccessibilityElement = false
+
+        storage.addLayoutManager(layoutManager)
+        layoutManager.addTextContainer(textContainer)
+        layoutManager.allowsNonContiguousLayout = true
+
+        addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(acceptTapped)))
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func present(
+        in host: UITextView,
+        base: NSAttributedString,
+        suffix: String,
+        insertionLocation: Int,
+        paragraphRange: NSRange,
+        attributes: [NSAttributedString.Key: Any],
+        revision: Int
+    ) -> Bool {
+        guard paragraphRange.location >= 0,
+              NSMaxRange(paragraphRange) <= base.length,
+              insertionLocation >= paragraphRange.location,
+              insertionLocation <= NSMaxRange(paragraphRange),
+              let selectedTextRange = host.selectedTextRange else {
+            hide()
+            return false
+        }
+
+        let scale = host.traitCollection.displayScale
+        let width = host.bounds.width
+        let containerWidth = host.textContainer.size.width
+        let key = RenderKey(
+            revision: revision,
+            insertionLocation: insertionLocation,
+            suffix: suffix,
+            paragraphLocation: paragraphRange.location,
+            paragraphLength: paragraphRange.length,
+            pixelWidth: Int((width * scale).rounded()),
+            pixelContainerWidth: Int((containerWidth * scale).rounded()),
+            traitStyle: host.traitCollection.userInterfaceStyle.rawValue,
+            contentSizeCategory: host.traitCollection.preferredContentSizeCategory.rawValue,
+            attributeDescription: String(describing: attributes)
+        )
+
+        guard key != renderedKey else {
+            return !isHidden
+        }
+
+        textContainer.lineFragmentPadding = host.textContainer.lineFragmentPadding
+        textContainer.lineBreakMode = host.textContainer.lineBreakMode
+        textContainer.maximumNumberOfLines = host.textContainer.maximumNumberOfLines
+        textContainer.exclusionPaths = []
+        textContainer.size = CGSize(width: containerWidth, height: .greatestFiniteMagnitude)
+        layoutManager.usesFontLeading = host.layoutManager.usesFontLeading
+
+        let localLocation = insertionLocation - paragraphRange.location
+        // An empty screenplay element has no host glyph to anchor against.
+        // Wait for the writer's first character instead of guessing a baseline.
+        guard localLocation > 0 else {
+            hide()
+            return false
+        }
+        let paragraph = base.attributedSubstring(from: paragraphRange)
+        storage.setAttributedString(paragraph)
+        layoutManager.ensureLayout(forCharacterRange: NSRange(location: 0, length: storage.length))
+        let originalLineY = lineOriginY(before: localLocation)
+
+        let mirrored = NSMutableAttributedString(attributedString: paragraph)
+        mirrored.insert(NSAttributedString(string: suffix, attributes: attributes), at: localLocation)
+        storage.setAttributedString(mirrored)
+        let ghostCharacterRange = NSRange(
+            location: localLocation,
+            length: (suffix as NSString).length
+        )
+        ghostGlyphRange = layoutManager.glyphRange(
+            forCharacterRange: ghostCharacterRange,
+            actualCharacterRange: nil
+        )
+        layoutManager.ensureLayout(forCharacterRange: ghostCharacterRange)
+
+        let lineFragments = ghostLineFragments()
+        let completedPrefixLineY = lineOriginY(before: localLocation)
+        let prefixStayedOnLine: Bool
+        if let originalLineY {
+            prefixStayedOnLine = completedPrefixLineY.map {
+                abs(originalLineY - $0) < 0.5
+            } ?? false
+        } else {
+            prefixStayedOnLine = true
+        }
+        guard ghostGlyphRange.length > 0,
+              lineFragments.count == 1,
+              prefixStayedOnLine else {
+            hide()
+            return false
+        }
+
+        let ghostLine = lineFragments[0]
+        let ghostStayedBesidePrefix = completedPrefixLineY.map {
+            abs(ghostLine.usedRect.minY - $0) < 0.5
+        } ?? (localLocation == 0)
+        guard ghostStayedBesidePrefix else {
+            hide()
+            return false
+        }
+
+        guard let hostLineTop = hostLineTop(
+            in: host,
+            precedingCharacterAt: insertionLocation
+        ) else {
+            hide()
+            return false
+        }
+
+        let caret = host.caretRect(for: selectedTextRange.end)
+        let mirrorInsertionX = ghostLine.lineRect.minX
+            + layoutManager.location(forGlyphAt: ghostGlyphRange.location).x
+        let expectedCaretX = host.textContainerInset.left + mirrorInsertionX
+        guard abs(expectedCaretX - caret.minX) < 1.5 else {
+            // The completed candidate would reflow the already-typed prefix.
+            // Hiding is safer than drawing a completion away from the caret.
+            hide()
+            return false
+        }
+
+        drawingOrigin = CGPoint(
+            x: caret.minX - mirrorInsertionX,
+            y: hostLineTop - ghostLine.usedRect.minY
+        )
+        // The frame hugs the ghost line (in host content coordinates, so the
+        // overlay scrolls with the document), and drawing/hit-testing happen
+        // in the overlay's local space. Glyphs can overhang their used rect —
+        // the margin keeps ascenders and descenders from clipping.
+        hostLineRect = ghostLine.lineRect
+            .union(ghostLine.glyphRect)
+            .offsetBy(dx: drawingOrigin.x, dy: drawingOrigin.y)
+        updateFrame()
+        let localVisibleRect = ghostLine.glyphRect
+            .offsetBy(dx: drawingOrigin.x - frame.minX, dy: drawingOrigin.y - frame.minY)
+        ghostHitRect = CGRect(
+            x: localVisibleRect.minX,
+            y: localVisibleRect.midY - 22,
+            width: max(44, localVisibleRect.width),
+            height: 44
+        )
+        renderedKey = key
+        isHidden = false
+        setNeedsDisplay()
+        return true
+    }
+
+    func isPresenting(suffix: String, insertionLocation: Int, revision: Int) -> Bool {
+        guard !isHidden, let renderedKey else { return false }
+        return renderedKey.suffix == suffix
+            && renderedKey.insertionLocation == insertionLocation
+            && renderedKey.revision == revision
+    }
+
+    func hide() {
+        guard !isHidden || renderedKey != nil else { return }
+        isHidden = true
+        renderedKey = nil
+        ghostGlyphRange = NSRange(location: 0, length: 0)
+        ghostHitRect = .null
+        drawingOrigin = .zero
+        hostLineRect = .null
+        // Collapsing the frame releases the layer's backing store.
+        frame = .zero
+    }
+
+    override func draw(_ rect: CGRect) {
+        guard !isHidden, ghostGlyphRange.length > 0 else { return }
+        layoutManager.drawGlyphs(
+            forGlyphRange: ghostGlyphRange,
+            at: CGPoint(x: drawingOrigin.x - frame.minX, y: drawingOrigin.y - frame.minY)
+        )
+    }
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        guard !isHidden else { return false }
+        return ghostHitRect.contains(point)
+    }
+
+    private static let lineOverhangMargin = CGFloat(8)
+
+    private func updateFrame() {
+        guard !hostLineRect.isNull else {
+            frame = .zero
+            return
+        }
+        frame = hostLineRect.insetBy(dx: -2, dy: -Self.lineOverhangMargin)
+    }
+
+    private func ghostLineFragments() -> [LineFragment] {
+        var fragments: [LineFragment] = []
+        layoutManager.enumerateLineFragments(forGlyphRange: ghostGlyphRange) {
+            lineRect, usedRect, container, lineGlyphRange, _ in
+            let intersection = NSIntersectionRange(lineGlyphRange, self.ghostGlyphRange)
+            guard intersection.length > 0 else { return }
+            fragments.append(LineFragment(
+                lineRect: lineRect,
+                usedRect: usedRect,
+                glyphRect: self.layoutManager.boundingRect(forGlyphRange: intersection, in: container)
+            ))
+        }
+        return fragments
+    }
+
+    /// Returns the real glyph line in the host text view's content coordinates.
+    /// TextKit's used line rectangle is the source of truth for the screenplay
+    /// baseline, so the completion shares the real glyph line at every scroll.
+    private func hostLineTop(
+        in host: UITextView,
+        precedingCharacterAt insertionLocation: Int
+    ) -> CGFloat? {
+        guard insertionLocation > 0,
+              insertionLocation <= host.textStorage.length,
+              host.layoutManager.numberOfGlyphs > 0 else { return nil }
+
+        let characterRange = NSRange(location: insertionLocation - 1, length: 1)
+        host.layoutManager.ensureLayout(forCharacterRange: characterRange)
+        let glyphIndex = host.layoutManager.glyphIndexForCharacter(at: characterRange.location)
+        guard glyphIndex < host.layoutManager.numberOfGlyphs else { return nil }
+
+        let usedRect = host.layoutManager.lineFragmentUsedRect(
+            forGlyphAt: glyphIndex,
+            effectiveRange: nil
+        )
+        return host.textContainerInset.top + usedRect.minY
+    }
+
+    private func lineOriginY(before characterLocation: Int) -> CGFloat? {
+        guard characterLocation > 0, layoutManager.numberOfGlyphs > 0 else { return nil }
+        let characterIndex = min(characterLocation - 1, max(0, storage.length - 1))
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: characterIndex)
+        guard glyphIndex < layoutManager.numberOfGlyphs else { return nil }
+        return layoutManager.lineFragmentUsedRect(forGlyphAt: glyphIndex, effectiveRange: nil).minY
+    }
+
+    private struct LineFragment {
+        let lineRect: CGRect
+        let usedRect: CGRect
+        let glyphRect: CGRect
+    }
+
+    @objc private func acceptTapped() {
+        if !isHidden {
+            onAccept?()
+        }
+    }
+
+    private struct RenderKey: Equatable {
+        let revision: Int
+        let insertionLocation: Int
+        let suffix: String
+        let paragraphLocation: Int
+        let paragraphLength: Int
+        let pixelWidth: Int
+        let pixelContainerWidth: Int
+        let traitStyle: Int
+        let contentSizeCategory: String
+        let attributeDescription: String
+    }
+}
+
+@MainActor
+final class ScreenplayTextView: UITextView {
+    var onTab: ((Bool) -> Void)?
+    var onAcceptPrediction: (() -> Void)?
+    var onLayout: ((CGFloat, UITraitCollection) -> Void)?
+
+    override var keyCommands: [UIKeyCommand]? {
+        [
+            UIKeyCommand(input: "\t", modifierFlags: [], action: #selector(tabForward)),
+            UIKeyCommand(input: "\t", modifierFlags: [.shift], action: #selector(tabBackward)),
+            UIKeyCommand(
+                input: UIKeyCommand.inputRightArrow,
+                modifierFlags: [.command],
+                action: #selector(acceptPrediction)
+            )
+        ]
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?(bounds.width, traitCollection)
+    }
+
+    @objc private func tabForward() { onTab?(false) }
+    @objc private func tabBackward() { onTab?(true) }
+    @objc private func acceptPrediction() { onAcceptPrediction?() }
+
+    /// A caret belongs to exactly one line: the line fragment of the glyph at
+    /// the insertion point. UIKit's default rect can stretch through
+    /// `paragraphSpacing` when the caret sits at a paragraph edge, rendering
+    /// inside the gap below the text; and any approach that reverse-matches a
+    /// y-coordinate against line rectangles breaks as soon as the view is
+    /// scrolled (content offset) or a fragment contains padding. Instead the
+    /// caret line is resolved from the character index itself — the same
+    /// lookup TextKit performs — while the horizontal placement stays UIKit's
+    /// own (indents, alignment, and wrapping included). Every line then shows
+    /// the same uniform caret, always on its own line.
+    override func caretRect(for position: UITextPosition) -> CGRect {
+        let rect = super.caretRect(for: position)
+        let font = typingAttributes[.font] as? UIFont
+            ?? UIFont.monospacedSystemFont(ofSize: 16, weight: .regular)
+        let lineHeight = max(22, ceil(font.lineHeight * 1.1))
+        let normalized = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: lineHeight)
+
+        let length = textStorage.length
+        guard length > 0, layoutManager.numberOfGlyphs > 0 else { return normalized }
+
+        let characterIndex = offset(from: beginningOfDocument, to: position)
+        guard characterIndex >= 0 else { return normalized }
+
+        // Caret past the final newline: the virtual empty line, which UIKit
+        // reports separately from the real fragments.
+        if characterIndex >= length {
+            if textStorage.string.hasSuffix("\n") || textStorage.string.hasSuffix("\r") {
+                let extra = layoutManager.extraLineFragmentRect
+                if !extra.isNull, !extra.isInfinite {
+                    return CGRect(
+                        x: rect.minX,
+                        y: textContainerInset.top + extra.minY,
+                        width: rect.width,
+                        height: lineHeight
+                    )
+                }
+            }
+            let lastGlyph = layoutManager.numberOfGlyphs - 1
+            let line = layoutManager.lineFragmentUsedRect(forGlyphAt: lastGlyph, effectiveRange: nil)
+            return CGRect(
+                x: rect.minX,
+                y: textContainerInset.top + line.minY,
+                width: rect.width,
+                height: lineHeight
+            )
+        }
+
+        layoutManager.ensureLayout(forCharacterRange: NSRange(location: characterIndex, length: 1))
+        let glyphIndex = layoutManager.glyphIndexForCharacter(at: characterIndex)
+        guard glyphIndex < layoutManager.numberOfGlyphs else { return normalized }
+        let line = layoutManager.lineFragmentUsedRect(forGlyphAt: glyphIndex, effectiveRange: nil)
+        guard !line.isNull, !line.isInfinite else { return normalized }
+        return CGRect(
+            x: rect.minX,
+            y: textContainerInset.top + line.minY,
+            width: rect.width,
+            height: lineHeight
+        )
+    }
+}

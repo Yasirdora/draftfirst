@@ -1,0 +1,3469 @@
+{
+  "tabNext": [
+    {
+      "current": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "character",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "dialogue",
+      "reverse": false,
+      "result": "parenthetical"
+    },
+    {
+      "current": "dialogue",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "parenthetical",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "shot",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "shot",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "general",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "centered",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "lyrics",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "note",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "section",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "synopsis",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "pagebreak",
+      "reverse": true,
+      "result": "scene"
+    }
+  ],
+  "tabSetFor": [
+    {
+      "prev": null,
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "scene",
+      "result": [
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "action",
+      "result": [
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "character",
+      "result": [
+        "dialogue",
+        "parenthetical"
+      ]
+    },
+    {
+      "prev": "dialogue",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "parenthetical",
+      "result": [
+        "dialogue"
+      ]
+    },
+    {
+      "prev": "transition",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "shot",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "general",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "centered",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "lyrics",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "note",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "section",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "synopsis",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "pagebreak",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    }
+  ],
+  "tabCycle": [
+    {
+      "current": "scene",
+      "prev": null,
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "scene",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "scene",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "scene",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "scene",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "scene",
+      "prev": "transition",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "shot",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "general",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "centered",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "note",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "section",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "action",
+      "prev": null,
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": null,
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
+      "prev": "scene",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "action",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "action",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "action",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "action",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "action",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "action",
+      "prev": "transition",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "transition",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
+      "prev": "shot",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "shot",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
+      "prev": "general",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "general",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
+      "prev": "centered",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "centered",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
+      "prev": "note",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "note",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
+      "prev": "section",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "section",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "character",
+      "prev": null,
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": null,
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "scene",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "scene",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "action",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "character",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "character",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "character",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "character",
+      "prev": "transition",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "transition",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "shot",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "shot",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "general",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "general",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "centered",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "centered",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "note",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "note",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "section",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "section",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "dialogue",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "dialogue",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "dialogue",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "character",
+      "reverse": false,
+      "result": "parenthetical"
+    },
+    {
+      "current": "dialogue",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "dialogue",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "dialogue",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "dialogue",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "character",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "transition",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": null,
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "transition",
+      "prev": "scene",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "action",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "transition",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "transition",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "transition",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "transition",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "transition",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "shot",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "general",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "centered",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "note",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "section",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "shot",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "shot",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "shot",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "shot",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "shot",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "shot",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "shot",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "general",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "general",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "general",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "general",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "general",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "general",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "centered",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "centered",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "centered",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "centered",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "centered",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "centered",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "lyrics",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "lyrics",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "lyrics",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "lyrics",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "lyrics",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "lyrics",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "note",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "note",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "note",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "note",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "note",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "note",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "section",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "section",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "section",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "section",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "section",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "section",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "synopsis",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "synopsis",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "synopsis",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "synopsis",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "synopsis",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "synopsis",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "action",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    }
+  ],
+  "nextElement": [
+    {
+      "current": "scene",
+      "key": "enter",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "key": "tab",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "key": "tab",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "key": "tab",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "key": "tab",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "action",
+      "key": "enter",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "action",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "action",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "action",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "action",
+      "key": "tab",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "key": "tab",
+      "text": "",
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "key": "tab",
+      "text": "   ",
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "key": "tab",
+      "text": " ",
+      "result": "character"
+    },
+    {
+      "current": "character",
+      "key": "enter",
+      "text": "x",
+      "result": "dialogue"
+    },
+    {
+      "current": "character",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "character",
+      "key": "tab",
+      "text": "x",
+      "result": "dialogue"
+    },
+    {
+      "current": "character",
+      "key": "tab",
+      "text": "",
+      "result": "dialogue"
+    },
+    {
+      "current": "character",
+      "key": "tab",
+      "text": "   ",
+      "result": "dialogue"
+    },
+    {
+      "current": "character",
+      "key": "tab",
+      "text": " ",
+      "result": "dialogue"
+    },
+    {
+      "current": "dialogue",
+      "key": "enter",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "dialogue",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "dialogue",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "dialogue",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "dialogue",
+      "key": "tab",
+      "text": "x",
+      "result": "parenthetical"
+    },
+    {
+      "current": "dialogue",
+      "key": "tab",
+      "text": "",
+      "result": "parenthetical"
+    },
+    {
+      "current": "dialogue",
+      "key": "tab",
+      "text": "   ",
+      "result": "parenthetical"
+    },
+    {
+      "current": "dialogue",
+      "key": "tab",
+      "text": " ",
+      "result": "parenthetical"
+    },
+    {
+      "current": "parenthetical",
+      "key": "enter",
+      "text": "x",
+      "result": "dialogue"
+    },
+    {
+      "current": "parenthetical",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "parenthetical",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "parenthetical",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "parenthetical",
+      "key": "tab",
+      "text": "x",
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "key": "tab",
+      "text": "",
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "key": "tab",
+      "text": "   ",
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
+      "key": "tab",
+      "text": " ",
+      "result": "transition"
+    },
+    {
+      "current": "transition",
+      "key": "enter",
+      "text": "x",
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "transition",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "transition",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "transition",
+      "key": "tab",
+      "text": "x",
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "key": "tab",
+      "text": "",
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "key": "tab",
+      "text": "   ",
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "key": "tab",
+      "text": " ",
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "key": "enter",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "shot",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "shot",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "shot",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "shot",
+      "key": "tab",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "shot",
+      "key": "tab",
+      "text": "",
+      "result": "character"
+    },
+    {
+      "current": "shot",
+      "key": "tab",
+      "text": "   ",
+      "result": "character"
+    },
+    {
+      "current": "shot",
+      "key": "tab",
+      "text": " ",
+      "result": "character"
+    },
+    {
+      "current": "general",
+      "key": "enter",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "general",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "general",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "general",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "general",
+      "key": "tab",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "general",
+      "key": "tab",
+      "text": "",
+      "result": "character"
+    },
+    {
+      "current": "general",
+      "key": "tab",
+      "text": "   ",
+      "result": "character"
+    },
+    {
+      "current": "general",
+      "key": "tab",
+      "text": " ",
+      "result": "character"
+    },
+    {
+      "current": "centered",
+      "key": "enter",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "centered",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "centered",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "centered",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "centered",
+      "key": "tab",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "centered",
+      "key": "tab",
+      "text": "",
+      "result": "character"
+    },
+    {
+      "current": "centered",
+      "key": "tab",
+      "text": "   ",
+      "result": "character"
+    },
+    {
+      "current": "centered",
+      "key": "tab",
+      "text": " ",
+      "result": "character"
+    },
+    {
+      "current": "lyrics",
+      "key": "enter",
+      "text": "x",
+      "result": "lyrics"
+    },
+    {
+      "current": "lyrics",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "lyrics",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "lyrics",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "lyrics",
+      "key": "tab",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "lyrics",
+      "key": "tab",
+      "text": "",
+      "result": "character"
+    },
+    {
+      "current": "lyrics",
+      "key": "tab",
+      "text": "   ",
+      "result": "character"
+    },
+    {
+      "current": "lyrics",
+      "key": "tab",
+      "text": " ",
+      "result": "character"
+    },
+    {
+      "current": "note",
+      "key": "enter",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "note",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "note",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "note",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "note",
+      "key": "tab",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "note",
+      "key": "tab",
+      "text": "",
+      "result": "character"
+    },
+    {
+      "current": "note",
+      "key": "tab",
+      "text": "   ",
+      "result": "character"
+    },
+    {
+      "current": "note",
+      "key": "tab",
+      "text": " ",
+      "result": "character"
+    },
+    {
+      "current": "section",
+      "key": "enter",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "section",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "section",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "section",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "section",
+      "key": "tab",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "section",
+      "key": "tab",
+      "text": "",
+      "result": "character"
+    },
+    {
+      "current": "section",
+      "key": "tab",
+      "text": "   ",
+      "result": "character"
+    },
+    {
+      "current": "section",
+      "key": "tab",
+      "text": " ",
+      "result": "character"
+    },
+    {
+      "current": "synopsis",
+      "key": "enter",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "synopsis",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "synopsis",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "synopsis",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "synopsis",
+      "key": "tab",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "synopsis",
+      "key": "tab",
+      "text": "",
+      "result": "character"
+    },
+    {
+      "current": "synopsis",
+      "key": "tab",
+      "text": "   ",
+      "result": "character"
+    },
+    {
+      "current": "synopsis",
+      "key": "tab",
+      "text": " ",
+      "result": "character"
+    },
+    {
+      "current": "pagebreak",
+      "key": "enter",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "pagebreak",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "pagebreak",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "pagebreak",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "pagebreak",
+      "key": "tab",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "pagebreak",
+      "key": "tab",
+      "text": "",
+      "result": "character"
+    },
+    {
+      "current": "pagebreak",
+      "key": "tab",
+      "text": "   ",
+      "result": "character"
+    },
+    {
+      "current": "pagebreak",
+      "key": "tab",
+      "text": " ",
+      "result": "character"
+    }
+  ]
+}

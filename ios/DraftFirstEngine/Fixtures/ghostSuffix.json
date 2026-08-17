@@ -1,0 +1,674 @@
+[
+  {
+    "candidate": "INT.",
+    "text": "",
+    "hint": false,
+    "expected": "INT."
+  },
+  {
+    "candidate": "INT.",
+    "text": "",
+    "hint": true,
+    "expected": "INT."
+  },
+  {
+    "candidate": "INT.",
+    "text": "I",
+    "hint": false,
+    "expected": "NT."
+  },
+  {
+    "candidate": "INT.",
+    "text": "I",
+    "hint": true,
+    "expected": " INT."
+  },
+  {
+    "candidate": "INT.",
+    "text": "IN",
+    "hint": false,
+    "expected": "T."
+  },
+  {
+    "candidate": "INT.",
+    "text": "IN",
+    "hint": true,
+    "expected": " INT."
+  },
+  {
+    "candidate": "INT.",
+    "text": "INT",
+    "hint": false,
+    "expected": "."
+  },
+  {
+    "candidate": "INT.",
+    "text": "INT",
+    "hint": true,
+    "expected": " INT."
+  },
+  {
+    "candidate": "INT.",
+    "text": "DA",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "INT.",
+    "text": "DA",
+    "hint": true,
+    "expected": " INT."
+  },
+  {
+    "candidate": "INT.",
+    "text": "MARA ",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "INT.",
+    "text": "MARA ",
+    "hint": true,
+    "expected": "INT."
+  },
+  {
+    "candidate": "INT.",
+    "text": "ELI",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "INT.",
+    "text": "ELI",
+    "hint": true,
+    "expected": " INT."
+  },
+  {
+    "candidate": "EXT.",
+    "text": "",
+    "hint": false,
+    "expected": "EXT."
+  },
+  {
+    "candidate": "EXT.",
+    "text": "",
+    "hint": true,
+    "expected": "EXT."
+  },
+  {
+    "candidate": "EXT.",
+    "text": "I",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "EXT.",
+    "text": "I",
+    "hint": true,
+    "expected": " EXT."
+  },
+  {
+    "candidate": "EXT.",
+    "text": "IN",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "EXT.",
+    "text": "IN",
+    "hint": true,
+    "expected": " EXT."
+  },
+  {
+    "candidate": "EXT.",
+    "text": "INT",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "EXT.",
+    "text": "INT",
+    "hint": true,
+    "expected": " EXT."
+  },
+  {
+    "candidate": "EXT.",
+    "text": "DA",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "EXT.",
+    "text": "DA",
+    "hint": true,
+    "expected": " EXT."
+  },
+  {
+    "candidate": "EXT.",
+    "text": "MARA ",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "EXT.",
+    "text": "MARA ",
+    "hint": true,
+    "expected": "EXT."
+  },
+  {
+    "candidate": "EXT.",
+    "text": "ELI",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "EXT.",
+    "text": "ELI",
+    "hint": true,
+    "expected": " EXT."
+  },
+  {
+    "candidate": "DAY",
+    "text": "",
+    "hint": false,
+    "expected": "DAY"
+  },
+  {
+    "candidate": "DAY",
+    "text": "",
+    "hint": true,
+    "expected": "DAY"
+  },
+  {
+    "candidate": "DAY",
+    "text": "I",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "DAY",
+    "text": "I",
+    "hint": true,
+    "expected": " DAY"
+  },
+  {
+    "candidate": "DAY",
+    "text": "IN",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "DAY",
+    "text": "IN",
+    "hint": true,
+    "expected": " DAY"
+  },
+  {
+    "candidate": "DAY",
+    "text": "INT",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "DAY",
+    "text": "INT",
+    "hint": true,
+    "expected": " DAY"
+  },
+  {
+    "candidate": "DAY",
+    "text": "DA",
+    "hint": false,
+    "expected": "Y"
+  },
+  {
+    "candidate": "DAY",
+    "text": "DA",
+    "hint": true,
+    "expected": " DAY"
+  },
+  {
+    "candidate": "DAY",
+    "text": "MARA ",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "DAY",
+    "text": "MARA ",
+    "hint": true,
+    "expected": "DAY"
+  },
+  {
+    "candidate": "DAY",
+    "text": "ELI",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "DAY",
+    "text": "ELI",
+    "hint": true,
+    "expected": " DAY"
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "",
+    "hint": false,
+    "expected": "NIGHT"
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "",
+    "hint": true,
+    "expected": "NIGHT"
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "I",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "I",
+    "hint": true,
+    "expected": " NIGHT"
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "IN",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "IN",
+    "hint": true,
+    "expected": " NIGHT"
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "INT",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "INT",
+    "hint": true,
+    "expected": " NIGHT"
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "DA",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "DA",
+    "hint": true,
+    "expected": " NIGHT"
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "MARA ",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "MARA ",
+    "hint": true,
+    "expected": "NIGHT"
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "ELI",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "NIGHT",
+    "text": "ELI",
+    "hint": true,
+    "expected": " NIGHT"
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "",
+    "hint": false,
+    "expected": "CONT'D"
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "",
+    "hint": true,
+    "expected": "CONT'D"
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "I",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "I",
+    "hint": true,
+    "expected": " CONT'D"
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "IN",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "IN",
+    "hint": true,
+    "expected": " CONT'D"
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "INT",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "INT",
+    "hint": true,
+    "expected": " CONT'D"
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "DA",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "DA",
+    "hint": true,
+    "expected": " CONT'D"
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "MARA ",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "MARA ",
+    "hint": true,
+    "expected": "CONT'D"
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "ELI",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CONT'D",
+    "text": "ELI",
+    "hint": true,
+    "expected": " CONT'D"
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "",
+    "hint": false,
+    "expected": "CUT TO:"
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "",
+    "hint": true,
+    "expected": "CUT TO:"
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "I",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "I",
+    "hint": true,
+    "expected": " CUT TO:"
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "IN",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "IN",
+    "hint": true,
+    "expected": " CUT TO:"
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "INT",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "INT",
+    "hint": true,
+    "expected": " CUT TO:"
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "DA",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "DA",
+    "hint": true,
+    "expected": " CUT TO:"
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "MARA ",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "MARA ",
+    "hint": true,
+    "expected": "CUT TO:"
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "ELI",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "CUT TO:",
+    "text": "ELI",
+    "hint": true,
+    "expected": " CUT TO:"
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "",
+    "hint": false,
+    "expected": "ELIAS"
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "",
+    "hint": true,
+    "expected": "ELIAS"
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "I",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "I",
+    "hint": true,
+    "expected": " ELIAS"
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "IN",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "IN",
+    "hint": true,
+    "expected": " ELIAS"
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "INT",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "INT",
+    "hint": true,
+    "expected": " ELIAS"
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "DA",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "DA",
+    "hint": true,
+    "expected": " ELIAS"
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "MARA ",
+    "hint": false,
+    "expected": ""
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "MARA ",
+    "hint": true,
+    "expected": "ELIAS"
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "ELI",
+    "hint": false,
+    "expected": "AS"
+  },
+  {
+    "candidate": "ELIAS",
+    "text": "ELI",
+    "hint": true,
+    "expected": " ELIAS"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "",
+    "hint": false,
+    "expected": "(whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "",
+    "hint": true,
+    "expected": "(whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "I",
+    "hint": false,
+    "expected": " (whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "I",
+    "hint": true,
+    "expected": " (whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "IN",
+    "hint": false,
+    "expected": " (whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "IN",
+    "hint": true,
+    "expected": " (whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "INT",
+    "hint": false,
+    "expected": " (whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "INT",
+    "hint": true,
+    "expected": " (whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "DA",
+    "hint": false,
+    "expected": " (whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "DA",
+    "hint": true,
+    "expected": " (whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "MARA ",
+    "hint": false,
+    "expected": "(whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "MARA ",
+    "hint": true,
+    "expected": "(whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "ELI",
+    "hint": false,
+    "expected": " (whispering)"
+  },
+  {
+    "candidate": "(whispering)",
+    "text": "ELI",
+    "hint": true,
+    "expected": " (whispering)"
+  }
+]

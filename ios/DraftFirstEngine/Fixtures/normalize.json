@@ -1,0 +1,460 @@
+{
+  "parenthetical": [
+    {
+      "input": "beat",
+      "result": "(beat)"
+    },
+    {
+      "input": "(beat)",
+      "result": "(beat)"
+    },
+    {
+      "input": "(beat",
+      "result": "(beat)"
+    },
+    {
+      "input": "beat)",
+      "result": "(beat)"
+    },
+    {
+      "input": "()",
+      "result": ""
+    },
+    {
+      "input": "(",
+      "result": ""
+    },
+    {
+      "input": ")",
+      "result": ""
+    },
+    {
+      "input": "  ( beat )  ",
+      "result": "(beat)"
+    },
+    {
+      "input": "((beat))",
+      "result": "((beat))"
+    },
+    {
+      "input": "whispering",
+      "result": "(whispering)"
+    },
+    {
+      "input": "(quietly, to the machine",
+      "result": "(quietly, to the machine)"
+    },
+    {
+      "input": "to JOHN)",
+      "result": "(to JOHN)"
+    }
+  ],
+  "cue": [
+    {
+      "input": "MARA",
+      "result": "MARA"
+    },
+    {
+      "input": "MARA (V.O.)",
+      "result": "MARA (V.O.)"
+    },
+    {
+      "input": "MARA (V.O",
+      "result": "MARA (V.O.)"
+    },
+    {
+      "input": "MARA (WHISPERING",
+      "result": "MARA (WHISPERING)"
+    },
+    {
+      "input": "MARA (",
+      "result": "MARA"
+    },
+    {
+      "input": "MARA VO",
+      "result": "MARA (V.O.)"
+    },
+    {
+      "input": "VO",
+      "result": "VO"
+    },
+    {
+      "input": "CARLOS",
+      "result": "CARLOS"
+    },
+    {
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "input": "MARA (cont'd)",
+      "result": "MARA (cont'd)"
+    },
+    {
+      "input": "MARA (CONT’D)",
+      "result": "MARA (CONT’D)"
+    },
+    {
+      "input": "MARA O.S.",
+      "result": "MARA (O.S.)"
+    },
+    {
+      "input": "MARA PRELAP",
+      "result": "MARA (PRE-LAP)"
+    },
+    {
+      "input": "MARA (PRE LAP",
+      "result": "MARA (PRE-LAP)"
+    },
+    {
+      "input": "MARA (PRE-LAP)",
+      "result": "MARA (PRE-LAP)"
+    },
+    {
+      "input": "MARA OC",
+      "result": "MARA (O.C.)"
+    },
+    {
+      "input": "MARA (SUBTITLE",
+      "result": "MARA (SUBTITLE)"
+    },
+    {
+      "input": "MARA (FILTERED)",
+      "result": "MARA (FILTERED)"
+    },
+    {
+      "input": "MARA ()",
+      "result": "MARA ()"
+    },
+    {
+      "input": "(V.O.)",
+      "result": "(V.O.)"
+    },
+    {
+      "input": "MARA  (  V.O.  ",
+      "result": "MARA (V.O.)"
+    },
+    {
+      "input": "mara vo",
+      "result": "mara (V.O.)"
+    },
+    {
+      "input": "ELIAS ^",
+      "result": "ELIAS ^"
+    },
+    {
+      "input": "DR. ELENA VOSS",
+      "result": "DR. ELENA VOSS"
+    },
+    {
+      "input": "MARA (INTO PHONE",
+      "result": "MARA (INTO PHONE)"
+    }
+  ],
+  "looksLikeCue": [
+    {
+      "input": "MARA",
+      "result": true
+    },
+    {
+      "input": "Mara",
+      "result": false
+    },
+    {
+      "input": "mara",
+      "result": false
+    },
+    {
+      "input": "(to JOHN)",
+      "result": false
+    },
+    {
+      "input": "MARA (CONT'D)",
+      "result": true
+    },
+    {
+      "input": "A",
+      "result": false
+    },
+    {
+      "input": "AB",
+      "result": true
+    },
+    {
+      "input": "1234",
+      "result": false
+    },
+    {
+      "input": "MARA!",
+      "result": true
+    },
+    {
+      "input": "(SHOUTING)",
+      "result": false
+    },
+    {
+      "input": "DR. ELENA VOSS",
+      "result": true
+    },
+    {
+      "input": "  ELENA  ",
+      "result": true
+    },
+    {
+      "input": "ON THE RADIO",
+      "result": true
+    }
+  ],
+  "elementText": [
+    {
+      "type": "scene",
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "type": "scene",
+      "input": "(beat",
+      "result": "(beat"
+    },
+    {
+      "type": "scene",
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "type": "scene",
+      "input": "INT. LAB - DAY",
+      "result": "INT. LAB - DAY"
+    },
+    {
+      "type": "scene",
+      "input": "Some action.",
+      "result": "Some action."
+    },
+    {
+      "type": "action",
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "type": "action",
+      "input": "(beat",
+      "result": "(beat"
+    },
+    {
+      "type": "action",
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "type": "action",
+      "input": "INT. LAB - DAY",
+      "result": "INT. LAB - DAY"
+    },
+    {
+      "type": "action",
+      "input": "Some action.",
+      "result": "Some action."
+    },
+    {
+      "type": "character",
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "type": "character",
+      "input": "(beat",
+      "result": "(beat"
+    },
+    {
+      "type": "character",
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "type": "character",
+      "input": "INT. LAB - DAY",
+      "result": "INT. LAB - DAY"
+    },
+    {
+      "type": "character",
+      "input": "Some action.",
+      "result": "Some action."
+    },
+    {
+      "type": "dialogue",
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "type": "dialogue",
+      "input": "(beat",
+      "result": "(beat"
+    },
+    {
+      "type": "dialogue",
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "type": "dialogue",
+      "input": "INT. LAB - DAY",
+      "result": "INT. LAB - DAY"
+    },
+    {
+      "type": "dialogue",
+      "input": "Some action.",
+      "result": "Some action."
+    },
+    {
+      "type": "parenthetical",
+      "input": "beat",
+      "result": "(beat)"
+    },
+    {
+      "type": "parenthetical",
+      "input": "(beat",
+      "result": "(beat)"
+    },
+    {
+      "type": "parenthetical",
+      "input": "MARA (CONT'D)",
+      "result": "(MARA (CONT'D)"
+    },
+    {
+      "type": "parenthetical",
+      "input": "INT. LAB - DAY",
+      "result": "(INT. LAB - DAY)"
+    },
+    {
+      "type": "parenthetical",
+      "input": "Some action.",
+      "result": "(Some action.)"
+    },
+    {
+      "type": "transition",
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "type": "transition",
+      "input": "(beat",
+      "result": "(beat"
+    },
+    {
+      "type": "transition",
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "type": "transition",
+      "input": "INT. LAB - DAY",
+      "result": "INT. LAB - DAY"
+    },
+    {
+      "type": "transition",
+      "input": "Some action.",
+      "result": "Some action."
+    },
+    {
+      "type": "shot",
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "type": "shot",
+      "input": "(beat",
+      "result": "(beat"
+    },
+    {
+      "type": "shot",
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "type": "shot",
+      "input": "INT. LAB - DAY",
+      "result": "INT. LAB - DAY"
+    },
+    {
+      "type": "shot",
+      "input": "Some action.",
+      "result": "Some action."
+    },
+    {
+      "type": "general",
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "type": "general",
+      "input": "(beat",
+      "result": "(beat"
+    },
+    {
+      "type": "general",
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "type": "general",
+      "input": "INT. LAB - DAY",
+      "result": "INT. LAB - DAY"
+    },
+    {
+      "type": "general",
+      "input": "Some action.",
+      "result": "Some action."
+    },
+    {
+      "type": "centered",
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "type": "centered",
+      "input": "(beat",
+      "result": "(beat"
+    },
+    {
+      "type": "centered",
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "type": "centered",
+      "input": "INT. LAB - DAY",
+      "result": "INT. LAB - DAY"
+    },
+    {
+      "type": "centered",
+      "input": "Some action.",
+      "result": "Some action."
+    },
+    {
+      "type": "lyrics",
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "type": "lyrics",
+      "input": "(beat",
+      "result": "(beat"
+    },
+    {
+      "type": "lyrics",
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "type": "lyrics",
+      "input": "INT. LAB - DAY",
+      "result": "INT. LAB - DAY"
+    },
+    {
+      "type": "lyrics",
+      "input": "Some action.",
+      "result": "Some action."
+    }
+  ]
+}

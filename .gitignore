@@ -37,3 +37,7 @@ vite.config.ts.timestamp-*
 /ios/DerivedData/
 **/xcuserdata/
 **/*.xcuserstate
+
+# SwiftPM build products (hundreds of MB of object files and module caches)
+.build/
+.swiftpm/

@@ -3,7 +3,7 @@
  * Builds the iOS engine bundle.
  *
  *   tsc (packages/draftfirst/dist) → esbuild IIFE (scripts/ios-bridge-entry.js)
- *   → ios/eDraft/Resources/edraft-engine.js + ENGINE-CHECKSUM.txt
+ *   → ios/DraftFirst/Resources/draftfirst-engine.js + ENGINE-CHECKSUM.txt
  *
  * The artifact is then verified inside the REAL JavaScriptCore runtime
  * (macOS ships the jsc CLI) so a broken bundle can never reach the app
@@ -18,8 +18,8 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pkgPath = join(root, 'packages/draftfirst/package.json');
 const version = JSON.parse(readFileSync(pkgPath, 'utf8')).version;
-const outDir = join(root, 'ios/eDraft/Resources');
-const outFile = join(outDir, 'edraft-engine.js');
+const outDir = join(root, 'ios/DraftFirst/Resources');
+const outFile = join(outDir, 'draftfirst-engine.js');
 const esbuild = join(root, 'node_modules/.bin/esbuild');
 
 console.log(`▸ building @draftfirst/core ${version} (tsc)`);
@@ -46,13 +46,13 @@ const bytes = readFileSync(outFile);
 const sha = createHash('sha256').update(bytes).digest('hex');
 writeFileSync(join(outDir, 'ENGINE-CHECKSUM.txt'), [
 	`engine: @draftfirst/core ${version}`,
-	'file: edraft-engine.js',
+	'file: draftfirst-engine.js',
 	`bytes: ${bytes.length}`,
 	`sha256: ${sha}`,
 	`built: ${new Date().toISOString()}`,
 	''
 ].join('\n'));
-console.log(`▸ wrote ios/eDraft/Resources/edraft-engine.js (${bytes.length} bytes, sha256 ${sha.slice(0, 12)}…)`);
+console.log(`▸ wrote ios/DraftFirst/Resources/draftfirst-engine.js (${bytes.length} bytes, sha256 ${sha.slice(0, 12)}…)`);
 
 const jsc = '/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc';
 if (existsSync(jsc)) {

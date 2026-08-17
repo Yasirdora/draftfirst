@@ -1,0 +1,3989 @@
+[
+  {
+    "name": "sample",
+    "source": "Title: The Empty Cinema\nCredit: written by\nAuthor: A. Projectionist\nDraft date: 8/8/2026\nContact: booth@example.com\n\n# Act One\n\nINT. THE REX CINEMA, PROJECTION BOOTH - NIGHT\n\nDust hangs in the beam of a 35mm projector. ELIAS VANCE, 60s, threads the final reel with surgeon's hands. The auditorium below is empty.\n\nELIAS\n(quietly, to the machine)\nOne more time. Like we promised.\n\nHe flips the shutter. Light floods the booth.\n\nCUT TO:\n\nINT. THE REX CINEMA, AUDITORIUM - CONTINUOUS\n\nRows of vacant seats. On screen, a HOME MOVIE flickers: a birthday party, decades old. A young girl blows out candles.\n\nMARA (O.S.)\nYou kept it.\n\nElias doesn't turn. MARA, 30s, stands in the aisle, out of breath.\n\nELIAS\nYou came back.\n\nMARA\n(beat)\nYou said the reel burns at midnight.\n\nELIAS\nThen we watch it—\n\nMARA ^\nTogether.\n\n> THE END <\n",
+    "expected": {
+      "titlePage": [
+        {
+          "key": "Title",
+          "values": [
+            "The Empty Cinema"
+          ]
+        },
+        {
+          "key": "Credit",
+          "values": [
+            "written by"
+          ]
+        },
+        {
+          "key": "Author",
+          "values": [
+            "A. Projectionist"
+          ]
+        },
+        {
+          "key": "Draft date",
+          "values": [
+            "8/8/2026"
+          ]
+        },
+        {
+          "key": "Contact",
+          "values": [
+            "booth@example.com"
+          ]
+        }
+      ],
+      "elements": [
+        {
+          "type": "section",
+          "text": "Act One",
+          "depth": 1
+        },
+        {
+          "type": "scene",
+          "text": "INT. THE REX CINEMA, PROJECTION BOOTH - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Dust hangs in the beam of a 35mm projector. ELIAS VANCE, 60s, threads the final reel with surgeon's hands. The auditorium below is empty."
+        },
+        {
+          "type": "character",
+          "text": "ELIAS"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(quietly, to the machine)"
+        },
+        {
+          "type": "dialogue",
+          "text": "One more time. Like we promised."
+        },
+        {
+          "type": "action",
+          "text": "He flips the shutter. Light floods the booth."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. THE REX CINEMA, AUDITORIUM - CONTINUOUS"
+        },
+        {
+          "type": "action",
+          "text": "Rows of vacant seats. On screen, a HOME MOVIE flickers: a birthday party, decades old. A young girl blows out candles."
+        },
+        {
+          "type": "character",
+          "text": "MARA (O.S.)"
+        },
+        {
+          "type": "dialogue",
+          "text": "You kept it."
+        },
+        {
+          "type": "action",
+          "text": "Elias doesn't turn. MARA, 30s, stands in the aisle, out of breath."
+        },
+        {
+          "type": "character",
+          "text": "ELIAS"
+        },
+        {
+          "type": "dialogue",
+          "text": "You came back."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(beat)"
+        },
+        {
+          "type": "dialogue",
+          "text": "You said the reel burns at midnight."
+        },
+        {
+          "type": "character",
+          "text": "ELIAS"
+        },
+        {
+          "type": "dialogue",
+          "text": "Then we watch it—"
+        },
+        {
+          "type": "character",
+          "text": "MARA",
+          "dual": true
+        },
+        {
+          "type": "dialogue",
+          "text": "Together."
+        },
+        {
+          "type": "centered",
+          "text": "THE END"
+        }
+      ]
+    }
+  },
+  {
+    "name": "edge-headings",
+    "source": "INT. LAB - DAY\n\nEXT. ROOF - NIGHT\n\nEST. CITY - DAWN\n\nINT./EXT. CAR - MOVING - DAY\n\nI/E. PORCH - DUSK\n\n.A FORCED HEADING\n\nINT. LAB - MORNING\n\nINT. LAB - AFTERNOON\n\nINT. LAB - EVENING\n\nINT. LAB - SUNRISE\n\nINT. LAB - SUNSET\n\nINT. LAB - MAGIC HOUR\n\nINT. LAB - MIDNIGHT\n\nINT. LAB - LATER\n\nINT. LAB - CONTINUOUS\n\nINT. LAB - MOMENTS LATER\n\nINT. LAB - SAME\n\nINT. LAB - SAME TIME\n\nINT. LAB - THE NEXT DAY\n\nINT. LAB - DAYS LATER\n\nINT. LAB - WEEKS LATER\n\nINT. LAB - MONTHS LATER\n\nINT. LAB - YEARS LATER\n\nINT. LAB - FLASHBACK\n\nINT. LAB - PRESENT DAY\n\nINT. LAB - FUTURE",
+    "expected": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT. LAB - DAY"
+        },
+        {
+          "type": "scene",
+          "text": "EXT. ROOF - NIGHT"
+        },
+        {
+          "type": "scene",
+          "text": "EST. CITY - DAWN"
+        },
+        {
+          "type": "scene",
+          "text": "INT./EXT. CAR - MOVING - DAY"
+        },
+        {
+          "type": "scene",
+          "text": "I/E. PORCH - DUSK"
+        },
+        {
+          "type": "scene",
+          "text": "A FORCED HEADING"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - MORNING"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - AFTERNOON"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - EVENING"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - SUNRISE"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - SUNSET"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - MAGIC HOUR"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - MIDNIGHT"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - LATER"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - CONTINUOUS"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - MOMENTS LATER"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - SAME"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - SAME TIME"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - THE NEXT DAY"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - DAYS LATER"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - WEEKS LATER"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - MONTHS LATER"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - YEARS LATER"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - FLASHBACK"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - PRESENT DAY"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - FUTURE"
+        }
+      ]
+    }
+  },
+  {
+    "name": "edge-dialogue",
+    "source": "INT. ROOM - DAY\n\nMARA\n(whispering)\nA line.\n\nMARA (V.O.)\nOff-screen.\n\nDAVID (CONT'D)\nContinued.\n\nMARA ^\nDual line.\n\nDAVID ^\nDual reply.\n",
+    "expected": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT. ROOM - DAY"
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "A line."
+        },
+        {
+          "type": "character",
+          "text": "MARA (V.O.)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Off-screen."
+        },
+        {
+          "type": "character",
+          "text": "DAVID (CONT'D)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Continued."
+        },
+        {
+          "type": "character",
+          "text": "MARA",
+          "dual": true
+        },
+        {
+          "type": "dialogue",
+          "text": "Dual line."
+        },
+        {
+          "type": "character",
+          "text": "DAVID",
+          "dual": true
+        },
+        {
+          "type": "dialogue",
+          "text": "Dual reply."
+        }
+      ]
+    }
+  },
+  {
+    "name": "edge-structural",
+    "source": "# Act One\n\n## Sequence\n\n= A synopsis of the beat.\n\n[[A private note]]\n\n/*\nA boneyard block.\n*/\n\nINT. ROOM - DAY\n\nSome action.\n\n===\n\n> THE END <\n\n~Sung like a lyric\n",
+    "expected": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "section",
+          "text": "Act One",
+          "depth": 1
+        },
+        {
+          "type": "section",
+          "text": "Sequence",
+          "depth": 2
+        },
+        {
+          "type": "synopsis",
+          "text": "A synopsis of the beat."
+        },
+        {
+          "type": "note",
+          "text": "A private note"
+        },
+        {
+          "type": "scene",
+          "text": "INT. ROOM - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Some action."
+        },
+        {
+          "type": "pagebreak",
+          "text": ""
+        },
+        {
+          "type": "centered",
+          "text": "THE END"
+        },
+        {
+          "type": "lyrics",
+          "text": "Sung like a lyric"
+        }
+      ]
+    }
+  },
+  {
+    "name": "edge-title-page",
+    "source": "Title: My Script\nCredit: written by\nAuthor: A. Writer\nSource: A true story\nNotes:\n    First note line.\n    Second note line.\nUnknown Key: kept as-is\n\nINT. ROOM - DAY\n\nAction.",
+    "expected": {
+      "titlePage": [
+        {
+          "key": "Title",
+          "values": [
+            "My Script"
+          ]
+        },
+        {
+          "key": "Credit",
+          "values": [
+            "written by"
+          ]
+        },
+        {
+          "key": "Author",
+          "values": [
+            "A. Writer"
+          ]
+        },
+        {
+          "key": "Source",
+          "values": [
+            "A true story"
+          ]
+        },
+        {
+          "key": "Notes",
+          "values": [
+            "First note line.",
+            "Second note line."
+          ]
+        },
+        {
+          "key": "Unknown Key",
+          "values": [
+            "kept as-is"
+          ]
+        }
+      ],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT. ROOM - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action."
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty",
+    "source": "",
+    "expected": {
+      "titlePage": [],
+      "elements": []
+    }
+  },
+  {
+    "name": "whitespace-chaos",
+    "source": "\n\n   \nINT.  LAB   -   DAY\n\n\n\tTabbed action.\n\n\nMARA\n\nHi.\n\n\n",
+    "expected": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT.  LAB   -   DAY"
+        },
+        {
+          "type": "action",
+          "text": "    Tabbed action."
+        },
+        {
+          "type": "action",
+          "text": "MARA"
+        },
+        {
+          "type": "action",
+          "text": "Hi."
+        }
+      ]
+    }
+  },
+  {
+    "name": "torture",
+    "source": "﻿Title: Torture Draft\r\nCredit: written by\nAuthor: T. Est\r\n\nINT. LAB - - DAY\r\n\nThe generator hums steadily while MARA recalibrates the 👩‍🚀 console, and the array spools past every rated tolerance tonight.\r\n\nCAFÉ OWNER (CONT’D)\r\n(whispering 🎧)\nA line of dialogue with an emoji 🔥 and enough words to wrap across two printed lines of the page for good measure.\r\n\nEXT. CAFÉ TERRACE - NIGHT\r\n\nA lone CR\rinside one logical line.\r\n\n/* this boneyard is never closed",
+    "expected": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "action",
+          "text": "﻿Title: Torture Draft"
+        },
+        {
+          "type": "action",
+          "text": "Credit: written by"
+        },
+        {
+          "type": "action",
+          "text": "Author: T. Est"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LAB - - DAY"
+        },
+        {
+          "type": "action",
+          "text": "The generator hums steadily while MARA recalibrates the 👩‍🚀 console, and the array spools past every rated tolerance tonight."
+        },
+        {
+          "type": "character",
+          "text": "CAFÉ OWNER (CONT’D)"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering 🎧)"
+        },
+        {
+          "type": "dialogue",
+          "text": "A line of dialogue with an emoji 🔥 and enough words to wrap across two printed lines of the page for good measure."
+        },
+        {
+          "type": "scene",
+          "text": "EXT. CAFÉ TERRACE - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "A lone CR\rinside one logical line."
+        },
+        {
+          "type": "action",
+          "text": "/* this boneyard is never closed"
+        }
+      ]
+    }
+  },
+  {
+    "name": "feature-120",
+    "source": "FADE IN:\n\nINT. LOCATION 1 - DAY\n\nAction line for scene 1. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 1, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 1. I hear you, and I agree completely.\n\nINT. LOCATION 2 - NIGHT\n\nAction line for scene 2. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 2, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 2. I hear you, and I agree completely.\n\nINT. LOCATION 3 - DAY\n\nAction line for scene 3. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 3, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 3. I hear you, and I agree completely.\n\nINT. LOCATION 4 - NIGHT\n\nAction line for scene 4. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 4, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 4. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 5 - DAY\n\nAction line for scene 5. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 5, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 5. I hear you, and I agree completely.\n\nINT. LOCATION 6 - NIGHT\n\nAction line for scene 6. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 6, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 6. I hear you, and I agree completely.\n\nINT. LOCATION 7 - DAY\n\nAction line for scene 7. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 7, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 7. I hear you, and I agree completely.\n\nINT. LOCATION 8 - NIGHT\n\nAction line for scene 8. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 8, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 8. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 9 - DAY\n\nAction line for scene 9. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 9, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 9. I hear you, and I agree completely.\n\nINT. LOCATION 10 - NIGHT\n\nAction line for scene 10. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 10, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 10. I hear you, and I agree completely.\n\nINT. LOCATION 11 - DAY\n\nAction line for scene 11. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 11, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 11. I hear you, and I agree completely.\n\nINT. LOCATION 12 - NIGHT\n\nAction line for scene 12. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 12, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 12. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 13 - DAY\n\nAction line for scene 13. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 13, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 13. I hear you, and I agree completely.\n\nINT. LOCATION 14 - NIGHT\n\nAction line for scene 14. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 14, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 14. I hear you, and I agree completely.\n\nINT. LOCATION 15 - DAY\n\nAction line for scene 15. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 15, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 15. I hear you, and I agree completely.\n\nINT. LOCATION 16 - NIGHT\n\nAction line for scene 16. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 16, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 16. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 17 - DAY\n\nAction line for scene 17. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 17, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 17. I hear you, and I agree completely.\n\nINT. LOCATION 18 - NIGHT\n\nAction line for scene 18. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 18, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 18. I hear you, and I agree completely.\n\nINT. LOCATION 19 - DAY\n\nAction line for scene 19. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 19, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 19. I hear you, and I agree completely.\n\nINT. LOCATION 20 - NIGHT\n\nAction line for scene 20. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 20, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 20. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 21 - DAY\n\nAction line for scene 21. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 21, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 21. I hear you, and I agree completely.\n\nINT. LOCATION 22 - NIGHT\n\nAction line for scene 22. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 22, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 22. I hear you, and I agree completely.\n\nINT. LOCATION 23 - DAY\n\nAction line for scene 23. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 23, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 23. I hear you, and I agree completely.\n\nINT. LOCATION 24 - NIGHT\n\nAction line for scene 24. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 24, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 24. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 25 - DAY\n\nAction line for scene 25. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 25, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 25. I hear you, and I agree completely.\n\nINT. LOCATION 26 - NIGHT\n\nAction line for scene 26. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 26, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 26. I hear you, and I agree completely.\n\nINT. LOCATION 27 - DAY\n\nAction line for scene 27. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 27, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 27. I hear you, and I agree completely.\n\nINT. LOCATION 28 - NIGHT\n\nAction line for scene 28. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 28, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 28. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 29 - DAY\n\nAction line for scene 29. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 29, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 29. I hear you, and I agree completely.\n\nINT. LOCATION 30 - NIGHT\n\nAction line for scene 30. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 30, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 30. I hear you, and I agree completely.\n\nINT. LOCATION 31 - DAY\n\nAction line for scene 31. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 31, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 31. I hear you, and I agree completely.\n\nINT. LOCATION 32 - NIGHT\n\nAction line for scene 32. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 32, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 32. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 33 - DAY\n\nAction line for scene 33. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 33, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 33. I hear you, and I agree completely.\n\nINT. LOCATION 34 - NIGHT\n\nAction line for scene 34. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 34, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 34. I hear you, and I agree completely.\n\nINT. LOCATION 35 - DAY\n\nAction line for scene 35. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 35, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 35. I hear you, and I agree completely.\n\nINT. LOCATION 36 - NIGHT\n\nAction line for scene 36. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 36, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 36. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 37 - DAY\n\nAction line for scene 37. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 37, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 37. I hear you, and I agree completely.\n\nINT. LOCATION 38 - NIGHT\n\nAction line for scene 38. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 38, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 38. I hear you, and I agree completely.\n\nINT. LOCATION 39 - DAY\n\nAction line for scene 39. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 39, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 39. I hear you, and I agree completely.\n\nINT. LOCATION 40 - NIGHT\n\nAction line for scene 40. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 40, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 40. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 41 - DAY\n\nAction line for scene 41. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 41, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 41. I hear you, and I agree completely.\n\nINT. LOCATION 42 - NIGHT\n\nAction line for scene 42. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 42, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 42. I hear you, and I agree completely.\n\nINT. LOCATION 43 - DAY\n\nAction line for scene 43. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 43, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 43. I hear you, and I agree completely.\n\nINT. LOCATION 44 - NIGHT\n\nAction line for scene 44. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 44, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 44. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 45 - DAY\n\nAction line for scene 45. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 45, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 45. I hear you, and I agree completely.\n\nINT. LOCATION 46 - NIGHT\n\nAction line for scene 46. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 46, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 46. I hear you, and I agree completely.\n\nINT. LOCATION 47 - DAY\n\nAction line for scene 47. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 47, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 47. I hear you, and I agree completely.\n\nINT. LOCATION 48 - NIGHT\n\nAction line for scene 48. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 48, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 48. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 49 - DAY\n\nAction line for scene 49. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 49, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 49. I hear you, and I agree completely.\n\nINT. LOCATION 50 - NIGHT\n\nAction line for scene 50. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 50, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 50. I hear you, and I agree completely.\n\nINT. LOCATION 51 - DAY\n\nAction line for scene 51. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 51, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 51. I hear you, and I agree completely.\n\nINT. LOCATION 52 - NIGHT\n\nAction line for scene 52. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 52, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 52. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 53 - DAY\n\nAction line for scene 53. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 53, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 53. I hear you, and I agree completely.\n\nINT. LOCATION 54 - NIGHT\n\nAction line for scene 54. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 54, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 54. I hear you, and I agree completely.\n\nINT. LOCATION 55 - DAY\n\nAction line for scene 55. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 55, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 55. I hear you, and I agree completely.\n\nINT. LOCATION 56 - NIGHT\n\nAction line for scene 56. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 56, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 56. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 57 - DAY\n\nAction line for scene 57. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 57, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 57. I hear you, and I agree completely.\n\nINT. LOCATION 58 - NIGHT\n\nAction line for scene 58. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 58, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 58. I hear you, and I agree completely.\n\nINT. LOCATION 59 - DAY\n\nAction line for scene 59. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 59, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 59. I hear you, and I agree completely.\n\nINT. LOCATION 60 - NIGHT\n\nAction line for scene 60. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 60, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 60. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 61 - DAY\n\nAction line for scene 61. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 61, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 61. I hear you, and I agree completely.\n\nINT. LOCATION 62 - NIGHT\n\nAction line for scene 62. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 62, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 62. I hear you, and I agree completely.\n\nINT. LOCATION 63 - DAY\n\nAction line for scene 63. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 63, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 63. I hear you, and I agree completely.\n\nINT. LOCATION 64 - NIGHT\n\nAction line for scene 64. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 64, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 64. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 65 - DAY\n\nAction line for scene 65. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 65, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 65. I hear you, and I agree completely.\n\nINT. LOCATION 66 - NIGHT\n\nAction line for scene 66. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 66, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 66. I hear you, and I agree completely.\n\nINT. LOCATION 67 - DAY\n\nAction line for scene 67. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 67, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 67. I hear you, and I agree completely.\n\nINT. LOCATION 68 - NIGHT\n\nAction line for scene 68. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 68, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 68. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 69 - DAY\n\nAction line for scene 69. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 69, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 69. I hear you, and I agree completely.\n\nINT. LOCATION 70 - NIGHT\n\nAction line for scene 70. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 70, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 70. I hear you, and I agree completely.\n\nINT. LOCATION 71 - DAY\n\nAction line for scene 71. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 71, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 71. I hear you, and I agree completely.\n\nINT. LOCATION 72 - NIGHT\n\nAction line for scene 72. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 72, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 72. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 73 - DAY\n\nAction line for scene 73. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 73, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 73. I hear you, and I agree completely.\n\nINT. LOCATION 74 - NIGHT\n\nAction line for scene 74. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 74, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 74. I hear you, and I agree completely.\n\nINT. LOCATION 75 - DAY\n\nAction line for scene 75. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 75, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 75. I hear you, and I agree completely.\n\nINT. LOCATION 76 - NIGHT\n\nAction line for scene 76. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 76, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 76. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 77 - DAY\n\nAction line for scene 77. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 77, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 77. I hear you, and I agree completely.\n\nINT. LOCATION 78 - NIGHT\n\nAction line for scene 78. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 78, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 78. I hear you, and I agree completely.\n\nINT. LOCATION 79 - DAY\n\nAction line for scene 79. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 79, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 79. I hear you, and I agree completely.\n\nINT. LOCATION 80 - NIGHT\n\nAction line for scene 80. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 80, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 80. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 81 - DAY\n\nAction line for scene 81. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 81, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 81. I hear you, and I agree completely.\n\nINT. LOCATION 82 - NIGHT\n\nAction line for scene 82. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 82, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 82. I hear you, and I agree completely.\n\nINT. LOCATION 83 - DAY\n\nAction line for scene 83. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 83, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 83. I hear you, and I agree completely.\n\nINT. LOCATION 84 - NIGHT\n\nAction line for scene 84. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 84, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 84. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 85 - DAY\n\nAction line for scene 85. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 85, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 85. I hear you, and I agree completely.\n\nINT. LOCATION 86 - NIGHT\n\nAction line for scene 86. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 86, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 86. I hear you, and I agree completely.\n\nINT. LOCATION 87 - DAY\n\nAction line for scene 87. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 87, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 87. I hear you, and I agree completely.\n\nINT. LOCATION 88 - NIGHT\n\nAction line for scene 88. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 88, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 88. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 89 - DAY\n\nAction line for scene 89. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 89, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 89. I hear you, and I agree completely.\n\nINT. LOCATION 90 - NIGHT\n\nAction line for scene 90. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 90, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 90. I hear you, and I agree completely.\n\nINT. LOCATION 91 - DAY\n\nAction line for scene 91. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 91, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 91. I hear you, and I agree completely.\n\nINT. LOCATION 92 - NIGHT\n\nAction line for scene 92. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 92, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 92. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 93 - DAY\n\nAction line for scene 93. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 93, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 93. I hear you, and I agree completely.\n\nINT. LOCATION 94 - NIGHT\n\nAction line for scene 94. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 94, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 94. I hear you, and I agree completely.\n\nINT. LOCATION 95 - DAY\n\nAction line for scene 95. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 95, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 95. I hear you, and I agree completely.\n\nINT. LOCATION 96 - NIGHT\n\nAction line for scene 96. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 96, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 96. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 97 - DAY\n\nAction line for scene 97. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 97, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 97. I hear you, and I agree completely.\n\nINT. LOCATION 98 - NIGHT\n\nAction line for scene 98. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 98, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 98. I hear you, and I agree completely.\n\nINT. LOCATION 99 - DAY\n\nAction line for scene 99. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 99, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 99. I hear you, and I agree completely.\n\nINT. LOCATION 100 - NIGHT\n\nAction line for scene 100. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 100, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 100. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 101 - DAY\n\nAction line for scene 101. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 101, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 101. I hear you, and I agree completely.\n\nINT. LOCATION 102 - NIGHT\n\nAction line for scene 102. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 102, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 102. I hear you, and I agree completely.\n\nINT. LOCATION 103 - DAY\n\nAction line for scene 103. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 103, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 103. I hear you, and I agree completely.\n\nINT. LOCATION 104 - NIGHT\n\nAction line for scene 104. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 104, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 104. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 105 - DAY\n\nAction line for scene 105. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 105, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 105. I hear you, and I agree completely.\n\nINT. LOCATION 106 - NIGHT\n\nAction line for scene 106. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 106, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 106. I hear you, and I agree completely.\n\nINT. LOCATION 107 - DAY\n\nAction line for scene 107. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 107, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 107. I hear you, and I agree completely.\n\nINT. LOCATION 108 - NIGHT\n\nAction line for scene 108. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 108, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 108. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 109 - DAY\n\nAction line for scene 109. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 109, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 109. I hear you, and I agree completely.\n\nINT. LOCATION 110 - NIGHT\n\nAction line for scene 110. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 110, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 110. I hear you, and I agree completely.\n\nINT. LOCATION 111 - DAY\n\nAction line for scene 111. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 111, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 111. I hear you, and I agree completely.\n\nINT. LOCATION 112 - NIGHT\n\nAction line for scene 112. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 112, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 112. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 113 - DAY\n\nAction line for scene 113. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 113, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 113. I hear you, and I agree completely.\n\nINT. LOCATION 114 - NIGHT\n\nAction line for scene 114. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 114, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 114. I hear you, and I agree completely.\n\nINT. LOCATION 115 - DAY\n\nAction line for scene 115. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 115, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 115. I hear you, and I agree completely.\n\nINT. LOCATION 116 - NIGHT\n\nAction line for scene 116. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 116, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 116. I hear you, and I agree completely.\n\nCUT TO:\n\nINT. LOCATION 117 - DAY\n\nAction line for scene 117. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 117, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 117. I hear you, and I agree completely.\n\nINT. LOCATION 118 - NIGHT\n\nAction line for scene 118. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 118, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 118. I hear you, and I agree completely.\n\nINT. LOCATION 119 - DAY\n\nAction line for scene 119. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 119, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 119. I hear you, and I agree completely.\n\nINT. LOCATION 120 - NIGHT\n\nAction line for scene 120. Something happens that matters to the story and pushes it forward.\n\nMARA\n(whispering)\nDialogue for scene 120, beat one. We have to keep moving before they notice.\n\nDAVID\nReply in scene 120. I hear you, and I agree completely.\n\nCUT TO:",
+    "expected": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "transition",
+          "text": "FADE IN:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 1 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 1. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 1, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 1. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 2 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 2. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 2, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 2. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 3 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 3. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 3, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 3. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 4 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 4. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 4, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 4. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 5 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 5. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 5, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 5. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 6 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 6. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 6, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 6. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 7 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 7. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 7, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 7. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 8 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 8. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 8, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 8. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 9 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 9. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 9, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 9. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 10 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 10. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 10, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 10. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 11 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 11. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 11, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 11. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 12 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 12. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 12, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 12. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 13 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 13. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 13, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 13. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 14 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 14. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 14, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 14. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 15 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 15. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 15, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 15. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 16 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 16. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 16, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 16. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 17 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 17. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 17, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 17. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 18 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 18. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 18, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 18. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 19 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 19. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 19, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 19. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 20 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 20. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 20, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 20. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 21 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 21. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 21, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 21. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 22 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 22. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 22, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 22. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 23 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 23. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 23, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 23. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 24 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 24. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 24, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 24. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 25 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 25. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 25, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 25. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 26 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 26. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 26, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 26. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 27 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 27. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 27, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 27. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 28 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 28. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 28, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 28. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 29 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 29. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 29, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 29. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 30 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 30. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 30, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 30. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 31 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 31. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 31, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 31. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 32 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 32. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 32, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 32. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 33 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 33. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 33, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 33. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 34 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 34. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 34, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 34. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 35 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 35. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 35, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 35. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 36 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 36. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 36, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 36. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 37 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 37. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 37, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 37. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 38 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 38. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 38, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 38. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 39 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 39. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 39, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 39. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 40 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 40. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 40, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 40. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 41 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 41. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 41, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 41. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 42 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 42. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 42, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 42. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 43 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 43. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 43, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 43. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 44 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 44. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 44, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 44. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 45 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 45. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 45, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 45. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 46 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 46. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 46, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 46. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 47 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 47. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 47, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 47. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 48 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 48. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 48, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 48. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 49 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 49. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 49, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 49. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 50 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 50. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 50, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 50. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 51 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 51. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 51, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 51. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 52 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 52. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 52, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 52. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 53 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 53. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 53, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 53. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 54 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 54. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 54, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 54. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 55 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 55. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 55, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 55. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 56 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 56. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 56, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 56. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 57 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 57. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 57, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 57. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 58 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 58. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 58, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 58. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 59 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 59. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 59, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 59. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 60 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 60. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 60, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 60. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 61 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 61. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 61, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 61. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 62 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 62. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 62, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 62. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 63 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 63. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 63, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 63. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 64 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 64. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 64, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 64. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 65 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 65. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 65, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 65. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 66 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 66. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 66, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 66. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 67 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 67. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 67, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 67. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 68 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 68. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 68, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 68. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 69 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 69. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 69, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 69. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 70 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 70. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 70, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 70. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 71 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 71. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 71, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 71. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 72 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 72. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 72, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 72. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 73 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 73. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 73, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 73. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 74 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 74. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 74, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 74. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 75 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 75. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 75, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 75. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 76 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 76. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 76, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 76. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 77 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 77. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 77, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 77. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 78 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 78. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 78, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 78. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 79 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 79. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 79, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 79. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 80 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 80. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 80, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 80. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 81 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 81. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 81, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 81. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 82 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 82. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 82, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 82. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 83 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 83. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 83, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 83. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 84 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 84. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 84, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 84. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 85 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 85. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 85, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 85. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 86 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 86. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 86, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 86. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 87 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 87. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 87, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 87. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 88 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 88. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 88, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 88. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 89 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 89. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 89, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 89. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 90 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 90. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 90, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 90. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 91 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 91. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 91, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 91. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 92 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 92. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 92, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 92. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 93 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 93. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 93, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 93. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 94 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 94. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 94, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 94. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 95 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 95. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 95, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 95. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 96 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 96. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 96, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 96. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 97 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 97. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 97, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 97. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 98 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 98. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 98, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 98. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 99 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 99. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 99, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 99. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 100 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 100. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 100, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 100. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 101 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 101. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 101, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 101. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 102 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 102. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 102, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 102. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 103 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 103. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 103, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 103. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 104 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 104. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 104, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 104. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 105 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 105. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 105, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 105. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 106 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 106. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 106, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 106. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 107 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 107. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 107, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 107. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 108 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 108. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 108, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 108. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 109 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 109. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 109, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 109. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 110 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 110. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 110, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 110. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 111 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 111. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 111, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 111. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 112 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 112. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 112, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 112. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 113 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 113. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 113, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 113. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 114 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 114. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 114, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 114. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 115 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 115. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 115, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 115. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 116 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 116. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 116, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 116. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 117 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 117. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 117, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 117. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 118 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 118. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 118, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 118. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 119 - DAY"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 119. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 119, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 119. I hear you, and I agree completely."
+        },
+        {
+          "type": "scene",
+          "text": "INT. LOCATION 120 - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "Action line for scene 120. Something happens that matters to the story and pushes it forward."
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(whispering)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Dialogue for scene 120, beat one. We have to keep moving before they notice."
+        },
+        {
+          "type": "character",
+          "text": "DAVID"
+        },
+        {
+          "type": "dialogue",
+          "text": "Reply in scene 120. I hear you, and I agree completely."
+        },
+        {
+          "type": "transition",
+          "text": "CUT TO:"
+        }
+      ]
+    }
+  }
+]
