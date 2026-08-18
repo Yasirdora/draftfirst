@@ -1,29 +1,28 @@
 import SwiftUI
 import UIKit
 
-/// The editor's commands as genuine system-toolbar content: the system's own
-/// close button leads (DocumentGroup installs it as a custom leading item no
-/// SwiftUI modifier can retire — a second chevron beside it read as a bug),
-/// (element selector) is the principal item, and (undo/redo) plus
-/// (document menu) trail — the idiom of Apple's own document apps.
+/// The editor's chrome, configured straight onto the system navigation
+/// item: the platform's own close button leads (DocumentGroup installs it;
+/// it stays), the element pill is the title view, and undo + document menu
+/// are genuine UIBarButtonItems trailing.
 ///
-/// The header itself is no longer ours to draw. Every hand-rolled backdrop
-/// we tried — bar materials, masked blurs, glass sheets — read as a band
-/// because none of them ARE the platform's treatment. The controls now live
-/// in the real navigation bar, so the header is iOS's own transparent
-/// glass on every device, forever in lockstep with the system.
+/// Earlier iterations drew our own glass buttons inside SwiftUI toolbar
+/// slots. In DocumentGroup's bar that produced a second glass layer around
+/// each control — the bar wraps items in its own treatment, so our
+/// UIButton.Configuration.glass() rendered a tile inside a ring — and the
+/// system's compact document-menu chevron floated beside the pill with no
+/// SwiftUI surface able to retire it. Genuine bar items render through the
+/// system's own glass treatment — one layer, always in lockstep with the
+/// platform — and retiring the chevron is a plain property write
+/// (documentProperties / titleMenuProvider), not a fight with the bar.
 ///
-/// The controls stay genuine UIKit buttons hosted per toolbar slot: a
-/// SwiftUI Menu presented from page content takes iOS 26's broken
-/// reparenting path (the source button stays visible behind the open menu
-/// and taps fall through to whatever sits underneath), while UIKit button
-/// menus present through the system window-level path — the source morphs
-/// into the open menu and input is captured until it dismisses, exactly
-/// like Pages' ellipsis.
+/// Menus stay UIKit-owned: presentation goes through the system
+/// window-level path, the source morphs into the open menu, and input is
+/// captured until dismissal — exactly like Pages' controls.
 
-/// Everything a toolbar control needs, as one value. Its fields are read in
-/// EditorView's body, so SwiftUI re-renders the controls whenever any of
-/// them changes.
+/// Everything the chrome needs, as one value. Its fields are read in
+/// EditorView's body, so SwiftUI re-renders and re-applies the chrome
+/// whenever any of them changes.
 struct EditorChrome {
     let editor: EditorState
     let showStory: () -> Void
@@ -41,36 +40,162 @@ struct EditorChrome {
     let canRedo: Bool
 }
 
-/// One coordinator per control. Coordinators share nothing: each only
-/// serves its own button, so per-slot instances keep the wiring local.
+/// Owns the bar controls and applies them to the editor's navigation item.
+/// One instance per editor, created by EditorBarConfigurator.
 @MainActor
 final class ChromeCoordinator {
     var chrome: EditorChrome
-    /// The control's own button — the anchor for share popovers, the print
-    /// sheet, and the topmost-presenter walk.
-    var button: UIButton?
+    /// The zero-size anchor planted in the editor's view hierarchy; the
+    /// responder-chain walk to the navigation item starts here.
+    weak var anchorView: UIView?
 
-    init(chrome: EditorChrome) { self.chrome = chrome }
-
-    /// The inputs each control last rendered. SwiftUI re-runs updateUIView on
-    /// every editor render pass — every keystroke is one — and rewriting a
-    /// configuration or replacing a menu mid-gesture tears an in-flight press
-    /// or silently dismisses the open menu. chrome itself refreshes every
-    /// pass (menu actions read it at invocation time, so stale menus still
+    /// The inputs each control last rendered. SwiftUI re-runs the update
+    /// pass on every editor change — every keystroke is one — and rewriting
+    /// an item's image or replacing its menu mid-gesture tears an in-flight
+    /// press or silently dismisses the open menu. chrome itself refreshes
+    /// every pass (menu actions read it at invocation time, so cached menus
     /// act on live state); only the visible writes are gated on these.
-    var lastUndoSignature: (canUndo: Bool, canRedo: Bool)?
-    var lastMenuAppearance: AppearancePreference?
+    private var lastUndoSignature: (canUndo: Bool, canRedo: Bool)?
+    private var lastMenuAppearance: AppearancePreference?
 
-    // Primary-action menus still deliver the target action; the tap only
-    // ever presents the menu, so this stays empty by design.
-    @objc func settingsTapped() {}
-    // The button is enabled in the redo-only state so its menu stays
-    // reachable; in that state the tap itself redoes instead of sitting
-    // inert. A plain canUndo gate would make Redo unreachable exactly
-    // when it is the only available action.
-    @objc func undoTapped() {
+    // The controls are created once and mutated in place: identity matters,
+    // because replacing an item's menu while it is presented kills the
+    // presentation.
+    let elementButton = ElementModeButton()
+
+    /// Tap undoes (or redoes in the redo-only state, so the item is never
+    /// inert); a long press offers Redo when that direction is live — the
+    /// same idiom as Safari's back button, delivered by the system itself.
+    lazy var undoItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(
+            image: UIImage(systemName: "arrow.uturn.backward"),
+            primaryAction: UIAction { [weak self] _ in self?.undoPrimary() },
+            menu: nil
+        )
+        item.accessibilityLabel = "Undo"
+        return item
+    }()
+
+    /// Menu-only item: the tap presents the document menu directly.
+    lazy var settingsItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: nil)
+        item.accessibilityLabel = "Document Menu"
+        return item
+    }()
+
+    init(chrome: EditorChrome) {
+        self.chrome = chrome
+        elementButton.onSelect = { [weak self] kind in
+            guard let self else { return }
+            self.chrome.editor.onChangeElementKind?(kind)
+            UISelectionFeedbackGenerator().selectionChanged()
+        }
+    }
+
+    // MARK: Navigation item
+
+    /// Applies the chrome to the owning navigation item. Returns false when
+    /// the view hierarchy has not attached far enough to find it yet — the
+    /// anchor retries briefly; afterwards every SwiftUI update pass
+    /// re-applies, which also re-retires any document chrome the system
+    /// re-installs.
+    @discardableResult
+    func configureNavigationItemIfPossible() -> Bool {
+        guard let controller = owningViewController() else { return false }
+        let item = controller.navigationItem
+
+        // Retire the compact document-menu chevron DocumentGroup installs:
+        // with a custom title view in place, its document-properties menu
+        // renders as a floating chevron circle between the pill and the
+        // trailing items. Rename already lives in Settings, so the menu has
+        // no unique job in this bar.
+        if item.documentProperties != nil { item.documentProperties = nil }
+        if item.titleMenuProvider != nil { item.titleMenuProvider = nil }
+
+        if item.titleView !== elementButton { item.titleView = elementButton }
+        elementButton.update(
+            activeKind: chrome.activeKind, contextualKinds: chrome.contextualKinds
+        )
+
+        // First element is rightmost: [undo] [settings] left to right.
+        let trailing = [settingsItem, undoItem]
+        if item.rightBarButtonItems != trailing { item.rightBarButtonItems = trailing }
+        updateUndoItem()
+        updateSettingsMenu()
+        return true
+    }
+
+    private func owningViewController() -> UIViewController? {
+        var responder: UIResponder? = anchorView?.next
+        while let current = responder {
+            if let controller = current as? UIViewController { return controller }
+            responder = current.next
+        }
+        return nil
+    }
+
+    private func undoPrimary() {
         if chrome.canUndo { chrome.editor.undo() }
         else if chrome.canRedo { chrome.editor.redo() }
+    }
+
+    private func updateUndoItem() {
+        let signature = (canUndo: chrome.canUndo, canRedo: chrome.canRedo)
+        if let last = lastUndoSignature, last == signature { return }
+        lastUndoSignature = signature
+
+        // Enabled whenever either direction exists: a disabled item cannot
+        // present its long-press menu, so gating on canUndo alone would
+        // strand Redo exactly when it is the only thing available. In the
+        // redo-only state the item must not be inert or dishonest — the tap
+        // redoes (see undoPrimary) and the glyph and label say so.
+        let redoOnly = !chrome.canUndo && chrome.canRedo
+        undoItem.isEnabled = chrome.canUndo || chrome.canRedo
+        undoItem.image = UIImage(
+            systemName: redoOnly ? "arrow.uturn.forward" : "arrow.uturn.backward"
+        )
+        undoItem.accessibilityLabel = redoOnly ? "Redo" : "Undo"
+        // The long-press menu exists only when it offers a real action.
+        // In redo-only mode the counterpart (Undo) is unavailable by
+        // definition, and before anything has been undone there is no Redo —
+        // a permanently disabled menu there reads as broken. No actionable
+        // counterpart, no menu; the tap still carries the live direction.
+        let redoAvailableOnLongPress = !redoOnly && chrome.canRedo
+        undoItem.menu = redoAvailableOnLongPress
+            ? UIMenu(children: [
+                UIAction(
+                    title: "Redo",
+                    image: UIImage(systemName: "arrow.uturn.forward")
+                ) { [weak self] _ in
+                    self?.chrome.editor.redo()
+                }
+            ])
+            : nil
+        // VoiceOver gets the same rule: the rotor offers Redo only when the
+        // menu would, and the hint never promises a menu that is not there.
+        undoItem.accessibilityHint = redoAvailableOnLongPress ? "Long press for redo" : nil
+        undoItem.accessibilityCustomActions = redoAvailableOnLongPress
+            ? [
+                UIAccessibilityCustomAction(name: "Redo") { [weak self] _ in
+                    guard let self, self.chrome.canRedo else { return false }
+                    self.chrome.editor.redo()
+                    return true
+                }
+            ]
+            : []
+    }
+
+    private func updateSettingsMenu() {
+        // The menu's structure depends only on the stored appearance (the
+        // checkmarks); every action reads chrome when invoked, so a cached
+        // menu still acts on live state. Rebuilding it on every pass would
+        // dismiss the menu while it is open.
+        let storedAppearance = AppearancePreference(
+            rawValue: UserDefaults.standard.string(forKey: "appearance") ?? ""
+        ) ?? .dark
+        guard storedAppearance != lastMenuAppearance else { return }
+        lastMenuAppearance = storedAppearance
+        settingsItem.menu = settingsMenu()
     }
 
     // MARK: Document menu
@@ -157,10 +282,11 @@ final class ChromeCoordinator {
 #if DEBUG
         // Diagnostic: the system's navigation bar is DocumentGroup-owned, so
         // what it injects cannot be seen from the simulator preview. This
-        // read-only x-ray names every item and view class in the bar, so one
-        // screenshot of this menu on device settles any question about what
-        // the system added. Deferred so it reads the bar at presentation
-        // time, not at build time; disabled rows; invisible in release builds.
+        // read-only x-ray names the item's contents and every view class in
+        // the bar's hierarchy, so one screenshot of this menu on device
+        // settles any question about system-injected chrome. Deferred so it
+        // reads the bar at presentation time, not at build time; disabled
+        // rows; invisible in release builds.
         let xray = UIDeferredMenuElement.uncached { [weak self] completion in
             completion(self?.barXray() ?? [])
         }
@@ -170,37 +296,28 @@ final class ChromeCoordinator {
     }
 
 #if DEBUG
-    /// Disabled menu rows describing the navigation bar: its item counts,
-    /// title view, document-properties menu, and the class of every view in
-    /// its hierarchy (which names any system-injected control outright).
     private func barXray() -> [UIAction] {
-        guard let button else { return [debugRow("bar: button not in hierarchy")] }
-        var cursor = button.superview
-        var bar: UINavigationBar?
-        while let view = cursor {
-            if let found = view as? UINavigationBar { bar = found; break }
-            cursor = view.superview
+        guard let controller = owningViewController() else {
+            return [debugRow("bar: no view controller found")]
         }
-        guard let bar, let item = bar.topItem else {
-            return [debugRow("bar: no navigation bar found")]
-        }
+        let item = controller.navigationItem
         let summary = "L\(item.leftBarButtonItems?.count ?? 0)"
             + " R\(item.rightBarButtonItems?.count ?? 0)"
-            + " title:\(item.titleView.map { String(describing: type(of: $0)) } ?? "nil")"
+            + " titleView:\(item.titleView.map { String(describing: type(of: $0)) } ?? "nil")"
             + " docProps:\(item.documentProperties == nil ? "no" : "yes")"
         var classes = Set<String>()
-        var stack: [UIView] = [bar]
-        while let view = stack.popLast() {
-            classes.insert(String(describing: type(of: view)))
-            stack.append(contentsOf: view.subviews)
+        if let bar = controller.navigationController?.navigationBar {
+            var stack: [UIView] = [bar]
+            while let view = stack.popLast() {
+                classes.insert(String(describing: type(of: view)))
+                stack.append(contentsOf: view.subviews)
+            }
         }
-        let list = classes.sorted().joined(separator: ", ")
-        return [debugRow(summary), debugRow(list)]
+        return [debugRow(summary), debugRow(classes.sorted().joined(separator: ", "))]
     }
 
     private func debugRow(_ text: String) -> UIAction {
-        let action = UIAction(title: text, attributes: .disabled) { _ in }
-        return action
+        UIAction(title: text, attributes: .disabled) { _ in }
     }
 #endif
 
@@ -216,10 +333,10 @@ final class ChromeCoordinator {
 
     // MARK: Presentations
 
-    /// The topmost presenter in the button's window, so alerts and share
+    /// The topmost presenter in the editor's window, so alerts and share
     /// sheets appear above everything — including our own panels.
     private func topViewController() -> UIViewController? {
-        var controller = button?.window?.rootViewController
+        var controller = anchorView?.window?.rootViewController
         while let presented = controller?.presentedViewController {
             controller = presented
         }
@@ -232,7 +349,7 @@ final class ChromeCoordinator {
             named: editor.screenplay.title, extension: ext, contents: data
         ), let presenter = topViewController() else { return }
         let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        activity.popoverPresentationController?.sourceView = button
+        activity.popoverPresentationController?.barButtonItem = settingsItem
         presenter.present(activity, animated: true)
     }
 
@@ -245,181 +362,61 @@ final class ChromeCoordinator {
         controller.printInfo = info
         controller.printingItem = ScreenplayExporter.pdfData(editor.screenplay)
         // present(animated:) is iPhone-only; on iPad it raises an
-        // exception — the print sheet must anchor to a source rect.
-        if UIDevice.current.userInterfaceIdiom == .pad, let anchor = button {
-            controller.present(from: anchor.bounds, in: anchor, animated: true)
+        // exception — the print sheet must anchor to the source item.
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            controller.present(from: settingsItem, animated: true)
         } else {
             controller.present(animated: true)
         }
     }
 }
 
-/// Shared sizing for a fixed 44 pt control: without it the representable
-/// would accept the bar's full proposed extent.
-private func controlSizeThatFits(
-    _ proposal: ProposedViewSize, uiView: UIButton
-) -> CGSize? {
-    CGSize(width: ChromeMetrics.controlSize, height: ChromeMetrics.controlSize)
-}
-
-/// The principal element selector: a glass pill showing the active element.
-struct ElementToolbarControl: UIViewRepresentable {
+/// A zero-size view planted in the editor's hierarchy. Its only job is to
+/// reach the owning navigation item through the responder chain and hand it
+/// to the coordinator — genuine UIBarButtonItems and a UIKit title view,
+/// applied idempotently on every pass.
+struct EditorBarConfigurator: UIViewRepresentable {
     let chrome: EditorChrome
 
     func makeCoordinator() -> ChromeCoordinator { ChromeCoordinator(chrome: chrome) }
 
-    func makeUIView(context: Context) -> ElementModeButton {
-        let button = ElementModeButton()
-        button.onSelect = { [weak coordinator = context.coordinator] kind in
-            guard let coordinator else { return }
-            coordinator.chrome.editor.onChangeElementKind?(kind)
-            UISelectionFeedbackGenerator().selectionChanged()
-        }
-        context.coordinator.button = button
-        return button
+    func makeUIView(context: Context) -> BarAnchorView {
+        let view = BarAnchorView()
+        context.coordinator.anchorView = view
+        view.coordinator = context.coordinator
+        return view
     }
 
-    func updateUIView(_ button: ElementModeButton, context: Context) {
+    func updateUIView(_ view: BarAnchorView, context: Context) {
         context.coordinator.chrome = chrome
-        button.update(activeKind: chrome.activeKind, contextualKinds: chrome.contextualKinds)
-    }
-
-    /// The pill hugs its content up to whatever width the principal slot
-    /// offers; the slot's own layout truncates beyond that.
-    func sizeThatFits(
-        _ proposal: ProposedViewSize, uiView: ElementModeButton, context: Context
-    ) -> CGSize? {
-        let content = uiView.sizeThatFits(UIView.layoutFittingCompressedSize)
-        return CGSize(
-            width: min(content.width, proposal.width ?? .greatestFiniteMagnitude),
-            height: ChromeMetrics.controlSize
-        )
+        view.configureIfPossible()
     }
 }
 
-/// The trailing undo button: tap undoes, long press offers Redo — the same
-/// idiom as Safari's back button.
-struct UndoToolbarControl: UIViewRepresentable {
-    let chrome: EditorChrome
+final class BarAnchorView: UIView {
+    weak var coordinator: ChromeCoordinator?
+    private var configureAttempts = 0
 
-    func makeCoordinator() -> ChromeCoordinator { ChromeCoordinator(chrome: chrome) }
-
-    func makeUIView(context: Context) -> UIButton {
-        let button = ChromeButton.circle(
-            systemName: "arrow.uturn.backward",
-            label: "Undo",
-            // The long-press-for-redo hint is set in updateUIView, where
-            // it can be withdrawn whenever Redo is not actually offered.
-            hint: nil,
-            target: context.coordinator,
-            action: #selector(ChromeCoordinator.undoTapped)
-        )
-        button.showsMenuAsPrimaryAction = false
-        context.coordinator.button = button
-        return button
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window != nil { configureIfPossible() }
     }
 
-    func updateUIView(_ button: UIButton, context: Context) {
-        let coordinator = context.coordinator
-        coordinator.chrome = chrome
-
-        // Visible state is rewritten only when it actually changed (see
-        // lastUndoSignature on ChromeCoordinator); an untouched button keeps
-        // an in-flight press or open menu alive across unrelated renders.
-        let signature = (canUndo: chrome.canUndo, canRedo: chrome.canRedo)
-        if let last = coordinator.lastUndoSignature, last == signature { return }
-        coordinator.lastUndoSignature = signature
-
-        // Enabled whenever either direction exists: a disabled UIButton cannot
-        // present its menu, so gating on canUndo alone would strand Redo
-        // exactly when it is the only thing available. In that redo-only
-        // state the button must not be inert or dishonest — the tap redoes
-        // (see undoTapped) and the glyph and label say so.
-        let redoOnly = !chrome.canUndo && chrome.canRedo
-        button.isEnabled = chrome.canUndo || chrome.canRedo
-        var config = button.configuration
-        config?.image = UIImage(
-            systemName: redoOnly ? "arrow.uturn.forward" : "arrow.uturn.backward",
-            withConfiguration: ChromeMetrics.symbol
-        )
-        config?.baseForegroundColor = chrome.canUndo || redoOnly ? .label : .secondaryLabel
-        button.configuration = config
-        button.accessibilityLabel = redoOnly ? "Redo" : "Undo"
-        // The long-press menu exists only when it offers a real action.
-        // In redo-only mode the counterpart (Undo) is unavailable by
-        // definition — that is what redo-only means — so any menu there
-        // could only ever hold a permanently disabled item, which reads
-        // as broken. The same goes for a grayed-out Redo before anything
-        // has been undone. No actionable counterpart, no menu; the tap
-        // still carries whichever direction is live.
-        let redoAvailableOnLongPress = !redoOnly && chrome.canRedo
-        button.menu = redoAvailableOnLongPress
-            ? UIMenu(children: [
-                UIAction(
-                    title: "Redo",
-                    image: UIImage(systemName: "arrow.uturn.forward")
-                ) { [weak coordinator] _ in
-                    coordinator?.chrome.editor.redo()
-                }
-            ])
-            : nil
-        // VoiceOver gets the same rule: the rotor offers Redo only when
-        // the menu would, and the hint never promises a menu that is
-        // not there.
-        button.accessibilityHint = redoAvailableOnLongPress ? "Long press for redo" : nil
-        button.accessibilityCustomActions = redoAvailableOnLongPress
-            ? [
-                UIAccessibilityCustomAction(name: "Redo") { [weak coordinator] _ in
-                    guard let coordinator, coordinator.chrome.canRedo else { return false }
-                    coordinator.chrome.editor.redo()
-                    return true
-                }
-            ]
-            : []
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIButton, context: Context) -> CGSize? {
-        controlSizeThatFits(proposal, uiView: uiView)
-    }
-}
-
-/// The trailing document menu: tapping morphs the button into the open
-/// menu, exactly like Pages' ellipsis.
-struct SettingsToolbarControl: UIViewRepresentable {
-    let chrome: EditorChrome
-
-    func makeCoordinator() -> ChromeCoordinator { ChromeCoordinator(chrome: chrome) }
-
-    func makeUIView(context: Context) -> UIButton {
-        let button = ChromeButton.circle(
-            systemName: "ellipsis",
-            label: "Document Menu",
-            hint: nil,
-            target: context.coordinator,
-            action: #selector(ChromeCoordinator.settingsTapped)
-        )
-        button.showsMenuAsPrimaryAction = true
-        context.coordinator.button = button
-        return button
-    }
-
-    func updateUIView(_ button: UIButton, context: Context) {
-        let coordinator = context.coordinator
-        coordinator.chrome = chrome
-        // The menu's structure depends only on the stored appearance (the
-        // checkmarks); every action reads coordinator.chrome when invoked,
-        // so a cached menu still acts on live state. Rebuilding it on every
-        // render pass would dismiss the menu while it is open.
-        let storedAppearance = AppearancePreference(
-            rawValue: UserDefaults.standard.string(forKey: "appearance") ?? ""
-        ) ?? .dark
-        guard storedAppearance != coordinator.lastMenuAppearance else { return }
-        coordinator.lastMenuAppearance = storedAppearance
-        button.menu = coordinator.settingsMenu()
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIButton, context: Context) -> CGSize? {
-        controlSizeThatFits(proposal, uiView: uiView)
+    /// The first pass can run before the view attaches to a window, so a
+    /// bounded async retry covers that ordering; once attached, every
+    /// SwiftUI update pass re-applies idempotently.
+    func configureIfPossible() {
+        guard let coordinator else { return }
+        coordinator.anchorView = self
+        if coordinator.configureNavigationItemIfPossible() {
+            configureAttempts = 0
+            return
+        }
+        guard configureAttempts < 5 else { return }
+        configureAttempts += 1
+        DispatchQueue.main.async { [weak self] in
+            self?.configureIfPossible()
+        }
     }
 }
 
@@ -428,30 +425,4 @@ enum ChromeMetrics {
     static let controlSize: CGFloat = 44
     /// One uniform glyph: 18 pt medium, matching Apple's top bars.
     static let symbol = UIImage.SymbolConfiguration(font: .systemFont(ofSize: 18, weight: .medium))
-}
-
-enum ChromeButton {
-    /// A 44 pt circular glass button — the native top-bar control. The system
-    /// owns the glass material, press feedback, and hit testing.
-    static func circle(
-        systemName: String,
-        label: String,
-        hint: String?,
-        target: AnyObject,
-        action: Selector
-    ) -> UIButton {
-        var config = UIButton.Configuration.glass()
-        config.image = UIImage(systemName: systemName, withConfiguration: ChromeMetrics.symbol)
-        config.background.cornerRadius = ChromeMetrics.controlSize / 2
-        let button = UIButton(configuration: config)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            button.widthAnchor.constraint(equalToConstant: ChromeMetrics.controlSize),
-            button.heightAnchor.constraint(equalToConstant: ChromeMetrics.controlSize)
-        ])
-        button.addTarget(target, action: action, for: .touchUpInside)
-        button.accessibilityLabel = label
-        button.accessibilityHint = hint
-        return button
-    }
 }

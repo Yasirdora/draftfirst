@@ -31,6 +31,12 @@ struct EditorView: View {
             // the resting first line clear of it.
             ScriptTextView(editor: editor)
                 .ignoresSafeArea(.container, edges: .top)
+            // Zero-size anchor: applies our controls to the system
+            // navigation bar as genuine UIBarButtonItems + a title view.
+            EditorBarConfigurator(chrome: chrome)
+                .frame(width: 0, height: 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
         // Transient, non-modal notices — sync arrivals — one capsule just
         // under the navigation bar.
@@ -47,35 +53,14 @@ struct EditorView: View {
         }
         .animation(.easeInOut(duration: 0.18), value: editor.banner)
         // The header is the real navigation bar — the platform's own
-        // transparent glass — with our UIKit controls placed per slot (see
-        // EditorChrome). The leading close button is the system's own:
-        // DocumentGroup installs a custom leading item that
-        // navigationBarBackButtonHidden cannot retire, and a second chevron
-        // beside it reads as a bug. The flush our button used to guarantee
-        // happens in onDisappear instead, so no keystroke is lost on the
-        // way out, whichever path closes the document.
+        // transparent glass. Beyond the system's close button, everything
+        // in it is configured on the navigation item directly (see
+        // EditorChrome): genuine bar items with the system's own single
+        // glass treatment, not a second layer of ours.
         .navigationBarTitleDisplayMode(.inline)
-        // DocumentGroup content defaults to the browser toolbar role, which
-        // injects extra document chrome beside our own controls (the compact
-        // document-menu chevron floating between the pill and the trailing
-        // buttons). The editor role tells the system this view IS the
-        // document editor — the same idiom Pages declares.
+        // Declares this view the document editor (Pages' idiom) rather than
+        // DocumentGroup's default browser role.
         .toolbarRole(.editor)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                ElementToolbarControl(chrome: chrome)
-            }
-            // Two separate trailing items, never one merged capsule: iOS 26
-            // fuses adjacent trailing controls into a single glass cluster,
-            // and a fixed spacer is the system's own seam between them.
-            ToolbarItem(placement: .topBarTrailing) {
-                UndoToolbarControl(chrome: chrome)
-            }
-            ToolbarSpacer(.fixed, placement: .topBarTrailing)
-            ToolbarItem(placement: .topBarTrailing) {
-                SettingsToolbarControl(chrome: chrome)
-            }
-        }
         .sheet(item: $presentedPanel, onDismiss: { panelFullyDismissed = true }) { panel in
             switch panel {
             case .story:

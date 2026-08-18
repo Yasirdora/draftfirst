@@ -56,10 +56,10 @@ struct DraftFirstApp: App {
             EditorPreviewHost()
         }
 #else
-        // Adopting DocumentGroupLaunchScene makes the system retire its
-        // document chrome (back button + file-name menu) in the editor — the
-        // app owns the whole top bar. EditorChrome holds the writing tools;
-        // returning to this launch scene lives in the Story panel.
+        // Adopting DocumentGroupLaunchScene retires the browser-style
+        // chrome; the editor's navigation bar keeps only the system's close
+        // button, and everything else in that bar is ours, configured on
+        // the navigation item directly (see EditorChrome).
         DocumentGroupLaunchScene("Screenplays") {
             NewDocumentButton("New Screenplay")
         }
