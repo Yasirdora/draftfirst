@@ -74,6 +74,10 @@ final class EditorState {
 
     var engineVersion: String? { EngineInfo.version }
 
+    /// UserDefaults key for the writing-assistance mode (see init and
+    /// setPredictionMode).
+    private static let predictionModeKey = "writingAssistance"
+
     init(
         source: String,
         startsAtEnd: Bool = false
@@ -90,6 +94,12 @@ final class EditorState {
         selectionOffset = startsAtEnd
             ? initialElement.map { ($0.text as NSString).length } ?? 0
             : 0
+        // A Settings row must survive relaunch: the assistance mode is
+        // app-level state, read once here and written on every change.
+        if let stored = UserDefaults.standard.string(forKey: Self.predictionModeKey),
+           let mode = PredictionMode(rawValue: stored) {
+            predictionMode = mode
+        }
         // Never paginate synchronously at open: a cheap estimate renders
         // immediately, the debounced pass refines it off the critical path.
         stats = Self.quickStats(for: screenplay)
@@ -396,6 +406,7 @@ final class EditorState {
 
     func setPredictionMode(_ mode: PredictionMode) {
         predictionMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: Self.predictionModeKey)
         predictionIndex = 0
         refreshPredictions()
     }

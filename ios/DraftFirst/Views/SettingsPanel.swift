@@ -1,8 +1,12 @@
 import SwiftUI
 
 /// The long-tail preferences behind the document menu's Settings… —
-/// rename, suggestions, page size, feedback, about. The five destinations a
-/// writer touches daily stay in the menu itself.
+/// rename, writing assistance, page & format, feedback, about. The five
+/// destinations a writer touches daily stay in the menu itself.
+///
+/// Structure follows the iOS Settings idiom: each row names its value and
+/// pushes a focused page whose selections commit with a checkmark. Nothing
+/// here is a form to fill in.
 struct SettingsPanel: View {
     let editor: EditorState
 
@@ -29,33 +33,30 @@ struct SettingsPanel: View {
                     Text("Names the screenplay's title page and exports. The file name itself belongs to Documents — long-press it there.")
                 }
 
-                Section {
-                    Picker("Suggestions", selection: predictionMode) {
-                        ForEach(PredictionMode.allCases) { mode in
-                            Label(mode.title, systemImage: mode.symbol)
-                                .tag(mode)
-                        }
+                Section("Writing") {
+                    NavigationLink {
+                        WritingAssistanceView(editor: editor)
+                    } label: {
+                        LabeledContent("Writing Assistance", value: editor.predictionMode.title)
                     }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
-                } header: {
-                    Text("Writing")
-                } footer: {
-                    Text("\(editor.predictionMode.detail). Suggestions run on this iPhone. Press Space to accept the visible completion.")
                 }
 
-                Section {
-                    Picker("Page Size", selection: $pageFormat) {
-                        ForEach(PageFormat.allCases) { format in
-                            Text(format.title).tag(format)
-                        }
+                Section("Page & Format") {
+                    NavigationLink {
+                        PaperSizeView()
+                    } label: {
+                        LabeledContent("Paper Size", value: pageFormat.title)
                     }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
-                } header: {
-                    Text("Script Options")
-                } footer: {
-                    Text("US Letter is the Hollywood standard. A4 reflows pagination, page counts, and the PDF.")
+                    NavigationLink {
+                        ScreenplayFormatView()
+                    } label: {
+                        LabeledContent("Screenplay Format", value: "Standard")
+                    }
+                    NavigationLink {
+                        PaginationView()
+                    } label: {
+                        Text("Pagination")
+                    }
                 }
 
                 Section {
@@ -94,13 +95,6 @@ struct SettingsPanel: View {
         return "\(version) (\(build))"
     }
 
-    private var predictionMode: Binding<PredictionMode> {
-        Binding(
-            get: { editor.predictionMode },
-            set: { mode in editor.setPredictionMode(mode) }
-        )
-    }
-
     /// Renaming the screenplay retitles its title page — the title is the
     /// document's identity everywhere Draft First shows it.
     private func commitRename() {
@@ -111,5 +105,108 @@ struct SettingsPanel: View {
             writer: editor.titlePageValue(for: "Author") ?? "",
             credit: editor.titlePageValue(for: "Credit") ?? "written by"
         )
+    }
+}
+
+// MARK: - Writing
+
+/// How much help the ghost offers: Smart, Format Only, or Off. The
+/// checkmark commits immediately — the iOS Settings convention.
+private struct WritingAssistanceView: View {
+    let editor: EditorState
+
+    var body: some View {
+        Form {
+            Section {
+                ForEach(PredictionMode.allCases) { mode in
+                    Button {
+                        editor.setPredictionMode(mode)
+                    } label: {
+                        HStack {
+                            Label(mode.title, systemImage: mode.symbol)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if editor.predictionMode == mode {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.tint)
+                            }
+                        }
+                    }
+                }
+            } footer: {
+                Text("\(editor.predictionMode.detail). Suggestions run on this iPhone. Press Space to accept the visible completion.")
+            }
+        }
+        .navigationTitle("Writing Assistance")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Page & Format
+
+private struct PaperSizeView: View {
+    @AppStorage("pageFormat") private var pageFormat: PageFormat = .letter
+
+    var body: some View {
+        Form {
+            Section {
+                ForEach(PageFormat.allCases) { format in
+                    Button {
+                        pageFormat = format
+                    } label: {
+                        HStack {
+                            Text(format.title)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            if pageFormat == format {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.tint)
+                            }
+                        }
+                    }
+                }
+            } footer: {
+                Text("US Letter is the Hollywood standard. A4 reflows pagination, page counts, and the PDF.")
+            }
+        }
+        .navigationTitle("Paper Size")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// One format today — the row exists so Stage, sitcom, and other formats
+/// have a settled home when they arrive.
+private struct ScreenplayFormatView: View {
+    var body: some View {
+        Form {
+            Section {
+                HStack {
+                    Text("Standard")
+                    Spacer()
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(.tint)
+                }
+            } footer: {
+                Text("The film and television standard. Stage, sitcom, and other formats arrive in a later update.")
+            }
+        }
+        .navigationTitle("Screenplay Format")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct PaginationView: View {
+    @AppStorage("showPageNumbers") private var showPageNumbers = true
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Page Numbers", isOn: $showPageNumbers)
+            } footer: {
+                Text("Prints page numbers top-right from page 2 on, as productions expect.")
+            }
+        }
+        .navigationTitle("Pagination")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

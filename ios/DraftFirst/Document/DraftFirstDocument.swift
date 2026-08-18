@@ -144,9 +144,10 @@ enum ScreenplayExporter {
             }
 
             guard let pages = paginate(screenplay) else { return }
+            let showPageNumbers = UserDefaults.standard.object(forKey: "showPageNumbers") as? Bool ?? true
             for page in pages {
                 context.beginPage()
-                drawScriptPage(page, format: format)
+                drawScriptPage(page, format: format, showPageNumbers: showPageNumbers)
             }
         }
     }
@@ -187,13 +188,13 @@ enum ScreenplayExporter {
         return max(0, line.indent)
     }
 
-    private static func drawScriptPage(_ page: DraftFirstEngine.ScriptPage, format: PageFormat) {
+    private static func drawScriptPage(_ page: DraftFirstEngine.ScriptPage, format: PageFormat, showPageNumbers: Bool) {
         let attributes = textAttributes
         let characterWidth = ("0" as NSString).size(withAttributes: attributes).width
         let textTop = format.textTop
 
         /* Page numbers print top-right from the second page on, "2." style. */
-        if page.number > 1 {
+        if page.number > 1 && showPageNumbers {
             drawRightAligned("\(page.number).", rightEdge: format.textRight, y: 36, attributes: attributes)
         }
         if page.continuedTop {
