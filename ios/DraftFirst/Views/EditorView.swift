@@ -55,6 +55,12 @@ struct EditorView: View {
         // happens in onDisappear instead, so no keystroke is lost on the
         // way out, whichever path closes the document.
         .navigationBarTitleDisplayMode(.inline)
+        // DocumentGroup content defaults to the browser toolbar role, which
+        // injects extra document chrome beside our own controls (the compact
+        // document-menu chevron floating between the pill and the trailing
+        // buttons). The editor role tells the system this view IS the
+        // document editor — the same idiom Pages declares.
+        .toolbarRole(.editor)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 ElementToolbarControl(chrome: chrome)

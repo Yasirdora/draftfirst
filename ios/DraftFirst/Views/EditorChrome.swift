@@ -52,6 +52,15 @@ final class ChromeCoordinator {
 
     init(chrome: EditorChrome) { self.chrome = chrome }
 
+    /// The inputs each control last rendered. SwiftUI re-runs updateUIView on
+    /// every editor render pass — every keystroke is one — and rewriting a
+    /// configuration or replacing a menu mid-gesture tears an in-flight press
+    /// or silently dismisses the open menu. chrome itself refreshes every
+    /// pass (menu actions read it at invocation time, so stale menus still
+    /// act on live state); only the visible writes are gated on these.
+    var lastUndoSignature: (canUndo: Bool, canRedo: Bool)?
+    var lastMenuAppearance: AppearancePreference?
+
     // Primary-action menus still deliver the target action; the tap only
     // ever presents the menu, so this stays empty by design.
     @objc func settingsTapped() {}
@@ -144,8 +153,56 @@ final class ChromeCoordinator {
             title: "", options: .displayInline, children: [settings]
         )
 
-        return UIMenu(children: [documentGroup, exportGroup, viewGroup, settingsGroup])
+        var children: [UIMenuElement] = [documentGroup, exportGroup, viewGroup, settingsGroup]
+#if DEBUG
+        // Diagnostic: the system's navigation bar is DocumentGroup-owned, so
+        // what it injects cannot be seen from the simulator preview. This
+        // read-only x-ray names every item and view class in the bar, so one
+        // screenshot of this menu on device settles any question about what
+        // the system added. Deferred so it reads the bar at presentation
+        // time, not at build time; disabled rows; invisible in release builds.
+        let xray = UIDeferredMenuElement.uncached { [weak self] completion in
+            completion(self?.barXray() ?? [])
+        }
+        children.append(UIMenu(title: "", options: .displayInline, children: [xray]))
+#endif
+        return UIMenu(children: children)
     }
+
+#if DEBUG
+    /// Disabled menu rows describing the navigation bar: its item counts,
+    /// title view, document-properties menu, and the class of every view in
+    /// its hierarchy (which names any system-injected control outright).
+    private func barXray() -> [UIAction] {
+        guard let button else { return [debugRow("bar: button not in hierarchy")] }
+        var cursor = button.superview
+        var bar: UINavigationBar?
+        while let view = cursor {
+            if let found = view as? UINavigationBar { bar = found; break }
+            cursor = view.superview
+        }
+        guard let bar, let item = bar.topItem else {
+            return [debugRow("bar: no navigation bar found")]
+        }
+        let summary = "L\(item.leftBarButtonItems?.count ?? 0)"
+            + " R\(item.rightBarButtonItems?.count ?? 0)"
+            + " title:\(item.titleView.map { String(describing: type(of: $0)) } ?? "nil")"
+            + " docProps:\(item.documentProperties == nil ? "no" : "yes")"
+        var classes = Set<String>()
+        var stack: [UIView] = [bar]
+        while let view = stack.popLast() {
+            classes.insert(String(describing: type(of: view)))
+            stack.append(contentsOf: view.subviews)
+        }
+        let list = classes.sorted().joined(separator: ", ")
+        return [debugRow(summary), debugRow(list)]
+    }
+
+    private func debugRow(_ text: String) -> UIAction {
+        let action = UIAction(title: text, attributes: .disabled) { _ in }
+        return action
+    }
+#endif
 
     private func exportAction(
         _ title: String, ext: String,
@@ -266,6 +323,13 @@ struct UndoToolbarControl: UIViewRepresentable {
         let coordinator = context.coordinator
         coordinator.chrome = chrome
 
+        // Visible state is rewritten only when it actually changed (see
+        // lastUndoSignature on ChromeCoordinator); an untouched button keeps
+        // an in-flight press or open menu alive across unrelated renders.
+        let signature = (canUndo: chrome.canUndo, canRedo: chrome.canRedo)
+        if let last = coordinator.lastUndoSignature, last == signature { return }
+        coordinator.lastUndoSignature = signature
+
         // Enabled whenever either direction exists: a disabled UIButton cannot
         // present its menu, so gating on canUndo alone would strand Redo
         // exactly when it is the only thing available. In that redo-only
@@ -340,8 +404,18 @@ struct SettingsToolbarControl: UIViewRepresentable {
     }
 
     func updateUIView(_ button: UIButton, context: Context) {
-        context.coordinator.chrome = chrome
-        button.menu = context.coordinator.settingsMenu()
+        let coordinator = context.coordinator
+        coordinator.chrome = chrome
+        // The menu's structure depends only on the stored appearance (the
+        // checkmarks); every action reads coordinator.chrome when invoked,
+        // so a cached menu still acts on live state. Rebuilding it on every
+        // render pass would dismiss the menu while it is open.
+        let storedAppearance = AppearancePreference(
+            rawValue: UserDefaults.standard.string(forKey: "appearance") ?? ""
+        ) ?? .dark
+        guard storedAppearance != coordinator.lastMenuAppearance else { return }
+        coordinator.lastMenuAppearance = storedAppearance
+        button.menu = coordinator.settingsMenu()
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIButton, context: Context) -> CGSize? {

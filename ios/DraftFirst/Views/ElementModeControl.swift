@@ -10,6 +10,10 @@ import UIKit
 /// no truncation, no wrapping.
 final class ElementModeButton: UIButton {
     var onSelect: ((ScreenplayKind) -> Void)?
+    /// The inputs the control currently displays; see update's idempotence
+    /// contract. nil means "never rendered", so the first update always lands.
+    private var lastActiveKind: ScreenplayKind?
+    private var lastContextualKinds: [ScreenplayKind] = []
 
     init() {
         super.init(frame: .zero)
@@ -25,6 +29,16 @@ final class ElementModeButton: UIButton {
     }
 
     func update(activeKind: ScreenplayKind, contextualKinds: [ScreenplayKind]) {
+        // Idempotent by contract: SwiftUI re-runs updateUIView on every
+        // editor render pass (each keystroke is one), and rewriting the
+        // configuration or replacing the menu mid-gesture tears an in-flight
+        // press or silently dismisses the open menu — the "button reacts
+        // but nothing happens" class of bug. Only what the control actually
+        // displays may invalidate it.
+        guard activeKind != lastActiveKind || contextualKinds != lastContextualKinds else { return }
+        lastActiveKind = activeKind
+        lastContextualKinds = contextualKinds
+
         var config = UIButton.Configuration.glass()
         config.image = UIImage(systemName: activeKind.symbol, withConfiguration: ChromeMetrics.symbol)
         config.imagePadding = 6
