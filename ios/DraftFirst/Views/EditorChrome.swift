@@ -4,17 +4,17 @@ import UIKit
 /// The editor's chrome, configured straight onto the system navigation
 /// item: the platform's own close button leads (DocumentGroup installs it;
 /// it stays), the element pill supplements it as a leading bar item, and
-/// undo + document menu are genuine UIBarButtonItems trailing. The title
-/// slot stays empty: DocumentGroup draws its document-menu chevron from
-/// the bar's title control, and with no title or title view there is no
-/// title control — the chevron is gone by construction, never hidden.
+/// undo + document menu trail as custom-view items. Every control is a
+/// plain UIKit button: the bar wraps each item in its own glass platter,
+/// so drawing any background of ours would read as a disc inside a ring.
+/// One layer, rendered by the system, always in lockstep with the platform.
 ///
-/// Earlier iterations drew our own glass buttons inside SwiftUI toolbar
-/// slots. In DocumentGroup's bar that produced a second glass layer around
-/// each control — the bar wraps items in its own treatment, so our
-/// UIButton.Configuration.glass() rendered a tile inside a ring. Genuine
-/// bar items render through the system's own glass treatment — one layer,
-/// always in lockstep with the platform.
+/// The title slot stays empty: DocumentGroup draws its document-menu
+/// chevron from the bar's title control, and with no title or title view
+/// there is no title control — the chevron is gone by construction, never
+/// hidden. DocumentGroup re-assigns the file name on its own schedule, so
+/// an observation clears any title the instant it appears rather than
+/// waiting for the next render pass.
 ///
 /// Menus stay UIKit-owned: presentation goes through the system
 /// window-level path, the source morphs into the open menu, and input is
@@ -63,25 +63,36 @@ final class ChromeCoordinator {
     // presentation.
     let elementButton = ElementModeButton()
 
-    /// Tap undoes (or redoes in the redo-only state, so the item is never
-    /// inert); a long press offers Redo when that direction is live — the
-    /// same idiom as Safari's back button, delivered by the system itself.
-    lazy var undoItem: UIBarButtonItem = {
-        let item = UIBarButtonItem(
-            image: UIImage(systemName: "arrow.uturn.backward"),
-            primaryAction: UIAction { [weak self] _ in self?.undoPrimary() },
-            menu: nil
-        )
-        item.accessibilityLabel = "Undo"
-        return item
+    /// Tap undoes (or redoes in the redo-only state, so the control is
+    /// never inert); a long press offers Redo when that direction is live —
+    /// the same idiom as Safari's back button. It is a plain button inside
+    /// a custom-view item, so the bar's platter is the only glass — no
+    /// inner disc of our own.
+    lazy var undoButton: UIButton = {
+        var config = UIButton.Configuration.plain()
+        config.contentInsets = NSDirectionalEdgeInsets(top: 9, leading: 9, bottom: 9, trailing: 9)
+        let button = UIButton(configuration: config)
+        button.showsMenuAsPrimaryAction = false
+        button.addTarget(self, action: #selector(undoTapped), for: .touchUpInside)
+        button.accessibilityLabel = "Undo"
+        return button
     }()
 
-    /// Menu-only item: the tap presents the document menu directly.
-    lazy var settingsItem: UIBarButtonItem = {
-        let item = UIBarButtonItem(image: UIImage(systemName: "ellipsis"), menu: nil)
-        item.accessibilityLabel = "Document Menu"
-        return item
+    lazy var undoItem: UIBarButtonItem = { UIBarButtonItem(customView: undoButton) }()
+
+    /// Menu-only control: the tap presents the document menu directly.
+    /// Plain like the pill — the platter supplies the glass.
+    lazy var settingsButton: UIButton = {
+        var config = UIButton.Configuration.plain()
+        config.image = UIImage(systemName: "ellipsis", withConfiguration: ChromeMetrics.symbol)
+        config.contentInsets = NSDirectionalEdgeInsets(top: 9, leading: 9, bottom: 9, trailing: 9)
+        let button = UIButton(configuration: config)
+        button.showsMenuAsPrimaryAction = true
+        button.accessibilityLabel = "Document Menu"
+        return button
     }()
+
+    lazy var settingsItem: UIBarButtonItem = { UIBarButtonItem(customView: settingsButton) }()
 
     /// The element pill as a leading bar item, right after the system's
     /// close button — (back) (element) … (undo) (settings).
@@ -119,13 +130,15 @@ final class ChromeCoordinator {
         guard let controller = owningViewController() else { return false }
         let item = controller.navigationItem
 
-        // The title slot stays empty by design: the document-menu chevron
-        // was drawn by the bar's title control, which exists only to host a
-        // title or title view. No title, no title view, no title control —
-        // the indicator is gone by construction, not hidden. The pill lives
-        // as a leading item instead (see below).
+        // The title slot stays empty by design: DocumentGroup draws its
+        // document-menu chevron from the bar's title control, and the title
+        // control exists only while the item carries a title or a title
+        // view. Neither is ever allowed to survive here — the chevron is
+        // gone because its host is never created, not because anything is
+        // hidden.
         if item.titleView != nil { item.titleView = nil }
         if item.title != nil { item.title = nil }
+        enforceEmptyTitle(on: item)
         // Retire DocumentGroup's document-menu sources on the item itself:
         // rename already lives in Settings, so the menu has no unique job
         // in this bar.
@@ -147,7 +160,7 @@ final class ChromeCoordinator {
         // a fixed space between them so they render as two circles.
         let trailing = [settingsItem, trailingSpacer, undoItem]
         if item.rightBarButtonItems != trailing { item.rightBarButtonItems = trailing }
-        updateUndoItem()
+        updateUndoButton()
         updateSettingsMenu()
 #if DEBUG
         writeBarXrayFile(controller: controller, item: item)
@@ -164,34 +177,60 @@ final class ChromeCoordinator {
         return nil
     }
 
+    private var titleObservation: NSKeyValueObservation?
+    private weak var observedTitleItem: UINavigationItem?
+
+    /// DocumentGroup assigns the file name to the item on its own schedule
+    /// (open, rename, save) — never on ours — and any surviving title
+    /// recreates the bar's title control, and with it the document-menu
+    /// chevron. While title and title view are both nil the control is
+    /// never created at all (the x-ray shows the hosted-title container
+    /// empty in that state), so the observation clears a title the instant
+    /// one appears instead of waiting for the next render pass.
+    private func enforceEmptyTitle(on item: UINavigationItem) {
+        guard observedTitleItem !== item else { return }
+        titleObservation?.invalidate()
+        observedTitleItem = item
+        titleObservation = item.observe(\.title, options: [.new]) { observedItem, _ in
+            guard observedItem.title != nil else { return }
+            DispatchQueue.main.async { observedItem.title = nil }
+        }
+    }
+
     private func undoPrimary() {
         if chrome.canUndo { chrome.editor.undo() }
         else if chrome.canRedo { chrome.editor.redo() }
     }
 
-    private func updateUndoItem() {
+    @objc private func undoTapped() { undoPrimary() }
+
+    private func updateUndoButton() {
         let signature = (canUndo: chrome.canUndo, canRedo: chrome.canRedo)
         if let last = lastUndoSignature, last == signature { return }
         lastUndoSignature = signature
 
-        // Enabled whenever either direction exists: a disabled item cannot
+        // Enabled whenever either direction exists: a disabled button cannot
         // present its long-press menu, so gating on canUndo alone would
         // strand Redo exactly when it is the only thing available. In the
-        // redo-only state the item must not be inert or dishonest — the tap
-        // redoes (see undoPrimary) and the glyph and label say so.
+        // redo-only state the control must not be inert or dishonest — the
+        // tap redoes (see undoPrimary) and the glyph and label say so.
         let redoOnly = !chrome.canUndo && chrome.canRedo
-        undoItem.isEnabled = chrome.canUndo || chrome.canRedo
-        undoItem.image = UIImage(
-            systemName: redoOnly ? "arrow.uturn.forward" : "arrow.uturn.backward"
+        undoButton.isEnabled = chrome.canUndo || chrome.canRedo
+        var config = undoButton.configuration ?? .plain()
+        config.image = UIImage(
+            systemName: redoOnly ? "arrow.uturn.forward" : "arrow.uturn.backward",
+            withConfiguration: ChromeMetrics.symbol
         )
-        undoItem.accessibilityLabel = redoOnly ? "Redo" : "Undo"
+        config.baseForegroundColor = chrome.canUndo || redoOnly ? .label : .secondaryLabel
+        undoButton.configuration = config
+        undoButton.accessibilityLabel = redoOnly ? "Redo" : "Undo"
         // The long-press menu exists only when it offers a real action.
         // In redo-only mode the counterpart (Undo) is unavailable by
         // definition, and before anything has been undone there is no Redo —
         // a permanently disabled menu there reads as broken. No actionable
         // counterpart, no menu; the tap still carries the live direction.
         let redoAvailableOnLongPress = !redoOnly && chrome.canRedo
-        undoItem.menu = redoAvailableOnLongPress
+        undoButton.menu = redoAvailableOnLongPress
             ? UIMenu(children: [
                 UIAction(
                     title: "Redo",
@@ -203,8 +242,8 @@ final class ChromeCoordinator {
             : nil
         // VoiceOver gets the same rule: the rotor offers Redo only when the
         // menu would, and the hint never promises a menu that is not there.
-        undoItem.accessibilityHint = redoAvailableOnLongPress ? "Long press for redo" : nil
-        undoItem.accessibilityCustomActions = redoAvailableOnLongPress
+        undoButton.accessibilityHint = redoAvailableOnLongPress ? "Long press for redo" : nil
+        undoButton.accessibilityCustomActions = redoAvailableOnLongPress
             ? [
                 UIAccessibilityCustomAction(name: "Redo") { [weak self] _ in
                     guard let self, self.chrome.canRedo else { return false }
@@ -225,7 +264,7 @@ final class ChromeCoordinator {
         ) ?? .dark
         guard storedAppearance != lastMenuAppearance else { return }
         lastMenuAppearance = storedAppearance
-        settingsItem.menu = settingsMenu()
+        settingsButton.menu = settingsMenu()
     }
 
     // MARK: Document menu
