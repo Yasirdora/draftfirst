@@ -49,7 +49,6 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct DraftFirstApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @Environment(\.scenePhase) private var launchScenePhase
 
     var body: some Scene {
 #if EDITOR_PREVIEW
@@ -63,13 +62,6 @@ struct DraftFirstApp: App {
         // the navigation item directly (see EditorChrome).
         DocumentGroupLaunchScene("Screenplays") {
             NewDocumentButton("New Screenplay")
-                .onAppear(perform: PendingRename.performIfNeeded)
-                .onChange(of: launchScenePhase) { _, phase in
-                    // Back from the editor the document is closed and its
-                    // final save has landed — the deferred rename can move
-                    // the file safely.
-                    if phase == .active { PendingRename.performIfNeeded() }
-                }
         }
         DocumentGroup(newDocument: DraftFirstDocument()) { file in
             // A writer resumes where the writing ends: the caret opens at the

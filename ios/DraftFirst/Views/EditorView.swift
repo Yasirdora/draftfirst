@@ -3,7 +3,8 @@ import SwiftUI
 struct EditorView: View {
     @Binding private var document: DraftFirstDocument
     /// The open document's file URL, from its document configuration —
-    /// needed to schedule the deferred file rename (see PendingRename).
+    /// lets the editor detect that its file was deleted in Documents
+    /// while this scene was away (see closeIfDocumentDeleted).
     private let fileURL: URL?
     @State private var editor: EditorState
     @State private var presentedPanel: EditorPanel?
@@ -11,19 +12,14 @@ struct EditorView: View {
     /// animating its dismissal — the "button reacts but nothing happens"
     /// report. Presents are gated until `onDismiss` confirms the way is clear.
     @State private var panelFullyDismissed = true
-    /// The rename flow closes the editor, but a document dismissal issued
-    /// while its sheet is still animating out is dropped the same way —
-    /// the close waits for the sheet's onDismiss instead.
-    @State private var closeDocumentWhenPanelDismissed = false
     /// Set when the file was deleted in Documents while this scene was
     /// suspended: the editor must close WITHOUT saving, or the next
     /// autosave recreates the deleted file.
     @State private var documentDeletedFromDisk = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
-    /// Closes the document back to the launch scene — the rename flow's
-    /// final step, so the deferred file move happens while the document is
-    /// provably closed.
+    /// Closes the document back to the launch scene — used when the file
+    /// was deleted in Documents while this scene was away.
     @Environment(\.dismiss) private var dismissEditor
     // The scheme itself is applied at scene level in DraftFirstApp (browser
     // and editor can never disagree); this binding is the menu's write path.
@@ -77,13 +73,7 @@ struct EditorView: View {
         // Declares this view the document editor (Pages' idiom) rather than
         // DocumentGroup's default browser role.
         .toolbarRole(.editor)
-        .sheet(item: $presentedPanel, onDismiss: {
-            panelFullyDismissed = true
-            if closeDocumentWhenPanelDismissed {
-                closeDocumentWhenPanelDismissed = false
-                dismissEditor()
-            }
-        }) { panel in
+        .sheet(item: $presentedPanel, onDismiss: { panelFullyDismissed = true }) { panel in
             switch panel {
             case .story:
                 StoryPanel(editor: editor)
@@ -94,7 +84,7 @@ struct EditorView: View {
                     .presentationDetents(panelDetents)
                     .presentationDragIndicator(.visible)
             case .settings:
-                SettingsPanel(editor: editor, onRename: renameDocument)
+                SettingsPanel(editor: editor)
                     .presentationDetents(panelDetents)
                     .presentationDragIndicator(.visible)
             }
@@ -174,29 +164,6 @@ struct EditorView: View {
     private func wire(_ editor: EditorState) {
         editor.onSourceChange = { source in
             document.source = source
-        }
-    }
-
-    /// One name, three identities: the title page updates in place, the
-    /// file itself is renamed by PendingRename once the launch scene is
-    /// active, and closing the document is what makes the move safe — the
-    /// document infrastructure would keep writing to the URL it opened, so
-    /// the file must be moved while closed. The writer lands back in
-    /// Documents with the new name already there.
-    private func renameDocument(to newName: String) {
-        editor.setTitlePageEntry("Title", values: [newName])
-        editor.flushPendingWork()
-        if let fileURL {
-            PendingRename.schedule(fileURL: fileURL, newName: newName)
-        }
-        // The Settings sheet is still up when this arrives; a document
-        // dismissal issued during the sheet's dismissal is dropped, so the
-        // close chains onto the sheet's onDismiss.
-        if presentedPanel != nil {
-            closeDocumentWhenPanelDismissed = true
-            presentedPanel = nil
-        } else {
-            dismissEditor()
         }
     }
 

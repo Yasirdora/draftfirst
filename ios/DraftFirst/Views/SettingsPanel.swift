@@ -1,41 +1,23 @@
 import SwiftUI
 
 /// The long-tail preferences behind the document menu's Settings… —
-/// rename, writing assistance, page & format, feedback, about. The five
-/// destinations a writer touches daily stay in the menu itself.
+/// writing assistance, page & format, feedback, about. The five
+/// destinations a writer touches daily stay in the menu itself, and file
+/// management — including rename — stays in Documents, where the system's
+/// browser already does it well.
 ///
 /// Structure follows the iOS Settings idiom: each row names its value and
 /// pushes a focused page whose selections commit with a checkmark. Nothing
 /// here is a form to fill in.
 struct SettingsPanel: View {
     let editor: EditorState
-    /// Renames the file and the title page, then returns to Documents
-    /// (see EditorView.renameDocument).
-    let onRename: (String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage("pageFormat") private var pageFormat: PageFormat = .letter
-    @State private var renamesScreenplay = false
-    @State private var renameDraft = ""
 
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Button {
-                        renameDraft = editor.screenplay.title
-                        renamesScreenplay = true
-                    } label: {
-                        LabeledContent("Rename") {
-                            Text(editor.screenplay.title)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                } footer: {
-                    Text("Renames the screenplay everywhere — the file, its title page, and exports.")
-                }
-
                 Section("Writing") {
                     NavigationLink {
                         WritingAssistanceView(editor: editor)
@@ -78,13 +60,6 @@ struct SettingsPanel: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .alert("Rename Screenplay", isPresented: $renamesScreenplay) {
-                TextField("Screenplay Title", text: $renameDraft)
-                Button("Rename", action: commitRename)
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("You'll return to Documents for a moment — the file takes its new name there.")
-            }
         }
     }
 
@@ -93,15 +68,6 @@ struct SettingsPanel: View {
         let version = info?["CFBundleShortVersionString"] as? String ?? "–"
         let build = info?["CFBundleVersion"] as? String ?? "–"
         return "\(version) (\(build))"
-    }
-
-    /// Hands the new name to the editor's rename flow, which drives the
-    /// sheet dismissal itself — the document close chains onto it (see
-    /// EditorView.renameDocument), so this must not dismiss independently.
-    private func commitRename() {
-        let trimmed = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        onRename(trimmed)
     }
 }
 
