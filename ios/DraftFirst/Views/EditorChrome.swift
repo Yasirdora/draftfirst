@@ -83,6 +83,15 @@ final class ChromeCoordinator {
         return item
     }()
 
+    /// The seam between the two trailing items: without it iOS 26 fuses
+    /// adjacent items into one capsule; a fixed space splits them into
+    /// separate circles, matching the system's own inter-group gap.
+    private let trailingSpacer: UIBarButtonItem = {
+        let spacer = UIBarButtonItem(systemItem: .fixedSpace)
+        spacer.width = 8
+        return spacer
+    }()
+
     init(chrome: EditorChrome) {
         self.chrome = chrome
         elementButton.onSelect = { [weak self] kind in
@@ -121,8 +130,9 @@ final class ChromeCoordinator {
             activeKind: chrome.activeKind, contextualKinds: chrome.contextualKinds
         )
 
-        // First element is rightmost: [undo] [settings] left to right.
-        let trailing = [settingsItem, undoItem]
+        // First element is rightmost: [undo] [settings] left to right, with
+        // a fixed space between them so they render as two circles.
+        let trailing = [settingsItem, trailingSpacer, undoItem]
         if item.rightBarButtonItems != trailing { item.rightBarButtonItems = trailing }
         updateUndoItem()
         updateSettingsMenu()
@@ -286,29 +296,18 @@ final class ChromeCoordinator {
         )
 
         var children: [UIMenuElement] = [documentGroup, exportGroup, viewGroup, settingsGroup]
-#if DEBUG
-        // Diagnostic: the system's navigation bar is DocumentGroup-owned, so
-        // what it injects cannot be seen from the simulator preview. This
-        // read-only x-ray names the item's contents and every view class in
-        // the bar's hierarchy, so one screenshot of this menu on device
-        // settles any question about system-injected chrome. Deferred so it
-        // reads the bar at presentation time, not at build time; disabled
-        // rows; invisible in release builds.
-        let xray = UIDeferredMenuElement.uncached { [weak self] completion in
-            completion(self?.barXray() ?? [])
-        }
-        children.append(UIMenu(title: "", options: .displayInline, children: [xray]))
-#endif
         return UIMenu(children: children)
     }
 
 #if DEBUG
     /// A full x-ray of the navigation item and the bar's view tree, written
     /// to Documents/bar-xray.txt so it can be pulled from a device with
-    /// devicectl — DocumentGroup's bar cannot be inspected from the
-    /// simulator preview, and frame-level truth settles any question about
-    /// system-injected chrome. Written on every successful configure pass;
-    /// debug builds only.
+    /// devicectl. DocumentGroup's bar is not a UINavigationController's
+    /// (navigationController is nil in the editor), so the tree walk starts
+    /// from our own pill and climbs to the window: the ancestor chain names
+    /// the bar's real class, and the bar-level subtree — with frames,
+    /// visibility, and accessibility labels — identifies any
+    /// system-injected control outright. Debug builds only.
     private func writeBarXrayFile(controller: UIViewController, item: UINavigationItem) {
         var lines: [String] = []
         lines.append("title: \(item.title ?? "nil")")
@@ -318,16 +317,34 @@ final class ChromeCoordinator {
         lines.append("leftBarButtonItems: \(describe(item.leftBarButtonItems))")
         lines.append("rightBarButtonItems: \(describe(item.rightBarButtonItems))")
         lines.append("groups leading=\(item.leadingItemGroups.count) center=\(item.centerItemGroups.count) trailing=\(item.trailingItemGroups.count)")
-        lines.append("leadingGroups: \(item.leadingItemGroups.map { describe($0.barButtonItems) })")
-        lines.append("centerGroups: \(item.centerItemGroups.map { describe($0.barButtonItems) })")
-        lines.append("trailingGroups: \(item.trailingItemGroups.map { describe($0.barButtonItems) })")
-        if let bar = controller.navigationController?.navigationBar {
-            lines.append("--- view tree ---")
-            dumpBarView(bar, depth: 0, into: &lines)
+        lines.append("navigationController: \(controller.navigationController == nil ? "nil" : "present")")
+        lines.append("--- pill ancestors (pill → window) ---")
+        var ancestors: [UIView] = []
+        var cursor: UIView? = elementButton.superview
+        while let view = cursor {
+            ancestors.append(view)
+            cursor = view.superview
+        }
+        for (index, view) in ancestors.enumerated() {
+            lines.append("[\(index)] \(describe(view))")
+        }
+        if let windowIndex = ancestors.firstIndex(where: { $0 is UIWindow }), windowIndex > 0 {
+            lines.append("--- bar subtree ---")
+            dumpBarView(ancestors[windowIndex - 1], depth: 0, into: &lines)
         }
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("bar-xray.txt")
         try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private func describe(_ view: UIView) -> String {
+        let f = view.frame
+        var line = "\(type(of: view)) f=(\(Int(f.minX)),\(Int(f.minY)) \(Int(f.width))x\(Int(f.height)))"
+        if view.isHidden || view.alpha < 0.05 { line += " HIDDEN" }
+        if let label = view.accessibilityLabel, !label.isEmpty { line += " a11y=\"\(label)\"" }
+        if let label = view as? UILabel, let text = label.text { line += " text=\"\(text)\"" }
+        if let button = view as? UIButton, let title = button.currentTitle { line += " title=\"\(title)\"" }
+        return line
     }
 
     private func describe(_ items: [UIBarButtonItem]?) -> String {
@@ -340,30 +357,8 @@ final class ChromeCoordinator {
 
     private func dumpBarView(_ view: UIView, depth: Int, into lines: inout [String]) {
         let indent = String(repeating: "  ", count: min(depth, 12))
-        let f = view.frame
-        var line = "\(indent)\(type(of: view)) f=(\(Int(f.minX)),\(Int(f.minY)) \(Int(f.width))x\(Int(f.height)))"
-        if view.isHidden || view.alpha < 0.05 { line += " HIDDEN" }
-        if let label = view as? UILabel, let text = label.text { line += " text=\"\(text)\"" }
-        if let button = view as? UIButton, let title = button.currentTitle { line += " title=\"\(title)\"" }
-        lines.append(line)
+        lines.append(indent + describe(view))
         for subview in view.subviews { dumpBarView(subview, depth: depth + 1, into: &lines) }
-    }
-
-    private func barXray() -> [UIAction] {
-        guard let controller = owningViewController() else {
-            return [debugRow("bar: no view controller found")]
-        }
-        let item = controller.navigationItem
-        let summary = "L\(item.leftBarButtonItems?.count ?? 0)"
-            + " R\(item.rightBarButtonItems?.count ?? 0)"
-            + " titleView:\(item.titleView.map { String(describing: type(of: $0)) } ?? "nil")"
-            + " docProps:\(item.documentProperties == nil ? "no" : "yes")"
-            + " centerGroups:\(item.centerItemGroups.count)"
-        return [debugRow(summary), debugRow("full dump: Documents/bar-xray.txt")]
-    }
-
-    private func debugRow(_ text: String) -> UIAction {
-        UIAction(title: text, attributes: .disabled) { _ in }
     }
 #endif
 
