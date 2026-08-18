@@ -129,6 +129,7 @@ final class ChromeCoordinator {
         elementButton.update(
             activeKind: chrome.activeKind, contextualKinds: chrome.contextualKinds
         )
+        hideTitleMenuIndicator()
 
         // First element is rightmost: [undo] [settings] left to right, with
         // a fixed space between them so they render as two circles.
@@ -154,6 +155,29 @@ final class ChromeCoordinator {
     private func undoPrimary() {
         if chrome.canUndo { chrome.editor.undo() }
         else if chrome.canRedo { chrome.editor.redo() }
+    }
+
+    /// The stray chevron beside the pill is the title control's
+    /// document-menu indicator: this bar (SwiftUI's UIKitNavigationBar,
+    /// driven by DocumentGroup's document view controller) renders it next
+    /// to the title view even though the navigation item carries no
+    /// documentProperties or titleMenuProvider — no item-level API reaches
+    /// it (all confirmed by the on-device x-ray). The indicator's wrapper
+    /// view is hidden instead, matched by exact structure: our pill must be
+    /// inside a *TitleControl, and the sibling wrapper must hold an image
+    /// view. If a future iOS changes that structure the match simply misses
+    /// and the chevron returns — nothing else can break. Hiding the wrapper
+    /// (rather than the image) also frees its 26 pt, so the pill gets the
+    /// title area's full width again.
+    private func hideTitleMenuIndicator() {
+        guard let titleControl = elementButton.superview,
+              String(describing: type(of: titleControl)).contains("TitleControl")
+        else { return }
+        for sibling in titleControl.subviews where sibling !== elementButton {
+            let holdsIndicator = sibling.subviews.contains { $0 is UIImageView }
+                || sibling.subviews.contains(where: { $0.subviews.contains { $0 is UIImageView } })
+            if holdsIndicator { sibling.isHidden = true }
+        }
     }
 
     private func updateUndoItem() {
