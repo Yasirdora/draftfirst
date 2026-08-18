@@ -95,13 +95,12 @@ struct SettingsPanel: View {
         return "\(version) (\(build))"
     }
 
-    /// Hands the new name to the editor's rename flow (file + title page)
-    /// and closes the sheet; the editor then returns to Documents, where
-    /// the deferred file move happens.
+    /// Hands the new name to the editor's rename flow, which drives the
+    /// sheet dismissal itself — the document close chains onto it (see
+    /// EditorView.renameDocument), so this must not dismiss independently.
     private func commitRename() {
         let trimmed = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        dismiss()
         onRename(trimmed)
     }
 }

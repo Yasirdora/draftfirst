@@ -11,6 +11,14 @@ struct EditorView: View {
     /// animating its dismissal — the "button reacts but nothing happens"
     /// report. Presents are gated until `onDismiss` confirms the way is clear.
     @State private var panelFullyDismissed = true
+    /// The rename flow closes the editor, but a document dismissal issued
+    /// while its sheet is still animating out is dropped the same way —
+    /// the close waits for the sheet's onDismiss instead.
+    @State private var closeDocumentWhenPanelDismissed = false
+    /// Set when the file was deleted in Documents while this scene was
+    /// suspended: the editor must close WITHOUT saving, or the next
+    /// autosave recreates the deleted file.
+    @State private var documentDeletedFromDisk = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.scenePhase) private var scenePhase
     /// Closes the document back to the launch scene — the rename flow's
@@ -69,7 +77,13 @@ struct EditorView: View {
         // Declares this view the document editor (Pages' idiom) rather than
         // DocumentGroup's default browser role.
         .toolbarRole(.editor)
-        .sheet(item: $presentedPanel, onDismiss: { panelFullyDismissed = true }) { panel in
+        .sheet(item: $presentedPanel, onDismiss: {
+            panelFullyDismissed = true
+            if closeDocumentWhenPanelDismissed {
+                closeDocumentWhenPanelDismissed = false
+                dismissEditor()
+            }
+        }) { panel in
             switch panel {
             case .story:
                 StoryPanel(editor: editor)
@@ -91,6 +105,9 @@ struct EditorView: View {
             // wedged shut and every panel button would look dead. Re-entering
             // the editor is proof no sheet is up — re-arm the gate.
             panelFullyDismissed = true
+            // A scene restored after the file was deleted in Documents must
+            // not live on: close it before any save can resurrect the file.
+            closeIfDocumentDeleted()
             wire(editor)
 #if EDITOR_PREVIEW
             if CommandLine.arguments.contains("-show-settings") {
@@ -106,7 +123,9 @@ struct EditorView: View {
             // The close button belongs to the system, so disappearance is
             // the last guaranteed moment to land debounced work — keyboard
             // dismissal, backgrounding, and close all pass through here.
-            editor.flushPendingWork()
+            // A deleted document is the one exception: saving it back would
+            // resurrect the file the writer just removed.
+            if !documentDeletedFromDisk { editor.flushPendingWork() }
         }
         .onChange(of: document.source) { _, newSource in
             // A genuinely external change (conflict resolution, another
@@ -120,7 +139,12 @@ struct EditorView: View {
         .onChange(of: scenePhase) { _, phase in
             // Backgrounding mid-keystroke must not strand the debounced
             // publish: flush so the document binding is always current.
-            if phase != .active { editor.flushPendingWork() }
+            // Becoming active again is where a deleted document is caught.
+            if phase == .active {
+                closeIfDocumentDeleted()
+            } else if !documentDeletedFromDisk {
+                editor.flushPendingWork()
+            }
         }
     }
 
@@ -165,6 +189,25 @@ struct EditorView: View {
         if let fileURL {
             PendingRename.schedule(fileURL: fileURL, newName: newName)
         }
+        // The Settings sheet is still up when this arrives; a document
+        // dismissal issued during the sheet's dismissal is dropped, so the
+        // close chains onto the sheet's onDismiss.
+        if presentedPanel != nil {
+            closeDocumentWhenPanelDismissed = true
+            presentedPanel = nil
+        } else {
+            dismissEditor()
+        }
+    }
+
+    /// The document can be deleted in Documents while this scene is
+    /// suspended or restorable. Returning to an editor whose file is gone
+    /// must close it immediately and never save again — otherwise the next
+    /// autosave recreates the deleted file.
+    private func closeIfDocumentDeleted() {
+        guard let fileURL,
+              !FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        documentDeletedFromDisk = true
         dismissEditor()
     }
 
