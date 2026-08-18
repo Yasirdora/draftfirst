@@ -111,6 +111,10 @@ final class ChromeCoordinator {
         // no unique job in this bar.
         if item.documentProperties != nil { item.documentProperties = nil }
         if item.titleMenuProvider != nil { item.titleMenuProvider = nil }
+        // The center slot is ours alone; anything the system parked there
+        // (the compact document menu) goes. Leading groups are untouched —
+        // that is where the system's close button lives.
+        if !item.centerItemGroups.isEmpty { item.centerItemGroups = [] }
 
         if item.titleView !== elementButton { item.titleView = elementButton }
         elementButton.update(
@@ -122,6 +126,9 @@ final class ChromeCoordinator {
         if item.rightBarButtonItems != trailing { item.rightBarButtonItems = trailing }
         updateUndoItem()
         updateSettingsMenu()
+#if DEBUG
+        writeBarXrayFile(controller: controller, item: item)
+#endif
         return true
     }
 
@@ -296,6 +303,52 @@ final class ChromeCoordinator {
     }
 
 #if DEBUG
+    /// A full x-ray of the navigation item and the bar's view tree, written
+    /// to Documents/bar-xray.txt so it can be pulled from a device with
+    /// devicectl — DocumentGroup's bar cannot be inspected from the
+    /// simulator preview, and frame-level truth settles any question about
+    /// system-injected chrome. Written on every successful configure pass;
+    /// debug builds only.
+    private func writeBarXrayFile(controller: UIViewController, item: UINavigationItem) {
+        var lines: [String] = []
+        lines.append("title: \(item.title ?? "nil")")
+        lines.append("titleView: \(item.titleView.map { String(describing: type(of: $0)) } ?? "nil") frame=\(item.titleView?.frame ?? .zero)")
+        lines.append("documentProperties: \(item.documentProperties == nil ? "no" : "yes")")
+        lines.append("titleMenuProvider: \(item.titleMenuProvider == nil ? "no" : "yes")")
+        lines.append("leftBarButtonItems: \(describe(item.leftBarButtonItems))")
+        lines.append("rightBarButtonItems: \(describe(item.rightBarButtonItems))")
+        lines.append("groups leading=\(item.leadingItemGroups.count) center=\(item.centerItemGroups.count) trailing=\(item.trailingItemGroups.count)")
+        lines.append("leadingGroups: \(item.leadingItemGroups.map { describe($0.barButtonItems) })")
+        lines.append("centerGroups: \(item.centerItemGroups.map { describe($0.barButtonItems) })")
+        lines.append("trailingGroups: \(item.trailingItemGroups.map { describe($0.barButtonItems) })")
+        if let bar = controller.navigationController?.navigationBar {
+            lines.append("--- view tree ---")
+            dumpBarView(bar, depth: 0, into: &lines)
+        }
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("bar-xray.txt")
+        try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private func describe(_ items: [UIBarButtonItem]?) -> String {
+        guard let items else { return "nil" }
+        return "["
+            + items.map { "\($0.title ?? $0.accessibilityLabel ?? "-"):\(type(of: $0)) customView=\($0.customView.map { String(describing: type(of: $0)) } ?? "nil")" }
+                .joined(separator: " | ")
+            + "]"
+    }
+
+    private func dumpBarView(_ view: UIView, depth: Int, into lines: inout [String]) {
+        let indent = String(repeating: "  ", count: min(depth, 12))
+        let f = view.frame
+        var line = "\(indent)\(type(of: view)) f=(\(Int(f.minX)),\(Int(f.minY)) \(Int(f.width))x\(Int(f.height)))"
+        if view.isHidden || view.alpha < 0.05 { line += " HIDDEN" }
+        if let label = view as? UILabel, let text = label.text { line += " text=\"\(text)\"" }
+        if let button = view as? UIButton, let title = button.currentTitle { line += " title=\"\(title)\"" }
+        lines.append(line)
+        for subview in view.subviews { dumpBarView(subview, depth: depth + 1, into: &lines) }
+    }
+
     private func barXray() -> [UIAction] {
         guard let controller = owningViewController() else {
             return [debugRow("bar: no view controller found")]
@@ -305,15 +358,8 @@ final class ChromeCoordinator {
             + " R\(item.rightBarButtonItems?.count ?? 0)"
             + " titleView:\(item.titleView.map { String(describing: type(of: $0)) } ?? "nil")"
             + " docProps:\(item.documentProperties == nil ? "no" : "yes")"
-        var classes = Set<String>()
-        if let bar = controller.navigationController?.navigationBar {
-            var stack: [UIView] = [bar]
-            while let view = stack.popLast() {
-                classes.insert(String(describing: type(of: view)))
-                stack.append(contentsOf: view.subviews)
-            }
-        }
-        return [debugRow(summary), debugRow(classes.sorted().joined(separator: ", "))]
+            + " centerGroups:\(item.centerItemGroups.count)"
+        return [debugRow(summary), debugRow("full dump: Documents/bar-xray.txt")]
     }
 
     private func debugRow(_ text: String) -> UIAction {

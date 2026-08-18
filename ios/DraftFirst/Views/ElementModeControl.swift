@@ -20,6 +20,10 @@ final class ElementModeButton: UIButton {
         showsMenuAsPrimaryAction = true
         translatesAutoresizingMaskIntoConstraints = false
         heightAnchor.constraint(equalToConstant: ChromeMetrics.controlSize).isActive = true
+        // The bar's title area negotiates width; the pill never yields its
+        // content to it — truncation is the only permitted compromise.
+        setContentCompressionResistancePriority(.required, for: .horizontal)
+        setContentHuggingPriority(.required, for: .horizontal)
         accessibilityHint = "Tap to choose a screenplay element. Return selects the likely next element."
     }
 
@@ -47,8 +51,12 @@ final class ElementModeButton: UIButton {
         title.font = .systemFont(ofSize: 17, weight: .medium)
         config.attributedTitle = title
         config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+        // Never wrap to a second line inside the pill — if the bar's title
+        // area is tight, the title truncates instead of stacking.
+        config.titleLineBreakMode = .byTruncatingTail
         config.background.cornerRadius = ChromeMetrics.controlSize / 2
         configuration = config
+        titleLabel?.numberOfLines = 1
 
         let suggested = contextualKinds.map { menuAction(for: $0, active: activeKind) }
         let remaining = ScreenplayKind.editorKinds
