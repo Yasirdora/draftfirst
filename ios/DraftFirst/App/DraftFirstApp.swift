@@ -129,6 +129,18 @@ enum EditorPreviewConfiguration {
             }
             return scenes.joined(separator: "\n\n") + "\n\nIN"
         }
+        if arguments.contains("-qa-scroll-stability") {
+            // Ends with a blank line: typing there creates a new paragraph,
+            // which routes through the structural render path under test.
+            let scenes = (1...32).map { number in
+                """
+                INT. ROOM \(number) - DAY
+
+                A long action paragraph for scene \(number) fills the editor so the document is deeply scrolled when typing at its end.
+                """
+            }
+            return scenes.joined(separator: "\n\n") + "\n\n"
+        }
         if arguments.contains("-ordinary-space-fixture") {
             return "Hello"
         }

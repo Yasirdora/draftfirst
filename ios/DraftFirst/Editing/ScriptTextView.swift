@@ -145,6 +145,12 @@ struct ScriptTextView: UIViewRepresentable {
                 }
             }
         }
+        if CommandLine.arguments.contains("-qa-scroll-stability") {
+            let coordinator = context.coordinator
+            Task { @MainActor in
+                await coordinator.exerciseScrollStabilityRegression()
+            }
+        }
 #endif
         return textView
     }
@@ -292,17 +298,93 @@ struct ScriptTextView: UIViewRepresentable {
                 traitCollection: textView.traitCollection
             )
 
+            // Replacing the whole storage makes UITextView re-finalize its
+            // text container size, and that pass can re-pin the scroll
+            // offset to the top — the jump writers saw when typing at the
+            // end of a long document. Anchor on the caret's on-screen
+            // position (ground truth, inset-proof): if it was visible, it
+            // stays at the same screen point; otherwise the raw offset is
+            // preserved. Restored twice — immediately, and once more on the
+            // next runloop turn, after the container's settling beat.
+            // Anchored restore only when the caret is actually on screen:
+            // anchoring an off-screen caret would pin it off screen and
+            // fight UIKit's own reveal scroll.
+            let preservedCaretY = caretScreenYIfVisible(in: textView)
+            let preservedOffset = textView.contentOffset
+
             applyingModel = true
             textView.textStorage.setAttributedString(rendered.string)
             ranges = rendered.ranges
+            // Finalize the whole layout now: while layout stays unrealized,
+            // UITextView re-sizes its container one beat after any
+            // programmatic scroll and re-pins the offset to the top.
+            // Measured at ~2.4 ms for a 32-scene script — cheap insurance,
+            // and it makes every scroll deterministic.
+            textView.layoutManager.ensureLayout(
+                forGlyphRange: NSRange(location: 0, length: textView.textStorage.length)
+            )
             if let selectedID, let mapped = ranges.first(where: { $0.id == selectedID }) {
                 let offset = min(max(0, selectedOffset), mapped.range.length)
                 textView.selectedRange = NSRange(location: mapped.range.location + offset, length: 0)
             }
             applyingModel = false
+            restoreViewport(caretY: preservedCaretY, offset: preservedOffset, in: textView)
             renderedRevision = editor.revision
             updateTypingTraits()
             updateGhost()
+        }
+
+        /// The caret's vertical position on screen. caretRect reports in the
+        /// view's own coordinate system (which for a scroll view is content
+        /// coordinates), so a direct conversion is correct — no manual
+        /// offset math.
+        private func caretScreenY(in textView: UITextView) -> CGFloat? {
+            guard let position = textView.selectedTextRange?.end, let window = textView.window else {
+                return nil
+            }
+            let caret = textView.caretRect(for: position)
+            guard !caret.isNull, !caret.isInfinite else { return nil }
+            return textView.convert(caret, to: window).midY
+        }
+
+        /// The caret's screen position only when it is genuinely inside the
+        /// visible window — between the top bar and the bottom edge of the
+        /// view. Off-screen carets yield nil, so callers fall back to raw
+        /// offset preservation. The window's top is bounds.origin (the
+        /// visible area's own origin), not CGPoint.zero — for a scroll view
+        /// the zero point is the content origin, which is scrolled away.
+        private func caretScreenYIfVisible(in textView: UITextView) -> CGFloat? {
+            guard let y = caretScreenY(in: textView), let window = textView.window else { return nil }
+            let viewTopOnScreen = textView.convert(textView.bounds.origin, to: window).y
+            let top = viewTopOnScreen + textView.adjustedContentInset.top
+            let bottom = viewTopOnScreen + textView.bounds.height - 8
+            return (y > top && y < bottom) ? y : nil
+        }
+
+        private func restoreViewport(caretY: CGFloat?, offset: CGPoint, in textView: ScreenplayTextView) {
+            applyViewport(caretY: caretY, offset: offset, in: textView)
+            DispatchQueue.main.async { [weak self, weak textView] in
+                guard let self, let textView else { return }
+                self.applyViewport(caretY: caretY, offset: offset, in: textView)
+            }
+        }
+
+        /// A user scroll cannot land between the immediate and deferred
+        /// passes — the window is a single runloop turn — so the deferred
+        /// write is safe.
+        private func applyViewport(caretY: CGFloat?, offset: CGPoint, in textView: UITextView) {
+            if let caretY, let now = caretScreenY(in: textView) {
+                let delta = now - caretY
+                if abs(delta) > 0.5 {
+                    textView.setContentOffset(
+                        CGPoint(x: 0, y: textView.contentOffset.y - delta), animated: false
+                    )
+                }
+                return
+            }
+            if textView.contentOffset != offset {
+                textView.setContentOffset(offset, animated: false)
+            }
         }
 
         func textViewDidBeginEditing(_ textView: UITextView) {
@@ -571,6 +653,46 @@ struct ScriptTextView: UIViewRepresentable {
             precondition(
                 editor.screenplay.elements.last?.text.hasSuffix("The basement stays quiet.") == true,
                 "The model did not mirror the typed Action text."
+            )
+        }
+
+        /// Regression cover for the long-document scroll jump — the real
+        /// user sequence: caret at the end of a 32-scene document, keyboard
+        /// up, scroll to the caret, type one character. Typing there routes
+        /// through the full planner + renderModel path (a new paragraph is
+        /// structural), and the viewport must stay where the caret is.
+        /// Asserted on the caret's on-screen drift, not raw offsets.
+        func exerciseScrollStabilityRegression() async {
+            guard let textView else { return }
+            // Launch runs its own layout passes (initial render, resume
+            // scroll); wait until the content size is stable first.
+            var settledHeight: CGFloat = 0
+            for _ in 0..<100 {
+                let height = textView.contentSize.height
+                if height > 2000, abs(height - settledHeight) < 0.5 { break }
+                settledHeight = height
+                try? await Task.sleep(for: .milliseconds(20))
+            }
+            // No keyboard in this harness: keyboard avoidance animates on
+            // its own schedule and would pollute the measurement. insertText
+            // exercises the identical delegate path without it.
+            let length = textView.textStorage.length
+            textView.selectedRange = NSRange(location: length, length: 0)
+            // A zero-length range does not scroll UITextView; scroll to the
+            // last real character instead — what a tap near the end does.
+            textView.scrollRangeToVisible(NSRange(location: max(0, length - 1), length: 1))
+            try? await Task.sleep(for: .milliseconds(300))
+            let beforeY = caretScreenYIfVisible(in: textView)
+            precondition(beforeY != nil, "The caret never came on screen before typing.")
+
+            textView.insertText("K")
+            try? await Task.sleep(for: .milliseconds(300))
+            let afterY = caretScreenY(in: textView)
+            precondition(afterY != nil, "No measurable caret after typing.")
+            let drift = abs(afterY! - beforeY!)
+            precondition(
+                drift < 30,
+                "Typing moved the caret on screen by \(drift) pt (offsetY=\(textView.contentOffset.y))."
             )
         }
 
@@ -1026,6 +1148,13 @@ struct ScriptTextView: UIViewRepresentable {
             guard let textView, let mapped = ranges.first(where: { $0.id == id }) else { return }
             textView.selectedRange = NSRange(location: mapped.range.location, length: 0)
             textView.scrollRangeToVisible(mapped.range)
+            // UITextView re-pins the offset one layout beat after a
+            // programmatic scroll into unrealized layout — the same
+            // container-settling quirk renderModel guards against.
+            let target = textView.contentOffset
+            DispatchQueue.main.async { [weak textView] in
+                textView?.setContentOffset(target, animated: false)
+            }
             updateSelection(from: textView)
         }
 
@@ -1143,6 +1272,12 @@ struct ScriptTextView: UIViewRepresentable {
             if !didFrameInitialPosition, editor?.opensAtEnd == true {
                 didFrameInitialPosition = true
                 textView.scrollRangeToVisible(textView.selectedRange)
+                // The same container-settling reset can yank the resume
+                // scroll back to the top a beat later; re-apply it once.
+                let target = textView.contentOffset
+                DispatchQueue.main.async { [weak textView] in
+                    textView?.setContentOffset(target, animated: false)
+                }
             }
         }
 
@@ -1621,16 +1756,21 @@ final class ScreenplayTextView: UITextView {
         verticalScrollIndicatorInsets.top = top
     }
 
-    /// The navigation bar's bottom edge in this view's coordinates, or nil
-    /// when no bar floats above us — the system's own adjustment then owns
-    /// the clearance, exactly as before.
+    /// The navigation bar's bottom edge as clearance above this view's
+    /// visible top, measured in WINDOW space. The view's own coordinate
+    /// system is content space — it moves with the scroll offset, so
+    /// converting the bar into `self` produced a clearance that grew as the
+    /// writer scrolled, mutating the scroll geometry mid-gesture (the
+    /// viewport jumps). Window space never moves.
     private func measuredTopBarBottom() -> CGFloat? {
         var responder: UIResponder? = next
         while let current = responder {
             if let navigationController = current as? UINavigationController {
                 let bar = navigationController.navigationBar
                 guard !bar.isHidden, bar.window != nil else { return nil }
-                return max(bar.convert(bar.bounds, to: self).maxY, 0)
+                let barBottomInWindow = bar.convert(bar.bounds, to: nil).maxY
+                let viewTopInWindow = convert(bounds.origin, to: nil).y
+                return max(barBottomInWindow - viewTopInWindow, 0)
             }
             responder = current.next
         }
