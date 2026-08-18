@@ -9,6 +9,9 @@ import SwiftUI
 /// here is a form to fill in.
 struct SettingsPanel: View {
     let editor: EditorState
+    /// Renames the file and the title page, then returns to Documents
+    /// (see EditorView.renameDocument).
+    let onRename: (String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage("pageFormat") private var pageFormat: PageFormat = .letter
@@ -30,7 +33,7 @@ struct SettingsPanel: View {
                         }
                     }
                 } footer: {
-                    Text("Names the screenplay's title page and exports. The file name itself belongs to Documents — long-press it there.")
+                    Text("Renames the screenplay everywhere — the file, its title page, and exports.")
                 }
 
                 Section("Writing") {
@@ -46,11 +49,6 @@ struct SettingsPanel: View {
                         PaperSizeView()
                     } label: {
                         LabeledContent("Paper Size", value: pageFormat.title)
-                    }
-                    NavigationLink {
-                        ScreenplayFormatView()
-                    } label: {
-                        LabeledContent("Screenplay Format", value: "Standard")
                     }
                     NavigationLink {
                         PaginationView()
@@ -84,6 +82,8 @@ struct SettingsPanel: View {
                 TextField("Screenplay Title", text: $renameDraft)
                 Button("Rename", action: commitRename)
                 Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("You'll return to Documents for a moment — the file takes its new name there.")
             }
         }
     }
@@ -95,16 +95,14 @@ struct SettingsPanel: View {
         return "\(version) (\(build))"
     }
 
-    /// Renaming the screenplay retitles its title page — the title is the
-    /// document's identity everywhere Draft First shows it.
+    /// Hands the new name to the editor's rename flow (file + title page)
+    /// and closes the sheet; the editor then returns to Documents, where
+    /// the deferred file move happens.
     private func commitRename() {
         let trimmed = renameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        editor.updateTitlePage(
-            title: trimmed,
-            writer: editor.titlePageValue(for: "Author") ?? "",
-            credit: editor.titlePageValue(for: "Credit") ?? "written by"
-        )
+        dismiss()
+        onRename(trimmed)
     }
 }
 
@@ -174,27 +172,8 @@ private struct PaperSizeView: View {
     }
 }
 
-/// One format today — the row exists so Stage, sitcom, and other formats
-/// have a settled home when they arrive.
-private struct ScreenplayFormatView: View {
-    var body: some View {
-        Form {
-            Section {
-                HStack {
-                    Text("Standard")
-                    Spacer()
-                    Image(systemName: "checkmark")
-                        .foregroundStyle(.tint)
-                }
-            } footer: {
-                Text("The film and television standard. Stage, sitcom, and other formats arrive in a later update.")
-            }
-        }
-        .navigationTitle("Screenplay Format")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
+/// One format today — the row returns when a second format exists to
+/// choose between.
 private struct PaginationView: View {
     @AppStorage("showPageNumbers") private var showPageNumbers = true
 

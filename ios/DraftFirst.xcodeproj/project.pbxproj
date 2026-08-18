@@ -18,6 +18,7 @@
 		DF260000000000000000010B /* SettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF260000000000000000000B /* SettingsPanel.swift */; };
 		DF260000000000000000010D /* EditorChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF260000000000000000000F /* EditorChrome.swift */; };
 		DF260000000000000000010F /* TitlePageSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000013 /* TitlePageSheet.swift */; };
+		DF2600000000000000000110 /* PendingRename.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000014 /* PendingRename.swift */; };
 		DF260000000000000000010E /* ScreenplayEditPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000010 /* ScreenplayEditPlanner.swift */; };
 		DF2700000000000000000101 /* ScreenplayEditPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */; };
 		DF2700000000000000000103 /* DraftFirstDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2700000000000000000003 /* DraftFirstDocumentTests.swift */; };
@@ -53,6 +54,7 @@
 		DF2600000000000000000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DF2600000000000000000012 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		DF2600000000000000000013 /* TitlePageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitlePageSheet.swift; sourceTree = "<group>"; };
+		DF2600000000000000000014 /* PendingRename.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingRename.swift; sourceTree = "<group>"; };
 		DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenplayEditPlannerTests.swift; sourceTree = "<group>"; };
 		DF2700000000000000000003 /* DraftFirstDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DraftFirstDocumentTests.swift; sourceTree = "<group>"; };
 		DF2700000000000000000002 /* DraftFirstTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DraftFirstTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -120,6 +122,7 @@
 			isa = PBXGroup;
 			children = (
 				DF2600000000000000000003 /* DraftFirstDocument.swift */,
+				DF2600000000000000000014 /* PendingRename.swift */,
 			);
 			path = Document;
 			sourceTree = "<group>";
@@ -284,6 +287,7 @@
 				DF260000000000000000010B /* SettingsPanel.swift in Sources */,
 				DF260000000000000000010D /* EditorChrome.swift in Sources */,
 				DF260000000000000000010F /* TitlePageSheet.swift in Sources */,
+				DF2600000000000000000110 /* PendingRename.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
