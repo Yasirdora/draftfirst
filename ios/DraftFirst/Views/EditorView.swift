@@ -68,7 +68,7 @@ struct EditorView: View {
                     .presentationDetents(panelDetents)
                     .presentationDragIndicator(.visible)
             case .titlePage:
-                TitlePageSettings(editor: editor)
+                TitlePageSheet(editor: editor)
                     .presentationDetents(panelDetents)
                     .presentationDragIndicator(.visible)
             case .settings:
@@ -89,6 +89,8 @@ struct EditorView: View {
                 present(.settings)
             } else if CommandLine.arguments.contains("-show-story") {
                 present(.story)
+            } else if CommandLine.arguments.contains("-show-titlepage") {
+                present(.titlePage)
             }
 #endif
         }

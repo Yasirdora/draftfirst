@@ -111,6 +111,39 @@ final class EditorState {
             .joined(separator: "\n")
     }
 
+    /// The entry's lines as stored (empty when the key is absent).
+    func titlePageValues(for key: String) -> [String] {
+        screenplay.titlePage
+            .first(where: { $0.key.caseInsensitiveCompare(key) == .orderedSame })?
+            .values ?? []
+    }
+
+    /// Writes one title-page entry with a single undo snapshot — the same
+    /// discipline as updateTitlePage, generalized to any key and any number
+    /// of lines. Empty values remove the entry; unchanged values do nothing
+    /// (no snapshot, no publish churn).
+    func setTitlePageEntry(_ key: String, values: [String]) {
+        let normalized = values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard titlePageValues(for: key) != normalized else { return }
+
+        clearNativeUndoHistory()
+        recordSnapshot(structural: true)
+        if let index = screenplay.titlePage.firstIndex(where: {
+            $0.key.caseInsensitiveCompare(key) == .orderedSame
+        }) {
+            if normalized.isEmpty {
+                screenplay.titlePage.remove(at: index)
+            } else {
+                screenplay.titlePage[index].values = normalized
+            }
+        } else if !normalized.isEmpty {
+            screenplay.titlePage.append(TitlePageEntry(key: key, values: normalized))
+        }
+        commitChange()
+    }
+
     var activeElementIndex: Int? {
         guard let activeElementID else { return nil }
         return screenplay.elements.firstIndex(where: { $0.id == activeElementID })

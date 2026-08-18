@@ -124,12 +124,24 @@ enum ScreenplayExporter {
     private static let lineHeight: CGFloat = 12
     private static let textLeft: CGFloat = 108
 
+    /// The Options toggle's storage key — one app-level export behavior,
+    /// on by default.
+    static let includeTitlePageKey = "includeTitlePageInPDF"
+
     static func pdfData(_ screenplay: Screenplay) -> Data {
         let format = PageFormat.current
         let renderer = UIGraphicsPDFRenderer(bounds: format.pageRect)
+        let includeTitlePage = UserDefaults.standard.object(forKey: includeTitlePageKey) as? Bool ?? true
+        let hasTitlePage = screenplay.titlePage.contains { entry in
+            entry.values.contains { !$0.isEmpty }
+        }
         return renderer.pdfData { context in
-            context.beginPage()
-            drawTitlePage(screenplay, format: format)
+            // The title page exists only when it has something to say — an
+            // empty one must never yield a blank first page.
+            if includeTitlePage && hasTitlePage {
+                context.beginPage()
+                drawTitlePage(screenplay, format: format)
+            }
 
             guard let pages = paginate(screenplay) else { return }
             for page in pages {
@@ -212,8 +224,10 @@ enum ScreenplayExporter {
         }
     }
 
-    /// Title ~1/3 down, then credit, then author — the classic centered
-    /// title-page stack in the same Courier voice as the script.
+    /// The classic centered title-page stack in the same Courier voice as
+    /// the script: the title in uppercase ~1/3 down, the credit beneath it,
+    /// then the writers, then any source or custom credit lines in document
+    /// order. Contact details sit bottom-left, as productions expect them.
     private static func drawTitlePage(_ screenplay: Screenplay, format: PageFormat) {
         func values(_ key: String) -> [String] {
             screenplay.titlePage
@@ -223,7 +237,7 @@ enum ScreenplayExporter {
 
         var y = format.pageRect.height * 0.32
         for line in values("Title") {
-            drawCentered(line, y: y, format: format, attributes: textAttributes)
+            drawCentered(line.uppercased(), y: y, format: format, attributes: textAttributes)
             y += lineHeight
         }
         y += lineHeight
@@ -235,6 +249,36 @@ enum ScreenplayExporter {
         for line in values("Author") {
             drawCentered(line, y: y, format: format, attributes: textAttributes)
             y += lineHeight
+        }
+
+        /* Source and custom credits follow in stored order: custom keys
+           print their label line first ("Additional writing by"), Source
+           prints its values verbatim (the phrase already carries it). */
+        for entry in screenplay.titlePage {
+            let key = entry.key.lowercased()
+            guard !["title", "credit", "author", "contact"].contains(key) else { continue }
+            let lines = entry.values.filter { !$0.isEmpty }
+            guard !lines.isEmpty else { continue }
+            y += lineHeight
+            if key != "source" {
+                drawCentered(entry.key, y: y, format: format, attributes: textAttributes)
+                y += lineHeight
+            }
+            for line in lines {
+                drawCentered(line, y: y, format: format, attributes: textAttributes)
+                y += lineHeight
+            }
+        }
+
+        let contact = values("Contact")
+        if !contact.isEmpty {
+            var contactY = format.pageRect.height - 72 - CGFloat(contact.count - 1) * lineHeight
+            for line in contact {
+                (line as NSString).draw(
+                    at: CGPoint(x: Self.textLeft, y: contactY), withAttributes: textAttributes
+                )
+                contactY += lineHeight
+            }
         }
     }
 
