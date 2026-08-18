@@ -3,18 +3,18 @@ import UIKit
 
 /// The editor's chrome, configured straight onto the system navigation
 /// item: the platform's own close button leads (DocumentGroup installs it;
-/// it stays), the element pill is the title view, and undo + document menu
-/// are genuine UIBarButtonItems trailing.
+/// it stays), the element pill supplements it as a leading bar item, and
+/// undo + document menu are genuine UIBarButtonItems trailing. The title
+/// slot stays empty: DocumentGroup draws its document-menu chevron from
+/// the bar's title control, and with no title or title view there is no
+/// title control — the chevron is gone by construction, never hidden.
 ///
 /// Earlier iterations drew our own glass buttons inside SwiftUI toolbar
 /// slots. In DocumentGroup's bar that produced a second glass layer around
 /// each control — the bar wraps items in its own treatment, so our
-/// UIButton.Configuration.glass() rendered a tile inside a ring — and the
-/// system's compact document-menu chevron floated beside the pill with no
-/// SwiftUI surface able to retire it. Genuine bar items render through the
-/// system's own glass treatment — one layer, always in lockstep with the
-/// platform — and retiring the chevron is a plain property write
-/// (documentProperties / titleMenuProvider), not a fight with the bar.
+/// UIButton.Configuration.glass() rendered a tile inside a ring. Genuine
+/// bar items render through the system's own glass treatment — one layer,
+/// always in lockstep with the platform.
 ///
 /// Menus stay UIKit-owned: presentation goes through the system
 /// window-level path, the source morphs into the open menu, and input is
@@ -83,6 +83,12 @@ final class ChromeCoordinator {
         return item
     }()
 
+    /// The element pill as a leading bar item, right after the system's
+    /// close button — (back) (element) … (undo) (settings).
+    lazy var pillItem: UIBarButtonItem = {
+        UIBarButtonItem(customView: elementButton)
+    }()
+
     /// The seam between the two trailing items: without it iOS 26 fuses
     /// adjacent items into one capsule; a fixed space splits them into
     /// separate circles, matching the system's own inter-group gap.
@@ -113,23 +119,29 @@ final class ChromeCoordinator {
         guard let controller = owningViewController() else { return false }
         let item = controller.navigationItem
 
-        // Retire the compact document-menu chevron DocumentGroup installs:
-        // with a custom title view in place, its document-properties menu
-        // renders as a floating chevron circle between the pill and the
-        // trailing items. Rename already lives in Settings, so the menu has
-        // no unique job in this bar.
+        // The title slot stays empty by design: the document-menu chevron
+        // was drawn by the bar's title control, which exists only to host a
+        // title or title view. No title, no title view, no title control —
+        // the indicator is gone by construction, not hidden. The pill lives
+        // as a leading item instead (see below).
+        if item.titleView != nil { item.titleView = nil }
+        if item.title != nil { item.title = nil }
+        // Retire DocumentGroup's document-menu sources on the item itself:
+        // rename already lives in Settings, so the menu has no unique job
+        // in this bar.
         if item.documentProperties != nil { item.documentProperties = nil }
         if item.titleMenuProvider != nil { item.titleMenuProvider = nil }
-        // The center slot is ours alone; anything the system parked there
-        // (the compact document menu) goes. Leading groups are untouched —
-        // that is where the system's close button lives.
         if !item.centerItemGroups.isEmpty { item.centerItemGroups = [] }
 
-        if item.titleView !== elementButton { item.titleView = elementButton }
+        // Leading: the system's close button stays and the element pill
+        // supplements it — never replaces it — exactly the requested
+        // order: (back) (element) … (undo) (settings).
+        item.leftItemsSupplementBackButton = true
+        let leading = [pillItem]
+        if item.leftBarButtonItems != leading { item.leftBarButtonItems = leading }
         elementButton.update(
             activeKind: chrome.activeKind, contextualKinds: chrome.contextualKinds
         )
-        hideTitleMenuIndicator()
 
         // First element is rightmost: [undo] [settings] left to right, with
         // a fixed space between them so they render as two circles.
@@ -155,29 +167,6 @@ final class ChromeCoordinator {
     private func undoPrimary() {
         if chrome.canUndo { chrome.editor.undo() }
         else if chrome.canRedo { chrome.editor.redo() }
-    }
-
-    /// The stray chevron beside the pill is the title control's
-    /// document-menu indicator: this bar (SwiftUI's UIKitNavigationBar,
-    /// driven by DocumentGroup's document view controller) renders it next
-    /// to the title view even though the navigation item carries no
-    /// documentProperties or titleMenuProvider — no item-level API reaches
-    /// it (all confirmed by the on-device x-ray). The indicator's wrapper
-    /// view is hidden instead, matched by exact structure: our pill must be
-    /// inside a *TitleControl, and the sibling wrapper must hold an image
-    /// view. If a future iOS changes that structure the match simply misses
-    /// and the chevron returns — nothing else can break. Hiding the wrapper
-    /// (rather than the image) also frees its 26 pt, so the pill gets the
-    /// title area's full width again.
-    private func hideTitleMenuIndicator() {
-        guard let titleControl = elementButton.superview,
-              String(describing: type(of: titleControl)).contains("TitleControl")
-        else { return }
-        for sibling in titleControl.subviews where sibling !== elementButton {
-            let holdsIndicator = sibling.subviews.contains { $0 is UIImageView }
-                || sibling.subviews.contains(where: { $0.subviews.contains { $0 is UIImageView } })
-            if holdsIndicator { sibling.isHidden = true }
-        }
     }
 
     private func updateUndoItem() {
