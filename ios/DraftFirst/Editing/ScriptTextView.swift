@@ -684,7 +684,9 @@ struct ScriptTextView: UIViewRepresentable {
             )
 
             // Return creates a new paragraph: the caret legitimately moves
-            // down one line, but the page must not shift under it.
+            // down one line, and UIKit's reveal may nudge the viewport —
+            // the budget is one line plus that adjustment. The bug being
+            // guarded against moved the caret by thousands of points.
             let preReturnY = afterY!
             textView.insertText("\n")
             try? await Task.sleep(for: .milliseconds(300))
@@ -692,8 +694,12 @@ struct ScriptTextView: UIViewRepresentable {
             precondition(postReturnY != nil, "No measurable caret after Return.")
             let returnDrift = abs(postReturnY! - preReturnY)
             precondition(
-                returnDrift < 60,
+                returnDrift < 80,
                 "Return moved the caret on screen by \(returnDrift) pt (offsetY=\(textView.contentOffset.y))."
+            )
+            precondition(
+                caretScreenYIfVisible(in: textView) != nil,
+                "The caret is off screen after Return (offsetY=\(textView.contentOffset.y))."
             )
 
             // Backspace merges it back: one line up, page steady.
@@ -703,8 +709,12 @@ struct ScriptTextView: UIViewRepresentable {
             precondition(postDeleteY != nil, "No measurable caret after Backspace.")
             let deleteDrift = abs(postDeleteY! - postReturnY!)
             precondition(
-                deleteDrift < 60,
+                deleteDrift < 80,
                 "Backspace moved the caret on screen by \(deleteDrift) pt (offsetY=\(textView.contentOffset.y))."
+            )
+            precondition(
+                caretScreenYIfVisible(in: textView) != nil,
+                "The caret is off screen after Backspace (offsetY=\(textView.contentOffset.y))."
             )
         }
 
@@ -1143,7 +1153,10 @@ struct ScriptTextView: UIViewRepresentable {
             guard let editor, let index = editor.activeElementIndex else { return }
             var elements = editor.screenplay.elements
             elements[index].type = kind
-            if kind.uppercasesInput { elements[index].text = elements[index].text.uppercased() }
+            // Conversion never re-cases the writer's text: uppercasing here
+            // is irreversible (converting back cannot restore "Abc" once it
+            // became "ABC"). Fresh input in uppercase kinds is born caps via
+            // the keyboard trait; paste/import keep the model backstop.
             let id = elements[index].id
             let offset = min(editor.selectionOffset, (elements[index].text as NSString).length)
             let location = ranges.first(where: { $0.id == id })?.range.location ?? 0

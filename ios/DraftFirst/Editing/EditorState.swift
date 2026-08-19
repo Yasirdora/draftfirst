@@ -547,10 +547,12 @@ final class EditorState {
         }
     }
 
-    /// The single casing rule for the whole model: uppercase kinds store
-    /// uppercase text, everything else stores the writer's text verbatim.
-    /// Case mappings that change the UTF-16 length (ß→SS) are left untouched
-    /// so the model can never drift out of sync with the text storage that
+    /// The casing rule for INPUT paths — typing, paste, import: uppercase
+    /// kinds store uppercase text, everything else stores the writer's text
+    /// verbatim. Element CONVERSION never applies this (see changeKind):
+    /// re-casing on conversion destroys the original irreversibly. Case
+    /// mappings that change the UTF-16 length (ß→SS) are left untouched so
+    /// the model can never drift out of sync with the text storage that
     /// delivered the edit.
     static func normalizedText(_ text: String, for kind: ScreenplayKind) -> String {
         guard kind.uppercasesInput else { return text }
