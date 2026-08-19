@@ -301,15 +301,11 @@ struct ScriptTextView: UIViewRepresentable {
             // Replacing the whole storage makes UITextView re-finalize its
             // text container size, and that pass can re-pin the scroll
             // offset to the top — the jump writers saw when typing at the
-            // end of a long document. Anchor on the caret's on-screen
-            // position (ground truth, inset-proof): if it was visible, it
-            // stays at the same screen point; otherwise the raw offset is
-            // preserved. Restored twice — immediately, and once more on the
-            // next runloop turn, after the container's settling beat.
-            // Anchored restore only when the caret is actually on screen:
-            // anchoring an off-screen caret would pin it off screen and
-            // fight UIKit's own reveal scroll.
-            let preservedCaretY = caretScreenYIfVisible(in: textView)
+            // end of a long document. The invariant is that the PAGE stays
+            // put; the caret itself moves legitimately on Return/Backspace,
+            // so the guard only corrects a large upward jump (the reset's
+            // signature) and never touches small or downward adjustments —
+            // those are UIKit's own caret reveal and must keep working.
             let preservedOffset = textView.contentOffset
 
             applyingModel = true
@@ -328,7 +324,7 @@ struct ScriptTextView: UIViewRepresentable {
                 textView.selectedRange = NSRange(location: mapped.range.location + offset, length: 0)
             }
             applyingModel = false
-            restoreViewport(caretY: preservedCaretY, offset: preservedOffset, in: textView)
+            restoreViewportIfReset(to: preservedOffset, in: textView)
             renderedRevision = editor.revision
             updateTypingTraits()
             updateGhost()
@@ -349,10 +345,9 @@ struct ScriptTextView: UIViewRepresentable {
 
         /// The caret's screen position only when it is genuinely inside the
         /// visible window — between the top bar and the bottom edge of the
-        /// view. Off-screen carets yield nil, so callers fall back to raw
-        /// offset preservation. The window's top is bounds.origin (the
-        /// visible area's own origin), not CGPoint.zero — for a scroll view
-        /// the zero point is the content origin, which is scrolled away.
+        /// view. The window's top is bounds.origin (the visible area's own
+        /// origin), not CGPoint.zero — for a scroll view the zero point is
+        /// the content origin, which is scrolled away.
         private func caretScreenYIfVisible(in textView: UITextView) -> CGFloat? {
             guard let y = caretScreenY(in: textView), let window = textView.window else { return nil }
             let viewTopOnScreen = textView.convert(textView.bounds.origin, to: window).y
@@ -361,29 +356,22 @@ struct ScriptTextView: UIViewRepresentable {
             return (y > top && y < bottom) ? y : nil
         }
 
-        private func restoreViewport(caretY: CGFloat?, offset: CGPoint, in textView: ScreenplayTextView) {
-            applyViewport(caretY: caretY, offset: offset, in: textView)
-            DispatchQueue.main.async { [weak self, weak textView] in
-                guard let self, let textView else { return }
-                self.applyViewport(caretY: caretY, offset: offset, in: textView)
+        private func restoreViewportIfReset(to preserved: CGPoint, in textView: ScreenplayTextView) {
+            applyIfReset(to: preserved, in: textView)
+            // The container settles one beat later; the same guard applies,
+            // and a user scroll cannot land inside a single runloop turn.
+            DispatchQueue.main.async { [weak textView] in
+                guard let textView else { return }
+                self.applyIfReset(to: preserved, in: textView)
             }
         }
 
-        /// A user scroll cannot land between the immediate and deferred
-        /// passes — the window is a single runloop turn — so the deferred
-        /// write is safe.
-        private func applyViewport(caretY: CGFloat?, offset: CGPoint, in textView: UITextView) {
-            if let caretY, let now = caretScreenY(in: textView) {
-                let delta = now - caretY
-                if abs(delta) > 0.5 {
-                    textView.setContentOffset(
-                        CGPoint(x: 0, y: textView.contentOffset.y - delta), animated: false
-                    )
-                }
-                return
-            }
-            if textView.contentOffset != offset {
-                textView.setContentOffset(offset, animated: false)
+        /// Restores the offset only when the viewport jumped significantly
+        /// UPWARD — the re-pin reset's signature. Everything else (Return's
+        /// one-line caret move, UIKit's reveal scroll) is left alone.
+        private func applyIfReset(to preserved: CGPoint, in textView: UITextView) {
+            if textView.contentOffset.y < preserved.y - 40 {
+                textView.setContentOffset(preserved, animated: false)
             }
         }
 
@@ -693,6 +681,30 @@ struct ScriptTextView: UIViewRepresentable {
             precondition(
                 drift < 30,
                 "Typing moved the caret on screen by \(drift) pt (offsetY=\(textView.contentOffset.y))."
+            )
+
+            // Return creates a new paragraph: the caret legitimately moves
+            // down one line, but the page must not shift under it.
+            let preReturnY = afterY!
+            textView.insertText("\n")
+            try? await Task.sleep(for: .milliseconds(300))
+            let postReturnY = caretScreenY(in: textView)
+            precondition(postReturnY != nil, "No measurable caret after Return.")
+            let returnDrift = abs(postReturnY! - preReturnY)
+            precondition(
+                returnDrift < 60,
+                "Return moved the caret on screen by \(returnDrift) pt (offsetY=\(textView.contentOffset.y))."
+            )
+
+            // Backspace merges it back: one line up, page steady.
+            textView.deleteBackward()
+            try? await Task.sleep(for: .milliseconds(300))
+            let postDeleteY = caretScreenY(in: textView)
+            precondition(postDeleteY != nil, "No measurable caret after Backspace.")
+            let deleteDrift = abs(postDeleteY! - postReturnY!)
+            precondition(
+                deleteDrift < 60,
+                "Backspace moved the caret on screen by \(deleteDrift) pt (offsetY=\(textView.contentOffset.y))."
             )
         }
 
