@@ -162,6 +162,7 @@
     {
       "prev": "action",
       "result": [
+        "action",
         "character",
         "transition"
       ]
@@ -299,7 +300,7 @@
       "current": "scene",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "scene",
@@ -665,7 +666,7 @@
       "current": "character",
       "prev": "action",
       "reverse": true,
-      "result": "transition"
+      "result": "action"
     },
     {
       "current": "character",
@@ -839,7 +840,7 @@
       "current": "dialogue",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "dialogue",
@@ -1019,7 +1020,7 @@
       "current": "parenthetical",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "parenthetical",
@@ -1199,7 +1200,7 @@
       "current": "transition",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "transition",
@@ -1379,7 +1380,7 @@
       "current": "shot",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "shot",
@@ -1559,7 +1560,7 @@
       "current": "general",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "general",
@@ -1739,7 +1740,7 @@
       "current": "centered",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "centered",
@@ -1919,7 +1920,7 @@
       "current": "lyrics",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "lyrics",
@@ -2099,7 +2100,7 @@
       "current": "note",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "note",
@@ -2279,7 +2280,7 @@
       "current": "section",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "section",
@@ -2459,7 +2460,7 @@
       "current": "synopsis",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "synopsis",
@@ -2639,7 +2640,7 @@
       "current": "pagebreak",
       "prev": "action",
       "reverse": false,
-      "result": "character"
+      "result": "action"
     },
     {
       "current": "pagebreak",

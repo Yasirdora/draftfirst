@@ -487,11 +487,47 @@
         },
         {
           "type": "action",
+          "text": "RENé"
+        },
+        {
+          "type": "action",
+          "text": "Where were you?"
+        },
+        {
+          "type": "character",
+          "text": "RENÉ"
+        },
+        {
+          "type": "dialogue",
+          "text": "The control line."
+        },
+        {
+          "type": "action",
+          "text": "ınt. house - day"
+        },
+        {
+          "type": "scene",
+          "text": "INT. HOUSE #1##"
+        },
+        {
+          "type": "scene",
+          "text": "SCENE"
+        },
+        {
+          "type": "centered",
+          "text": " "
+        },
+        {
+          "type": "action",
+          "text": "Sparks arc across aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ́bbbbbbbbbbbbbbbbbbbb and the lab goes dark."
+        },
+        {
+          "type": "action",
           "text": "/* this boneyard is never closed"
         }
       ]
     },
-    "expected": "﻿Title: Torture Draft\n\nCredit: written by\n\nAuthor: T. Est\n\nINT. LAB - - DAY\n\nThe generator hums steadily while MARA recalibrates the 👩‍🚀 console, and the array spools past every rated tolerance tonight.\n\nCAFÉ OWNER (CONT’D)\n(whispering 🎧)\nA line of dialogue with an emoji 🔥 and enough words to wrap across two printed lines of the page for good measure.\n\nEXT. CAFÉ TERRACE - NIGHT\n\nA lone CR\rinside one logical line.\n\n/* this boneyard is never closed"
+    "expected": "﻿Title: Torture Draft\n\nCredit: written by\n\nAuthor: T. Est\n\nINT. LAB - - DAY\n\nThe generator hums steadily while MARA recalibrates the 👩‍🚀 console, and the array spools past every rated tolerance tonight.\n\nCAFÉ OWNER (CONT’D)\n(whispering 🎧)\nA line of dialogue with an emoji 🔥 and enough words to wrap across two printed lines of the page for good measure.\n\nEXT. CAFÉ TERRACE - NIGHT\n\nA lone CR\rinside one logical line.\n\nRENé\n\nWhere were you?\n\nRENÉ\nThe control line.\n\nınt. house - day\n\nINT. HOUSE #1##\n\n.SCENE\n\n>   <\n\nSparks arc across aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ́bbbbbbbbbbbbbbbbbbbb and the lab goes dark.\n\n/* this boneyard is never closed"
   },
   {
     "name": "feature-120",

@@ -1472,6 +1472,42 @@
         },
         {
           "type": "action",
+          "text": "RENé"
+        },
+        {
+          "type": "action",
+          "text": "Where were you?"
+        },
+        {
+          "type": "character",
+          "text": "RENÉ"
+        },
+        {
+          "type": "dialogue",
+          "text": "The control line."
+        },
+        {
+          "type": "action",
+          "text": "ınt. house - day"
+        },
+        {
+          "type": "scene",
+          "text": "INT. HOUSE #1##"
+        },
+        {
+          "type": "scene",
+          "text": "SCENE"
+        },
+        {
+          "type": "centered",
+          "text": " "
+        },
+        {
+          "type": "action",
+          "text": "Sparks arc across aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ́bbbbbbbbbbbbbbbbbbbb and the lab goes dark."
+        },
+        {
+          "type": "action",
           "text": "/* this boneyard is never closed"
         }
       ]
@@ -1632,10 +1668,136 @@
               "element": 10
             },
             {
-              "text": "/* this boneyard is never closed",
+              "text": "RENé",
               "type": "action",
               "indent": 0,
               "element": 10
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 11
+            },
+            {
+              "text": "Where were you?",
+              "type": "action",
+              "indent": 0,
+              "element": 11
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 12
+            },
+            {
+              "text": "RENÉ",
+              "type": "character",
+              "indent": 22,
+              "element": 12
+            },
+            {
+              "text": "The control line.",
+              "type": "dialogue",
+              "indent": 10,
+              "element": 13
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 14
+            },
+            {
+              "text": "ınt. house - day",
+              "type": "action",
+              "indent": 0,
+              "element": 14
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 15
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 15
+            },
+            {
+              "text": "INT. HOUSE #1##",
+              "type": "scene",
+              "indent": 0,
+              "element": 15
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 16
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 16
+            },
+            {
+              "text": "SCENE",
+              "type": "scene",
+              "indent": 0,
+              "element": 16
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 17
+            },
+            {
+              "text": "",
+              "type": "centered",
+              "indent": 30,
+              "element": 17
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 18
+            },
+            {
+              "text": "Sparks arc across",
+              "type": "action",
+              "indent": 0,
+              "element": 18
+            },
+            {
+              "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "type": "action",
+              "indent": 0,
+              "element": 18
+            },
+            {
+              "text": "́bbbbbbbbbbbbbbbbbbbb and the lab goes dark.",
+              "type": "action",
+              "indent": 0,
+              "element": 18
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 19
+            },
+            {
+              "text": "/* this boneyard is never closed",
+              "type": "action",
+              "indent": 0,
+              "element": 19
             }
           ],
           "continuedTop": false,
@@ -1643,7 +1805,7 @@
         }
       ],
       "runtime": "~1 minute",
-      "printedLines": 16
+      "printedLines": 27
     }
   },
   {

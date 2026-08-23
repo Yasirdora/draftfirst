@@ -39,10 +39,15 @@ public enum Choreography {
         .scene, .action, .character, .transition,
     ]
 
-    /// Context sets per current element (TypeScript `TAB_SETS`).
+    /// Context sets per current element (TypeScript `TAB_SETS`). After
+    /// action the set includes action itself: a cycle that cannot return
+    /// to what the line was traps the writer — one swipe from action lands
+    /// on character, and no amount of cycling brings action back. Closing
+    /// the loop keeps the first stop identical (action still enters at
+    /// character) while making every gesture reversible.
     private static let tabSets: [ElementKind: [ElementKind]] = [
         .scene: [.action, .character, .transition],
-        .action: [.character, .transition],
+        .action: [.action, .character, .transition],
         .character: [.dialogue, .parenthetical],
         .parenthetical: [.dialogue],
         .dialogue: tabSetFresh,

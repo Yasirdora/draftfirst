@@ -116,12 +116,24 @@ describe('choreography · context-narrowed Tab sets (document syntax)', () => {
 		expect(seen).not.toContain('scene');
 	});
 
-	it('after action: character · transition only — and an action line enters at character', () => {
-		expect([...tabSetFor('action')]).toEqual(['character', 'transition']);
+	it('after action: a closed action · character · transition loop — no gesture can strand the writer', () => {
+		expect([...tabSetFor('action')]).toEqual(['action', 'character', 'transition']);
+		// The first stop is unchanged: an action line still enters at character…
 		expect(tabCycle('action', 'action')).toBe('character');
 		expect(tabCycle('action', 'action', true)).toBe('transition');
 		expect(tabCycle('character', 'action')).toBe('transition');
-		expect(tabCycle('transition', 'action')).toBe('character');
+		// …but the loop now comes home: transition wraps to action, and the
+		// reverse of the accidental forward swipe (action → character) is
+		// character → action.
+		expect(tabCycle('transition', 'action')).toBe('action');
+		expect(tabCycle('character', 'action', true)).toBe('action');
+		expect(tabCycle('transition', 'action', true)).toBe('character');
+		// Speech elements stay unreachable, exactly as before.
+		let cur: string = 'action';
+		for (let i = 0; i < 9; i++) {
+			cur = tabCycle(cur as never, 'action');
+			expect(['dialogue', 'parenthetical', 'scene']).not.toContain(cur);
+		}
 	});
 
 	it('after a character cue: dialogue · parenthetical only', () => {

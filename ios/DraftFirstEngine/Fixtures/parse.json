@@ -442,7 +442,7 @@
   },
   {
     "name": "torture",
-    "source": "﻿Title: Torture Draft\r\nCredit: written by\nAuthor: T. Est\r\n\nINT. LAB - - DAY\r\n\nThe generator hums steadily while MARA recalibrates the 👩‍🚀 console, and the array spools past every rated tolerance tonight.\r\n\nCAFÉ OWNER (CONT’D)\r\n(whispering 🎧)\nA line of dialogue with an emoji 🔥 and enough words to wrap across two printed lines of the page for good measure.\r\n\nEXT. CAFÉ TERRACE - NIGHT\r\n\nA lone CR\rinside one logical line.\r\n\n/* this boneyard is never closed",
+    "source": "﻿Title: Torture Draft\r\nCredit: written by\nAuthor: T. Est\r\n\nINT. LAB - - DAY\r\n\nThe generator hums steadily while MARA recalibrates the 👩‍🚀 console, and the array spools past every rated tolerance tonight.\r\n\nCAFÉ OWNER (CONT’D)\r\n(whispering 🎧)\nA line of dialogue with an emoji 🔥 and enough words to wrap across two printed lines of the page for good measure.\r\n\nEXT. CAFÉ TERRACE - NIGHT\r\n\nA lone CR\rinside one logical line.\r\n\nRENé\r\nWhere were you?\n\r\nRENÉ\nThe control line.\r\n\nınt. house - day\r\n\nINT. HOUSE #1##\r\n\n.SCENE #  #\r\n\n>  <\r\n\nSparks arc across aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ́bbbbbbbbbbbbbbbbbbbb and the lab goes dark.\r\n\n/* this boneyard is never closed",
     "expected": {
       "titlePage": [],
       "elements": [
@@ -485,6 +485,42 @@
         {
           "type": "action",
           "text": "A lone CR\rinside one logical line."
+        },
+        {
+          "type": "action",
+          "text": "RENé"
+        },
+        {
+          "type": "action",
+          "text": "Where were you?"
+        },
+        {
+          "type": "character",
+          "text": "RENÉ"
+        },
+        {
+          "type": "dialogue",
+          "text": "The control line."
+        },
+        {
+          "type": "action",
+          "text": "ınt. house - day"
+        },
+        {
+          "type": "scene",
+          "text": "INT. HOUSE #1##"
+        },
+        {
+          "type": "scene",
+          "text": "SCENE"
+        },
+        {
+          "type": "centered",
+          "text": " "
+        },
+        {
+          "type": "action",
+          "text": "Sparks arc across aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ́bbbbbbbbbbbbbbbbbbbb and the lab goes dark."
         },
         {
           "type": "action",

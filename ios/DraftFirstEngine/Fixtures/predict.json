@@ -8374,6 +8374,42 @@
         },
         {
           "type": "action",
+          "text": "RENé"
+        },
+        {
+          "type": "action",
+          "text": "Where were you?"
+        },
+        {
+          "type": "character",
+          "text": "RENÉ"
+        },
+        {
+          "type": "dialogue",
+          "text": "The control line."
+        },
+        {
+          "type": "action",
+          "text": "ınt. house - day"
+        },
+        {
+          "type": "scene",
+          "text": "INT. HOUSE #1##"
+        },
+        {
+          "type": "scene",
+          "text": "SCENE"
+        },
+        {
+          "type": "centered",
+          "text": " "
+        },
+        {
+          "type": "action",
+          "text": "Sparks arc across aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ́bbbbbbbbbbbbbbbbbbbb and the lab goes dark."
+        },
+        {
+          "type": "action",
           "text": "/* this boneyard is never closed"
         }
       ]
@@ -8381,7 +8417,7 @@
     "context": {
       "type": "scene",
       "text": "INT. LAB ",
-      "index": 11
+      "index": 20
     },
     "expected": []
   },
@@ -8432,6 +8468,42 @@
         },
         {
           "type": "action",
+          "text": "RENé"
+        },
+        {
+          "type": "action",
+          "text": "Where were you?"
+        },
+        {
+          "type": "character",
+          "text": "RENÉ"
+        },
+        {
+          "type": "dialogue",
+          "text": "The control line."
+        },
+        {
+          "type": "action",
+          "text": "ınt. house - day"
+        },
+        {
+          "type": "scene",
+          "text": "INT. HOUSE #1##"
+        },
+        {
+          "type": "scene",
+          "text": "SCENE"
+        },
+        {
+          "type": "centered",
+          "text": " "
+        },
+        {
+          "type": "action",
+          "text": "Sparks arc across aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ́bbbbbbbbbbbbbbbbbbbb and the lab goes dark."
+        },
+        {
+          "type": "action",
           "text": "/* this boneyard is never closed"
         }
       ]
@@ -8439,7 +8511,7 @@
     "context": {
       "type": "scene",
       "text": "INT. CAFÉ ",
-      "index": 11
+      "index": 20
     },
     "expected": []
   },
@@ -8490,6 +8562,42 @@
         },
         {
           "type": "action",
+          "text": "RENé"
+        },
+        {
+          "type": "action",
+          "text": "Where were you?"
+        },
+        {
+          "type": "character",
+          "text": "RENÉ"
+        },
+        {
+          "type": "dialogue",
+          "text": "The control line."
+        },
+        {
+          "type": "action",
+          "text": "ınt. house - day"
+        },
+        {
+          "type": "scene",
+          "text": "INT. HOUSE #1##"
+        },
+        {
+          "type": "scene",
+          "text": "SCENE"
+        },
+        {
+          "type": "centered",
+          "text": " "
+        },
+        {
+          "type": "action",
+          "text": "Sparks arc across aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ́bbbbbbbbbbbbbbbbbbbb and the lab goes dark."
+        },
+        {
+          "type": "action",
           "text": "/* this boneyard is never closed"
         }
       ]
@@ -8497,7 +8605,7 @@
     "context": {
       "type": "character",
       "text": "CAFÉ OWNER (",
-      "index": 11
+      "index": 20
     },
     "expected": [
       {
@@ -8573,6 +8681,42 @@
         },
         {
           "type": "action",
+          "text": "RENé"
+        },
+        {
+          "type": "action",
+          "text": "Where were you?"
+        },
+        {
+          "type": "character",
+          "text": "RENÉ"
+        },
+        {
+          "type": "dialogue",
+          "text": "The control line."
+        },
+        {
+          "type": "action",
+          "text": "ınt. house - day"
+        },
+        {
+          "type": "scene",
+          "text": "INT. HOUSE #1##"
+        },
+        {
+          "type": "scene",
+          "text": "SCENE"
+        },
+        {
+          "type": "centered",
+          "text": " "
+        },
+        {
+          "type": "action",
+          "text": "Sparks arc across aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa ́bbbbbbbbbbbbbbbbbbbb and the lab goes dark."
+        },
+        {
+          "type": "action",
           "text": "/* this boneyard is never closed"
         }
       ]
@@ -8580,11 +8724,15 @@
     "context": {
       "type": "character",
       "text": "",
-      "index": 11
+      "index": 20
     },
     "expected": [
       {
         "text": "CAFÉ OWNER",
+        "why": "character in this script"
+      },
+      {
+        "text": "RENÉ",
         "why": "character in this script"
       }
     ]

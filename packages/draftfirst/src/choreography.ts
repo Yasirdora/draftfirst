@@ -52,6 +52,12 @@ export function tabNext(current: AnyElementType, reverse = false): AnyElementTyp
 /**
  * Allowed Tab targets keyed by the preceding element. The sets preserve cue,
  * parenthetical, and dialogue relationships.
+ *
+ * After action the set includes action itself: a cycle that cannot return
+ * to what the line was traps the writer — one swipe from action lands on
+ * character, and no amount of cycling brings action back. Closing the loop
+ * keeps the first stop identical (action still enters at character) while
+ * making every gesture reversible.
  */
 export const TAB_SET_FRESH: readonly AnyElementType[] = [
 	'scene',
@@ -62,7 +68,7 @@ export const TAB_SET_FRESH: readonly AnyElementType[] = [
 
 export const TAB_SETS: Readonly<Record<string, readonly AnyElementType[]>> = {
 	scene: ['action', 'character', 'transition'],
-	action: ['character', 'transition'],
+	action: ['action', 'character', 'transition'],
 	character: ['dialogue', 'parenthetical'],
 	parenthetical: ['dialogue'],
 	dialogue: TAB_SET_FRESH,
