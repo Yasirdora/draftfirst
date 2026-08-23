@@ -1152,11 +1152,14 @@ struct ScriptTextView: UIViewRepresentable {
         private func changeKind(to kind: ScreenplayKind) {
             guard let editor, let index = editor.activeElementIndex else { return }
             var elements = editor.screenplay.elements
+            // Screenplay convention re-cases on conversion: scene headings,
+            // characters, transitions, and shots are caps; action and
+            // dialogue keep the writer's own casing. The session memory
+            // makes the re-case reversible — converting back restores
+            // "Mara", not "MARA" — and any edit after the conversion wins
+            // over the memory.
+            elements[index].text = editor.textForKindConversion(of: elements[index], to: kind)
             elements[index].type = kind
-            // Conversion never re-cases the writer's text: uppercasing here
-            // is irreversible (converting back cannot restore "Abc" once it
-            // became "ABC"). Fresh input in uppercase kinds is born caps via
-            // the keyboard trait; paste/import keep the model backstop.
             let id = elements[index].id
             let offset = min(editor.selectionOffset, (elements[index].text as NSString).length)
             let location = ranges.first(where: { $0.id == id })?.range.location ?? 0

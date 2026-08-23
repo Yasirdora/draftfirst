@@ -67,6 +67,9 @@ final class EditorState {
     }
     @ObservationIgnored private var undoStack: [EditorSnapshot] = []
     @ObservationIgnored private var redoStack: [EditorSnapshot] = []
+    /// Remembers what re-cased elements looked like before conversion, so
+    /// converting back restores the writer's own casing (see the type).
+    @ObservationIgnored private var caseMemory = ElementCaseMemory()
     @ObservationIgnored private var lastTypingSnapshotAt = Date.distantPast
     @ObservationIgnored private var predictionGeneration = 0
     @ObservationIgnored private var nativeCanUndo = false
@@ -288,6 +291,7 @@ final class EditorState {
     ) {
         if recordsUndo { recordSnapshot(structural: structural) }
         screenplay.elements = elements.isEmpty ? [ScriptElement(type: .action, text: "")] : elements
+        caseMemory.prune(toAlive: Set(screenplay.elements.map(\.id)))
         activeElementID = activeID ?? screenplay.elements.first?.id
         selectionOffset = max(0, offset)
         commitChange(liveTyping: !structural)
@@ -365,6 +369,7 @@ final class EditorState {
         recordSnapshot(structural: true)
         screenplay.titlePage = fresh.titlePage
         screenplay.elements = merged.isEmpty ? [ScriptElement(type: .action, text: "")] : merged
+        caseMemory.prune(toAlive: Set(screenplay.elements.map(\.id)))
         activeElementID = caretID
         selectionOffset = max(0, caretOffset)
         revision += 1
@@ -547,13 +552,22 @@ final class EditorState {
         }
     }
 
+    /// The text an element should carry after a kind conversion. Uppercase
+    /// kinds get caps, as screenplay convention demands; converting back to
+    /// action or dialogue restores the writer's own casing for the session —
+    /// unless the writer edited the re-cased text, in which case their edit
+    /// wins (see ElementCaseMemory).
+    func textForKindConversion(of element: ScriptElement, to kind: ScreenplayKind) -> String {
+        caseMemory.text(for: element, convertedTo: kind)
+    }
+
     /// The casing rule for INPUT paths — typing, paste, import: uppercase
     /// kinds store uppercase text, everything else stores the writer's text
-    /// verbatim. Element CONVERSION never applies this (see changeKind):
-    /// re-casing on conversion destroys the original irreversibly. Case
-    /// mappings that change the UTF-16 length (ß→SS) are left untouched so
-    /// the model can never drift out of sync with the text storage that
-    /// delivered the edit.
+    /// verbatim. Element CONVERSION applies the same rule through
+    /// ElementCaseMemory, which remembers the verbatim text so converting
+    /// back can restore it. Case mappings that change the UTF-16 length
+    /// (ß→SS) are left untouched so the model can never drift out of sync
+    /// with the text storage that delivered the edit.
     static func normalizedText(_ text: String, for kind: ScreenplayKind) -> String {
         guard kind.uppercasesInput else { return text }
         let uppercased = text.uppercased()
