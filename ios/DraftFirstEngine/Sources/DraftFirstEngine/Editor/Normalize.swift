@@ -43,6 +43,49 @@ public enum Normalize {
         return s.isEmpty ? "" : "(\(s))"
     }
 
+    /// TypeScript `unwrapParenthetical`: the inverse, for conversion OUT of
+    /// the parenthetical lane. Sheds exactly one outer wrapper — "(beat)" →
+    /// "beat", "((beat))" → "(beat)". A text holding several directions,
+    /// "(a) (b)", keeps them: only a first "(" that closes at the very end
+    /// is a wrapper. Partial states shed one stray end bracket; anything
+    /// unbalanced is left exactly as written.
+    public static func unwrapParenthetical(_ text: String) -> String {
+        let s = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.isEmpty { return "" }
+        let opens = s.contains("(")
+        let closes = s.contains(")")
+        if !opens && !closes { return s }
+        if !opens {
+            // One stray closer: "beat)" → "beat" (one layer only).
+            guard let i = s.lastIndex(of: ")") else { return s }
+            var t = s
+            t.remove(at: i)
+            return t.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if !closes {
+            // One stray opener: "(beat" → "beat" (one layer only).
+            guard let i = s.firstIndex(of: "(") else { return s }
+            var t = s
+            t.remove(at: i)
+            return t.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        // Both present: strip only a true outer wrapper.
+        var depth = 0
+        for (offset, ch) in s.enumerated() {
+            if ch == "(" { depth += 1 }
+            if ch == ")" {
+                depth -= 1
+                if depth < 0 { return s }
+                if depth == 0 {
+                    guard offset == s.count - 1 else { return s }
+                    return String(s.dropFirst().dropLast())
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+            }
+        }
+        return s
+    }
+
     /// TypeScript `normalizeCue`: canonicalize the extension on a character
     /// cue — `MARA (V.O)`, `MARA VO`, `MARA (vo)` all become `MARA (V.O.)`.
     public static func normalizeCue(_ text: String) -> String {

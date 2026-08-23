@@ -135,3 +135,90 @@ final class ElementCaseMemoryTests: XCTestCase {
         XCTAssertEqual(result, "MARA")
     }
 }
+
+/// The full conversion composition at the EditorState door: casing memory
+/// plus the parenthetical lane's brackets. The wrapper sheds before the
+/// memory runs, so round trips restore the writer's words — never brackets,
+/// never locked caps.
+@MainActor
+final class ElementConversionTests: XCTestCase {
+
+    private func editor(with element: ScriptElement) -> EditorState {
+        let editor = EditorState(source: "An opening image.")
+        editor.screenplay = Screenplay(titlePage: [], elements: [element])
+        return editor
+    }
+
+    func testConvertingIntoParentheticalWraps() {
+        let element = ScriptElement(type: .dialogue, text: "beat")
+        let editor = editor(with: element)
+        XCTAssertEqual(
+            editor.textForKindConversion(of: element, to: .parenthetical),
+            "(beat)"
+        )
+    }
+
+    func testConvertingOutOfParentheticalShedsTheWrapper() {
+        let element = ScriptElement(type: .parenthetical, text: "(beat)")
+        let editor = editor(with: element)
+        XCTAssertEqual(
+            editor.textForKindConversion(of: element, to: .dialogue),
+            "beat"
+        )
+    }
+
+    func testSeveralDirectionsKeepTheirBrackets() {
+        let element = ScriptElement(type: .parenthetical, text: "(beat) (sotto)")
+        let editor = editor(with: element)
+        XCTAssertEqual(
+            editor.textForKindConversion(of: element, to: .dialogue),
+            "(beat) (sotto)"
+        )
+    }
+
+    func testPartialParentheticalShedsTheStrayBracket() {
+        let element = ScriptElement(type: .parenthetical, text: "(beat")
+        let editor = editor(with: element)
+        XCTAssertEqual(
+            editor.textForKindConversion(of: element, to: .action),
+            "beat"
+        )
+    }
+
+    func testParentheticalToCharacterShedsThenCaps() {
+        let element = ScriptElement(type: .parenthetical, text: "(Mara)")
+        let editor = editor(with: element)
+        XCTAssertEqual(
+            editor.textForKindConversion(of: element, to: .character),
+            "MARA"
+        )
+    }
+
+    func testCharacterToParentheticalRestoresCaseThenWraps() {
+        let id = UUID()
+        let action = ScriptElement(id: id, type: .action, text: "Mara")
+        let editor = editor(with: action)
+        // Memorize "Mara" on the way to character…
+        let capped = editor.textForKindConversion(of: action, to: .character)
+        XCTAssertEqual(capped, "MARA")
+        // …then converting on to parenthetical restores and wraps.
+        let character = ScriptElement(id: id, type: .character, text: capped)
+        XCTAssertEqual(
+            editor.textForKindConversion(of: character, to: .parenthetical),
+            "(Mara)"
+        )
+    }
+
+    func testParentheticalCharacterParentheticalRoundTripsExactly() {
+        let id = UUID()
+        let paren = ScriptElement(id: id, type: .parenthetical, text: "(Mara)")
+        let editor = editor(with: paren)
+        let capped = editor.textForKindConversion(of: paren, to: .character)
+        XCTAssertEqual(capped, "MARA")
+        let character = ScriptElement(id: id, type: .character, text: capped)
+        XCTAssertEqual(
+            editor.textForKindConversion(of: character, to: .parenthetical),
+            "(Mara)"
+        )
+    }
+}

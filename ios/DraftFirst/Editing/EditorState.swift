@@ -556,9 +556,21 @@ final class EditorState {
     /// kinds get caps, as screenplay convention demands; converting back to
     /// action or dialogue restores the writer's own casing for the session —
     /// unless the writer edited the re-cased text, in which case their edit
-    /// wins (see ElementCaseMemory).
+    /// wins (see ElementCaseMemory). The parenthetical lane owns its
+    /// brackets: converting in wraps the text in exactly one pair,
+    /// converting out sheds the outer wrapper — the same convergence the
+    /// commit-time normalization guarantees. The wrapper sheds FIRST, so
+    /// the casing memory memorizes the writer's words, never their brackets.
     func textForKindConversion(of element: ScriptElement, to kind: ScreenplayKind) -> String {
-        caseMemory.text(for: element, convertedTo: kind)
+        var input = element
+        if element.type == .parenthetical, kind != .parenthetical {
+            input.text = Normalize.unwrapParenthetical(element.text)
+        }
+        var text = caseMemory.text(for: input, convertedTo: kind)
+        if kind == .parenthetical {
+            text = Normalize.normalizeParenthetical(text)
+        }
+        return text
     }
 
     /// The casing rule for INPUT paths — typing, paste, import: uppercase

@@ -30,7 +30,9 @@
 		newSummonState,
 		nextElement,
 		nextWord,
+		normalizeParenthetical,
 		predict,
+		unwrapParenthetical,
 		reattachStructural,
 		resetSummon,
 		slashSummons,
@@ -160,6 +162,18 @@
 	function setType(el: HTMLElement, t: EType) {
 		for (const k of TYPE_ORDER) el.classList.remove('el-' + k);
 		el.classList.add('el-' + t);
+	}
+	/* Conversion with its text transform: the parenthetical lane owns its
+	   brackets — converting in wraps the text in exactly one pair,
+	   converting out sheds the outer wrapper. */
+	function convertElement(el: HTMLElement, t: EType) {
+		const from = typeOf(el);
+		if (t === 'parenthetical' && from !== 'parenthetical') {
+			el.textContent = normalizeParenthetical(textOf(el));
+		} else if (from === 'parenthetical' && t !== 'parenthetical') {
+			el.textContent = unwrapParenthetical(textOf(el));
+		}
+		setType(el, t);
 	}
 	function textOf(el: HTMLElement): string {
 		/* contenteditable emits non-breaking spaces for some whitespace runs. */
@@ -411,7 +425,7 @@
 			if (t) {
 				e.preventDefault();
 				takeSnap();
-				setType(el, t);
+				convertElement(el, t);
 				syncAfterEdit();
 			}
 			return;
@@ -446,7 +460,7 @@
 			while (prevEl && !prevEl.classList.contains('b'))
 				prevEl = prevEl.previousElementSibling as HTMLElement | null;
 			const t = tabCycle(typeOf(el), prevEl ? typeOf(prevEl) : null, e.shiftKey) as EType;
-			setType(el, t);
+			convertElement(el, t);
 			syncAfterEdit();
 			return;
 		}
@@ -744,7 +758,7 @@
 			else el.dataset.pb = '1';
 			curPb = el.dataset.pb === '1';
 		} else {
-			setType(el, choice);
+			convertElement(el, choice);
 		}
 		sheet.focus();
 		syncAfterEdit();

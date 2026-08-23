@@ -39,6 +39,46 @@ export function normalizeParenthetical(text: string): string {
 }
 
 /**
+ * The inverse of normalizeParenthetical, for conversion OUT of the
+ * parenthetical lane: sheds exactly one outer wrapper — '(beat)' → 'beat',
+ * '((beat))' → '(beat)'. A text holding several directions, '(a) (b)',
+ * keeps them: only a first '(' that closes at the very end is a wrapper.
+ * Partial states shed one stray end bracket, so '(beat' and 'beat)' both
+ * converge to 'beat'; anything unbalanced is left exactly as written.
+ */
+export function unwrapParenthetical(text: string): string {
+	const s = text.trim();
+	if (!s) return '';
+	const opens = s.includes('(');
+	const closes = s.includes(')');
+	if (!opens && !closes) return s;
+	if (!opens) {
+		// One stray closer: 'beat)' → 'beat' (one layer only).
+		const i = s.lastIndexOf(')');
+		return (s.slice(0, i) + s.slice(i + 1)).trim();
+	}
+	if (!closes) {
+		// One stray opener: '(beat' → 'beat' (one layer only).
+		const i = s.indexOf('(');
+		return (s.slice(0, i) + s.slice(i + 1)).trim();
+	}
+	// Both present: strip only a true outer wrapper.
+	let depth = 0;
+	for (let i = 0; i < s.length; i++) {
+		const ch = s[i];
+		if (ch === '(') depth++;
+		else if (ch === ')') {
+			depth--;
+			if (depth < 0) return s;
+			if (depth === 0) {
+				return i === s.length - 1 ? s.slice(1, -1).trim() : s;
+			}
+		}
+	}
+	return s;
+}
+
+/**
  * Normalize a character cue's extension:
  *   'MARA (V.O'        → 'MARA (V.O.)'   (close + canonicalize)
  *   'MARA (WHISPERING' → 'MARA (WHISPERING)' (close any unclosed extension)

@@ -10,13 +10,14 @@ struct NormalizeConformanceTests {
         do { return try FixtureStore.load("normalize.json") }
         catch {
             Issue.record("Failed to load normalize.json: \(error)")
-            return .init(parenthetical: [], cue: [], looksLikeCue: [], elementText: [])
+            return .init(parenthetical: [], unwrapParenthetical: [], cue: [], looksLikeCue: [], elementText: [])
         }
     }()
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
         #expect(Self.corpus.parenthetical.count == 12)
+        #expect(Self.corpus.unwrapParenthetical.count == 12)
         #expect(Self.corpus.cue.count == 25)
         #expect(Self.corpus.looksLikeCue.count == 13)
         #expect(Self.corpus.elementText.count == 50)
@@ -25,6 +26,11 @@ struct NormalizeConformanceTests {
     @Test("normalizeParenthetical", arguments: Self.corpus.parenthetical)
     func parenthetical(_ case_: NormalizeCorpus.TextCase) {
         #expect(Normalize.normalizeParenthetical(case_.input) == case_.result)
+    }
+
+    @Test("unwrapParenthetical", arguments: Self.corpus.unwrapParenthetical)
+    func unwrapParenthetical(_ case_: NormalizeCorpus.TextCase) {
+        #expect(Normalize.unwrapParenthetical(case_.input) == case_.result)
     }
 
     @Test("normalizeCue", arguments: Self.corpus.cue)

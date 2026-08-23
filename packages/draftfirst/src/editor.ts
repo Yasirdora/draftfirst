@@ -6,7 +6,8 @@ export {
 	looksLikeCue,
 	normalizeCue,
 	normalizeElementText,
-	normalizeParenthetical
+	normalizeParenthetical,
+	unwrapParenthetical
 } from './normalize.js';
 export type { PredictContext, Prediction } from './predict.js';
 export { ghostSuffix, ghostTabBehavior, nextWord, predict } from './predict.js';

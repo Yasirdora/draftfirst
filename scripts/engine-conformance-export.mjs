@@ -26,7 +26,8 @@ import {
 	predict,
 	tabCycle,
 	tabNext,
-	tabSetFor
+	tabSetFor,
+	unwrapParenthetical
 } from '../packages/draftfirst/dist/editor.js';
 import { crc32 } from '../packages/draftfirst/dist/crc32.js';
 
@@ -104,6 +105,7 @@ const LOOKS_LIKE_CUE_INPUTS = [
 
 const normalize = {
 	parenthetical: PARENTHETICAL_INPUTS.map((input) => ({ input, result: normalizeParenthetical(input) })),
+	unwrapParenthetical: PARENTHETICAL_INPUTS.map((input) => ({ input, result: unwrapParenthetical(input) })),
 	cue: CUE_INPUTS.map((input) => ({ input, result: normalizeCue(input) })),
 	looksLikeCue: LOOKS_LIKE_CUE_INPUTS.map((input) => ({ input, result: looksLikeCue(input) })),
 	elementText: []

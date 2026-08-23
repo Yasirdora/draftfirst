@@ -57,6 +57,7 @@ enum ChoreographyCorpus {
 enum NormalizeCorpus {
     struct Root: Decodable {
         let parenthetical: [TextCase]
+        let unwrapParenthetical: [TextCase]
         let cue: [TextCase]
         let looksLikeCue: [BoolCase]
         let elementText: [ElementTextCase]

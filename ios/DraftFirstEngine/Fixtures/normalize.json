@@ -49,6 +49,56 @@
       "result": "(to JOHN)"
     }
   ],
+  "unwrapParenthetical": [
+    {
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "input": "(beat)",
+      "result": "beat"
+    },
+    {
+      "input": "(beat",
+      "result": "beat"
+    },
+    {
+      "input": "beat)",
+      "result": "beat"
+    },
+    {
+      "input": "()",
+      "result": ""
+    },
+    {
+      "input": "(",
+      "result": ""
+    },
+    {
+      "input": ")",
+      "result": ""
+    },
+    {
+      "input": "  ( beat )  ",
+      "result": "beat"
+    },
+    {
+      "input": "((beat))",
+      "result": "(beat)"
+    },
+    {
+      "input": "whispering",
+      "result": "whispering"
+    },
+    {
+      "input": "(quietly, to the machine",
+      "result": "quietly, to the machine"
+    },
+    {
+      "input": "to JOHN)",
+      "result": "to JOHN"
+    }
+  ],
   "cue": [
     {
       "input": "MARA",

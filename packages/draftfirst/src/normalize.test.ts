@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { looksLikeCue, normalizeCue, normalizeElementText, normalizeParenthetical } from './normalize.js';
+import {
+	looksLikeCue,
+	normalizeCue,
+	normalizeElementText,
+	normalizeParenthetical,
+	unwrapParenthetical
+} from './normalize.js';
 
 describe('normalizeParenthetical', () => {
 	it('wraps bare text', () => {
@@ -32,6 +38,49 @@ describe('normalizeParenthetical', () => {
 
 	it('trims stray whitespace inside the brackets', () => {
 		expect(normalizeParenthetical('(  beat  )')).toBe('(beat)');
+	});
+});
+
+describe('unwrapParenthetical', () => {
+	it('sheds exactly one outer wrapper', () => {
+		expect(unwrapParenthetical('(beat)')).toBe('beat');
+		expect(unwrapParenthetical('((beat))')).toBe('(beat)');
+	});
+
+	it('leaves bare text and bracket-free text alone', () => {
+		expect(unwrapParenthetical('beat')).toBe('beat');
+		expect(unwrapParenthetical('to JOHN')).toBe('to JOHN');
+	});
+
+	it('keeps several directions: only a true outer wrapper sheds', () => {
+		expect(unwrapParenthetical('(beat) (sotto)')).toBe('(beat) (sotto)');
+		expect(unwrapParenthetical('(a))')).toBe('(a))');
+	});
+
+	it('sheds one stray end bracket in partial states', () => {
+		expect(unwrapParenthetical('(beat')).toBe('beat');
+		expect(unwrapParenthetical('beat)')).toBe('beat');
+		expect(unwrapParenthetical('(quietly, to the machine')).toBe('quietly, to the machine');
+		expect(unwrapParenthetical('to JOHN)')).toBe('to JOHN');
+	});
+
+	it('treats bracket-only residue as empty', () => {
+		expect(unwrapParenthetical('')).toBe('');
+		expect(unwrapParenthetical('(')).toBe('');
+		expect(unwrapParenthetical('()')).toBe('');
+		expect(unwrapParenthetical(')')).toBe('');
+	});
+
+	it('never touches unbalanced text', () => {
+		expect(unwrapParenthetical(')(')).toBe(')(');
+	});
+
+	it('round-trips with normalizeParenthetical without adding layers', () => {
+		// '((beat))' is excluded by design: the unwrap sheds one layer, so
+		// out-and-back-in converges the double wrapper to the canonical one.
+		for (const input of ['beat', '(beat)', '(beat', 'beat)', '(a) (b)']) {
+			expect(normalizeParenthetical(unwrapParenthetical(input))).toBe(normalizeParenthetical(input));
+		}
 	});
 });
 
