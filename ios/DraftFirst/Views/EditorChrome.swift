@@ -4,10 +4,11 @@ import UIKit
 /// The editor's chrome, configured straight onto the system navigation
 /// item: the platform's own close button leads (DocumentGroup installs it;
 /// it stays), the element pill supplements it as a leading bar item, and
-/// undo + document menu trail as custom-view items. Every control is a
-/// plain UIKit button: the bar wraps each item in its own glass platter,
-/// so drawing any background of ours would read as a disc inside a ring.
-/// One layer, rendered by the system, always in lockstep with the platform.
+/// undo + document menu trail as standard image items. Standard items are
+/// the only way to the system's own rendering: the bar draws them as the
+/// same perfect glass circles as its close button, spaces them with its
+/// own rhythm, and morphs them into their menus — no custom view can
+/// negotiate that platter from the outside.
 ///
 /// The title slot stays empty: DocumentGroup draws its document-menu
 /// chevron from the bar's title control, and with no title or title view
@@ -65,34 +66,27 @@ final class ChromeCoordinator {
 
     /// Tap undoes (or redoes in the redo-only state, so the control is
     /// never inert); a long press offers Redo when that direction is live —
-    /// the same idiom as Safari's back button. It is a plain button inside
-    /// a custom-view item, so the bar's platter is the only glass — no
-    /// inner disc of our own.
-    lazy var undoButton: UIButton = {
-        var config = UIButton.Configuration.plain()
-        config.contentInsets = NSDirectionalEdgeInsets(top: 9, leading: 9, bottom: 9, trailing: 9)
-        let button = UIButton(configuration: config)
-        button.showsMenuAsPrimaryAction = false
-        button.addTarget(self, action: #selector(undoTapped), for: .touchUpInside)
-        button.accessibilityLabel = "Undo"
-        return button
+    /// the same idiom as Safari's back button. A standard image item with
+    /// a primary action and a menu: the system renders the circle, fires
+    /// the tap, and presents the long-press menu itself.
+    lazy var undoItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(
+            image: UIImage(systemName: "arrow.uturn.backward", withConfiguration: ChromeMetrics.symbol),
+            primaryAction: UIAction { [weak self] _ in self?.undoPrimary() }
+        )
+        item.accessibilityLabel = "Undo"
+        return item
     }()
 
-    lazy var undoItem: UIBarButtonItem = { UIBarButtonItem(customView: undoButton) }()
-
-    /// Menu-only control: the tap presents the document menu directly.
-    /// Plain like the pill — the platter supplies the glass.
-    lazy var settingsButton: UIButton = {
-        var config = UIButton.Configuration.plain()
-        config.image = UIImage(systemName: "ellipsis", withConfiguration: ChromeMetrics.symbol)
-        config.contentInsets = NSDirectionalEdgeInsets(top: 9, leading: 9, bottom: 9, trailing: 9)
-        let button = UIButton(configuration: config)
-        button.showsMenuAsPrimaryAction = true
-        button.accessibilityLabel = "Document Menu"
-        return button
+    /// Menu-only control: with a menu and no primary action, the system
+    /// presents the document menu on tap — the Files "ellipsis" idiom.
+    lazy var settingsItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(
+            image: UIImage(systemName: "ellipsis", withConfiguration: ChromeMetrics.symbol)
+        )
+        item.accessibilityLabel = "Document Menu"
+        return item
     }()
-
-    lazy var settingsItem: UIBarButtonItem = { UIBarButtonItem(customView: settingsButton) }()
 
     /// The element pill as a leading bar item, right after the system's
     /// close button — (back) (element) … (undo) (settings).
@@ -100,9 +94,9 @@ final class ChromeCoordinator {
         UIBarButtonItem(customView: elementButton)
     }()
 
-    /// The seam between the two trailing items: without it iOS 26 fuses
-    /// adjacent items into one capsule; a fixed space splits them into
-    /// separate circles, matching the system's own inter-group gap.
+    /// The seam between the two trailing items: adjacent items fuse into
+    /// one capsule on this bar (groups included — verified), so a fixed
+    /// space splits them into two circles at the system's inter-group gap.
     private let trailingSpacer: UIBarButtonItem = {
         let spacer = UIBarButtonItem(systemItem: .fixedSpace)
         spacer.width = 8
@@ -156,15 +150,12 @@ final class ChromeCoordinator {
             activeKind: chrome.activeKind, contextualKinds: chrome.contextualKinds
         )
 
-        // First element is rightmost: [undo] [settings] left to right, with
-        // a fixed space between them so they render as two circles.
+        // First element is rightmost: [undo] [settings] left to right,
+        // the fixed space between them splitting the capsule in two.
         let trailing = [settingsItem, trailingSpacer, undoItem]
         if item.rightBarButtonItems != trailing { item.rightBarButtonItems = trailing }
         updateUndoButton()
         updateSettingsMenu()
-#if DEBUG
-        writeBarXrayFile(controller: controller, item: item)
-#endif
         return true
     }
 
@@ -202,35 +193,30 @@ final class ChromeCoordinator {
         else if chrome.canRedo { chrome.editor.redo() }
     }
 
-    @objc private func undoTapped() { undoPrimary() }
-
     private func updateUndoButton() {
         let signature = (canUndo: chrome.canUndo, canRedo: chrome.canRedo)
         if let last = lastUndoSignature, last == signature { return }
         lastUndoSignature = signature
 
-        // Enabled whenever either direction exists: a disabled button cannot
+        // Enabled whenever either direction exists: a disabled item cannot
         // present its long-press menu, so gating on canUndo alone would
         // strand Redo exactly when it is the only thing available. In the
         // redo-only state the control must not be inert or dishonest — the
         // tap redoes (see undoPrimary) and the glyph and label say so.
         let redoOnly = !chrome.canUndo && chrome.canRedo
-        undoButton.isEnabled = chrome.canUndo || chrome.canRedo
-        var config = undoButton.configuration ?? .plain()
-        config.image = UIImage(
+        undoItem.isEnabled = chrome.canUndo || chrome.canRedo
+        undoItem.image = UIImage(
             systemName: redoOnly ? "arrow.uturn.forward" : "arrow.uturn.backward",
             withConfiguration: ChromeMetrics.symbol
         )
-        config.baseForegroundColor = chrome.canUndo || redoOnly ? .label : .secondaryLabel
-        undoButton.configuration = config
-        undoButton.accessibilityLabel = redoOnly ? "Redo" : "Undo"
+        undoItem.accessibilityLabel = redoOnly ? "Redo" : "Undo"
         // The long-press menu exists only when it offers a real action.
         // In redo-only mode the counterpart (Undo) is unavailable by
         // definition, and before anything has been undone there is no Redo —
         // a permanently disabled menu there reads as broken. No actionable
         // counterpart, no menu; the tap still carries the live direction.
         let redoAvailableOnLongPress = !redoOnly && chrome.canRedo
-        undoButton.menu = redoAvailableOnLongPress
+        undoItem.menu = redoAvailableOnLongPress
             ? UIMenu(children: [
                 UIAction(
                     title: "Redo",
@@ -240,18 +226,9 @@ final class ChromeCoordinator {
                 }
             ])
             : nil
-        // VoiceOver gets the same rule: the rotor offers Redo only when the
-        // menu would, and the hint never promises a menu that is not there.
-        undoButton.accessibilityHint = redoAvailableOnLongPress ? "Long press for redo" : nil
-        undoButton.accessibilityCustomActions = redoAvailableOnLongPress
-            ? [
-                UIAccessibilityCustomAction(name: "Redo") { [weak self] _ in
-                    guard let self, self.chrome.canRedo else { return false }
-                    self.chrome.editor.redo()
-                    return true
-                }
-            ]
-            : []
+        // VoiceOver gets the same rule: the hint promises the menu only
+        // when a long press would actually present one.
+        undoItem.accessibilityHint = redoAvailableOnLongPress ? "Long press for redo" : nil
     }
 
     private func updateSettingsMenu() {
@@ -264,7 +241,7 @@ final class ChromeCoordinator {
         ) ?? .dark
         guard storedAppearance != lastMenuAppearance else { return }
         lastMenuAppearance = storedAppearance
-        settingsButton.menu = settingsMenu()
+        settingsItem.menu = settingsMenu()
     }
 
     // MARK: Document menu
@@ -350,69 +327,6 @@ final class ChromeCoordinator {
         var children: [UIMenuElement] = [documentGroup, exportGroup, viewGroup, settingsGroup]
         return UIMenu(children: children)
     }
-
-#if DEBUG
-    /// A full x-ray of the navigation item and the bar's view tree, written
-    /// to Documents/bar-xray.txt so it can be pulled from a device with
-    /// devicectl. DocumentGroup's bar is not a UINavigationController's
-    /// (navigationController is nil in the editor), so the tree walk starts
-    /// from our own pill and climbs to the window: the ancestor chain names
-    /// the bar's real class, and the bar-level subtree — with frames,
-    /// visibility, and accessibility labels — identifies any
-    /// system-injected control outright. Debug builds only.
-    private func writeBarXrayFile(controller: UIViewController, item: UINavigationItem) {
-        var lines: [String] = []
-        lines.append("title: \(item.title ?? "nil")")
-        lines.append("titleView: \(item.titleView.map { String(describing: type(of: $0)) } ?? "nil") frame=\(item.titleView?.frame ?? .zero)")
-        lines.append("documentProperties: \(item.documentProperties == nil ? "no" : "yes")")
-        lines.append("titleMenuProvider: \(item.titleMenuProvider == nil ? "no" : "yes")")
-        lines.append("leftBarButtonItems: \(describe(item.leftBarButtonItems))")
-        lines.append("rightBarButtonItems: \(describe(item.rightBarButtonItems))")
-        lines.append("groups leading=\(item.leadingItemGroups.count) center=\(item.centerItemGroups.count) trailing=\(item.trailingItemGroups.count)")
-        lines.append("navigationController: \(controller.navigationController == nil ? "nil" : "present")")
-        lines.append("--- pill ancestors (pill → window) ---")
-        var ancestors: [UIView] = []
-        var cursor: UIView? = elementButton.superview
-        while let view = cursor {
-            ancestors.append(view)
-            cursor = view.superview
-        }
-        for (index, view) in ancestors.enumerated() {
-            lines.append("[\(index)] \(describe(view))")
-        }
-        if let windowIndex = ancestors.firstIndex(where: { $0 is UIWindow }), windowIndex > 0 {
-            lines.append("--- bar subtree ---")
-            dumpBarView(ancestors[windowIndex - 1], depth: 0, into: &lines)
-        }
-        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("bar-xray.txt")
-        try? lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
-    }
-
-    private func describe(_ view: UIView) -> String {
-        let f = view.frame
-        var line = "\(type(of: view)) f=(\(Int(f.minX)),\(Int(f.minY)) \(Int(f.width))x\(Int(f.height)))"
-        if view.isHidden || view.alpha < 0.05 { line += " HIDDEN" }
-        if let label = view.accessibilityLabel, !label.isEmpty { line += " a11y=\"\(label)\"" }
-        if let label = view as? UILabel, let text = label.text { line += " text=\"\(text)\"" }
-        if let button = view as? UIButton, let title = button.currentTitle { line += " title=\"\(title)\"" }
-        return line
-    }
-
-    private func describe(_ items: [UIBarButtonItem]?) -> String {
-        guard let items else { return "nil" }
-        return "["
-            + items.map { "\($0.title ?? $0.accessibilityLabel ?? "-"):\(type(of: $0)) customView=\($0.customView.map { String(describing: type(of: $0)) } ?? "nil")" }
-                .joined(separator: " | ")
-            + "]"
-    }
-
-    private func dumpBarView(_ view: UIView, depth: Int, into lines: inout [String]) {
-        let indent = String(repeating: "  ", count: min(depth, 12))
-        lines.append(indent + describe(view))
-        for subview in view.subviews { dumpBarView(subview, depth: depth + 1, into: &lines) }
-    }
-#endif
 
     private func exportAction(
         _ title: String, ext: String,
