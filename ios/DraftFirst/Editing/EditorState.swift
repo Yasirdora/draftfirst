@@ -228,6 +228,34 @@ final class EditorState {
             .sorted { $0.cues == $1.cues ? $0.name < $1.name : $0.cues > $1.cues }
     }
 
+    /// The Navigator's context numbers, derived from the same scenes and
+    /// cast the panel lists — headings are split by the engine's own
+    /// conformance-pinned parser, so the footnote can never disagree with
+    /// the rows above it.
+    var storyStats: StoryStats {
+        var stats = StoryStats()
+        var locations = Set<String>()
+        for scene in scenes {
+            stats.scenes += 1
+            let parts = SmartType.splitSceneHeading(scene.title)
+            if !parts.location.isEmpty { locations.insert(parts.location) }
+            // Interior unless purely exterior: INT./EXT. and I/E both carry
+            // interior work, which is what schedules around.
+            if parts.prefix.hasPrefix("EXT") { stats.exterior += 1 }
+            else if !parts.prefix.isEmpty { stats.interior += 1 }
+        }
+        stats.locations = locations.count
+
+        let rows = cast
+        stats.characters = rows.count
+        stats.cues = rows.reduce(0) { $0 + $1.cues }
+        if let lead = rows.first, stats.cues > 0 {
+            stats.leadingCharacter = lead.name
+            stats.leadingShare = Double(lead.cues) / Double(stats.cues)
+        }
+        return stats
+    }
+
     /// A cue's identity ignores its extensions: "(CONT'D)", "(V.O.)" and any
     /// other trailing parenthetical modify the delivery, never the character.
     /// Trailing whitespace or a non-breaking space — left behind when a

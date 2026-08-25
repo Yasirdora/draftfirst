@@ -6,7 +6,12 @@ struct StoryPanel: View {
     let editor: EditorState
 
     @Environment(\.dismiss) private var dismiss
-    @State private var tab: Tab = .scenes
+    @State private var tab: Tab
+
+    init(editor: EditorState, initialTab: Tab = .scenes) {
+        self.editor = editor
+        _tab = State(initialValue: initialTab)
+    }
 
     enum Tab: String, CaseIterable, Identifiable {
         case scenes = "Scenes"
@@ -42,11 +47,16 @@ struct StoryPanel: View {
                             castRows
                         }
                     } footer: {
-                        // Document health, demoted to a footnote: present for
-                        // the writer who wants it, never in the way of the
-                        // one who does not.
-                        Text(statsSummary)
-                            .padding(.top, 4)
+                        // Glanceable, tab-aware context: document health on
+                        // the first line, then the texture of whichever list
+                        // is showing — structure for scenes, voice for cast.
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(statsSummary)
+                            if !tabContext.isEmpty {
+                                Text(tabContext)
+                            }
+                        }
+                        .padding(.top, 4)
                     }
                 }
                 // Rows are content, not hyperlinks: keep the whole list
@@ -67,6 +77,39 @@ struct StoryPanel: View {
         let pages = "\(editor.stats.pages) \(editor.stats.pages == 1 ? "page" : "pages")"
         let words = "\(editor.stats.words) \(editor.stats.words == 1 ? "word" : "words")"
         return [pages, editor.stats.runtime, words].joined(separator: " · ")
+    }
+
+    /// The tab-specific second line of the footnote.
+    private var tabContext: String {
+        tab == .scenes ? sceneContext : castContext
+    }
+
+    /// Structure at a glance: scene and location counts plus the INT/EXT
+    /// texture a production reads a script by.
+    private var sceneContext: String {
+        let stats = editor.storyStats
+        guard stats.scenes > 0 else { return "" }
+        return [
+            "\(stats.scenes) \(stats.scenes == 1 ? "scene" : "scenes")",
+            "\(stats.locations) \(stats.locations == 1 ? "location" : "locations")",
+            "\(stats.interior) INT · \(stats.exterior) EXT"
+        ].joined(separator: " · ")
+    }
+
+    /// Voice at a glance: cast size, cue volume, and who carries the
+    /// dialogue — hidden while a one-voice script would only state the
+    /// obvious.
+    private var castContext: String {
+        let stats = editor.storyStats
+        guard stats.characters > 0 else { return "" }
+        var facts = [
+            "\(stats.characters) \(stats.characters == 1 ? "character" : "characters")",
+            "\(stats.cues) \(stats.cues == 1 ? "cue" : "cues")"
+        ]
+        if let lead = stats.leadingCharacter, stats.characters > 1 {
+            facts.append("\(lead) leads (\(Int((stats.leadingShare * 100).rounded()))%)")
+        }
+        return facts.joined(separator: " · ")
     }
 
     @ViewBuilder

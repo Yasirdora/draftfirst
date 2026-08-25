@@ -158,6 +158,24 @@ enum EditorPreviewConfiguration {
             // A mid-word scene heading: QuickType would offer "bedroom" here.
             return "INT. BED"
         }
+        if arguments.contains("-show-story-cast") {
+            // Two voices and two locations for the Navigator's cast footer.
+            return """
+            INT. LAB - DAY
+
+            MARA
+            The array is awake.
+
+            DAVID
+            Then we move.
+
+            EXT. RIDGE - NIGHT
+
+            MARA
+            Already moving.
+
+            """
+        }
         return sampleSource
     }
 

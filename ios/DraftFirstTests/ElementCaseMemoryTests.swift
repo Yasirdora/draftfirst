@@ -222,3 +222,83 @@ final class ElementConversionTests: XCTestCase {
         )
     }
 }
+
+/// The Navigator footer's context numbers: scenes, locations, INT/EXT
+/// texture, and the dialogue leader — derived through the same scenes/cast
+/// the panel lists, so the footnote can never disagree with the rows.
+final class StoryStatsTests: XCTestCase {
+
+    @MainActor
+    private func stats(of source: String) -> StoryStats {
+        EditorState(source: source).storyStats
+    }
+
+    @MainActor
+    func testEmptyScreenplayHasNoContext() {
+        let stats = stats(of: "Title: Untitled\nCredit: written by\n\n")
+        XCTAssertEqual(stats.scenes, 0)
+        XCTAssertEqual(stats.locations, 0)
+        XCTAssertEqual(stats.characters, 0)
+        XCTAssertNil(stats.leadingCharacter)
+    }
+
+    @MainActor
+    func testSceneStructureAndTexture() {
+        let stats = stats(of: """
+        INT. LAB - DAY
+
+        Hum.
+
+        EXT. RIDGE - NIGHT
+
+        Wind.
+
+        INT./EXT. CAR - MOVING - DAY
+
+        Engine.
+
+        INT. LAB - DAY
+
+        Back again.
+
+        """)
+        XCTAssertEqual(stats.scenes, 4)
+        // LAB counts once: the location set, not the scene list.
+        XCTAssertEqual(stats.locations, 3)
+        XCTAssertEqual(stats.exterior, 1)
+        // INT./EXT. carries interior work, so it reads as interior.
+        XCTAssertEqual(stats.interior, 3)
+    }
+
+    @MainActor
+    func testCastVoiceAndLeadingShare() {
+        let stats = stats(of: """
+        INT. LAB - DAY
+
+        MARA
+        One.
+
+        MARA (CONT'D)
+        Two.
+
+        DAVID
+        Three.
+
+        """)
+        XCTAssertEqual(stats.characters, 2)
+        // Extensions modify delivery, never identity: MARA (CONT'D) is MARA.
+        XCTAssertEqual(stats.cues, 3)
+        XCTAssertEqual(stats.leadingCharacter, "MARA")
+        XCTAssertEqual(stats.leadingShare, 2.0 / 3.0, accuracy: 0.0001)
+    }
+
+    /// A forced heading has no INT./EXT. prefix; it must not be counted as
+    /// interior texture it never declared.
+    @MainActor
+    func testForcedHeadingSkipsInteriorExteriorCounts() {
+        let stats = stats(of: ".A FORCED HEADING\n\nHum.\n")
+        XCTAssertEqual(stats.scenes, 1)
+        XCTAssertEqual(stats.interior, 0)
+        XCTAssertEqual(stats.exterior, 0)
+    }
+}

@@ -76,7 +76,7 @@ struct EditorView: View {
         .sheet(item: $presentedPanel, onDismiss: { panelFullyDismissed = true }) { panel in
             switch panel {
             case .story:
-                StoryPanel(editor: editor)
+                StoryPanel(editor: editor, initialTab: Self.qaStoryInitialTab)
                     .presentationDetents(panelDetents)
                     .presentationDragIndicator(.visible)
             case .titlePage:
@@ -102,7 +102,8 @@ struct EditorView: View {
 #if EDITOR_PREVIEW
             if CommandLine.arguments.contains("-show-settings") {
                 present(.settings)
-            } else if CommandLine.arguments.contains("-show-story") {
+            } else if CommandLine.arguments.contains("-show-story")
+                        || CommandLine.arguments.contains("-show-story-cast") {
                 present(.story)
             } else if CommandLine.arguments.contains("-show-titlepage") {
                 present(.titlePage)
@@ -142,6 +143,15 @@ struct EditorView: View {
         guard panelFullyDismissed, presentedPanel == nil else { return }
         panelFullyDismissed = false
         presentedPanel = panel
+    }
+
+    /// QA-only tab selection for Navigator screenshots; production always
+    /// opens on Scenes.
+    private static var qaStoryInitialTab: StoryPanel.Tab {
+#if EDITOR_PREVIEW
+        if CommandLine.arguments.contains("-show-story-cast") { return .cast }
+#endif
+        return .scenes
     }
 
     /// The toolbar controls' shared input. Built in body so every tracked

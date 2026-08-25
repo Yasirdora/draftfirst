@@ -317,6 +317,22 @@ struct SceneRow: Identifiable, Equatable, Sendable {
     let elementIndex: Int
 }
 
+/// The Navigator's per-tab context line: structure and voice at a glance.
+/// Scene side echoes Final Draft's Scene/Location Reports (counts, INT/EXT
+/// texture); cast side echoes Highland's dialogue-share analysis without
+/// requiring any metadata entry from the writer.
+struct StoryStats: Equatable, Sendable {
+    var scenes = 0
+    var locations = 0
+    var interior = 0
+    var exterior = 0
+    var characters = 0
+    var cues = 0
+    /// The cast's loudest voice and its share of all cues (0…1).
+    var leadingCharacter: String?
+    var leadingShare: Double = 0
+}
+
 struct CastRow: Identifiable, Equatable, Sendable {
     let id: String
     let name: String
