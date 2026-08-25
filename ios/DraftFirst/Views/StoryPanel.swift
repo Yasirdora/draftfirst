@@ -17,41 +17,45 @@ struct StoryPanel: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                // The segment IS the label — no card around the picker, no
-                // section header repeating it underneath.
-                Section {
-                    if tab == .scenes {
-                        sceneRows
-                    } else {
-                        castRows
+            VStack(spacing: 0) {
+                // The Scenes/Cast switch is a full-width row of its own,
+                // pinned between the bar and the list — the App Store
+                // idiom. Never a list row (the grouped style wraps it in a
+                // card), never squeezed between bar buttons.
+                Picker("Story", selection: $tab) {
+                    ForEach(Tab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
                     }
-                } footer: {
-                    // Document health, demoted to a footnote: present for the
-                    // writer who wants it, never in the way of the one who
-                    // does not.
-                    Text(statsSummary)
-                        .padding(.top, 4)
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+
+                List {
+                    // The segment IS the label — no section header
+                    // repeating it underneath.
+                    Section {
+                        if tab == .scenes {
+                            sceneRows
+                        } else {
+                            castRows
+                        }
+                    } footer: {
+                        // Document health, demoted to a footnote: present for
+                        // the writer who wants it, never in the way of the
+                        // one who does not.
+                        Text(statsSummary)
+                            .padding(.top, 4)
+                    }
+                }
+                // Rows are content, not hyperlinks: keep the whole list
+                // monochrome so blue is reserved for the system's own chrome.
+                .tint(.primary)
             }
-            // Rows are content, not hyperlinks: keep the whole list
-            // monochrome so blue is reserved for the system's own chrome.
-            .tint(.primary)
             .navigationTitle("Navigator")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // The Scenes/Cast switch sits in the bar as the principal
-                // item — the Phone and App Store idiom — instead of a list
-                // row, where the grouped style would wrap it in a card.
-                ToolbarItem(placement: .principal) {
-                    Picker("Story", selection: $tab) {
-                        ForEach(Tab.allCases) { tab in
-                            Text(tab.rawValue).tag(tab)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
