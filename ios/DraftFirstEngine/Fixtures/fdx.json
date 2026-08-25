@@ -522,6 +522,57 @@
       }
     },
     {
+      "name": "long-title-page",
+      "source": "<FinalDraft><Content><Paragraph Type=\"Action\"><Text>x</Text></Paragraph></Content><TitlePage><Content><Paragraph Alignment=\"Center\" Type=\"General\"><Text>THE BIG SCRIPT</Text></Paragraph><Paragraph Alignment=\"Center\" Type=\"General\"><Text>written by</Text></Paragraph><Paragraph Alignment=\"Center\" Type=\"General\"><Text>First Writer</Text></Paragraph><Paragraph Alignment=\"Center\" Type=\"General\"><Text>Second Writer</Text></Paragraph><Paragraph Alignment=\"Center\" Type=\"General\"><Text>Based on a true story</Text></Paragraph><Paragraph Alignment=\"Center\" Type=\"General\"><Text>Copyright 2026</Text></Paragraph><Paragraph Alignment=\"Center\" Type=\"General\"><Text>123 Writer Lane</Text></Paragraph><Paragraph Alignment=\"Center\" Type=\"General\"><Text>Hollywood, CA 90028</Text></Paragraph></Content></TitlePage></FinalDraft>",
+      "options": {},
+      "expected": {
+        "script": {
+          "titlePage": [
+            {
+              "key": "Title",
+              "values": [
+                "THE BIG SCRIPT"
+              ]
+            },
+            {
+              "key": "Credit",
+              "values": [
+                "written by"
+              ]
+            },
+            {
+              "key": "Author",
+              "values": [
+                "First Writer"
+              ]
+            },
+            {
+              "key": "Source",
+              "values": [
+                "Second Writer"
+              ]
+            },
+            {
+              "key": "Contact",
+              "values": [
+                "Based on a true story",
+                "Copyright 2026",
+                "123 Writer Lane",
+                "Hollywood, CA 90028"
+              ]
+            }
+          ],
+          "elements": [
+            {
+              "type": "action",
+              "text": "x"
+            }
+          ]
+        },
+        "diagnostics": []
+      }
+    },
+    {
       "name": "numeric-entities",
       "source": "<FinalDraft><Content><Paragraph Type=\"Action\"><Text>&#65;&#x42; &#x110000; &#55296;</Text></Paragraph></Content></FinalDraft>",
       "options": {},

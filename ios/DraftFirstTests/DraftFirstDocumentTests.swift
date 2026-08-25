@@ -277,4 +277,66 @@ final class FdxInterchangeTests: XCTestCase {
         XCTAssertEqual(document.source, source)
         XCTAssertEqual(try write(document, as: .plainText), source)
     }
+
+    /// The device-crash regression: a real Final Draft export — Version 5
+    /// boilerplate, attributed Text runs, SceneProperties, and a title page
+    /// longer than the five positional fallback keys. The TypeScript
+    /// importer's `keys[index] ?? 'Contact'` is a trap when ported as a
+    /// Swift subscript; this file takes exactly that path.
+    @MainActor
+    func testRealWorldFinalDraftFileImports() throws {
+        let realistic = """
+        <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+        <FinalDraft DocumentType="Script" Version="5">
+          <Content>
+            <Paragraph Type="Scene Heading">
+              <SceneProperties Length="3/8" Page="1" Title=""/>
+              <Text AdornmentStyle="0" Background="#FFFFFFFFFFFF">INT. FISH &amp; CHIP SHOP - DAY</Text>
+            </Paragraph>
+            <Paragraph Type="Action">
+              <Text AdornmentStyle="0" Background="#FFFFFFFFFFFF">The fryer hums. </Text>
+              <Text AdornmentStyle="0" Background="#FFFFFFFFFFFF" Emphasis="Bold">Everything</Text>
+              <Text AdornmentStyle="0" Background="#FFFFFFFFFFFF"> smells of vinegar.</Text>
+            </Paragraph>
+            <Paragraph Type="Character"><Text>MOLLY</Text></Paragraph>
+            <Paragraph Type="Dialogue"><Text>We're closed.</Text></Paragraph>
+            <Paragraph Type="Transition"><Text>CUT TO:</Text></Paragraph>
+          </Content>
+          <TitlePage>
+            <Content>
+              <Paragraph Type="General"><Text>THE BIG SCRIPT</Text></Paragraph>
+              <Paragraph Type="General"><Text>written by</Text></Paragraph>
+              <Paragraph Type="General"><Text>First Writer</Text></Paragraph>
+              <Paragraph Type="General"><Text>Second Writer</Text></Paragraph>
+              <Paragraph Type="General"><Text>Based on a true story</Text></Paragraph>
+              <Paragraph Type="General"><Text>Copyright 2026</Text></Paragraph>
+              <Paragraph Type="General"><Text>123 Writer Lane</Text></Paragraph>
+              <Paragraph Type="General"><Text>Hollywood, CA 90028</Text></Paragraph>
+            </Content>
+          </TitlePage>
+          <SmartType>
+            <Characters><Character>MOLLY</Character></Characters>
+          </SmartType>
+          <MoresAndContinueds/>
+        </FinalDraft>
+        """
+        let document = try read(realistic, as: .finalDraftScreenplay)
+        XCTAssertTrue(document.source.contains("Title: THE BIG SCRIPT"), document.source)
+        XCTAssertTrue(document.source.contains("INT. FISH & CHIP SHOP - DAY"), document.source)
+        // Multiple Text runs in one paragraph concatenate.
+        XCTAssertTrue(
+            document.source.contains("The fryer hums. Everything smells of vinegar."),
+            document.source
+        )
+        // The eighth title paragraph lands in Contact, and nothing traps.
+        let screenplay = EditorState(source: document.source).screenplay
+        let contact = screenplay.titlePage.first { $0.key == "Contact" }
+        XCTAssertEqual(
+            contact?.values,
+            ["Based on a true story", "Copyright 2026", "123 Writer Lane", "Hollywood, CA 90028"]
+        )
+        // And it writes back as valid FDX.
+        let written = try write(document, as: .finalDraftScreenplay)
+        XCTAssertTrue(written.contains("</FinalDraft>"), written)
+    }
 }

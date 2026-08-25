@@ -319,9 +319,12 @@ public enum Fdx {
     // MARK: - Import
 
     /// Guess a title-page key from paragraph position when an external FDX
-    /// has no key metadata.
+    /// has no key metadata. JavaScript's out-of-bounds `undefined ?? 'Contact'`
+    /// is a trap in Swift — real Final Draft title pages run well past five
+    /// paragraphs, so the fallback must be written, not subscripted.
     private static func titleKey(for index: Int) -> String {
-        ["Title", "Credit", "Author", "Source", "Contact"][index] ?? "Contact"
+        let keys = ["Title", "Credit", "Author", "Source", "Contact"]
+        return index < keys.count ? keys[index] : "Contact"
     }
 
     /// TypeScript `Number(...)`: full-string numeric parse (whitespace-

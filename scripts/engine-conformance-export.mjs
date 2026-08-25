@@ -474,6 +474,17 @@ addFdxImport(
 	'conflicting-title-metadata',
 	`<FinalDraft><Content/><TitlePage><Content><Paragraph Type="General" DraftFirst:TitleKey="Title" DraftFirst:TitleEntry="0"><Text>A</Text></Paragraph><Paragraph Type="General" DraftFirst:TitleKey="Author" DraftFirst:TitleEntry="0"><Text>B</Text></Paragraph></Content></TitlePage></FinalDraft>`
 );
+/* Real Final Draft title pages run long — title, credit, multiple writers,
+   source, copyright, address. Eight positional paragraphs exceed the five
+   fallback keys, the exact shape that trapped the Swift port's
+   out-of-bounds subscript (JavaScript's undefined ?? 'Contact'). */
+addFdxImport(
+	'long-title-page',
+	`<FinalDraft><Content><Paragraph Type="Action"><Text>x</Text></Paragraph></Content><TitlePage><Content>${[
+		'THE BIG SCRIPT', 'written by', 'First Writer', 'Second Writer',
+		'Based on a true story', 'Copyright 2026', '123 Writer Lane', 'Hollywood, CA 90028'
+	].map((t) => `<Paragraph Alignment="Center" Type="General"><Text>${t}</Text></Paragraph>`).join('')}</Content></TitlePage></FinalDraft>`
+);
 addFdxImport(
 	'numeric-entities',
 	`<FinalDraft><Content><Paragraph Type="Action"><Text>&#65;&#x42; &#x110000; &#55296;</Text></Paragraph></Content></FinalDraft>`

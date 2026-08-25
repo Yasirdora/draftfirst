@@ -18,7 +18,7 @@ struct FdxImportConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.importCases.count == 25)
+        #expect(Self.corpus.importCases.count == 26)
         #expect(Self.corpus.exportCases.count == 12)
     }
 
