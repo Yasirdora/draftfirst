@@ -178,3 +178,103 @@ final class ExternalSyncTests: XCTestCase {
         XCTAssertEqual(editor.banner, "Updated from iCloud")
     }
 }
+
+/// The professional migration path: a Final Draft file opens in place,
+/// converts to the app's Fountain source of truth, and saves back as valid
+/// FDX — scene numbers, dual dialogue, and title page intact. The codec
+/// itself is pinned byte-for-byte by the engine's FDX conformance corpus;
+/// these tests guard the document boundary around it.
+final class FdxInterchangeTests: XCTestCase {
+
+    private static let foreignFdx = """
+    <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+    <FinalDraft DocumentType="Script" Version="3">
+      <Content>
+        <Paragraph Type="Scene Heading" Number="1"><Text>INT. FISH &amp; CHIP SHOP - DAY</Text></Paragraph>
+        <Paragraph Type="Character"><Text>MOLLY (V.O.)</Text></Paragraph>
+        <Paragraph Type="Dialogue"><Text>We&apos;re closed.</Text></Paragraph>
+      </Content>
+      <TitlePage>
+        <Content>
+          <Paragraph Alignment="Center" Type="General"><Text>Chips</Text></Paragraph>
+          <Paragraph Alignment="Center" Type="General"><Text>written by</Text></Paragraph>
+          <Paragraph Alignment="Center" Type="General"><Text>A. Writer</Text></Paragraph>
+        </Content>
+      </TitlePage>
+    </FinalDraft>
+    """
+
+    private func read(_ text: String, as type: UTType) throws -> DraftFirstDocument {
+        DraftFirstDocument(
+            source: try DraftFirstDocument.decode(
+                XCTUnwrap(text.data(using: .utf8)), as: type
+            )
+        )
+    }
+
+    private func write(_ document: DraftFirstDocument, as type: UTType) throws -> String {
+        String(decoding: try DraftFirstDocument.encode(document.source, as: type), as: UTF8.self)
+    }
+
+    func testFdxIsReadableAndWritable() {
+        XCTAssertTrue(DraftFirstDocument.readableContentTypes.contains(.finalDraftScreenplay))
+        XCTAssertTrue(DraftFirstDocument.writableContentTypes.contains(.finalDraftScreenplay))
+    }
+
+    /// Import converts FDX to the Fountain source: scene numbers become
+    /// forced-number markers, the title page becomes title-page keys.
+    func testImportConvertsToFountainSource() throws {
+        let document = try read(Self.foreignFdx, as: .finalDraftScreenplay)
+        XCTAssertTrue(document.source.contains("Title: Chips"), document.source)
+        XCTAssertTrue(document.source.contains("INT. FISH & CHIP SHOP - DAY #1#"), document.source)
+        XCTAssertTrue(document.source.contains("MOLLY (V.O.)"), document.source)
+        XCTAssertTrue(document.source.contains("We're closed."), document.source)
+    }
+
+    /// Saving an .fdx in place writes FDX back out — never Fountain source
+    /// wearing an .fdx name, which Final Draft would refuse to open.
+    func testWriteBackToFdxProducesValidXml() throws {
+        let document = try read(Self.foreignFdx, as: .finalDraftScreenplay)
+        let written = try write(document, as: .finalDraftScreenplay)
+        XCTAssertTrue(written.contains("<FinalDraft"), written)
+        XCTAssertTrue(written.contains("</FinalDraft>"), written)
+        XCTAssertTrue(written.contains(#"Type="Scene Heading" Number="1""#), written)
+        XCTAssertTrue(written.contains("INT. FISH &amp; CHIP SHOP - DAY"), written)
+        XCTAssertTrue(written.contains("MOLLY (V.O.)"), written)
+    }
+
+    /// Open → save → open is an identity: a migrated file never drifts.
+    func testInPlaceEditRoundTripIsStable() throws {
+        let once = try read(Self.foreignFdx, as: .finalDraftScreenplay)
+        let written = try write(once, as: .finalDraftScreenplay)
+        let twice = try read(written, as: .finalDraftScreenplay)
+        XCTAssertEqual(twice.source, once.source)
+    }
+
+    /// Dual dialogue and a forced scene number survive the export path that
+    /// the share sheet's "Final Draft (FDX)" action uses.
+    @MainActor
+    func testExportCarriesDualDialogueAndSceneNumbers() {
+        let screenplay = Screenplay(
+            titlePage: [],
+            elements: [
+                ScriptElement(type: .scene, text: "INT. LAB - NIGHT", sceneNumber: "7"),
+                ScriptElement(type: .character, text: "MARA", dual: true),
+                ScriptElement(type: .dialogue, text: "Overlapping.")
+            ]
+        )
+        let fdx = ScreenplayExporter.fdxSource(screenplay)
+        XCTAssertTrue(fdx.contains(#"Number="7""#), fdx)
+        XCTAssertTrue(fdx.contains(#"Dual="Yes""#), fdx)
+        XCTAssertTrue(fdx.contains(#"xmlns:DraftFirst="https://draftfirst.xyz/ns/fdx/1""#), fdx)
+    }
+
+    /// A non-FDX document is untouched by the codec: plain text in, the same
+    /// bytes out.
+    func testPlainTextPathIsUnaffected() throws {
+        let source = "INT. LAB - NIGHT\n\nHum.\n"
+        let document = try read(source, as: .plainText)
+        XCTAssertEqual(document.source, source)
+        XCTAssertEqual(try write(document, as: .plainText), source)
+    }
+}

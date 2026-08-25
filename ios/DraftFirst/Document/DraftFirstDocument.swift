@@ -8,20 +8,28 @@ extension UTType {
         exportedAs: "xyz.draftfirst.screenplay",
         conformingTo: .plainText
     )
+    /// Final Draft's interchange format. The declaration is imported: when
+    /// Final Draft itself is installed its own declaration wins; ours makes
+    /// .fdx openable everywhere else.
+    nonisolated static let finalDraftScreenplay = UTType(
+        importedAs: "com.finaldraft.fdx",
+        conformingTo: .xml
+    )
 }
 
 struct DraftFirstDocument: FileDocument {
     static var readableContentTypes: [UTType] {
         // Plain text covers the migration paths — paste-ready .txt and
-        // .fountain files (the imported fountain UTI conforms to it).
-        [.draftFirstScreenplay, .plainText]
+        // .fountain files (the imported fountain UTI conforms to it). FDX is
+        // the professional migration path: a Final Draft file opens in place.
+        [.draftFirstScreenplay, .plainText, .finalDraftScreenplay]
     }
 
     static var writableContentTypes: [UTType] {
-        // Both readable types are writable: a screenplay's source IS plain
-        // text (Fountain), so a .txt or .fountain opened in place saves back
-        // in place — never a read-only trap that would strand an hour of work.
-        [.draftFirstScreenplay, .plainText]
+        // Every readable type is writable: a screenplay's source IS plain
+        // text (Fountain), and an .fdx opened in place writes back as FDX —
+        // never a read-only trap that would strand an hour of work.
+        [.draftFirstScreenplay, .plainText, .finalDraftScreenplay]
     }
 
     var source: String
@@ -31,11 +39,14 @@ struct DraftFirstDocument: FileDocument {
     }
 
     init(configuration: ReadConfiguration) throws {
-        self.source = try Self.decode(configuration.file.regularFileContents)
+        self.source = try Self.decode(
+            configuration.file.regularFileContents,
+            as: configuration.contentType
+        )
     }
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        FileWrapper(regularFileWithContents: try Self.encode(source))
+        FileWrapper(regularFileWithContents: try Self.encode(source, as: configuration.contentType))
     }
 
     /// UTF-8 is the only on-disk encoding; anything else is corruption,
@@ -52,6 +63,26 @@ struct DraftFirstDocument: FileDocument {
             throw CocoaError(.fileWriteInapplicableStringEncoding)
         }
         return data
+    }
+
+    /// The typed read boundary. FDX is converted to the Fountain source of
+    /// truth on the way in: the engine's reader is total (best-effort,
+    /// never throws), so a foreign file can corrupt nothing.
+    static func decode(_ data: Data?, as type: UTType) throws -> String {
+        let text = try decode(data)
+        guard type.conforms(to: .finalDraftScreenplay) else { return text }
+        return Fountain.serialise(Fdx.parse(text).script)
+    }
+
+    /// The typed write boundary: an .fdx opened in place writes back as
+    /// FDX — never Fountain source wearing an .fdx name, which Final Draft
+    /// would refuse to open.
+    static func encode(_ source: String, as type: UTType) throws -> Data {
+        if type.conforms(to: .finalDraftScreenplay) {
+            let screenplay = try Fountain.parse(source)
+            return try encode(Fdx.writeXml(screenplay))
+        }
+        return try encode(source)
     }
 
     /// A new screenplay is a blank page, not a pre-written ritual: title
@@ -76,6 +107,14 @@ enum ScreenplayExporter {
 
     static func fountainSource(_ screenplay: Screenplay) -> String {
         Fountain.serialise(screenplay.engineModel)
+    }
+
+    /// Final Draft interchange XML, written by the engine's conformance-
+    /// pinned exporter — the delivery format productions expect. Elements
+    /// FDX cannot represent are omitted with an in-file warning comment,
+    /// the same contract as the web app.
+    static func fdxSource(_ screenplay: Screenplay) -> String {
+        Fdx.writeXml(screenplay.engineModel)
     }
 
     /// Monospaced text mirroring the printed layout: element indents applied,

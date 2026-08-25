@@ -150,3 +150,54 @@ enum GhostSuffixCorpus {
         let expected: String
     }
 }
+
+enum FdxCorpus {
+    struct Root: Decodable {
+        let importCases: [ImportCase]
+        let exportCases: [ExportCase]
+
+        enum CodingKeys: String, CodingKey {
+            case importCases = "import"
+            case exportCases = "export"
+        }
+    }
+
+    struct ImportCase: Decodable {
+        let name: String
+        let source: String
+        let options: Options
+        let expected: Expected
+
+        struct Options: Decodable {
+            let maxSourceCharacters: Int?
+            let maxParagraphs: Int?
+            let maxTextRuns: Int?
+            let maxWarnings: Int?
+        }
+
+        struct Expected: Decodable {
+            let script: Screenplay
+            let diagnostics: [Fdx.Diagnostic]
+        }
+
+        var importOptions: Fdx.ImportOptions {
+            Fdx.ImportOptions(
+                maxSourceCharacters: options.maxSourceCharacters,
+                maxParagraphs: options.maxParagraphs,
+                maxTextRuns: options.maxTextRuns,
+                maxWarnings: options.maxWarnings
+            )
+        }
+    }
+
+    struct ExportCase: Decodable {
+        let name: String
+        let screenplay: Screenplay
+        let expected: Expected
+
+        struct Expected: Decodable {
+            let xml: String
+            let diagnostics: [Fdx.Diagnostic]
+        }
+    }
+}

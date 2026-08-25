@@ -277,6 +277,9 @@ final class ChromeCoordinator {
                 exportAction("PDF", ext: "pdf") {
                     ScreenplayExporter.pdfData($0)
                 },
+                exportAction("Final Draft (FDX)", ext: "fdx") {
+                    Data(ScreenplayExporter.fdxSource($0).utf8)
+                },
                 exportAction("Fountain", ext: "fountain") {
                     Data(ScreenplayExporter.fountainSource($0).utf8)
                 },

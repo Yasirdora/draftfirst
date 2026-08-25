@@ -15,6 +15,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseFountain, serialiseFountain } from '../packages/draftfirst/dist/index.js';
+import { parseFdx, writeFdxWithDiagnostics } from '../packages/draftfirst/dist/fdx.js';
 import { estimateRuntime, paginate, printedLineCount } from '../packages/draftfirst/dist/layout.js';
 import {
 	ghostSuffix,
@@ -373,5 +374,156 @@ for (const candidate of GHOST_CANDIDATES) {
 	}
 }
 writeFixture('ghostSuffix.json', ghostSuffixFixture);
+
+/* ------------------------------------------------------------------ */
+/* fdx.json — Final Draft interchange: bounded import, lossy-aware     */
+/* export, and the diagnostics both sides must reproduce exactly       */
+/* ------------------------------------------------------------------ */
+
+/* The canonical foreign file from the engine's own FDX tests: entity-
+   encoded text, a scene number, a centered-via-alignment paragraph, a
+   self-closing SceneProperties run, and a positional title page. */
+const FOREIGN_FDX = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Version="3">
+  <Content>
+    <Paragraph Type="Scene Heading" Number="1">
+      <SceneProperties Length="2/8" Page="1"/>
+      <Text>INT. FISH &amp; CHIP SHOP - DAY</Text>
+    </Paragraph>
+    <Paragraph Type="Action"><Text>A &quot;quiet&quot; room &lt;somehow&gt;.</Text></Paragraph>
+    <Paragraph Type="Character"><Text>MOLLY (V.O.)</Text></Paragraph>
+    <Paragraph Type="Parenthetical"><Text>(beat)</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>We&apos;re closed.</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>Come back tomorrow.</Text></Paragraph>
+    <Paragraph Type="Transition"><Text>CUT TO:</Text></Paragraph>
+    <Paragraph Alignment="Center" Type="General"><Text>THE END</Text></Paragraph>
+  </Content>
+  <TitlePage>
+    <Content>
+      <Paragraph Alignment="Center" Type="General"><Text>Chips</Text></Paragraph>
+      <Paragraph Alignment="Center" Type="General"><Text>written by</Text></Paragraph>
+      <Paragraph Alignment="Center" Type="General"><Text>A. Writer</Text></Paragraph>
+    </Content>
+  </TitlePage>
+</FinalDraft>`;
+
+const fdxImport = [];
+const fdxExport = [];
+function addFdxImport(name, source, options = {}) {
+	const result = parseFdx(source, options);
+	fdxImport.push({ name, source, options, expected: { script: result.script, diagnostics: result.diagnostics } });
+}
+function addFdxExport(name, screenplay) {
+	const result = writeFdxWithDiagnostics(screenplay);
+	fdxExport.push({ name, screenplay, expected: { xml: result.xml, diagnostics: result.diagnostics } });
+}
+
+/* Real-world and adversarial imports. Each malformed shape pins the exact
+   diagnostic the TypeScript reader emits for it. */
+addFdxImport('foreign', FOREIGN_FDX);
+addFdxImport(
+	'title-first',
+	`<FinalDraft><TitlePage><Content><Paragraph Type="General"><Text>A TITLE</Text></Paragraph></Content></TitlePage><Content><Paragraph Type="Scene Heading"><Text>INT. LAB - DAY</Text></Paragraph><Paragraph Type="Action"><Text>Hum.</Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport(
+	'single-quoted-attrs',
+	`<FinalDraft><Content><Paragraph DataType="Action" Type = 'Scene Heading' Number = 'A>7'><Text>INT. LAB - DAY</Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport(
+	'comments-cdata',
+	`<FinalDraft><Content><!-- <Paragraph Type="Action">bad</Paragraph> --><Paragraph Type="Action"><Text><![CDATA[A < B & C]]></Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport(
+	'unknown-type',
+	`<FinalDraft><Content><Paragraph Type="Cast List"><Text>MOLLY</Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport('no-root', `<Content><Paragraph Type="Action"><Text>x</Text></Paragraph></Content>`);
+addFdxImport('not-xml', 'not xml at all');
+addFdxImport('empty', '');
+addFdxImport('unterminated-comment', `<FinalDraft><Content><!-- never closed`);
+addFdxImport('unterminated-cdata', `<FinalDraft><Content><Paragraph Type="Action"><Text><![CDATA[rest of file`);
+addFdxImport('unterminated-pi', `<?xml version="1.0"`);
+addFdxImport(
+	'doctype-ignored',
+	`<!DOCTYPE FinalDraft SYSTEM "fdx.dtd"><FinalDraft><Content><Paragraph Type="Action"><Text>x</Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport('unterminated-declaration', `<!DOCTYPE FinalDraft [ <!ENTITY x "y">`);
+addFdxImport('unterminated-tag', `<FinalDraft><Content><Paragraph Type="Action"`);
+addFdxImport(
+	'unquoted-attribute',
+	`<FinalDraft><Content><Paragraph Type=Action><Text>x</Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport(
+	'malformed-attribute',
+	`<FinalDraft><Content><Paragraph Type="Action" Broken><Text>x</Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport(
+	'nested-paragraph',
+	`<FinalDraft><Content><Paragraph Type="Action"><Paragraph Type="Character"><Text>MARA</Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport('unterminated-paragraph', `<FinalDraft><Content><Paragraph Type="Action"><Text>open`);
+addFdxImport(
+	'dual-and-number',
+	`<FinalDraft><Content><Paragraph Type="Character" Dual="Yes"><Text>MARA</Text></Paragraph><Paragraph Type="Action" Number="9"><Text>Number on action is ignored.</Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport(
+	'draftfirst-markers',
+	`<FinalDraft><Content><Paragraph Type="General" DraftFirst:ElementType="lyrics"><Text>La la</Text></Paragraph><Paragraph Type="General" Alignment="Center"><Text>THE END</Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport(
+	'conflicting-title-metadata',
+	`<FinalDraft><Content/><TitlePage><Content><Paragraph Type="General" DraftFirst:TitleKey="Title" DraftFirst:TitleEntry="0"><Text>A</Text></Paragraph><Paragraph Type="General" DraftFirst:TitleKey="Author" DraftFirst:TitleEntry="0"><Text>B</Text></Paragraph></Content></TitlePage></FinalDraft>`
+);
+addFdxImport(
+	'numeric-entities',
+	`<FinalDraft><Content><Paragraph Type="Action"><Text>&#65;&#x42; &#x110000; &#55296;</Text></Paragraph></Content></FinalDraft>`
+);
+addFdxImport('limits-source', `<FinalDraft><Content/></FinalDraft>`, { maxSourceCharacters: 10 });
+addFdxImport(
+	'limits-warnings',
+	`<FinalDraft><Content>${Array.from({ length: 8 }, (_, i) => `<Paragraph Type="Unknown ${i}"><Text>x</Text></Paragraph>`).join('')}</Content></FinalDraft>`,
+	{ maxWarnings: 2 }
+);
+addFdxImport(
+	'limits-paragraphs',
+	`<FinalDraft><Content><Paragraph Type="Action"><Text>a</Text></Paragraph><Paragraph Type="Action"><Text>b</Text></Paragraph></Content></FinalDraft>`,
+	{ maxParagraphs: 1 }
+);
+
+/* Every corpus screenplay, exported. The torture script drags NFD marks,
+   a NEL, emoji, and an unclosed boneyard through the XML writer; the
+   feature pins the export at production length. */
+for (const { name, source } of SCRIPTS) {
+	addFdxExport(name, parseFountain(source));
+}
+addFdxExport('special-fields', {
+	titlePage: [
+		{ key: 'Title', values: ['A & B'] },
+		{ key: 'Custom', values: [] }
+	],
+	elements: [
+		{ type: 'scene', text: 'INT. A & B - DAY', sceneNumber: 'A7' },
+		{ type: 'character', text: 'MARA', dual: true },
+		{ type: 'dialogue', text: `It's <fine> "really".` },
+		{ type: 'centered', text: 'THE END' },
+		{ type: 'lyrics', text: 'La la' }
+	]
+});
+addFdxExport('structural-omissions', {
+	titlePage: [],
+	elements: [
+		{ type: 'section', text: 'Act One', depth: 1 },
+		{ type: 'note', text: 'hidden' },
+		{ type: 'synopsis', text: 'beat' },
+		{ type: 'pagebreak', text: '' },
+		{ type: 'action', text: 'Visible.' }
+	]
+});
+addFdxExport('illegal-characters', {
+	titlePage: [],
+	elements: [{ type: 'action', text: 'A\u0000B' }]
+});
+
+writeFixture('fdx.json', { import: fdxImport, export: fdxExport });
 
 console.log('✓ conformance corpus written to ios/DraftFirstEngine/Fixtures/');

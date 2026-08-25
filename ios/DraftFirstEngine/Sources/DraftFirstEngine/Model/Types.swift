@@ -3,7 +3,7 @@ import Foundation
 /// Version of the native engine package, reported in the app's Settings
 /// panel where the JavaScriptCore bundle's version used to appear.
 public enum EngineInfo {
-    public static let version = "eDraft Engine 0.1.0 (Swift)"
+    public static let version = "eDraft Engine 0.2.0 (Swift)"
 }
 
 /// The canonical screenplay element vocabulary, mirroring the TypeScript
