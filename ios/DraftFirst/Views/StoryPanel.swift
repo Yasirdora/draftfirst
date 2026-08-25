@@ -18,25 +18,14 @@ struct StoryPanel: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    Picker("Story", selection: $tab) {
-                        ForEach(Tab.allCases) { tab in
-                            Text(tab.rawValue).tag(tab)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
-                }
-
+                // The segment IS the label — no card around the picker, no
+                // section header repeating it underneath.
                 Section {
                     if tab == .scenes {
                         sceneRows
                     } else {
                         castRows
                     }
-                } header: {
-                    Text(tab.rawValue)
                 } footer: {
                     // Document health, demoted to a footnote: present for the
                     // writer who wants it, never in the way of the one who
@@ -51,6 +40,18 @@ struct StoryPanel: View {
             .navigationTitle("Navigator")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // The Scenes/Cast switch sits in the bar as the principal
+                // item — the Phone and App Store idiom — instead of a list
+                // row, where the grouped style would wrap it in a card.
+                ToolbarItem(placement: .principal) {
+                    Picker("Story", selection: $tab) {
+                        ForEach(Tab.allCases) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
