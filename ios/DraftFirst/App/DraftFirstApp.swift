@@ -31,12 +31,9 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     static func applyAppearance() {
-        let style: UIUserInterfaceStyle = switch AppearancePreference(
-            rawValue: UserDefaults.standard.string(forKey: "appearance") ?? ""
-        ) ?? .dark {
-        case .light: .light
-        case .dark: .dark
-        }
+        // `.unspecified` for System hands the window back to the device, so
+        // sunset-scheduled dark mode reaches every window we own.
+        let style = AppearancePreference.stored.userInterfaceStyle
         for scene in UIApplication.shared.connectedScenes {
             guard let windowScene = scene as? UIWindowScene else { continue }
             for window in windowScene.windows {

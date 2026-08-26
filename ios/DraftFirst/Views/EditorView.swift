@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct EditorView: View {
     @Binding private var document: DraftFirstDocument
@@ -23,7 +24,8 @@ struct EditorView: View {
     @Environment(\.dismiss) private var dismissEditor
     // The scheme itself is applied at scene level in DraftFirstApp (browser
     // and editor can never disagree); this binding is the menu's write path.
-    @AppStorage("appearance") private var appearance: AppearancePreference = .dark
+    @AppStorage(AppearancePreference.storageKey)
+    private var appearance: AppearancePreference = .default
 
     init(document: Binding<DraftFirstDocument>, fileURL: URL? = nil, startsAtEnd: Bool = false) {
         _document = document
@@ -193,21 +195,52 @@ struct EditorView: View {
     }
 }
 
+/// How the app picks its appearance. Following the device is the default and
+/// the first option, as the HIG expects: a writer whose phone turns dark at
+/// sunset should not have to tell us twice. Light and Dark stay available for
+/// writers who want the page to hold still regardless of the hour.
 enum AppearancePreference: String, CaseIterable, Identifiable {
+    case system
     case light
     case dark
 
     var id: String { rawValue }
 
+    /// What an unset or unrecognised preference means. Writers who never
+    /// opened the menu follow their device; an explicit choice is stored and
+    /// therefore survives this fallback.
+    static let `default`: AppearancePreference = .system
+
+    static let storageKey = "appearance"
+
+    /// The stored preference, or the default when nothing valid is stored.
+    /// One reader for every call site, so the fallback can never drift.
+    static var stored: AppearancePreference {
+        AppearancePreference(rawValue: UserDefaults.standard.string(forKey: storageKey) ?? "")
+            ?? .default
+    }
+
     var title: String {
         switch self {
+        case .system: "System"
         case .light: "Light"
         case .dark: "Dark"
         }
     }
 
-    var colorScheme: ColorScheme {
+    var symbol: String {
         switch self {
+        case .system: "circle.lefthalf.filled"
+        case .light: "sun.max"
+        case .dark: "moon"
+        }
+    }
+
+    /// `.unspecified` is how a window is told to follow the device — the
+    /// whole point of the System option.
+    var userInterfaceStyle: UIUserInterfaceStyle {
+        switch self {
+        case .system: .unspecified
         case .light: .light
         case .dark: .dark
         }

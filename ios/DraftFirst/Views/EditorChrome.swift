@@ -236,9 +236,7 @@ final class ChromeCoordinator {
         // checkmarks); every action reads chrome when invoked, so a cached
         // menu still acts on live state. Rebuilding it on every pass would
         // dismiss the menu while it is open.
-        let storedAppearance = AppearancePreference(
-            rawValue: UserDefaults.standard.string(forKey: "appearance") ?? ""
-        ) ?? .dark
+        let storedAppearance = AppearancePreference.stored
         guard storedAppearance != lastMenuAppearance else { return }
         lastMenuAppearance = storedAppearance
         settingsItem.menu = settingsMenu()
@@ -300,14 +298,13 @@ final class ChromeCoordinator {
             title: "", options: .displayInline, children: [export, print]
         )
 
-        let storedAppearance = AppearancePreference(
-            rawValue: UserDefaults.standard.string(forKey: "appearance") ?? ""
-        ) ?? .dark
+        let storedAppearance = AppearancePreference.stored
         let appearance = UIMenu(
-            title: "Appearance", image: UIImage(systemName: "circle.lefthalf.filled"),
+            title: "Appearance", image: UIImage(systemName: storedAppearance.symbol),
             children: AppearancePreference.allCases.map { option in
                 UIAction(
                     title: option.title,
+                    image: UIImage(systemName: option.symbol),
                     state: storedAppearance == option ? .on : .off
                 ) { [weak self] _ in
                     self?.chrome.setAppearance(option)
