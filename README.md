@@ -1,24 +1,26 @@
 # eDraft Screenwriting
 
-[![npm version](https://img.shields.io/npm/v/%40draftfirst%2Fcore?label=%40draftfirst%2Fcore&color=cb3837)](https://www.npmjs.com/package/@draftfirst/core)
-[![npm downloads](https://img.shields.io/npm/dm/%40draftfirst%2Fcore?color=cb3837)](https://www.npmjs.com/package/@draftfirst/core)
-[![CI](https://github.com/Yasirdora/draftfirst/actions/workflows/ci.yml/badge.svg)](https://github.com/Yasirdora/draftfirst/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/%40edraft%2Fcore?label=%40edraft%2Fcore&color=cb3837)](https://www.npmjs.com/package/@edraft/core)
+[![npm downloads](https://img.shields.io/npm/dm/%40edraft%2Fcore?color=cb3837)](https://www.npmjs.com/package/@edraft/core)
+[![CI](https://github.com/Yasirdora/edraft/actions/workflows/ci.yml/badge.svg)](https://github.com/Yasirdora/edraft/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-2ea44f.svg)](./LICENSE)
 
 eDraft is a privacy-first screenwriting workspace backed by a reusable,
 framework-independent TypeScript engine. It supports Fountain and a deliberately
 bounded subset of FDX, deterministic screenplay pagination, story-aware writing
 assistance, and continuity analysis without sending a writer's work to a server.
-(The product is eDraft; the repository, npm scope, and code identifiers remain
-`draftfirst`.)
+
+Files exported under the project's former name keep opening: the FDX reader
+accepts both extension namespaces, and the PDF round-trip signal accepts both
+markers. A rename is our problem, never a writer's.
 
 Development began in November 2025. The first public engine release was prepared
 in August 2026 after the document model, interoperability layer, pagination, and
 editor policies were separated into a tested package.
 
-- Website: [draftfirst.xyz](https://draftfirst.xyz)
-- npm package: [`@draftfirst/core`](https://www.npmjs.com/package/@draftfirst/core)
-- Package source: [`packages/draftfirst`](./packages/draftfirst)
+- Website: [edraft.xyz](https://edraft.xyz)
+- npm package: [`@edraft/core`](https://www.npmjs.com/package/@edraft/core)
+- Package source: [`packages/edraft`](./packages/edraft)
 - License: [MIT](./LICENSE)
 
 ## Why this project exists
@@ -41,12 +43,12 @@ The engine provides:
 ## Install the engine
 
 ```sh
-npm install @draftfirst/core
+npm install @edraft/core
 ```
 
 ```ts
-import { parseFountain, validateScreenplay } from '@draftfirst/core';
-import { paginate } from '@draftfirst/core/layout';
+import { parseFountain, validateScreenplay } from '@edraft/core';
+import { paginate } from '@edraft/core/layout';
 
 const screenplay = parseFountain(`INT. KITCHEN - NIGHT
 
@@ -62,17 +64,17 @@ const pages = paginate(screenplay);
 ```
 
 The package API, supported formats, limitations, and security model are
-documented in the [`@draftfirst/core` README](./packages/draftfirst/README.md).
+documented in the [`@edraft/core` README](./packages/edraft/README.md).
 The Svelte editor is intentionally not shipped in the npm package.
 
 ## Repository structure
 
 ```text
-packages/draftfirst/          Public @draftfirst/core package
+packages/edraft/          Public @edraft/core package
   src/                        Document, format, layout, and analysis modules
   README.md                   Package API and compatibility contract
 src/lib/components/
-  ScriptEditor.svelte         Draft First web editor
+  ScriptEditor.svelte         eDraft web editor
 src/lib/screenplay/
   pdf.ts                      App-only PDF export
   sample.ts                   App-only sample screenplay
@@ -110,13 +112,13 @@ The included Cloudflare Pages configuration uses the same build output.
 
 ## Compatibility and security
 
-Draft First treats imported documents as untrusted input. Parsers enforce
+eDraft treats imported documents as untrusted input. Parsers enforce
 resource limits, FDX processing does not resolve external entities, and lossy or
 unsupported conversions return diagnostics. Applications should retain original
 production files and review those diagnostics before replacing them.
 
 Please report security issues through
-[GitHub private vulnerability reporting](https://github.com/Yasirdora/draftfirst/security)
+[GitHub private vulnerability reporting](https://github.com/Yasirdora/edraft/security)
 instead of a public issue. See [SECURITY.md](./SECURITY.md) for the policy.
 
 ## Contributing

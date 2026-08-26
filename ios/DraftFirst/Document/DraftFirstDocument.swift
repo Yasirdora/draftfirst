@@ -5,7 +5,7 @@ import DraftFirstEngine
 
 extension UTType {
     nonisolated static let draftFirstScreenplay = UTType(
-        exportedAs: "xyz.draftfirst.screenplay",
+        exportedAs: "xyz.edraft.screenplay",
         conformingTo: .plainText
     )
     /// Final Draft's interchange format. The declaration is imported: when
@@ -127,7 +127,7 @@ enum ScreenplayExporter {
                 if line.type == .blank {
                     out.append("")
                 } else {
-                    out.append(String(repeating: " ", count: leadingSpaces(for: line)) + line.text)
+                    out.append(String(repeating: " ", count: leadingSpaces(for: line)) + renderedText(for: line))
                 }
             }
             out.append("")
@@ -227,6 +227,18 @@ enum ScreenplayExporter {
         return max(0, line.indent)
     }
 
+    /// A dual-dialogue cue carries Fountain's `^` marker through the
+    /// paginator so wrapping accounts for its width; a rendered page must
+    /// never show it. Dual speeches print sequentially — nothing lost,
+    /// nothing invented — the same contract as the web PDF exporter, until
+    /// a true side-by-side layout exists.
+    private static func renderedText(for line: PageLine) -> String {
+        if case .element(.character) = line.type, line.text.hasSuffix(" ^") {
+            return String(line.text.dropLast(2))
+        }
+        return line.text
+    }
+
     private static func drawScriptPage(_ page: DraftFirstEngine.ScriptPage, format: PageFormat, showPageNumbers: Bool) {
         let attributes = textAttributes
         let characterWidth = ("0" as NSString).size(withAttributes: attributes).width
@@ -244,14 +256,15 @@ enum ScreenplayExporter {
 
         for (index, line) in page.lines.enumerated() where line.type != .blank {
             let y = textTop + CGFloat(index) * lineHeight
+            let text = renderedText(for: line)
             switch line.type {
             case .element(.transition):
-                drawRightAligned(line.text, rightEdge: format.textRight, y: y, attributes: attributes)
+                drawRightAligned(text, rightEdge: format.textRight, y: y, attributes: attributes)
             case .element(.centered):
-                drawCentered(line.text, y: y, format: format, attributes: attributes)
+                drawCentered(text, y: y, format: format, attributes: attributes)
             default:
                 let x = textLeft + CGFloat(leadingSpaces(for: line)) * characterWidth
-                (line.text as NSString).draw(at: CGPoint(x: x, y: y), withAttributes: attributes)
+                (text as NSString).draw(at: CGPoint(x: x, y: y), withAttributes: attributes)
             }
         }
 

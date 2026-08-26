@@ -8,15 +8,15 @@
 </script>
 
 <svelte:head>
-	<title>Draft First Screenwriting</title>
+	<title>eDraft Screenwriting</title>
 	<meta
 		name="description"
 		content="A private, browser-based screenplay editor with professional formatting, Fountain, and FDX support."
 	/>
-	<meta name="application-name" content="Draft First" />
+	<meta name="application-name" content="eDraft" />
 	<meta name="apple-mobile-web-app-capable" content="yes" />
 	<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-	<meta name="apple-mobile-web-app-title" content="Draft First" />
+	<meta name="apple-mobile-web-app-title" content="eDraft" />
 	<meta name="mobile-web-app-capable" content="yes" />
 	<meta name="color-scheme" content="light dark" />
 	<meta name="theme-color" media="(prefers-color-scheme: light)" content="#2A5B8C" />

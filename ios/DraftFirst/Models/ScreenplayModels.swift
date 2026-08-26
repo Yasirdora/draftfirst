@@ -2,7 +2,7 @@ import Foundation
 import os
 import DraftFirstEngine
 
-private let modelLog = Logger(subsystem: "xyz.draftfirst.ios", category: "ScreenplayModels")
+private let modelLog = Logger(subsystem: "xyz.edraft.ios", category: "ScreenplayModels")
 
 enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case scene

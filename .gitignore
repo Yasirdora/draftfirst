@@ -8,8 +8,8 @@ node_modules
 .wrangler
 /.svelte-kit
 /build
-/packages/draftfirst/dist
-/packages/draftfirst/coverage
+/packages/edraft/dist
+/packages/edraft/coverage
 *.tsbuildinfo
 *.tgz
 

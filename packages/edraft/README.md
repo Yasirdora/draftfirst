@@ -1,20 +1,20 @@
-# Draft First Screenwriting Engine
+# eDraft Screenwriting Engine
 
-The Draft First Screenwriting Engine is a framework-free TypeScript library for
+The eDraft Screenwriting Engine is a framework-free TypeScript library for
 screenplay documents. It parses and serializes Fountain, imports and exports a
 deliberately bounded FDX subset, paginates screenplay elements deterministically,
 and derives useful story context without sending a writer's work anywhere.
 
-Draft First has been under development since November 2025. Version `0.1.0` is
+eDraft has been under development since November 2025. Version `0.1.0` is
 the first public package release.
 
 ```sh
-npm install @draftfirst/core
+npm install @edraft/core
 ```
 
 ```ts
-import { parseFountain, serializeFountain, validateScreenplay } from '@draftfirst/core';
-import { paginate } from '@draftfirst/core/layout';
+import { parseFountain, serializeFountain, validateScreenplay } from '@edraft/core';
+import { paginate } from '@edraft/core/layout';
 
 const script = parseFountain(`INT. KITCHEN - NIGHT
 
@@ -32,20 +32,20 @@ const fountain = serializeFountain(script);
 
 ## Public modules
 
-- `@draftfirst/core` — document types, validation, and the stable Fountain API
-- `@draftfirst/core/fountain` — Fountain parsing, serialization, and normalization
-- `@draftfirst/core/fdx` — bounded, best-effort FDX interoperability
-- `@draftfirst/core/layout` — deterministic pagination and runtime estimates
-- `@draftfirst/core/analysis` — SmartType and continuity analysis
-- `@draftfirst/core/editor` — framework-free prediction and keyboard choreography
+- `@edraft/core` — document types, validation, and the stable Fountain API
+- `@edraft/core/fountain` — Fountain parsing, serialization, and normalization
+- `@edraft/core/fdx` — bounded, best-effort FDX interoperability
+- `@edraft/core/layout` — deterministic pagination and runtime estimates
+- `@edraft/core/analysis` — SmartType and continuity analysis
+- `@edraft/core/editor` — framework-free prediction and keyboard choreography
 
-The Svelte editor used at [draftfirst.xyz](https://draftfirst.xyz) is not part of
+The Svelte editor used at [edraft.xyz](https://edraft.xyz) is not part of
 this package. The package contains no UI framework, network, storage, analytics,
 or runtime dependencies.
 
 ## Compatibility contract
 
-Draft First preserves screenplay text and reports unsupported or malformed input
+eDraft preserves screenplay text and reports unsupported or malformed input
 instead of silently claiming perfect compatibility. Fountain and FDX are richer
 than a single initial release can safely promise:
 
@@ -70,15 +70,15 @@ diagnostics for malformed data. Applications should still enforce their own file
 size limits before reading a user-selected file into memory.
 
 Security reports should use GitHub's private vulnerability reporting for the
-[Draft First repository](https://github.com/Yasirdora/draftfirst/security).
+[eDraft repository](https://github.com/Yasirdora/edraft/security).
 
 ## Support
 
-Draft First is ESM-only and supports Node.js 20 or newer and modern browsers.
+eDraft is ESM-only and supports Node.js 20 or newer and modern browsers.
 TypeScript declarations are included. The public API is pre-1.0 and may evolve
 through documented minor releases.
 
-Draft First is not affiliated with or endorsed by Final Draft, Inc.
+eDraft is not affiliated with or endorsed by Final Draft, Inc.
 
 ## License
 

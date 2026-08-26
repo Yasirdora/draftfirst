@@ -1,12 +1,12 @@
 /**
- * Draft First Screenwriting Engine FDX interoperability.
+ * eDraft Screenwriting Engine FDX interoperability.
  *
  * This is deliberately a small, non-validating XML reader. It understands the
  * FDX paragraph/text subset, ignores comments and processing instructions, and
  * never resolves external entities. Import is bounded and best-effort: malformed
  * input produces structured diagnostics instead of escaping as an exception.
  *
- * FDX cannot represent every element in the Draft First document model. Detailed export
+ * FDX cannot represent every element in the eDraft document model. Detailed export
  * therefore reports every lossy conversion, and the compatibility `writeFdx`
  * helper embeds an XML warning when non-printing structure must be omitted.
  */
@@ -225,7 +225,13 @@ const MODEL_TO_FDX: Readonly<Partial<Record<AnyElementType, string>>> = {
 	lyrics: 'General'
 };
 
-const DRAFTFIRST_NAMESPACE = 'https://draftfirst.xyz/ns/fdx/1';
+/* Our own FDX extension namespace: the attributes Final Draft has no field
+   for (lyrics, title-page keys). The prefix and URI changed with the eDraft
+   rename, so both are READ and only the current one is written — an .fdx
+   exported under the old name must keep re-importing losslessly forever. */
+const EDRAFT_NAMESPACE = 'https://edraft.xyz/ns/fdx/1';
+const EDRAFT_PREFIX = 'EDraft';
+const LEGACY_ATTRIBUTE_PREFIXES: readonly string[] = Object.freeze(['draftfirst']);
 
 /* ---- bounded XML tokenisation ------------------------------------------ */
 
@@ -574,6 +580,21 @@ function attributeOf(paragraph: FdxParagraph, name: string): string {
 	return paragraph.attributes.get(name.toLowerCase()) ?? '';
 }
 
+/**
+ * One of our own extension attributes, read under the current prefix or any
+ * legacy one. Files exported before the eDraft rename carry `draftfirst:`;
+ * they must keep importing losslessly, so every reader tries both.
+ */
+function extensionAttribute(paragraph: FdxParagraph, name: string): string {
+	const current = attributeOf(paragraph, `${EDRAFT_PREFIX}:${name}`);
+	if (current !== '') return current;
+	for (const legacy of LEGACY_ATTRIBUTE_PREFIXES) {
+		const value = attributeOf(paragraph, `${legacy}:${name}`);
+		if (value !== '') return value;
+	}
+	return '';
+}
+
 /* ---- import ------------------------------------------------------------- */
 
 /** Guess a title-page key from paragraph position when an external FDX has no key metadata. */
@@ -589,8 +610,8 @@ function titlePageOf(
 	const untagged: string[] = [];
 
 	for (const paragraph of paragraphs) {
-		const key = attributeOf(paragraph, 'draftfirst:titlekey');
-		const rawEntryIndex = attributeOf(paragraph, 'draftfirst:titleentry');
+		const key = extensionAttribute(paragraph, 'titlekey');
+		const rawEntryIndex = extensionAttribute(paragraph, 'titleentry');
 		const entryIndex = Number(rawEntryIndex);
 		if (
 			key !== '' &&
@@ -688,8 +709,8 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 				type = 'general';
 			}
 
-			const draftFirstType = attributeOf(paragraph, 'draftfirst:elementtype').toLowerCase();
-			if (type === 'general' && draftFirstType === 'lyrics') type = 'lyrics';
+			const extensionType = extensionAttribute(paragraph, 'elementtype').toLowerCase();
+			if (type === 'general' && extensionType === 'lyrics') type = 'lyrics';
 			if (type === 'general' && attributeOf(paragraph, 'alignment').toLowerCase() === 'center') {
 				type = 'centered';
 			}
@@ -747,7 +768,7 @@ export function writeFdxWithDiagnostics(
 
 		const attributes: string[] = [`Type="${fdxType}"`];
 		if (element.type === 'centered') attributes.push('Alignment="Center"');
-		if (element.type === 'lyrics') attributes.push('DraftFirst:ElementType="lyrics"');
+		if (element.type === 'lyrics') attributes.push(`${EDRAFT_PREFIX}:ElementType="lyrics"`);
 		if (element.type === 'character' && element.dual) attributes.push('Dual="Yes"');
 		if (element.type === 'scene' && element.sceneNumber) {
 			attributes.push(
@@ -777,11 +798,11 @@ export function writeFdxWithDiagnostics(
 
 	const out: string[] = [
 		XML_HEADER,
-		`<FinalDraft xmlns:DraftFirst="${DRAFTFIRST_NAMESPACE}" DocumentType="Script" Version="3">`
+		`<FinalDraft xmlns:${EDRAFT_PREFIX}="${EDRAFT_NAMESPACE}" DocumentType="Script" Version="3">`
 	];
 	if (omittedStructural + omittedUnknown > 0) {
 		out.push(
-			`<!-- DraftFirst warning: ${omittedStructural + omittedUnknown} unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->`
+			`<!-- eDraft warning: ${omittedStructural + omittedUnknown} unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->`
 		);
 	}
 	out.push('<Content>', ...body, '</Content>');
@@ -794,7 +815,7 @@ export function writeFdxWithDiagnostics(
 			for (const value of values) {
 				const encoded = encodeXmlValue(value, diagnostics, `title-page entry ${entryIndex}`);
 				out.push(
-					`<Paragraph Alignment="Center" Type="General" DraftFirst:TitleKey="${key}" DraftFirst:TitleEntry="${entryIndex}"><Text>${encoded}</Text></Paragraph>`
+					`<Paragraph Alignment="Center" Type="General" ${EDRAFT_PREFIX}:TitleKey="${key}" ${EDRAFT_PREFIX}:TitleEntry="${entryIndex}"><Text>${encoded}</Text></Paragraph>`
 				);
 			}
 		}

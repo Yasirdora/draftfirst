@@ -1,4 +1,4 @@
-/** Stable root API for the Draft First Screenwriting Engine. */
+/** Stable root API for the eDraft Screenwriting Engine. */
 
 export type {
 	AnyElementType,
@@ -12,14 +12,14 @@ export { isPrinting } from './types.js';
 
 export type {
 	DiagnosticSeverity,
-	DraftFirstDiagnostic,
+	EDraftDiagnostic,
 	ScreenplayLimits,
 	ScreenplayValidationResult
 } from './validation.js';
 export {
 	assertScreenplay,
 	DEFAULT_SCREENPLAY_LIMITS,
-	DraftFirstValidationError,
+	EDraftValidationError,
 	validateScreenplay
 } from './validation.js';
 

@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine paginator.
+ * eDraft Screenwriting Engine paginator.
  *
  * Applies deterministic screenplay pagination constraints:
  *

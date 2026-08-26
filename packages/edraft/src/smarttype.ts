@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine vocabulary extraction.
+ * eDraft Screenwriting Engine vocabulary extraction.
  *
  * Derives character names, locations, scene times, transitions, and heading
  * prefixes from a screenplay without retaining state.

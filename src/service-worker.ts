@@ -8,7 +8,7 @@
 import { build, files, version } from '$service-worker';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
-const CACHE = `draftfirst-${version}`;
+const CACHE = `edraft-${version}`;
 const ASSETS = [...build, ...files];
 
 sw.addEventListener('install', (event) => {

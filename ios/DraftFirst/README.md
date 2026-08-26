@@ -38,6 +38,6 @@ Inline suggestions come from the native prediction engine for character, locatio
 Editor preview builds must use a separate bundle identifier so they never replace the regular app or its document-browser launch state:
 
 ```sh
-PRODUCT_BUNDLE_IDENTIFIER=xyz.draftfirst.ios.qa \
+PRODUCT_BUNDLE_IDENTIFIER=xyz.edraft.ios.qa \
 SWIFT_ACTIVE_COMPILATION_CONDITIONS='DEBUG EDITOR_PREVIEW'
 ```

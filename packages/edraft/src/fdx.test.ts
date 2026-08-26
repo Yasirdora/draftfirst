@@ -145,7 +145,7 @@ describe('parseFdx · import', () => {
 describe('writeFdx · export', () => {
 	it('emits a valid FinalDraft envelope', () => {
 		const fdx = writeFdx(parseFountain(SAMPLE_FOUNTAIN));
-		expect(fdx).toContain('<FinalDraft xmlns:DraftFirst="https://draftfirst.xyz/ns/fdx/1"');
+		expect(fdx).toContain('<FinalDraft xmlns:EDraft="https://edraft.xyz/ns/fdx/1"');
 		expect(fdx).toContain('DocumentType="Script" Version="3">');
 		expect(fdx).toContain('</FinalDraft>');
 		expect(fdx).toContain('<TitlePage>');
@@ -182,7 +182,7 @@ describe('writeFdx · export', () => {
 		expect(result.xml).not.toContain('Act One');
 		expect(result.xml).not.toContain('hidden');
 		expect(result.xml).toContain('Visible.');
-		expect(result.xml).toContain('DraftFirst warning: 2 unsupported element(s) omitted');
+		expect(result.xml).toContain('eDraft warning: 2 unsupported element(s) omitted');
 		expect(result.diagnostics).toContainEqual(
 			expect.objectContaining({ code: 'FDX_STRUCTURAL_ELEMENTS_OMITTED', count: 2 })
 		);
@@ -243,5 +243,47 @@ describe('FDX round-trips (hard invariants)', () => {
 		expect(viaFdx.elements.map((e) => [e.type, e.text])).toEqual(
 			printable.map((e) => [e.type, e.text])
 		);
+	});
+});
+
+/**
+ * The rename compatibility contract. An .fdx exported under the old name
+ * carries `draftfirst:` extension attributes; it must keep importing with
+ * full fidelity. We read the old prefix and never write it again.
+ */
+describe('pre-rename FDX files', () => {
+	const legacyFdx = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft xmlns:DraftFirst="https://draftfirst.xyz/ns/fdx/1" DocumentType="Script" Version="3">
+<Content>
+<Paragraph Type="General" DraftFirst:ElementType="lyrics"><Text>Sing me home</Text></Paragraph>
+</Content>
+<TitlePage>
+<Content>
+<Paragraph Alignment="Center" Type="General" DraftFirst:TitleKey="Title" DraftFirst:TitleEntry="0"><Text>Old Name</Text></Paragraph>
+<Paragraph Alignment="Center" Type="General" DraftFirst:TitleKey="Author" DraftFirst:TitleEntry="1"><Text>A. Writer</Text></Paragraph>
+</Content>
+</TitlePage>
+</FinalDraft>
+`;
+
+	it('restores lyrics from the legacy element-type attribute', () => {
+		const { script } = parseFdx(legacyFdx);
+		expect(script.elements[0]).toMatchObject({ type: 'lyrics', text: 'Sing me home' });
+	});
+
+	it('restores keyed title-page entries from legacy attributes', () => {
+		const { script } = parseFdx(legacyFdx);
+		expect(script.titlePage).toEqual([
+			{ key: 'Title', values: ['Old Name'] },
+			{ key: 'Author', values: ['A. Writer'] }
+		]);
+	});
+
+	it('re-exports the same document under the current namespace only', () => {
+		const xml = writeFdx(parseFdx(legacyFdx).script);
+		expect(xml).toContain('xmlns:EDraft="https://edraft.xyz/ns/fdx/1"');
+		expect(xml).toContain('EDraft:ElementType="lyrics"');
+		expect(xml).not.toContain('draftfirst.xyz');
+		expect(xml).not.toContain('DraftFirst:');
 	});
 });

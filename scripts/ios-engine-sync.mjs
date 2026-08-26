@@ -2,7 +2,7 @@
 /*
  * Builds the iOS engine bundle.
  *
- *   tsc (packages/draftfirst/dist) → esbuild IIFE (scripts/ios-bridge-entry.js)
+ *   tsc (packages/edraft/dist) → esbuild IIFE (scripts/ios-bridge-entry.js)
  *   → ios/DraftFirst/Resources/draftfirst-engine.js + ENGINE-CHECKSUM.txt
  *
  * The artifact is then verified inside the REAL JavaScriptCore runtime
@@ -16,14 +16,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const pkgPath = join(root, 'packages/draftfirst/package.json');
+const pkgPath = join(root, 'packages/edraft/package.json');
 const version = JSON.parse(readFileSync(pkgPath, 'utf8')).version;
 const outDir = join(root, 'ios/DraftFirst/Resources');
 const outFile = join(outDir, 'draftfirst-engine.js');
 const esbuild = join(root, 'node_modules/.bin/esbuild');
 
-console.log(`▸ building @draftfirst/core ${version} (tsc)`);
-execSync('npm run build --workspace=@draftfirst/core', { cwd: root, stdio: 'inherit' });
+console.log(`▸ building @edraft/core ${version} (tsc)`);
+execSync('npm run build --workspace=@edraft/core', { cwd: root, stdio: 'inherit' });
 
 if (!existsSync(esbuild)) {
 	console.error('✗ esbuild not found — run `npm install` first');
@@ -45,7 +45,7 @@ execFileSync(esbuild, [
 const bytes = readFileSync(outFile);
 const sha = createHash('sha256').update(bytes).digest('hex');
 writeFileSync(join(outDir, 'ENGINE-CHECKSUM.txt'), [
-	`engine: @draftfirst/core ${version}`,
+	`engine: @edraft/core ${version}`,
 	'file: draftfirst-engine.js',
 	`bytes: ${bytes.length}`,
 	`sha256: ${sha}`,

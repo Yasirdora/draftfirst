@@ -9,10 +9,10 @@
  *
  * Only PUBLIC engine subpaths are imported — the same API the web app uses.
  */
-import { parseFountain, serialiseFountain } from '../packages/draftfirst/dist/index.js';
-import { paginate, estimateRuntime, printedLineCount } from '../packages/draftfirst/dist/layout.js';
-import { predict, ghostSuffix } from '../packages/draftfirst/dist/editor.js';
-import { tabCycle, tabSetFor, nextElement } from '../packages/draftfirst/dist/editor.js';
+import { parseFountain, serialiseFountain } from '../packages/edraft/dist/index.js';
+import { paginate, estimateRuntime, printedLineCount } from '../packages/edraft/dist/layout.js';
+import { predict, ghostSuffix } from '../packages/edraft/dist/editor.js';
+import { tabCycle, tabSetFor, nextElement } from '../packages/edraft/dist/editor.js';
 
 /* replaced by esbuild --define at bundle time */
 const ENGINE_VERSION = __ENGINE_VERSION__; // eslint-disable-line no-undef

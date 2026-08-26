@@ -1,14 +1,14 @@
 <script lang="ts">
 	/**
-	 * Draft First Screenwriting editor surface.
+	 * eDraft Screenwriting editor surface.
 	 *
 	 * The DOM provides the contenteditable surface. Document parsing, pagination,
 	 * analysis, prediction, and keyboard policies come from the framework-free
 	 * engine package.
 	 */
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { isPrinting, type AnyElementType, type ScreenplayElement, type TitlePageEntry } from '@draftfirst/core';
-	import { nameDriftGroups, normalizeCueName, renameCharacter } from '@draftfirst/core/analysis';
+	import { isPrinting, type AnyElementType, type ScreenplayElement, type TitlePageEntry } from '@edraft/core';
+	import { nameDriftGroups, normalizeCueName, renameCharacter } from '@edraft/core/analysis';
 	import {
 		looksLikeCue,
 		normalizeElementText,
@@ -16,11 +16,11 @@
 		SCENE_DETECT,
 		serialiseFountain,
 		TRANSITION_DETECT
-	} from '@draftfirst/core/fountain';
-	import { parseFdx, writeFdxWithDiagnostics } from '@draftfirst/core/fdx';
-	import { finalizeImport, extractPdfPayload, importDocx, importPlainText, writeDocx } from '@draftfirst/core/import';
-	import type { ClassifiedLine, ImportResult } from '@draftfirst/core/import';
-	import { estimateRuntime, paginate } from '@draftfirst/core/layout';
+	} from '@edraft/core/fountain';
+	import { parseFdx, writeFdxWithDiagnostics } from '@edraft/core/fdx';
+	import { finalizeImport, extractPdfPayload, importDocx, importPlainText, writeDocx } from '@edraft/core/import';
+	import type { ClassifiedLine, ImportResult } from '@edraft/core/import';
+	import { estimateRuntime, paginate } from '@edraft/core/layout';
 	import {
 		detachStructural,
 		emptyEnterOutcome,
@@ -39,9 +39,10 @@
 		tabCycle,
 		type Prediction,
 		type StructuralAnchor
-	} from '@draftfirst/core/editor';
+	} from '@edraft/core/editor';
 	import { SAMPLE_FOUNTAIN } from '$lib/screenplay/sample';
-	import { scriptToPdf } from '$lib/screenplay/pdf';
+	import { scriptToPdf, PdfExportError, type PdfCompatibilityIssue } from '$lib/screenplay/pdf';
+	import { printedLineText } from '$lib/screenplay/pageline';
 	import { download, downloadBytes } from '$lib/utils/download';
 
 	/* ---- element metadata ------------------------------------------------ */
@@ -131,7 +132,9 @@
 	function showToast(type: 'success' | 'caution' | 'info' | 'error', msg: string) {
 		if (toastTimer) clearTimeout(toastTimer);
 		toast = { type, msg };
-		toastTimer = setTimeout(() => (toast = null), 3000);
+		/* An error carries instructions; three seconds is enough to see that
+		   something went wrong, not to read what to do about it. */
+		toastTimer = setTimeout(() => (toast = null), type === 'error' ? 7000 : 3000);
 	}
 	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -339,7 +342,17 @@
 	   Store model snapshots before mutations. Consecutive typing is grouped into
 	   one undo entry and snapshots never depend on editable HTML. */
 
-	interface Snap { els: ScreenplayElement[]; idx: number; off: number; tp?: TitlePageEntry[] }
+	/* A whole-document restore carries what the editable stream cannot: the
+	   title page, and the structure (notes, sections, synopses) that lives
+	   outside the printing blocks. Typing snapshots omit both — an ordinary
+	   keystroke cannot move them. */
+	interface Snap {
+		els: ScreenplayElement[];
+		idx: number;
+		off: number;
+		tp?: TitlePageEntry[];
+		anchors?: StructuralAnchor[];
+	}
 	/* $state so the ⋮ menu can grey out Undo/Redo when a stack is empty. */
 	const undoStack = $state<Snap[]>([]);
 	const redoStack = $state<Snap[]>([]);
@@ -368,6 +381,7 @@
 	}
 	function restoreSnap(s: Snap) {
 		if (s.tp) titleEntries = s.tp; /* whole-document restores carry their title page */
+		if (s.anchors) structuralAnchors = s.anchors;
 		sheet.innerHTML = '';
 		appendElements(s.els);
 		lastSnap = JSON.stringify(modelFromDOM());
@@ -1096,7 +1110,7 @@
 		const pages = paginate(currentScript());
 		const out = pages
 			.map((p) => {
-				const lines = p.lines.map((l) => ' '.repeat(l.indent) + l.text);
+				const lines = p.lines.map((l) => ' '.repeat(l.indent) + printedLineText(l));
 				if (p.continuedTop) lines.unshift('CONTINUED:');
 				if (p.continuedBottom) lines.push(' '.repeat(49) + '(CONTINUED)');
 				return lines.join('\n');
@@ -1105,10 +1119,43 @@
 		download(out + '\n', baseName() + '.txt', 'text/plain');
 		showToast('success', 'Exported ' + baseName() + '.txt');
 	}
+	/* The preflight names the exact character and the line it lives on, so
+	   the writer can fix it — or pick an export that carries it — instead of
+	   watching a button do nothing. */
+	function pdfIssueMessage(issue: PdfCompatibilityIssue, script: { elements: ScreenplayElement[] }): string {
+		let where = 'the document';
+		if (issue.source.kind === 'title-key' || issue.source.kind === 'title-value') {
+			where = 'the title page';
+		} else if (issue.source.kind === 'scene-number') {
+			where = 'a scene number';
+		} else {
+			const el = script.elements[issue.source.element];
+			if (el) {
+				const text = el.text.trim();
+				where = `“${text.length > 28 ? text.slice(0, 28) + '…' : text}”`;
+			}
+		}
+		return `PDF uses Courier's classic character set, which cannot print “${issue.character}” in ${where}. Edit it, or export Fountain, FDX, or Word — they carry it fine.`;
+	}
 	function exportPdf() {
 		exportMenuOn = false;
-		downloadBytes(scriptToPdf(currentScript()), baseName() + '.pdf', 'application/pdf');
-		showToast('success', 'Exported ' + baseName() + '.pdf');
+		const script = currentScript();
+		/* The bounded WinAnsi exporter refuses some characters by contract, and
+		   it refuses before it renders anything — so catching its own typed
+		   diagnostic costs nothing and beats scanning the script twice. What a
+		   refusal must never be is a click that does nothing. */
+		try {
+			downloadBytes(scriptToPdf(script), baseName() + '.pdf', 'application/pdf');
+			showToast('success', 'Exported ' + baseName() + '.pdf');
+		} catch (err) {
+			if (err instanceof PdfExportError && err.issue) {
+				showToast('error', pdfIssueMessage(err.issue, script));
+			} else if (err instanceof PdfExportError && err.code === 'TITLE_PAGE_OVERFLOW') {
+				showToast('error', 'The title page has more contact or draft lines than a page footer holds. Shorten them, then export again.');
+			} else {
+				showToast('error', 'PDF export failed: ' + (err instanceof Error ? err.message : String(err)));
+			}
+		}
 	}
 	function exportDocx() {
 		exportMenuOn = false;
@@ -1125,6 +1172,25 @@
 		input.value = '';
 		if (file) void importFileObject(file);
 	}
+	/* Opening a file must be as safe as starting fresh: loadModel clears the
+	   undo stacks, so the outgoing draft goes back on as the sole entry — the
+	   exact discipline startNew established. A blank document has nothing to
+	   lose and adds no entry. Returns whether a draft was preserved so the
+	   caller's toast can say the way back out loud. */
+	function loadReplacingDraft(elements: ScreenplayElement[], tp: TitlePageEntry[]): boolean {
+		const hadDraft = !(titleEntries.length === 0 && blocks().every((b) => isEmpty(b)));
+		const before: Snap = {
+			els: modelFromDOM(),
+			idx: 0,
+			off: 0,
+			tp: titleEntries,
+			anchors: structuralAnchors.slice()
+		};
+		loadModel(elements, tp); /* clears the stacks… */
+		if (hadDraft) undoStack.push(before); /* …so the outgoing draft is the one entry */
+		return hadDraft;
+	}
+	const restoreHint = (kept: boolean) => (kept ? ' · ⌘Z brings the previous draft back' : '');
 	/**
 	 * One pipeline for every path a file can arrive by — the open button or a
 	 * drop anywhere on the window. Exact formats (.fdx, .fountain, .draft)
@@ -1135,12 +1201,12 @@
 		try {
 			if (/\.fdx$/i.test(file.name) || /\.xml$/i.test(file.name)) {
 				const res = parseFdx(await file.text());
-				loadModel(res.script.elements, res.script.titlePage);
+				const kept = loadReplacingDraft(res.script.elements, res.script.titlePage);
 				showToast(
 					res.warnings.length ? 'caution' : 'success',
-					res.warnings.length
+					(res.warnings.length
 						? `Opened ${file.name} — ${res.warnings.length} note${res.warnings.length === 1 ? '' : 's'}, best effort`
-						: 'Opened ' + file.name
+						: 'Opened ' + file.name) + restoreHint(kept)
 				);
 			} else if (/\.docx$/i.test(file.name)) {
 				offerImportReview(file.name, await importDocx(new Uint8Array(await file.arrayBuffer())));
@@ -1151,16 +1217,16 @@
 				   a kind refusal — parsing arbitrary PDFs is a road we do not travel */
 				const fountain = extractPdfPayload(new Uint8Array(await file.arrayBuffer()));
 				if (fountain === null) {
-					showToast('caution', `${file.name} carries no Draft First source — try .fdx, .docx, or .txt instead`);
+					showToast('caution', `${file.name} carries no eDraft source — try .fdx, .docx, or .txt instead`);
 					return;
 				}
 				const script = parseFountain(fountain);
-				loadModel(script.elements, script.titlePage);
-				showToast('success', `Recovered ${file.name} — its source was embedded at export`);
+				const kept = loadReplacingDraft(script.elements, script.titlePage);
+				showToast('success', `Recovered ${file.name} — its source was embedded at export` + restoreHint(kept));
 			} else {
 				const script = parseFountain(await file.text());
-				loadModel(script.elements, script.titlePage);
-				showToast('success', 'Opened ' + file.name);
+				const kept = loadReplacingDraft(script.elements, script.titlePage);
+				showToast('success', 'Opened ' + file.name + restoreHint(kept));
 			}
 		} catch (err) {
 			showToast('error', 'Import failed: ' + (err instanceof Error ? err.message : String(err)));
@@ -1177,8 +1243,8 @@
 		}
 		/* nothing to weigh — the engine read every line cleanly */
 		if (result.report.flagged.length === 0 && result.report.warnings.length === 0) {
-			loadModel(result.script.elements, result.script.titlePage);
-			showToast('success', 'Opened ' + name);
+			const kept = loadReplacingDraft(result.script.elements, result.script.titlePage);
+			showToast('success', 'Opened ' + name + restoreHint(kept));
 			return;
 		}
 		importReview = {
@@ -1197,10 +1263,11 @@
 	}
 	function commitImportReview() {
 		if (!importReview || !reviewResult) return;
-		loadModel(reviewResult.script.elements, reviewResult.script.titlePage);
+		const kept = loadReplacingDraft(reviewResult.script.elements, reviewResult.script.titlePage);
 		showToast(
 			'success',
-			`Opened ${importReview.name} — ${plural(reviewResult.report.lines, 'line')}, ${plural(reviewResult.report.scenes, 'scene')}`
+			`Opened ${importReview.name} — ${plural(reviewResult.report.lines, 'line')}, ${plural(reviewResult.report.scenes, 'scene')}` +
+				restoreHint(kept)
 		);
 		importReview = null;
 	}
@@ -1220,10 +1287,10 @@
 	}
 	function startNew() {
 		newConfirmOn = false;
-		const before: Snap = { els: modelFromDOM(), idx: 0, off: 0, tp: titleEntries };
-		loadModel([{ type: 'scene', text: '' }], []); /* clears the undo stacks… */
-		undoStack.push(before); /* …so the outgoing draft survives as the one entry */
-		showToast('info', 'New screenplay — ⌘Z brings the previous draft back');
+		/* Same guarantee as opening a file: nothing replaces a draft without
+		   leaving a way back to it. */
+		const kept = loadReplacingDraft([{ type: 'scene', text: '' }], []);
+		showToast('info', 'New screenplay' + (kept ? ' — ⌘Z brings the previous draft back' : ''));
 		sheet.focus();
 	}
 	function exportThenNew() {

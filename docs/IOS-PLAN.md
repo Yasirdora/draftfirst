@@ -9,7 +9,7 @@
 ## 0. TL;DR
 
 We ship a **100% native SwiftUI app** that reuses our existing TypeScript engine
-(`@draftfirst/core`) **unchanged**, embedded through **JavaScriptCore**. One source of
+(`@edraft/core`) **unchanged**, embedded through **JavaScriptCore**. One source of
 truth for prediction, pagination, analysis, import, and export — zero logic ported to
 Swift, zero drift between web and iOS. The UI follows the iOS 26 Liquid Glass rules to
 the letter: **glass on chrome, matte paper on content** — which is already our design
@@ -113,7 +113,7 @@ the platform teaches formatting as you type the way we do.
 │                  JavaScriptCore (JSContext)              │
 │                           │                              │
 │              edraft-engine.js  ◄── IIFE bundle of        │
-│              @draftfirst/core  ── the exact engine       │
+│              @edraft/core  ── the exact engine       │
 │              that ships on the web, 393 tests green      │
 └─────────────────────────────────────────────────────────┘
 ```

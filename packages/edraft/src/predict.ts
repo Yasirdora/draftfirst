@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine contextual predictions.
+ * eDraft Screenwriting Engine contextual predictions.
  *
  * Ranks deterministic suggestions from scene participants, recent dialogue,
  * document vocabulary, scene transitions, and open screenplay structures.

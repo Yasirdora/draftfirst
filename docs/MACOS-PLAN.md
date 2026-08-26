@@ -1,4 +1,4 @@
-# Draft First on macOS — Plan
+# eDraft on macOS — Plan
 
 *Status: planning · Owner: Ysr · Engine readiness: DraftFirstEngine already declares `.macOS(.v26)`; `EditorState` and `ElementCaseMemory` are platform-agnostic (Foundation + Observation only).*
 

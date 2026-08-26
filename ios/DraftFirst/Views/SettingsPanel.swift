@@ -40,7 +40,7 @@ struct SettingsPanel: View {
                 }
 
                 Section {
-                    Link(destination: URL(string: "mailto:feedback@draftfirst.app")!) {
+                    Link(destination: URL(string: "mailto:feedback@edraft.xyz")!) {
                         Label("Send Feedback", systemImage: "envelope")
                     }
                 }

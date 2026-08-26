@@ -57,7 +57,7 @@
 			<string>Owner</string>
 			<key>LSItemContentTypes</key>
 			<array>
-				<string>xyz.draftfirst.screenplay</string>
+				<string>xyz.edraft.screenplay</string>
 			</array>
 		</dict>
 		<dict>
@@ -95,7 +95,7 @@
 			<key>UTTypeDescription</key>
 			<string>eDraft Screenplay</string>
 			<key>UTTypeIdentifier</key>
-			<string>xyz.draftfirst.screenplay</string>
+			<string>xyz.edraft.screenplay</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>

@@ -14,9 +14,9 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseFountain, serialiseFountain } from '../packages/draftfirst/dist/index.js';
-import { parseFdx, writeFdxWithDiagnostics } from '../packages/draftfirst/dist/fdx.js';
-import { estimateRuntime, paginate, printedLineCount } from '../packages/draftfirst/dist/layout.js';
+import { parseFountain, serialiseFountain } from '../packages/edraft/dist/index.js';
+import { parseFdx, writeFdxWithDiagnostics } from '../packages/edraft/dist/fdx.js';
+import { estimateRuntime, paginate, printedLineCount } from '../packages/edraft/dist/layout.js';
 import {
 	ghostSuffix,
 	looksLikeCue,
@@ -29,8 +29,8 @@ import {
 	tabNext,
 	tabSetFor,
 	unwrapParenthetical
-} from '../packages/draftfirst/dist/editor.js';
-import { crc32 } from '../packages/draftfirst/dist/crc32.js';
+} from '../packages/edraft/dist/editor.js';
+import { crc32 } from '../packages/edraft/dist/crc32.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'ios/DraftFirstEngine/Fixtures');
@@ -147,7 +147,7 @@ writeFixture('crc32.json', crc32Fixture);
 
 /* The shared sample document, lifted verbatim from the package's own test
    fixture so web tests and iOS conformance share one source. */
-const sampleTs = readFileSync(join(root, 'packages/draftfirst/test/fixtures/sample.ts'), 'utf8');
+const sampleTs = readFileSync(join(root, 'packages/edraft/test/fixtures/sample.ts'), 'utf8');
 const sampleMatch = sampleTs.match(/SAMPLE_FOUNTAIN = `([\s\S]*?)`;/);
 if (!sampleMatch) throw new Error('could not extract SAMPLE_FOUNTAIN from test fixture');
 const SAMPLE_FOUNTAIN = sampleMatch[1];

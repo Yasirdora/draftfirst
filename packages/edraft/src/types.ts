@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine document model.
+ * eDraft Screenwriting Engine document model.
  *
  * A screenplay consists of a title page and a typed element stream shared by
  * the Fountain, FDX, pagination, and analysis modules.

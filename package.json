@@ -1,12 +1,12 @@
 {
-  "name": "draftfirst-web",
+  "name": "edraft-web",
   "private": true,
   "version": "0.1.0",
-  "description": "Draft First — a private, local-first screenplay editor and document engine",
+  "description": "eDraft — a private, local-first screenplay editor and document engine",
   "type": "module",
   "packageManager": "npm@11.16.0",
   "workspaces": [
-    "packages/draftfirst"
+    "packages/edraft"
   ],
   "scripts": {
     "predev": "npm run package:build",
@@ -17,10 +17,10 @@
     "check": "npm run package:build && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test:app": "vitest run",
-    "test:package": "npm test --workspace=@draftfirst/core",
+    "test:package": "npm test --workspace=@edraft/core",
     "test": "npm run package:build && npm run test:app && npm run test:package",
-    "package:build": "npm run build --workspace=@draftfirst/core",
-    "package:verify": "npm run verify --workspace=@draftfirst/core && npm run pack:check --workspace=@draftfirst/core",
+    "package:build": "npm run build --workspace=@edraft/core",
+    "package:verify": "npm run verify --workspace=@edraft/core && npm run pack:check --workspace=@edraft/core",
     "package:smoke": "node scripts/package-smoke.mjs",
     "quality": "npm run check && npm test && npm run build && npm run package:verify && npm run package:smoke",
     "deploy": "npm run build && npx wrangler@latest pages deploy build",
@@ -28,7 +28,7 @@
     "engine:conformance": "node scripts/engine-conformance-export.mjs"
   },
   "dependencies": {
-    "@draftfirst/core": "0.1.0"
+    "@edraft/core": "0.1.0"
   },
   "overrides": {
     "cookie": "^0.7.2",

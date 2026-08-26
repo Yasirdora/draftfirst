@@ -61,7 +61,7 @@ extension Fountain {
             return "~ \(element.text)"
 
         case .shot:
-            /* Fountain has no shot type. Draft First recognises isolated
+            /* Fountain has no shot type. eDraft recognises isolated
                uppercase shot phrases; `!` stays exclusively for Action. */
             return FountainDetect.expandTabs(element.text)
 

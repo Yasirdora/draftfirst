@@ -13,11 +13,11 @@
 </script>
 
 <svelte:head>
-	<title>Draft First Screenwriting</title>
+	<title>eDraft Screenwriting</title>
 	<meta http-equiv="refresh" content="0; url=/" />
 	<link rel="canonical" href="/" />
 </svelte:head>
 
 <p style="font-family: sans-serif; padding: 2rem">
-	The editor has moved home — <a href="/">continue to Draft First</a>.
+	The editor has moved home — <a href="/">continue to eDraft</a>.
 </p>

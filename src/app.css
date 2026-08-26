@@ -1,4 +1,4 @@
-/* Global foundation for the Draft First screenplay editor.
+/* Global foundation for the eDraft screenplay editor.
    The editor styles itself with scoped tokens (see ScriptEditor.svelte);
    this file only normalizes the document the app mounts into. The body
    background matches the editor's stage tokens so first paint never flashes. */

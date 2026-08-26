@@ -508,7 +508,7 @@ public enum Fountain {
                 continue
             }
 
-            /* Known shot language is a Draft First extension. */
+            /* Known shot language is an eDraft extension. */
             if FountainDetect.looksLikeShot(line) {
                 push(.shot, line)
                 prev = .shot

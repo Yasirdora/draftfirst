@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine continuity analysis.
+ * eDraft Screenwriting Engine continuity analysis.
  *
  * Reports inconsistent names and locations, unclosed structures, incomplete
  * scene headings, and likely cue errors without modifying the screenplay.

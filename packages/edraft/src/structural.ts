@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine structural-element preservation.
+ * eDraft Screenwriting Engine structural-element preservation.
  *
  * Editor surfaces may expose only printing elements while the document also
  * contains notes, sections, synopses, and page breaks. These elements must be

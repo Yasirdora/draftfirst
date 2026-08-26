@@ -1,7 +1,7 @@
 // swift-tools-version: 6.2
 import PackageDescription
 
-/// The Swift-native Draft First screenplay engine.
+/// The Swift-native eDraft screenplay engine.
 ///
 /// Pure Foundation — no UIKit, no SwiftUI, no JavaScriptCore. The module
 /// boundary is compiler-enforced so the engine can never entangle itself

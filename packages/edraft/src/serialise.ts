@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine Fountain serializer.
+ * eDraft Screenwriting Engine Fountain serializer.
  *
  * Emits standards-compatible Fountain. Forcing syntax (`!`, `.`, `>`, `@`) is
  * used only when plain text would otherwise parse as a different element.
@@ -90,7 +90,7 @@ export function elementToFountain(el: ScreenplayElement): string {
 		case 'lyrics':
 			return `~ ${el.text}`;
 		case 'shot':
-			/* Fountain has no shot type. Draft First recognises isolated uppercase
+			/* Fountain has no shot type. eDraft recognises isolated uppercase
 			   shot phrases; keeping `!` exclusively for Action avoids ambiguity. */
 			return el.text.replace(/\t/g, '    ');
 		case 'general':

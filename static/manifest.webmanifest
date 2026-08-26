@@ -1,6 +1,6 @@
 {
-	"name": "Draft First Screenwriting",
-	"short_name": "Draft First",
+	"name": "eDraft Screenwriting",
+	"short_name": "eDraft",
 	"description": "A private, browser-based screenplay editor with Fountain and FDX support.",
 	"start_url": "/",
 	"display": "standalone",

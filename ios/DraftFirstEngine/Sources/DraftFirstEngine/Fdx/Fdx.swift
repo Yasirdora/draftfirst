@@ -180,7 +180,14 @@ public enum Fdx {
         .lyrics: "General"
     ]
 
-    private static let namespace = "https://draftfirst.xyz/ns/fdx/1"
+    /* Our own FDX extension namespace: the attributes Final Draft has no
+       field for (lyrics, title-page keys). The prefix and URI changed with
+       the eDraft rename, so both are READ and only the current one is
+       written — an .fdx exported under the old name must keep re-importing
+       losslessly forever. Mirrors the TypeScript engine exactly. */
+    private static let namespace = "https://edraft.xyz/ns/fdx/1"
+    private static let extensionPrefix = "EDraft"
+    private static let legacyAttributePrefixes = ["draftfirst"]
     private static let xmlHeader = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>"
 
     // MARK: - Paragraph collection
@@ -193,6 +200,19 @@ public enum Fdx {
 
         func attribute(_ name: String) -> String? {
             attributes.last { $0.name == name }?.value
+        }
+
+        /// One of our own extension attributes, read under the current
+        /// prefix or any legacy one. Files exported before the eDraft
+        /// rename carry `draftfirst:`; they must keep importing losslessly.
+        func extensionAttribute(_ name: String) -> String? {
+            if let current = attribute("\(Fdx.extensionPrefix.lowercased()):\(name)"), !current.isEmpty {
+                return current
+            }
+            for legacy in Fdx.legacyAttributePrefixes {
+                if let value = attribute("\(legacy):\(name)"), !value.isEmpty { return value }
+            }
+            return nil
         }
     }
 
@@ -361,8 +381,8 @@ public enum Fdx {
         var untagged: [String] = []
 
         for paragraph in paragraphs {
-            let key = paragraph.attribute("draftfirst:titlekey") ?? ""
-            let rawEntryIndex = paragraph.attribute("draftfirst:titleentry") ?? ""
+            let key = paragraph.extensionAttribute("titlekey") ?? ""
+            let rawEntryIndex = paragraph.extensionAttribute("titleentry") ?? ""
             if key != "", !rawEntryIndex.isEmpty,
                let entryIndex = jsSafeInteger(rawEntryIndex), entryIndex >= 0 {
                 if var existing = tagged[entryIndex] {
@@ -453,7 +473,7 @@ public enum Fdx {
             }
 
             if type == .general,
-               (paragraph.attribute("draftfirst:elementtype") ?? "").lowercased() == "lyrics" {
+               (paragraph.extensionAttribute("elementtype") ?? "").lowercased() == "lyrics" {
                 type = .lyrics
             }
             if type == .general,
@@ -505,7 +525,7 @@ public enum Fdx {
 
             var attributes = ["Type=\"\(fdxType)\""]
             if element.type == .centered { attributes.append("Alignment=\"Center\"") }
-            if element.type == .lyrics { attributes.append("DraftFirst:ElementType=\"lyrics\"") }
+            if element.type == .lyrics { attributes.append("\(extensionPrefix):ElementType=\"lyrics\"") }
             if element.type == .character && element.dual == true { attributes.append("Dual=\"Yes\"") }
             if element.type == .scene, let sceneNumber = element.sceneNumber, !sceneNumber.isEmpty {
                 attributes.append(
@@ -537,11 +557,11 @@ public enum Fdx {
 
         var out: [String] = [
             xmlHeader,
-            "<FinalDraft xmlns:DraftFirst=\"\(namespace)\" DocumentType=\"Script\" Version=\"3\">"
+            "<FinalDraft xmlns:\(extensionPrefix)=\"\(namespace)\" DocumentType=\"Script\" Version=\"3\">"
         ]
         if omittedStructural + omittedUnknown > 0 {
             out.append(
-                "<!-- DraftFirst warning: \(omittedStructural + omittedUnknown) unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->"
+                "<!-- eDraft warning: \(omittedStructural + omittedUnknown) unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->"
             )
         }
         out.append("<Content>")
@@ -561,7 +581,7 @@ public enum Fdx {
                         value, diagnostics: diagnostics, context: "title-page entry \(entryIndex)"
                     )
                     out.append(
-                        "<Paragraph Alignment=\"Center\" Type=\"General\" DraftFirst:TitleKey=\"\(key)\" DraftFirst:TitleEntry=\"\(entryIndex)\"><Text>\(encoded)</Text></Paragraph>"
+                        "<Paragraph Alignment=\"Center\" Type=\"General\" \(extensionPrefix):TitleKey=\"\(key)\" \(extensionPrefix):TitleEntry=\"\(entryIndex)\"><Text>\(encoded)</Text></Paragraph>"
                     )
                 }
             }

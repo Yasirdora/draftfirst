@@ -3,10 +3,10 @@
 </script>
 
 <svelte:head>
-	<title>Draft First Screenwriting</title>
+	<title>eDraft Screenwriting</title>
 	<meta
 		name="description"
-		content="Draft First Screenwriting is a private, browser-based screenplay editor with professional formatting, Fountain, and FDX support."
+		content="eDraft Screenwriting is a private, browser-based screenplay editor with professional formatting, Fountain, and FDX support."
 	/>
 </svelte:head>
 

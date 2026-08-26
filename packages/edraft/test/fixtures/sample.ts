@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine sample document.
+ * eDraft Screenwriting Engine sample document.
  * Used by round-trip and paginator tests; doubles as the first-run demo script.
  */
 

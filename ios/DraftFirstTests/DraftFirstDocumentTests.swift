@@ -266,7 +266,7 @@ final class FdxInterchangeTests: XCTestCase {
         let fdx = ScreenplayExporter.fdxSource(screenplay)
         XCTAssertTrue(fdx.contains(#"Number="7""#), fdx)
         XCTAssertTrue(fdx.contains(#"Dual="Yes""#), fdx)
-        XCTAssertTrue(fdx.contains(#"xmlns:DraftFirst="https://draftfirst.xyz/ns/fdx/1""#), fdx)
+        XCTAssertTrue(fdx.contains(#"xmlns:EDraft="https://edraft.xyz/ns/fdx/1""#), fdx)
     }
 
     /// A non-FDX document is untouched by the codec: plain text in, the same
@@ -338,5 +338,62 @@ final class FdxInterchangeTests: XCTestCase {
         // And it writes back as valid FDX.
         let written = try write(document, as: .finalDraftScreenplay)
         XCTAssertTrue(written.contains("</FinalDraft>"), written)
+    }
+}
+
+/// Dual dialogue prints sequentially until a true side-by-side layout
+/// exists — and the Fountain `^` the paginator carries for wrap width must
+/// never reach a rendered page. The web PDF exporter has always stripped
+/// it; these pin the same contract onto the exporter that the share sheet,
+/// print, RTF, and plain-text paths all draw from.
+@MainActor
+final class DualDialogueRenderingTests: XCTestCase {
+
+    private let dualScript = Screenplay(
+        titlePage: [],
+        elements: [
+            ScriptElement(type: .character, text: "MOLLY"),
+            ScriptElement(type: .dialogue, text: "We speak—"),
+            ScriptElement(type: .character, text: "JOAN", dual: true),
+            ScriptElement(type: .dialogue, text: "—at the same time.")
+        ]
+    )
+
+    /// Plain text is the shared renderer: RTF is built from it, and the PDF
+    /// draws the same paginated lines through the same strip.
+    func testPlainTextExportNeverShowsTheDualCaret() {
+        let text = ScreenplayExporter.plainText(dualScript)
+        XCTAssertTrue(text.contains("JOAN"), text)
+        XCTAssertFalse(text.contains("^"), text)
+    }
+
+    func testRichTextExportNeverShowsTheDualCaret() throws {
+        let data = try XCTUnwrap(ScreenplayExporter.rtfData(dualScript))
+        let rtf = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(rtf.contains("JOAN"), rtf)
+        XCTAssertFalse(rtf.contains("^"), rtf)
+    }
+
+    /// Stripping the caret from the page must never strip it from the
+    /// document: the dual flag is the writer's, and it round-trips.
+    func testDualFlagSurvivesTheSourceOfTruth() {
+        let source = ScreenplayExporter.fountainSource(dualScript)
+        let reread = EditorState(source: source).screenplay
+        XCTAssertEqual(reread.elements.first(where: { $0.text == "JOAN" })?.dual, true)
+    }
+
+    /// A cue that legitimately ends in a caret keeps it: only the marker the
+    /// paginator itself appends to a dual cue is removed.
+    func testOnlyTheGeneratedMarkerIsStripped() {
+        let text = ScreenplayExporter.plainText(Screenplay(
+            titlePage: [],
+            elements: [
+                ScriptElement(type: .action, text: "She points up ^ at the sign."),
+                ScriptElement(type: .character, text: "MOLLY"),
+                ScriptElement(type: .dialogue, text: "Up ^ there.")
+            ]
+        ))
+        XCTAssertTrue(text.contains("She points up ^ at the sign."), text)
+        XCTAssertTrue(text.contains("Up ^ there."), text)
     }
 }

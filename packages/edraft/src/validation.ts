@@ -2,7 +2,7 @@ import type { Screenplay } from './types.js';
 
 export type DiagnosticSeverity = 'warning' | 'error';
 
-export interface DraftFirstDiagnostic {
+export interface EDraftDiagnostic {
 	readonly code: string;
 	readonly severity: DiagnosticSeverity;
 	readonly message: string;
@@ -32,11 +32,11 @@ export type ScreenplayValidationResult =
 	| {
 			readonly ok: true;
 			readonly value: Screenplay;
-			readonly diagnostics: readonly DraftFirstDiagnostic[];
+			readonly diagnostics: readonly EDraftDiagnostic[];
 	  }
 	| {
 			readonly ok: false;
-			readonly diagnostics: readonly DraftFirstDiagnostic[];
+			readonly diagnostics: readonly EDraftDiagnostic[];
 	  };
 
 const ELEMENT_TYPES = new Set([
@@ -109,7 +109,7 @@ export function validateScreenplay(
 	overrides: Partial<ScreenplayLimits> = {}
 ): ScreenplayValidationResult {
 	const limits = resolveLimits(overrides);
-	const diagnostics: DraftFirstDiagnostic[] = [];
+	const diagnostics: EDraftDiagnostic[] = [];
 	const error = (code: string, message: string, path?: string): void => {
 		diagnostics.push(path === undefined
 			? { code, severity: 'error', message }
@@ -210,12 +210,12 @@ export function validateScreenplay(
 		: { ok: false, diagnostics };
 }
 
-export class DraftFirstValidationError extends TypeError {
-	readonly diagnostics: readonly DraftFirstDiagnostic[];
+export class EDraftValidationError extends TypeError {
+	readonly diagnostics: readonly EDraftDiagnostic[];
 
-	constructor(diagnostics: readonly DraftFirstDiagnostic[]) {
+	constructor(diagnostics: readonly EDraftDiagnostic[]) {
 		super(`Invalid screenplay document (${diagnostics.length} issue${diagnostics.length === 1 ? '' : 's'}).`);
-		this.name = 'DraftFirstValidationError';
+		this.name = 'EDraftValidationError';
 		this.diagnostics = diagnostics;
 	}
 }
@@ -226,6 +226,6 @@ export function assertScreenplay(
 	overrides: Partial<ScreenplayLimits> = {}
 ): Screenplay {
 	const result = validateScreenplay(input, overrides);
-	if (!result.ok) throw new DraftFirstValidationError(result.diagnostics);
+	if (!result.ok) throw new EDraftValidationError(result.diagnostics);
 	return result.value;
 }

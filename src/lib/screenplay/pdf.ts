@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting PDF export.
+ * eDraft Screenwriting PDF export.
  *
  * The deliverable a production actually runs on. Pure: Screenplay in →
  * PDF bytes out. No DOM, no fonts to load, no network.
@@ -28,16 +28,17 @@
  * linear. True two-column dual layout lands with the production layer.
  */
 
-import { isPrinting, type Screenplay, type TitlePageEntry } from '@draftfirst/core';
-import { serialiseFountain } from '@draftfirst/core/fountain';
-import { encodePdfPayload } from '@draftfirst/core/import';
+import { isPrinting, type Screenplay, type TitlePageEntry } from '@edraft/core';
+import { serialiseFountain } from '@edraft/core/fountain';
+import { encodePdfPayload } from '@edraft/core/import';
 import {
 	paginate,
 	PAGE_WIDTH_CHARS,
 	wrapText,
 	type PageLine,
 	type ScriptPage
-} from '@draftfirst/core/layout';
+} from '@edraft/core/layout';
+import { printedLineText } from './pageline';
 
 /* ---- geometry ------------------------------------------------------------ */
 
@@ -194,10 +195,8 @@ function pdfUtf16Hex(s: string): string {
 const UPPER_TYPES = new Set(['scene', 'character', 'transition', 'shot']);
 
 function renderText(line: PageLine): string {
-	let t = line.text;
-	if (line.type === 'character' && t.endsWith(' ^')) t = t.slice(0, -2);
-	if (UPPER_TYPES.has(line.type)) t = t.toUpperCase();
-	return t;
+	const t = printedLineText(line);
+	return UPPER_TYPES.has(line.type) ? t.toUpperCase() : t;
 }
 
 /* ---- page content streams -------------------------------------------------- */
@@ -389,7 +388,7 @@ export function scriptToPdf(script: Screenplay): Uint8Array {
 	const infoObj = 4 + specs.length * 2;
 	const docTitle = tpValues(script.titlePage, 'title').join(' ').trim();
 	objects[infoObj] =
-		'<< /Producer (Draft First)' +
+		'<< /Producer (eDraft)' +
 		(docTitle === '' ? '' : ` /Title <${pdfUtf16Hex(docTitle)}>`) +
 		` /Keywords <${encodePdfPayload(serialiseFountain(script))}> >>`;
 

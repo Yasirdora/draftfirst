@@ -1,5 +1,5 @@
 /**
- * PDF round-trip signal — how a Draft First PDF carries its own source home.
+ * PDF round-trip signal — how an eDraft PDF carries its own source home.
  *
  * Parsing arbitrary PDF text back into a screenplay is lossy and would take
  * a dependency we refuse to carry. But a PDF WE exported never needs
@@ -20,8 +20,22 @@
 
 import { decodeUtf8, encodeUtf8 } from './platform.js';
 
-export const PDF_MARKER_PREFIX = 'DRAFT_FIRST_FOUNTAIN';
+export const PDF_MARKER_PREFIX = 'EDRAFT_FOUNTAIN';
 export const PDF_MARKER_VERSION = '1';
+
+/**
+ * The prefix written before the eDraft rename. Every PDF exported under the
+ * old name still carries it, and those files are writers' backups — so we
+ * read it forever and never write it again. A rename is our problem, never
+ * theirs.
+ */
+export const LEGACY_PDF_MARKER_PREFIXES: readonly string[] = Object.freeze([
+	'DRAFT_FIRST_FOUNTAIN'
+]);
+
+function isKnownMarkerPrefix(prefix: string): boolean {
+	return prefix === PDF_MARKER_PREFIX || LEGACY_PDF_MARKER_PREFIXES.includes(prefix);
+}
 
 /** The hex string to stamp into /Keywords at export. */
 export function encodePdfPayload(fountain: string): string {
@@ -61,7 +75,7 @@ function hexToBytes(hex: string): Uint8Array {
 }
 
 /**
- * The Fountain source embedded in a Draft First PDF, or null when the file
+ * The Fountain source embedded in an eDraft PDF, or null when the file
  * carries no valid signal — a foreign PDF, an older export, or a newer
  * format version this build does not understand.
  */
@@ -78,7 +92,8 @@ export function extractPdfPayload(source: Uint8Array): string | null {
 		if (separator < 0) continue;
 		const header = payload.slice(0, separator);
 		const [prefix, version] = header.split(':');
-		if (prefix !== PDF_MARKER_PREFIX || version !== PDF_MARKER_VERSION) continue;
+		if (prefix === undefined || !isKnownMarkerPrefix(prefix)) continue;
+		if (version !== PDF_MARKER_VERSION) continue;
 		return payload.slice(separator + 1);
 	}
 	return null;

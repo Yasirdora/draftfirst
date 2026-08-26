@@ -1,10 +1,10 @@
-# Contributing to Draft First
+# Contributing to eDraft
 
 Thank you for helping writers keep control of their work.
 
 ## Development
 
-Draft First requires Node.js 22 for repository development. Install the exact
+eDraft requires Node.js 22 for repository development. Install the exact
 dependency graph and run the full quality gate before opening a pull request:
 
 ```sh
@@ -12,7 +12,7 @@ npm ci
 npm run quality
 ```
 
-The public engine lives in `packages/draftfirst`. The Svelte editor is a package
+The public engine lives in `packages/edraft`. The Svelte editor is a package
 consumer and must not be imported by the engine.
 
 ## Changes to file formats

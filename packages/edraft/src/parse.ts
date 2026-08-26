@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine Fountain parser.
+ * eDraft Screenwriting Engine Fountain parser.
  *
  * Implements the authoring subset of the Fountain spec (fountain.io/syntax):
  * title page, scene headings (detected + forced `.`), action (forced `!`),
@@ -454,7 +454,7 @@ export function parseFountain(source: string, options: FountainParseOptions = {}
 			continue;
 		}
 
-		/* Known shot language is a Draft First extension. Unforced names still
+		/* Known shot language is an eDraft extension. Unforced names still
 		   obey standard Fountain cue context when dialogue follows directly. */
 		if (looksLikeShot(line)) {
 			push('shot', line);

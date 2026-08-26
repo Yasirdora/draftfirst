@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine character renaming.
+ * eDraft Screenwriting Engine character renaming.
  *
  * A rename is a document-wide refactor: every cue whose base name matches —
  * extensions stripped, case ignored — takes the new name, while extensions

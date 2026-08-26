@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	assertScreenplay,
-	DraftFirstValidationError,
+	EDraftValidationError,
 	validateScreenplay
 } from './validation.js';
 
@@ -55,8 +55,8 @@ describe('validateScreenplay', () => {
 			assertScreenplay({ titlePage: [], elements: null });
 			expect.fail('expected validation to throw');
 		} catch (error) {
-			expect(error).toBeInstanceOf(DraftFirstValidationError);
-			expect((error as DraftFirstValidationError).diagnostics[0]?.code).toBe('ELEMENTS_NOT_ARRAY');
+			expect(error).toBeInstanceOf(EDraftValidationError);
+			expect((error as EDraftValidationError).diagnostics[0]?.code).toBe('ELEMENTS_NOT_ARRAY');
 		}
 	});
 });

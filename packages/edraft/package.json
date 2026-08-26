@@ -1,7 +1,7 @@
 {
-	"name": "@draftfirst/core",
+	"name": "@edraft/core",
 	"version": "0.1.0",
-	"description": "Draft First Screenwriting Engine for Fountain, FDX, deterministic pagination, and story-aware analysis.",
+	"description": "eDraft Screenwriting Engine for Fountain, FDX, deterministic pagination, and story-aware analysis.",
 	"type": "module",
 	"sideEffects": false,
 	"license": "MIT",
@@ -9,14 +9,14 @@
 		"name": "Yasir Dora",
 		"url": "https://ysr.design"
 	},
-	"homepage": "https://draftfirst.xyz",
+	"homepage": "https://edraft.xyz",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/Yasirdora/draftfirst.git",
-		"directory": "packages/draftfirst"
+		"url": "git+https://github.com/Yasirdora/edraft.git",
+		"directory": "packages/edraft"
 	},
 	"bugs": {
-		"url": "https://github.com/Yasirdora/draftfirst/issues"
+		"url": "https://github.com/Yasirdora/edraft/issues"
 	},
 	"keywords": [
 		"screenplay",

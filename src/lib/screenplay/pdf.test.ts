@@ -4,10 +4,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { PdfExportError, scriptToPdf, validatePdfCompatibility } from './pdf';
-import { paginate } from '@draftfirst/core/layout';
-import { parseFountain } from '@draftfirst/core/fountain';
-import { extractPdfPayload } from '@draftfirst/core/import';
-import type { Screenplay } from '@draftfirst/core';
+import { paginate } from '@edraft/core/layout';
+import { parseFountain } from '@edraft/core/fountain';
+import { extractPdfPayload } from '@edraft/core/import';
+import type { Screenplay } from '@edraft/core';
 
 function el(type: any, text: string, extra: Record<string, unknown> = {}) {
 	return { type, text, ...extra };
@@ -233,14 +233,14 @@ describe('scriptToPdf — content', () => {
 describe('scriptToPdf — round trip and metadata', () => {
 	it('stamps /Producer, a UTF-16BE /Title, and the /Keywords payload in a trailer-referenced Info dict', () => {
 		const src = decode(scriptToPdf(SCRIPT));
-		expect(src).toContain('/Producer (Draft First)');
+		expect(src).toContain('/Producer (eDraft)');
 		/* "The Long Way Home" as UTF-16BE hex with BOM */
 		const titleHex = 'FEFF' + [...'The Long Way Home'].map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join('');
 		expect(src).toContain(`/Title <${titleHex}>`);
 		const trailer = src.slice(src.indexOf('trailer'));
 		expect(trailer).toMatch(/\/Info \d+ 0 R/);
 		const infoNum = Number(trailer.match(/\/Info (\d+) 0 R/)![1]);
-		expect(src).toContain(`${infoNum} 0 obj\n<< /Producer (Draft First)`);
+		expect(src).toContain(`${infoNum} 0 obj\n<< /Producer (eDraft)`);
 	});
 
 	it('carries the complete screenplay home: pdf bytes → extract → parse → identical stream', () => {

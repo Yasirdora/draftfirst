@@ -1,5 +1,5 @@
 /**
- * Draft First Screenwriting Engine keyboard-flow policies.
+ * eDraft Screenwriting Engine keyboard-flow policies.
  *
  * Enter follows the normal screenplay element sequence. Tab uses a stable
  * fallback ring, while `tabCycle` narrows that ring according to the preceding

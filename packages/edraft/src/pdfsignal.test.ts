@@ -1,10 +1,15 @@
-/** PDF round-trip signal: the marker a Draft First PDF carries home. */
+/** PDF round-trip signal: the marker an eDraft PDF carries home. */
 import { describe, expect, it } from 'vitest';
-import { encodePdfPayload, extractPdfPayload, PDF_MARKER_PREFIX } from './pdfsignal.js';
+import {
+	encodePdfPayload,
+	extractPdfPayload,
+	PDF_MARKER_PREFIX,
+	PDF_MARKER_VERSION
+} from './pdfsignal.js';
 import { encodeUtf8 } from './platform.js';
 
 function fakePdfWithKeywords(hex: string | null): Uint8Array {
-	const info = hex === null ? '<< /Producer (Someone Else) >>' : `<< /Producer (Draft First) /Keywords <${hex}> >>`;
+	const info = hex === null ? '<< /Producer (Someone Else) >>' : `<< /Producer (eDraft) /Keywords <${hex}> >>`;
 	return encodeUtf8(`%PDF-1.4\n3 0 obj\n${info}\nendobj\ntrailer\n<< /Root 1 0 R /Info 3 0 R >>\n%%EOF`);
 }
 
@@ -56,5 +61,36 @@ describe('encodePdfPayload / extractPdfPayload', () => {
 	it('does not mistake a dictionary for a hex string', () => {
 		const bytes = encodeUtf8('%PDF-1.4\n<< /Keywords << /Nested true >> >>\n%%EOF');
 		expect(extractPdfPayload(bytes)).toBeNull();
+	});
+});
+
+/**
+ * The rename compatibility contract. A PDF exported under the old name is a
+ * writer's backup; it must keep opening forever. We read the old prefix and
+ * never write it again.
+ */
+describe('pre-rename PDFs', () => {
+	const legacyPayload = (fountain: string): string => {
+		const bytes = encodeUtf8(`DRAFT_FIRST_FOUNTAIN:1\n${fountain}`);
+		let hex = '';
+		for (let i = 0; i < bytes.length; i++) hex += bytes[i]!.toString(16).padStart(2, '0');
+		return hex;
+	};
+
+	it('still recovers the source from a PDF stamped before the rename', () => {
+		const fountain = 'INT. KITCHEN - DAY\n\nA kettle screams.\n';
+		expect(extractPdfPayload(fakePdfWithKeywords(legacyPayload(fountain)))).toBe(fountain);
+	});
+
+	it('writes only the current prefix', () => {
+		expect(encodePdfPayload('INT. A - DAY\n')).toBe(
+			(() => {
+				const bytes = encodeUtf8(`${PDF_MARKER_PREFIX}:${PDF_MARKER_VERSION}\nINT. A - DAY\n`);
+				let hex = '';
+				for (let i = 0; i < bytes.length; i++) hex += bytes[i]!.toString(16).padStart(2, '0');
+				return hex;
+			})()
+		);
+		expect(PDF_MARKER_PREFIX).toBe('EDRAFT_FOUNTAIN');
 	});
 });
