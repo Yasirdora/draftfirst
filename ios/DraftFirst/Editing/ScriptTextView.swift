@@ -206,6 +206,12 @@ struct ScriptTextView: UIViewRepresentable {
             textView.onTab = { [weak self] backwards in
                 self?.editor?.cycleActiveKind(backwards: backwards)
             }
+            // ⌘1–9 set the element outright, through the same conversion
+            // channel as the pill's menu — casing memory, bracket handling,
+            // and undo grouping all come along for free.
+            textView.onSelectElementKind = { [weak self] kind in
+                self?.changeKind(to: kind)
+            }
             textView.onAcceptPrediction = { [weak self] in
                 self?.acceptPrediction()
             }
@@ -1741,17 +1747,46 @@ final class ScreenplayTextView: UITextView {
     var onTab: ((Bool) -> Void)?
     var onAcceptPrediction: (() -> Void)?
     var onLayout: ((CGFloat, UITraitCollection) -> Void)?
+    /// A hardware ⌘1–9 press, as an index into `ScreenplayKind.editorKinds`.
+    var onSelectElementKind: ((ScreenplayKind) -> Void)?
 
+    /// Every command carries a title, which is the whole of its
+    /// discoverability: iPad draws the hold-⌘ overlay from these strings, and
+    /// an untitled command is invisible there. ⌘1–9 mirror the web editor's
+    /// element order exactly, so a writer's fingers work on either surface.
     override var keyCommands: [UIKeyCommand]? {
-        [
-            UIKeyCommand(input: "\t", modifierFlags: [], action: #selector(tabForward)),
-            UIKeyCommand(input: "\t", modifierFlags: [.shift], action: #selector(tabBackward)),
+        var commands = [
             UIKeyCommand(
+                title: "Next Element",
+                action: #selector(tabForward),
+                input: "\t",
+                modifierFlags: []
+            ),
+            UIKeyCommand(
+                title: "Previous Element",
+                action: #selector(tabBackward),
+                input: "\t",
+                modifierFlags: [.shift]
+            ),
+            UIKeyCommand(
+                title: "Accept Suggestion",
+                action: #selector(acceptPrediction),
                 input: UIKeyCommand.inputRightArrow,
-                modifierFlags: [.command],
-                action: #selector(acceptPrediction)
+                modifierFlags: [.command]
             )
         ]
+        // One selector serves all nine: the digit the writer pressed is the
+        // command's own input, so there is no parallel mapping to keep true.
+        for (index, kind) in ScreenplayKind.editorKinds.prefix(9).enumerated() {
+            commands.append(UIKeyCommand(
+                title: kind.title,
+                image: UIImage(systemName: kind.symbol),
+                action: #selector(selectElementKind(_:)),
+                input: String(index + 1),
+                modifierFlags: [.command]
+            ))
+        }
+        return commands
     }
 
     override func didMoveToWindow() {
@@ -1808,6 +1843,13 @@ final class ScreenplayTextView: UITextView {
     @objc private func tabForward() { onTab?(false) }
     @objc private func tabBackward() { onTab?(true) }
     @objc private func acceptPrediction() { onAcceptPrediction?() }
+
+    @objc private func selectElementKind(_ sender: UIKeyCommand) {
+        guard let digit = sender.input.flatMap(Int.init) else { return }
+        let index = digit - 1
+        guard ScreenplayKind.editorKinds.indices.contains(index) else { return }
+        onSelectElementKind?(ScreenplayKind.editorKinds[index])
+    }
 
     /// A caret belongs to exactly one line: the line fragment of the glyph at
     /// the insertion point. UIKit's default rect can stretch through

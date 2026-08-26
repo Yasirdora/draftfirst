@@ -23,6 +23,13 @@ final class ElementModeButton: UIButton {
         showsMenuAsPrimaryAction = true
         translatesAutoresizingMaskIntoConstraints = false
         heightAnchor.constraint(equalToConstant: ChromeMetrics.controlSize).isActive = true
+        // A trackpad pointer must find this control the way it finds the
+        // system's own bar buttons: the capsule lifts under the cursor
+        // rather than staying inert. Free on iPhone, essential on iPad.
+        isPointerInteractionEnabled = true
+        pointerStyleProvider = { button, effect, _ in
+            .init(effect: .lift(.init(view: button)))
+        }
         // The bar's title area negotiates width; the pill never yields its
         // content to it — truncation is the only permitted compromise.
         setContentCompressionResistancePriority(.required, for: .horizontal)
