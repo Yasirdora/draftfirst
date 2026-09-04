@@ -5,6 +5,110 @@ import XCTest
 
 final class ScreenplayEditPlannerTests: XCTestCase {
     @MainActor
+    func testReturnAtEndOfParentheticalClosesItAndOpensDialogue() throws {
+        let id = UUID()
+        let elements = [ScriptElement(id: id, type: .parenthetical, text: "(whispering)")]
+        // The caret sits between the brackets, where a parenthetical puts it.
+        let caret = NSRange(location: 11, length: 0)
+
+        let plan = try XCTUnwrap(ScreenplayEditPlanner.plan(
+            elements: elements,
+            replacing: caret,
+            with: "\n",
+            intent: .returnKey,
+            kindForNewElement: { _, _ in .dialogue }
+        ))
+
+        XCTAssertEqual(plan.elements.map(\.type), [.parenthetical, .dialogue])
+        XCTAssertEqual(plan.elements[0].text, "(whispering)")
+        XCTAssertEqual(plan.elements[1].text, "")
+        XCTAssertEqual(plan.elements[0].id, id, "the direction keeps its identity")
+        XCTAssertEqual(plan.activeElementID, plan.elements[1].id)
+        XCTAssertEqual(plan.activeOffset, 0)
+    }
+
+    @MainActor
+    func testReturnInsideAParentheticalKeepsBothHalvesAndItsBrackets() throws {
+        let elements = [
+            ScriptElement(type: .parenthetical, text: "(whispering to himself)")
+        ]
+        // After "whispering", with the rest of the direction still to come.
+        let plan = try XCTUnwrap(ScreenplayEditPlanner.plan(
+            elements: elements,
+            replacing: NSRange(location: 11, length: 0),
+            with: "\n",
+            intent: .returnKey,
+            kindForNewElement: { _, _ in .dialogue }
+        ))
+
+        // Neither half is left holding half a bracket, and no words are lost.
+        XCTAssertEqual(plan.elements.map(\.type), [.parenthetical, .dialogue])
+        XCTAssertEqual(plan.elements[0].text, "(whispering)")
+        XCTAssertEqual(plan.elements[1].text, "to himself")
+    }
+
+    @MainActor
+    func testReturnOutsideTheBracketsLeavesTheDirectionWhole() throws {
+        // Before the opener and after the closer both split cleanly on the
+        // ordinary path; the parenthetical rule must not disturb them.
+        for caret in [0, 12] {
+            let plan = try XCTUnwrap(ScreenplayEditPlanner.plan(
+                elements: [ScriptElement(type: .parenthetical, text: "(whispering)")],
+                replacing: NSRange(location: caret, length: 0),
+                with: "\n",
+                intent: .returnKey,
+                kindForNewElement: { _, _ in .dialogue }
+            ))
+            XCTAssertTrue(
+                plan.elements.contains { $0.text == "(whispering)" },
+                "a caret at \(caret) must leave the direction intact"
+            )
+        }
+    }
+
+    @MainActor
+    func testReturnJustInsideTheOpenerLeavesNoEmptyBracket() throws {
+        // The direction has not begun yet, so there is nothing to close.
+        let plan = try XCTUnwrap(ScreenplayEditPlanner.plan(
+            elements: [ScriptElement(type: .parenthetical, text: "(whispering)")],
+            replacing: NSRange(location: 1, length: 0),
+            with: "\n",
+            intent: .returnKey,
+            kindForNewElement: { _, _ in .dialogue }
+        ))
+
+        XCTAssertEqual(plan.elements.map(\.text), ["(whispering)", ""])
+        XCTAssertEqual(plan.elements.map(\.type), [.parenthetical, .dialogue])
+    }
+
+    @MainActor
+    func testCaretFollowsTheTextWhenAnElementBecomesAParenthetical() {
+        // "whispering" with the caret at the end becomes "(whispering)" with
+        // the caret still after the "g" — offset 11, not the 10 that carrying
+        // the old offset across unchanged would leave.
+        XCTAssertEqual(
+            EditorState.caretAfterConversion(
+                from: "whispering", to: "(whispering)", caret: 10, kind: .parenthetical
+            ),
+            11
+        )
+        // And never outside the closer, wherever it started.
+        XCTAssertEqual(
+            EditorState.caretAfterConversion(
+                from: "whispering", to: "(whispering)", caret: 99, kind: .parenthetical
+            ),
+            11
+        )
+        // Converting back out sheds the opener and the caret sheds with it.
+        XCTAssertEqual(
+            EditorState.caretAfterConversion(
+                from: "(beat)", to: "beat", caret: 5, kind: .dialogue
+            ),
+            4
+        )
+    }
+
+    @MainActor
     func testDeletingFirstCharacterIsNotAParagraphBoundaryEdit() throws {
         let characterID = UUID()
         let elements = [
@@ -703,5 +807,447 @@ final class EditorStateCastTests: XCTestCase {
         XCTAssertEqual(cast.first?.cues, 3)
         XCTAssertEqual(cast.last?.name, "DAVID")
         XCTAssertEqual(cast.last?.cues, 2)
+    }
+}
+
+
+
+/// Characterisation of the keystroke path.
+///
+/// Every edit the writer makes reaches the model through
+/// `ScreenplayEditPlanner.plan`, and the 1,300-line coordinator that calls it
+/// is the least decomposed code in the app. These pin what the planner
+/// currently decides across the whole surface — typing, splitting, merging,
+/// pasting, deleting — so that coordinator can be refactored against evidence
+/// instead of hope. Each expectation below was recorded from the running
+/// implementation and then read for correctness; a diff here means behaviour
+/// changed, which is either a bug or a decision worth making deliberately.
+@MainActor
+final class KeystrokePathCharacterisationTests: XCTestCase {
+
+    /// Flattened: "INT. LAB - DAY\nMara waits.\nMARA\n(quietly)\nIt is time."
+    ///             0              14 15         27 28   33 34    43 44
+    private let script: [ScriptElement] = [
+        ScriptElement(type: .scene, text: "INT. LAB - DAY"),
+        ScriptElement(type: .action, text: "Mara waits."),
+        ScriptElement(type: .character, text: "MARA"),
+        ScriptElement(type: .parenthetical, text: "(quietly)"),
+        ScriptElement(type: .dialogue, text: "It is time.")
+    ]
+
+    /// The plan as one readable line, so a failure diff names the change.
+    private func characterise(
+        _ range: NSRange, _ replacement: String, _ intent: ScreenplayEditPlanner.Intent
+    ) -> String {
+        let plan = ScreenplayEditPlanner.plan(
+            elements: script, replacing: range, with: replacement, intent: intent,
+            kindForNewElement: { previous, text in
+                EditorState(source: "").kindForInsertedElement(after: previous, text: text)
+            }
+        )
+        guard let plan else { return "nil" }
+        let body = plan.elements.map { "\($0.type.rawValue):\"\($0.text)\"" }.joined(separator: " | ")
+        let caret = plan.elements.firstIndex { $0.id == plan.activeElementID }.map(String.init) ?? "?"
+        return "\(body)  <caret \(caret)@\(plan.activeOffset)>"
+    }
+
+    func testTheScriptIsTheLengthTheOffsetsAssume() {
+        XCTAssertEqual((ScreenplayEditPlanner.flattenedText(script) as NSString).length, 53)
+    }
+
+    func testTypingInsideAnElementTouchesOnlyThatElement() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 4, length: 0), "X", .replacement),
+            #"scene:"INT.X LAB - DAY" | action:"Mara waits." | character:"MARA" | parenthetical:"(quietly)" | dialogue:"It is time."  <caret 0@5>"#
+        )
+    }
+
+    /// After a slug comes action — the new paragraph is typed, not chosen.
+    func testReturnAtTheEndOfASceneOpensAction() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 14, length: 0), "\n", .returnKey),
+            #"scene:"INT. LAB - DAY" | action:"" | action:"Mara waits." | character:"MARA" | parenthetical:"(quietly)" | dialogue:"It is time."  <caret 1@0>"#
+        )
+    }
+
+    func testReturnMidParagraphSplitsAtTheCaret() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 20, length: 0), "\n", .returnKey),
+            #"scene:"INT. LAB - DAY" | action:"Mara " | action:"waits." | character:"MARA" | parenthetical:"(quietly)" | dialogue:"It is time."  <caret 2@0>"#
+        )
+    }
+
+    /// The caret follows the words, not the blank line left above them.
+    func testReturnAtAParagraphStartKeepsTheCaretWithTheText() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 15, length: 0), "\n", .returnKey),
+            #"scene:"INT. LAB - DAY" | action:"" | action:"Mara waits." | character:"MARA" | parenthetical:"(quietly)" | dialogue:"It is time."  <caret 2@0>"#
+        )
+    }
+
+    func testReturnAfterACueOpensSpeech() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 31, length: 0), "\n", .returnKey),
+            #"scene:"INT. LAB - DAY" | action:"Mara waits." | character:"MARA" | dialogue:"" | parenthetical:"(quietly)" | dialogue:"It is time."  <caret 3@0>"#
+        )
+    }
+
+    /// After a speech, the next thing a writer types is usually another
+    /// speaker — the engine's choreography, pinned to its conformance corpus.
+    func testReturnAfterSpeechOpensTheNextCue() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 53, length: 0), "\n", .returnKey),
+            #"scene:"INT. LAB - DAY" | action:"Mara waits." | character:"MARA" | parenthetical:"(quietly)" | dialogue:"It is time." | character:""  <caret 5@0>"#
+        )
+    }
+
+    /// Merging into an uppercase lane re-cases what arrives: the action text
+    /// becomes part of a slug, so it is a slug's casing now.
+    func testBackspaceAtAParagraphStartMergesAndRecases() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 14, length: 1), "", .backspaceAtElementStart),
+            #"scene:"INT. LAB - DAYMARA WAITS." | character:"MARA" | parenthetical:"(quietly)" | dialogue:"It is time."  <caret 0@14>"#
+        )
+    }
+
+    /// Forward delete over the same boundary must land in the same place —
+    /// the direction the writer approached from is not a semantic difference.
+    func testForwardDeleteOverABoundaryMatchesBackspace() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 14, length: 1), "", .boundaryDeletion),
+            characterise(NSRange(location: 14, length: 1), "", .backspaceAtElementStart)
+        )
+    }
+
+    func testASelectionSpanningElementsCollapsesIntoTheFirst() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 10, length: 10), "Z", .replacement),
+            #"scene:"INT. LAB -ZWAITS." | character:"MARA" | parenthetical:"(quietly)" | dialogue:"It is time."  <caret 0@11>"#
+        )
+    }
+
+    /// Pasted lines are classified by what they look like, so a short line of
+    /// capitals arrives as a cue rather than as action.
+    func testPastedLinesAreClassifiedNotInherited() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 15, length: 0), "A\nB", .multilinePaste),
+            #"scene:"INT. LAB - DAY" | character:"A" | action:"BMara waits." | character:"MARA" | parenthetical:"(quietly)" | dialogue:"It is time."  <caret 2@1>"#
+        )
+    }
+
+    /// A document is never empty: deleting everything leaves one blank action
+    /// for the caret to live in.
+    func testDeletingEverythingLeavesOneBlankAction() {
+        XCTAssertEqual(
+            characterise(NSRange(location: 0, length: 53), "", .replacement),
+            #"action:""  <caret 0@0>"#
+        )
+    }
+}
+
+
+/// Numbering runs through the editor, not around it: it must reach the text
+/// view's undo registration, and it must not disturb element identity — the
+/// caret, the undo timeline and the case memory are all keyed on it.
+@MainActor
+final class SceneNumberingIntegrationTests: XCTestCase {
+
+    private let source = "INT. A - DAY\n\nMara waits.\n\nEXT. B - NIGHT\n\nWind.\n"
+
+    func testNumberingReachesTheEditorAndKeepsEveryIdentity() throws {
+        let editor = EditorState(source: source)
+        var applied: [ScriptElement]?
+        var undoName: String?
+        editor.onApplyElements = { elements, name in applied = elements; undoName = name }
+        let identities = editor.screenplay.elements.map(\.id)
+
+        XCTAssertEqual(editor.applySceneNumbering(.newScenesOnly), 2)
+
+        let result = try XCTUnwrap(applied)
+        XCTAssertEqual(result.compactMap(\.sceneNumber), ["1", "2"])
+        XCTAssertEqual(result.map(\.id), identities)
+        XCTAssertEqual(undoName, "Number Scenes")
+    }
+
+    /// Re-running it changes nothing, so it must not push an empty step onto
+    /// the undo stack.
+    func testNumberingAnAlreadyNumberedScriptIsANoOp() {
+        let editor = EditorState(source: source)
+        var applications = 0
+        editor.onApplyElements = { elements, _ in
+            applications += 1
+            editor.replaceAllElements(
+                elements, activeID: elements.first?.id, offset: 0, structural: true
+            )
+        }
+        XCTAssertEqual(editor.applySceneNumbering(.newScenesOnly), 2)
+        XCTAssertEqual(editor.applySceneNumbering(.newScenesOnly), 0)
+        XCTAssertEqual(applications, 1, "no undoable step for a change that changed nothing")
+    }
+
+    /// Before the text view has wired itself up there is nowhere to register
+    /// an undoable edit, so the operation declines rather than writing the
+    /// model behind UIKit's back.
+    func testNumberingDeclinesWithoutTheEditorSurface() {
+        XCTAssertEqual(EditorState(source: source).applySceneNumbering(.all), 0)
+    }
+}
+
+
+/// The Navigator's cast list is navigation, not a poster: a row has to go
+/// somewhere. It went nowhere until 3 September — the rows rendered as plain
+/// stacks while the scene rows were buttons.
+@MainActor
+final class CastNavigationTests: XCTestCase {
+
+    private let source = [
+        "INT. LAB - DAY", "", "MARA", "First.", "",
+        "DAVID", "Hello.", "", "MARA (V.O.)", "Again."
+    ].joined(separator: "\n")
+
+    func testEachCastRowPointsAtThatCharactersFirstCue() throws {
+        let editor = EditorState(source: source)
+        let cues = editor.screenplay.elements.filter { $0.type == .character }
+        let mara = try XCTUnwrap(editor.cast.first { $0.name == "MARA" })
+
+        // Two cues, one of them carrying an extension, collapse onto one row.
+        XCTAssertEqual(mara.cues, 2)
+        XCTAssertEqual(mara.firstCueID, cues.first?.id, "the first appearance, not the last")
+        XCTAssertNotEqual(mara.firstCueID, cues.last?.id)
+    }
+
+    func testEveryCastRowResolvesToARealElement() {
+        let editor = EditorState(source: source)
+        let ids = Set(editor.screenplay.elements.map(\.id))
+        XCTAssertFalse(editor.cast.isEmpty)
+        for person in editor.cast {
+            XCTAssertTrue(ids.contains(person.firstCueID), "\(person.name) points nowhere")
+        }
+    }
+
+    func testJumpingFromACastRowMovesTheCaretThere() throws {
+        let editor = EditorState(source: source)
+        let david = try XCTUnwrap(editor.cast.first { $0.name == "DAVID" })
+        editor.jump(to: david.firstCueID)
+        XCTAssertEqual(editor.activeElementID, david.firstCueID)
+    }
+}
+
+
+/// Renaming a character is the operation a cast list actually exists for.
+/// It must reach every cue, keep each cue's extension, and stop at prose.
+@MainActor
+final class CharacterRenameTests: XCTestCase {
+
+    private let source = [
+        "INT. LAB - DAY", "",
+        "MARA", "First.", "",
+        "Mara crosses to the window.", "",
+        "DAVID", "Hello.", "",
+        "MARA (V.O.)", "Again."
+    ].joined(separator: "\n")
+
+    private func rename(_ from: String, to: String) -> [ScriptElement] {
+        let editor = EditorState(source: source)
+        var applied: [ScriptElement] = editor.screenplay.elements
+        editor.onApplyElements = { elements, _ in applied = elements }
+        editor.renameCharacter(from, to: to)
+        return applied
+    }
+
+    func testEveryCueIsRenamedAndItsExtensionKept() {
+        let cues = rename("MARA", to: "Elena").filter { $0.type == .character }.map(\.text)
+        XCTAssertEqual(cues, ["ELENA", "DAVID", "ELENA (V.O.)"])
+    }
+
+    /// Cues only is the conservative default: prose is untouched unless the
+    /// writer asks for it, having been shown how much prose there is.
+    func testProseIsLeftAloneUnlessAsked() {
+        let actions = rename("MARA", to: "Elena").filter { $0.type == .action }.map(\.text)
+        XCTAssertTrue(actions.contains("Mara crosses to the window."), "\(actions)")
+    }
+
+    func testRenamingRegistersOneUndoableStepUnderItsOwnName() {
+        let editor = EditorState(source: source)
+        var name: String?
+        var applications = 0
+        editor.onApplyElements = { _, actionName in name = actionName; applications += 1 }
+        XCTAssertEqual(editor.renameCharacter("MARA", to: "Elena"), 2)
+        XCTAssertEqual(name, "Rename Character")
+        XCTAssertEqual(applications, 1)
+    }
+
+    func testRenamingOntoAnExistingNameMergesTheCharacters() {
+        let cues = rename("MARA", to: "DAVID").filter { $0.type == .character }.map(\.text)
+        XCTAssertEqual(cues, ["DAVID", "DAVID", "DAVID (V.O.)"])
+    }
+
+    func testTheMergeIsAnnouncedBeforeItHappens() {
+        let editor = EditorState(source: source)
+        XCTAssertTrue(editor.characterExists("david"), "matched regardless of casing")
+        XCTAssertFalse(editor.characterExists("ELENA"))
+    }
+
+    func testAnEmptyOrUnchangedNameDoesNothing() {
+        let editor = EditorState(source: source)
+        editor.onApplyElements = { _, _ in XCTFail("nothing should be applied") }
+        XCTAssertEqual(editor.renameCharacter("MARA", to: "   "), 0)
+        XCTAssertEqual(editor.renameCharacter("MARA", to: "mara"), 0)
+        XCTAssertEqual(editor.renameCharacter("NOBODY", to: "Elena"), 0)
+    }
+
+    func testTheExtensionIsWhatTheCanonicaliserStrips() {
+        XCTAssertEqual(EditorState.cueExtension("MARA (V.O.)"), " (V.O.)")
+        XCTAssertEqual(EditorState.cueExtension("MARA (V.O.) (CONT'D)"), " (V.O.) (CONT'D)")
+        XCTAssertEqual(EditorState.cueExtension("MARA"), "")
+    }
+}
+
+
+/// Renaming across prose is what a writer means by "her name is Elena now" —
+/// a script with ELENA in the cues and "Mara" in the action is broken. The
+/// danger is not the rename, it is the pattern: a name is also a word.
+@MainActor
+final class CharacterRenameAcrossProseTests: XCTestCase {
+
+    private let source = [
+        "INT. LAB - DAY", "",
+        "MARA", "First.", "",
+        "Mara crosses to the window. A MARAUDER waits outside.", "",
+        "DAVID", "Elena said MARA would come.", "",
+        "MARA (V.O.)", "Again."
+    ].joined(separator: "\n")
+
+    private func editor() -> EditorState { EditorState(source: source) }
+
+    private func rename(includingMentions: Bool) -> [ScriptElement] {
+        let editor = editor()
+        var applied = editor.screenplay.elements
+        editor.onApplyElements = { elements, _ in applied = elements }
+        editor.renameCharacter("MARA", to: "Elena", includingMentions: includingMentions)
+        return applied
+    }
+
+    /// Twice: once in action, once inside another character's dialogue.
+    /// MARAUDER contains the name and is not a mention of it.
+    func testMentionsAreCountedByWholeWordOnly() {
+        XCTAssertEqual(editor().characterMentions("MARA"), 2)
+    }
+
+    func testRenamingEverywhereRewritesProse() {
+        let texts = rename(includingMentions: true).map(\.text)
+        XCTAssertTrue(
+            texts.contains("Elena crosses to the window. A MARAUDER waits outside."),
+            "\(texts)"
+        )
+        XCTAssertTrue(texts.contains("Elena said Elena would come."), "\(texts)")
+    }
+
+    /// The reason whole-word matching exists.
+    func testALongerWordContainingTheNameIsNeverTouched() {
+        let joined = rename(includingMentions: true).map(\.text).joined(separator: " ")
+        XCTAssertTrue(joined.contains("MARAUDER"))
+        XCTAssertFalse(joined.contains("ELENAUDER"))
+        XCTAssertFalse(joined.contains("Elenauder"))
+    }
+
+    /// Cues shout because their lane does; prose takes the name as typed.
+    func testCuesUppercaseWhileProseKeepsTheTypedCasing() {
+        let elements = rename(includingMentions: true)
+        XCTAssertEqual(
+            elements.filter { $0.type == .character }.map(\.text),
+            ["ELENA", "DAVID", "ELENA (V.O.)"]
+        )
+        XCTAssertTrue(elements.contains { $0.type == .action && $0.text.hasPrefix("Elena ") })
+    }
+
+    func testCuesOnlyLeavesEveryMentionStanding() {
+        let texts = rename(includingMentions: false).map(\.text)
+        XCTAssertTrue(texts.contains("Mara crosses to the window. A MARAUDER waits outside."))
+        XCTAssertTrue(texts.contains("Elena said MARA would come."))
+    }
+
+    /// A name carrying regex characters must be matched literally, or the
+    /// pattern silently means something else.
+    func testANameWithPunctuationIsMatchedLiterally() {
+        let editor = EditorState(source: [
+            "INT. LAB - DAY", "",
+            "MR. O'BRIEN", "Hello.", "",
+            "Mr. O'Brien waits. MR X waits too."
+        ].joined(separator: "\n"))
+        XCTAssertEqual(editor.characterMentions("MR. O'BRIEN"), 1)
+    }
+}
+
+
+/// A character's thread: the scenes they speak in and what they say there.
+/// One walk has to answer both "does she sound like one person" and "where
+/// is she in this story", and every row it produces has to be a real place.
+@MainActor
+final class CharacterThreadTests: XCTestCase {
+
+    private let source = [
+        "INT. LAB - DAY", "",
+        "MARA", "(quietly)", "First.", "Second.", "",
+        "DAVID", "Not me.", "",
+        "EXT. ROOF - NIGHT", "",
+        "DAVID", "Alone here.", "",
+        "INT. CAR - LATER", "",
+        "MARA", "Third."
+    ].joined(separator: "\n")
+
+    func testOnlyTheScenesWhereTheySpeakAreListed() {
+        let appearances = EditorState(source: source).appearances(of: "MARA")
+        XCTAssertEqual(appearances.map(\.heading), ["INT. LAB - DAY", "INT. CAR - LATER"])
+    }
+
+    func testEverySpeechIsKeptInOrderUnderItsScene() {
+        let appearances = EditorState(source: source).appearances(of: "MARA")
+        XCTAssertEqual(appearances[0].lines.map(\.text), ["First.", "Second."])
+        XCTAssertEqual(appearances[1].lines.map(\.text), ["Third."])
+    }
+
+    /// A direction belongs to the speech it introduces, and to no other.
+    func testAParentheticalAttachesToTheLineBeneathIt() {
+        let lines = EditorState(source: source).appearances(of: "MARA")[0].lines
+        XCTAssertEqual(lines[0].parenthetical, "(quietly)")
+        XCTAssertNil(lines[1].parenthetical, "the direction does not carry on to the next line")
+    }
+
+    func testAnotherCharactersLinesAreNeverIncluded() {
+        let spoken = EditorState(source: source)
+            .appearances(of: "MARA")
+            .flatMap(\.lines)
+            .map(\.text)
+        XCTAssertFalse(spoken.contains("Not me."))
+        XCTAssertFalse(spoken.contains("Alone here."))
+    }
+
+    /// Every row navigates, so every id has to resolve.
+    func testEveryRowPointsAtARealElement() {
+        let editor = EditorState(source: source)
+        let ids = Set(editor.screenplay.elements.map(\.id))
+        for appearance in editor.appearances(of: "MARA") {
+            XCTAssertTrue(ids.contains(appearance.id), "scene \(appearance.heading)")
+            for line in appearance.lines {
+                XCTAssertTrue(ids.contains(line.id), "line \(line.text)")
+            }
+        }
+    }
+
+    /// The scene's own address when the script carries one; its position when
+    /// it does not.
+    func testTheSceneLabelPrefersTheProductionNumber() {
+        let numbered = EditorState(source: [
+            "INT. LAB - DAY #7#", "", "MARA", "First."
+        ].joined(separator: "\n"))
+        XCTAssertEqual(numbered.appearances(of: "MARA").map(\.label), ["7"])
+        XCTAssertEqual(EditorState(source: source).appearances(of: "MARA").map(\.label), ["1", "3"])
+    }
+
+    func testACharacterWhoNeverSpeaksHasNoThread() {
+        let editor = EditorState(source: ["INT. LAB - DAY", "", "MARA", "", "She waits."]
+            .joined(separator: "\n"))
+        XCTAssertTrue(editor.appearances(of: "MARA").isEmpty)
     }
 }

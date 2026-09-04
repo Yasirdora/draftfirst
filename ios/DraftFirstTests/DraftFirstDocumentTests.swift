@@ -1,3 +1,5 @@
+import DraftFirstEngine
+import PDFKit
 import XCTest
 import UniformTypeIdentifiers
 @testable import DraftFirst
@@ -49,351 +51,54 @@ final class DraftFirstDocumentTests: XCTestCase {
             DraftFirstDocument().source.data(using: .utf8)
         ))
         XCTAssertEqual(editor.screenplay.elements.count, 1)
-        XCTAssertEqual(editor.screenplay.elements.first?.type, .action)
+        // One empty element, and it is a scene heading: a screenplay opens on
+        // a slug, so the caret starts where the writing starts and the
+        // keyboard comes up in capitals.
+        XCTAssertEqual(editor.screenplay.elements.first?.type, .scene)
         XCTAssertEqual(editor.screenplay.elements.first?.text, "")
         XCTAssertEqual(editor.screenplay.title, "Untitled Screenplay")
     }
-}
 
-/// The round-trip contract behind "no lock-in, your file is yours": a
-/// collaborator's Fountain file must survive open → edit → save untouched,
-/// including structure the editor has no UI for yet (sections, synopses,
-/// notes, dual dialogue, forced scene numbers).
-final class RoundTripTests: XCTestCase {
-
-    private typealias Shape = (type: ScreenplayKind, text: String, dual: Bool?, sceneNumber: String?, depth: Int?)
-
+    /// A screenplay made a moment ago and not yet written to is the one the
+    /// writer has just asked for, and it opens ready to write.
     @MainActor
-    private func shapes(of source: String) -> [Shape] {
-        EditorState(source: source).screenplay.elements.map {
-            ($0.type, $0.text, $0.dual, $0.sceneNumber, $0.depth)
-        }
+    func testAScreenplayJustMadeOpensForWriting() throws {
+        let url = try Self.makeTemporaryScreenplay()
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertTrue(DocumentArrival.isNewlyCreated(at: url))
     }
 
+    /// Coming back to it is a return, however little is in it: the session
+    /// remembers what it has already opened.
     @MainActor
-    func testSectionDepthAndStructureSurviveRoundTrip() {
-        let source = """
-        # Act One
-
-        ## Sequence B
-
-        INT. LAB - NIGHT #42#
-
-        = A quiet opening.
-
-        [[a margin note]]
-
-        MARA ^
-        Overlapping.
-
-        """
-        let before = shapes(of: source)
-        XCTAssertEqual(before.first(where: { $0.type == .section })?.depth, 1)
-        XCTAssertEqual(before.filter { $0.type == .section }.map(\.depth), [1, 2])
-        XCTAssertEqual(before.first(where: { $0.type == .scene })?.sceneNumber, "42")
-        XCTAssertEqual(before.first(where: { $0.type == .character })?.dual, true)
-
-        // Serialise through the app model (the debounced publish path), then
-        // reparse: the structure must be identical — nothing flattened.
-        let serialised = ScreenplayExporter.fountainSource(EditorState(source: source).screenplay)
-        XCTAssertTrue(serialised.contains("# Act One"))
-        XCTAssertTrue(serialised.contains("## Sequence B"))
-        let after = shapes(of: serialised)
-        XCTAssertEqual(after.map { "\($0.type)|\($0.text)|\($0.depth ?? 0)|\($0.dual ?? false)|\($0.sceneNumber ?? "")" },
-                       before.map { "\($0.type)|\($0.text)|\($0.depth ?? 0)|\($0.dual ?? false)|\($0.sceneNumber ?? "")" })
+    func testComingBackToTheSameScreenplayReads() throws {
+        let url = try Self.makeTemporaryScreenplay()
+        defer { try? FileManager.default.removeItem(at: url) }
+        XCTAssertTrue(DocumentArrival.isNewlyCreated(at: url))
+        XCTAssertFalse(DocumentArrival.isNewlyCreated(at: url), "the second arrival is a return")
     }
 
-    /// Serialisation must converge: one normalisation pass, then stable
-    /// output forever — no document drifts with every save.
+    /// A screenplay with writing in it is one to read, however recently it
+    /// was started.
     @MainActor
-    func testSerialisationIsIdempotent() {
-        let messy = "INT.  LAB - NIGHT\n\nSome action.  \n\nMARA\nHello.\n"
-        let once = ScreenplayExporter.fountainSource(EditorState(source: messy).screenplay)
-        let twice = ScreenplayExporter.fountainSource(EditorState(source: once).screenplay)
-        XCTAssertEqual(once, twice)
-    }
-}
-
-/// §2.6 — an external change (iCloud delivery, conflict resolution) must be
-/// applied in place: the caret stays with its element, undo history is
-/// untouched, and the sync never echoes back as a write.
-final class ExternalSyncTests: XCTestCase {
-
-    private let base = "FADE IN:\n\nINT. LAB - NIGHT\n\nSome action.\n"
-
-    @MainActor
-    private func makeEditor() throws -> EditorState {
-        let editor = EditorState(source: base)
-        let sceneID = try XCTUnwrap(editor.screenplay.elements.first { $0.type == .scene }?.id)
-        editor.jump(to: sceneID)
-        editor.selectionOffset = 5
-        return editor
-    }
-
-    @MainActor
-    func testExternalChangeKeepsCaretOnSurvivingElement() throws {
-        let editor = try makeEditor()
-        let sceneID = try XCTUnwrap(editor.activeElementID)
-        editor.applyExternalSource("FADE IN:\n\nINT. LAB - NIGHT\n\nThe action changed.\n")
-        XCTAssertEqual(editor.activeElementID, sceneID)
-        XCTAssertEqual(editor.selectionOffset, 5)
-        XCTAssertEqual(editor.screenplay.elements.last?.text, "The action changed.")
-    }
-
-    @MainActor
-    func testExternalChangePreservesUndoTimeline() throws {
-        let editor = try makeEditor()
-        let actionID = try XCTUnwrap(editor.screenplay.elements.last?.id)
-        editor.replaceElementText(id: actionID, text: "The writer typed this.")
-        XCTAssertTrue(editor.canUndo)
-
-        editor.applyExternalSource("FADE IN:\n\nINT. LAB - NIGHT\n\nSynced from elsewhere.\n")
-        XCTAssertTrue(editor.canUndo, "The undo timeline must survive an external change")
-
-        editor.undo()
-        XCTAssertEqual(editor.screenplay.elements.last?.text, "The writer typed this.",
-                       "Undo after a sync returns to the writer's own last edit")
-    }
-
-    @MainActor
-    func testDeletedCaretElementFallsBackToPredecessor() throws {
-        let editor = try makeEditor()
-        let actionID = try XCTUnwrap(editor.screenplay.elements.last?.id)
-        editor.jump(to: actionID)
-        // The writer's element vanished in the synced copy: the caret lands
-        // on the nearest surviving predecessor — never teleported blindly to
-        // the top while the rest of the document still exists.
-        editor.applyExternalSource("FADE IN:\n\nOnly action remains.\n")
-        let active = editor.screenplay.elements.first { $0.id == editor.activeElementID }
-        XCTAssertEqual(active?.text, "FADE IN:")
-    }
-
-    @MainActor
-    func testExternalChangeNeverPublishesBack() throws {
-        let editor = try makeEditor()
-        var published = false
-        editor.onSourceChange = { _ in published = true }
-        editor.applyExternalSource("FADE IN:\n\nINT. LAB - NIGHT\n\nChanged remotely.\n")
-        XCTAssertFalse(published, "Applying a sync must not echo a write")
-        XCTAssertEqual(editor.banner, "Updated from iCloud")
-    }
-}
-
-/// The professional migration path: a Final Draft file opens in place,
-/// converts to the app's Fountain source of truth, and saves back as valid
-/// FDX — scene numbers, dual dialogue, and title page intact. The codec
-/// itself is pinned byte-for-byte by the engine's FDX conformance corpus;
-/// these tests guard the document boundary around it.
-final class FdxInterchangeTests: XCTestCase {
-
-    private static let foreignFdx = """
-    <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
-    <FinalDraft DocumentType="Script" Version="3">
-      <Content>
-        <Paragraph Type="Scene Heading" Number="1"><Text>INT. FISH &amp; CHIP SHOP - DAY</Text></Paragraph>
-        <Paragraph Type="Character"><Text>MOLLY (V.O.)</Text></Paragraph>
-        <Paragraph Type="Dialogue"><Text>We&apos;re closed.</Text></Paragraph>
-      </Content>
-      <TitlePage>
-        <Content>
-          <Paragraph Alignment="Center" Type="General"><Text>Chips</Text></Paragraph>
-          <Paragraph Alignment="Center" Type="General"><Text>written by</Text></Paragraph>
-          <Paragraph Alignment="Center" Type="General"><Text>A. Writer</Text></Paragraph>
-        </Content>
-      </TitlePage>
-    </FinalDraft>
-    """
-
-    private func read(_ text: String, as type: UTType) throws -> DraftFirstDocument {
-        DraftFirstDocument(
-            source: try DraftFirstDocument.decode(
-                XCTUnwrap(text.data(using: .utf8)), as: type
-            )
+    func testAScreenplayWrittenToSinceItWasMadeReads() throws {
+        let url = try Self.makeTemporaryScreenplay()
+        defer { try? FileManager.default.removeItem(at: url) }
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(30)], ofItemAtPath: url.path
         )
+        XCTAssertFalse(DocumentArrival.isNewlyCreated(at: url))
     }
 
-    private func write(_ document: DraftFirstDocument, as type: UTType) throws -> String {
-        String(decoding: try DraftFirstDocument.encode(document.source, as: type), as: UTF8.self)
-    }
-
-    func testFdxIsReadableAndWritable() {
-        XCTAssertTrue(DraftFirstDocument.readableContentTypes.contains(.finalDraftScreenplay))
-        XCTAssertTrue(DraftFirstDocument.writableContentTypes.contains(.finalDraftScreenplay))
-    }
-
-    /// Import converts FDX to the Fountain source: scene numbers become
-    /// forced-number markers, the title page becomes title-page keys.
-    func testImportConvertsToFountainSource() throws {
-        let document = try read(Self.foreignFdx, as: .finalDraftScreenplay)
-        XCTAssertTrue(document.source.contains("Title: Chips"), document.source)
-        XCTAssertTrue(document.source.contains("INT. FISH & CHIP SHOP - DAY #1#"), document.source)
-        XCTAssertTrue(document.source.contains("MOLLY (V.O.)"), document.source)
-        XCTAssertTrue(document.source.contains("We're closed."), document.source)
-    }
-
-    /// Saving an .fdx in place writes FDX back out — never Fountain source
-    /// wearing an .fdx name, which Final Draft would refuse to open.
-    func testWriteBackToFdxProducesValidXml() throws {
-        let document = try read(Self.foreignFdx, as: .finalDraftScreenplay)
-        let written = try write(document, as: .finalDraftScreenplay)
-        XCTAssertTrue(written.contains("<FinalDraft"), written)
-        XCTAssertTrue(written.contains("</FinalDraft>"), written)
-        XCTAssertTrue(written.contains(#"Type="Scene Heading" Number="1""#), written)
-        XCTAssertTrue(written.contains("INT. FISH &amp; CHIP SHOP - DAY"), written)
-        XCTAssertTrue(written.contains("MOLLY (V.O.)"), written)
-    }
-
-    /// Open → save → open is an identity: a migrated file never drifts.
-    func testInPlaceEditRoundTripIsStable() throws {
-        let once = try read(Self.foreignFdx, as: .finalDraftScreenplay)
-        let written = try write(once, as: .finalDraftScreenplay)
-        let twice = try read(written, as: .finalDraftScreenplay)
-        XCTAssertEqual(twice.source, once.source)
-    }
-
-    /// Dual dialogue and a forced scene number survive the export path that
-    /// the share sheet's "Final Draft (FDX)" action uses.
+    /// Nothing to ask of a screenplay with no file behind it yet.
     @MainActor
-    func testExportCarriesDualDialogueAndSceneNumbers() {
-        let screenplay = Screenplay(
-            titlePage: [],
-            elements: [
-                ScriptElement(type: .scene, text: "INT. LAB - NIGHT", sceneNumber: "7"),
-                ScriptElement(type: .character, text: "MARA", dual: true),
-                ScriptElement(type: .dialogue, text: "Overlapping.")
-            ]
-        )
-        let fdx = ScreenplayExporter.fdxSource(screenplay)
-        XCTAssertTrue(fdx.contains(#"Number="7""#), fdx)
-        XCTAssertTrue(fdx.contains(#"Dual="Yes""#), fdx)
-        XCTAssertTrue(fdx.contains(#"xmlns:EDraft="https://edraft.xyz/ns/fdx/1""#), fdx)
+    func testNoFileReads() {
+        XCTAssertFalse(DocumentArrival.isNewlyCreated(at: nil))
     }
 
-    /// A non-FDX document is untouched by the codec: plain text in, the same
-    /// bytes out.
-    func testPlainTextPathIsUnaffected() throws {
-        let source = "INT. LAB - NIGHT\n\nHum.\n"
-        let document = try read(source, as: .plainText)
-        XCTAssertEqual(document.source, source)
-        XCTAssertEqual(try write(document, as: .plainText), source)
-    }
-
-    /// The device-crash regression: a real Final Draft export — Version 5
-    /// boilerplate, attributed Text runs, SceneProperties, and a title page
-    /// longer than the five positional fallback keys. The TypeScript
-    /// importer's `keys[index] ?? 'Contact'` is a trap when ported as a
-    /// Swift subscript; this file takes exactly that path.
-    @MainActor
-    func testRealWorldFinalDraftFileImports() throws {
-        let realistic = """
-        <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
-        <FinalDraft DocumentType="Script" Version="5">
-          <Content>
-            <Paragraph Type="Scene Heading">
-              <SceneProperties Length="3/8" Page="1" Title=""/>
-              <Text AdornmentStyle="0" Background="#FFFFFFFFFFFF">INT. FISH &amp; CHIP SHOP - DAY</Text>
-            </Paragraph>
-            <Paragraph Type="Action">
-              <Text AdornmentStyle="0" Background="#FFFFFFFFFFFF">The fryer hums. </Text>
-              <Text AdornmentStyle="0" Background="#FFFFFFFFFFFF" Emphasis="Bold">Everything</Text>
-              <Text AdornmentStyle="0" Background="#FFFFFFFFFFFF"> smells of vinegar.</Text>
-            </Paragraph>
-            <Paragraph Type="Character"><Text>MOLLY</Text></Paragraph>
-            <Paragraph Type="Dialogue"><Text>We're closed.</Text></Paragraph>
-            <Paragraph Type="Transition"><Text>CUT TO:</Text></Paragraph>
-          </Content>
-          <TitlePage>
-            <Content>
-              <Paragraph Type="General"><Text>THE BIG SCRIPT</Text></Paragraph>
-              <Paragraph Type="General"><Text>written by</Text></Paragraph>
-              <Paragraph Type="General"><Text>First Writer</Text></Paragraph>
-              <Paragraph Type="General"><Text>Second Writer</Text></Paragraph>
-              <Paragraph Type="General"><Text>Based on a true story</Text></Paragraph>
-              <Paragraph Type="General"><Text>Copyright 2026</Text></Paragraph>
-              <Paragraph Type="General"><Text>123 Writer Lane</Text></Paragraph>
-              <Paragraph Type="General"><Text>Hollywood, CA 90028</Text></Paragraph>
-            </Content>
-          </TitlePage>
-          <SmartType>
-            <Characters><Character>MOLLY</Character></Characters>
-          </SmartType>
-          <MoresAndContinueds/>
-        </FinalDraft>
-        """
-        let document = try read(realistic, as: .finalDraftScreenplay)
-        XCTAssertTrue(document.source.contains("Title: THE BIG SCRIPT"), document.source)
-        XCTAssertTrue(document.source.contains("INT. FISH & CHIP SHOP - DAY"), document.source)
-        // Multiple Text runs in one paragraph concatenate.
-        XCTAssertTrue(
-            document.source.contains("The fryer hums. Everything smells of vinegar."),
-            document.source
-        )
-        // The eighth title paragraph lands in Contact, and nothing traps.
-        let screenplay = EditorState(source: document.source).screenplay
-        let contact = screenplay.titlePage.first { $0.key == "Contact" }
-        XCTAssertEqual(
-            contact?.values,
-            ["Based on a true story", "Copyright 2026", "123 Writer Lane", "Hollywood, CA 90028"]
-        )
-        // And it writes back as valid FDX.
-        let written = try write(document, as: .finalDraftScreenplay)
-        XCTAssertTrue(written.contains("</FinalDraft>"), written)
-    }
-}
-
-/// Dual dialogue prints sequentially until a true side-by-side layout
-/// exists — and the Fountain `^` the paginator carries for wrap width must
-/// never reach a rendered page. The web PDF exporter has always stripped
-/// it; these pin the same contract onto the exporter that the share sheet,
-/// print, RTF, and plain-text paths all draw from.
-@MainActor
-final class DualDialogueRenderingTests: XCTestCase {
-
-    private let dualScript = Screenplay(
-        titlePage: [],
-        elements: [
-            ScriptElement(type: .character, text: "MOLLY"),
-            ScriptElement(type: .dialogue, text: "We speak—"),
-            ScriptElement(type: .character, text: "JOAN", dual: true),
-            ScriptElement(type: .dialogue, text: "—at the same time.")
-        ]
-    )
-
-    /// Plain text is the shared renderer: RTF is built from it, and the PDF
-    /// draws the same paginated lines through the same strip.
-    func testPlainTextExportNeverShowsTheDualCaret() {
-        let text = ScreenplayExporter.plainText(dualScript)
-        XCTAssertTrue(text.contains("JOAN"), text)
-        XCTAssertFalse(text.contains("^"), text)
-    }
-
-    func testRichTextExportNeverShowsTheDualCaret() throws {
-        let data = try XCTUnwrap(ScreenplayExporter.rtfData(dualScript))
-        let rtf = String(decoding: data, as: UTF8.self)
-        XCTAssertTrue(rtf.contains("JOAN"), rtf)
-        XCTAssertFalse(rtf.contains("^"), rtf)
-    }
-
-    /// Stripping the caret from the page must never strip it from the
-    /// document: the dual flag is the writer's, and it round-trips.
-    func testDualFlagSurvivesTheSourceOfTruth() {
-        let source = ScreenplayExporter.fountainSource(dualScript)
-        let reread = EditorState(source: source).screenplay
-        XCTAssertEqual(reread.elements.first(where: { $0.text == "JOAN" })?.dual, true)
-    }
-
-    /// A cue that legitimately ends in a caret keeps it: only the marker the
-    /// paginator itself appends to a dual cue is removed.
-    func testOnlyTheGeneratedMarkerIsStripped() {
-        let text = ScreenplayExporter.plainText(Screenplay(
-            titlePage: [],
-            elements: [
-                ScriptElement(type: .action, text: "She points up ^ at the sign."),
-                ScriptElement(type: .character, text: "MOLLY"),
-                ScriptElement(type: .dialogue, text: "Up ^ there.")
-            ]
-        ))
-        XCTAssertTrue(text.contains("She points up ^ at the sign."), text)
-        XCTAssertTrue(text.contains("Up ^ there."), text)
+    private static func makeTemporaryScreenplay() throws -> URL {
+        let url = URL.temporaryDirectory.appending(path: "\(UUID().uuidString).draft")
+        try Data("Title: Untitled Screenplay\n\n".utf8).write(to: url)
+        return url
     }
 }

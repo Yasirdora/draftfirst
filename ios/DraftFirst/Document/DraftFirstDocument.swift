@@ -184,9 +184,18 @@ enum ScreenplayExporter {
 
             guard let pages = paginate(screenplay) else { return }
             let showPageNumbers = UserDefaults.standard.object(forKey: "showPageNumbers") as? Bool ?? true
+            // No preference gates these: a script carries scene numbers only
+            // because a writer or a production put them there, and a numbered
+            // script that prints unnumbered pages is the wrong deliverable.
+            let sceneNumbers = sceneNumberIndex(screenplay)
             for page in pages {
                 context.beginPage()
-                drawScriptPage(page, format: format, showPageNumbers: showPageNumbers)
+                drawScriptPage(
+                    page,
+                    sceneNumbers: sceneNumbers,
+                    format: format,
+                    showPageNumbers: showPageNumbers
+                )
             }
         }
     }
@@ -208,6 +217,43 @@ enum ScreenplayExporter {
     }
 
     // MARK: Drawing internals
+
+    /// Scene numbers by element index, empty for a script that has none.
+    ///
+    /// Numbers live on the element, not in its text — the parser splits `#1#`
+    /// off the slug — so the page has to ask the screenplay for them. Reading
+    /// them here rather than teaching the paginator to emit them keeps the
+    /// paginator's output byte-identical to its conformance corpus, and puts
+    /// the numbers where a production draft actually carries them: the
+    /// margins, outside the measured text block.
+    static func sceneNumberIndex(_ screenplay: Screenplay) -> [Int: String] {
+        var index: [Int: String] = [:]
+        for (position, element) in screenplay.elements.enumerated() {
+            guard element.type == .scene,
+                  let number = element.sceneNumber,
+                  !number.isEmpty else { continue }
+            index[position] = number
+        }
+        return index
+    }
+
+    /// Which lines of a page carry a scene number, by line index.
+    ///
+    /// A slug long enough to wrap occupies several lines that all point at the
+    /// same element; only the first of them is numbered, or the margin would
+    /// repeat the number down the side of one heading.
+    static func sceneNumberMarks(
+        for page: DraftFirstEngine.ScriptPage, numbers: [Int: String]
+    ) -> [Int: String] {
+        var marks: [Int: String] = [:]
+        var numbered: Int?
+        for (index, line) in page.lines.enumerated() {
+            guard case .element(.scene) = line.type, line.element != numbered else { continue }
+            numbered = line.element
+            if let number = numbers[line.element] { marks[index] = number }
+        }
+        return marks
+    }
 
     private static func paginate(_ screenplay: Screenplay) -> [DraftFirstEngine.ScriptPage]? {
         try? Paginator.paginate(screenplay.engineModel, linesPerPage: PageFormat.current.linesPerPage)
@@ -239,10 +285,16 @@ enum ScreenplayExporter {
         return line.text
     }
 
-    private static func drawScriptPage(_ page: DraftFirstEngine.ScriptPage, format: PageFormat, showPageNumbers: Bool) {
+    private static func drawScriptPage(
+        _ page: DraftFirstEngine.ScriptPage,
+        sceneNumbers: [Int: String],
+        format: PageFormat,
+        showPageNumbers: Bool
+    ) {
         let attributes = textAttributes
         let characterWidth = ("0" as NSString).size(withAttributes: attributes).width
         let textTop = format.textTop
+        let marks = sceneNumberMarks(for: page, numbers: sceneNumbers)
 
         /* Page numbers print top-right from the second page on, "2." style. */
         if page.number > 1 && showPageNumbers {
@@ -265,6 +317,12 @@ enum ScreenplayExporter {
             default:
                 let x = textLeft + CGFloat(leadingSpaces(for: line)) * characterWidth
                 (text as NSString).draw(at: CGPoint(x: x, y: y), withAttributes: attributes)
+            }
+            if let number = marks[index] {
+                drawSceneNumber(
+                    number, y: y, format: format,
+                    characterWidth: characterWidth, attributes: attributes
+                )
             }
         }
 
@@ -344,6 +402,24 @@ enum ScreenplayExporter {
         string.draw(
             at: CGPoint(x: (format.pageRect.width - size.width) / 2, y: y),
             withAttributes: attributes
+        )
+    }
+
+    /// A scene number in both margins, level with its slug.
+    ///
+    /// Both sides, because a production draft is read from either: a script
+    /// supervisor works down the left, a first AD breaking down a page reads
+    /// the right. The left number is right-aligned and the right one
+    /// left-aligned, so both sit a constant gap from the text however many
+    /// digits they carry — "7" and "112A" line up against the same edge.
+    private static func drawSceneNumber(
+        _ number: String, y: CGFloat, format: PageFormat,
+        characterWidth: CGFloat, attributes: [NSAttributedString.Key: Any]
+    ) {
+        let gap = characterWidth * 2
+        drawRightAligned(number, rightEdge: textLeft - gap, y: y, attributes: attributes)
+        (number as NSString).draw(
+            at: CGPoint(x: format.textRight + gap, y: y), withAttributes: attributes
         )
     }
 

@@ -1,3 +1,4 @@
+import DraftFirstEngine
 import Foundation
 
 /// Converts a text-system replacement into screenplay elements without ever
@@ -119,6 +120,48 @@ struct ScreenplayEditPlanner {
                 elements: result,
                 selection: NSRange(location: caret, length: 0),
                 activeElementID: result[end.index].id,
+                activeOffset: 0
+            )
+        }
+
+        // Return inside a parenthetical ends it; it never splits its brackets.
+        //
+        // Splitting the raw text the way every other element splits leaves the
+        // opener on one line and the closer alone on the next — "(whispering"
+        // above a dialogue line reading ")". A parenthetical is a bracketed
+        // unit, so the head closes as its own direction and whatever followed
+        // the caret becomes the speech it was introducing, which is the
+        // element that follows a parenthetical anyway.
+        if intent == .returnKey,
+           requestedRange.length == 0,
+           start.index == end.index,
+           elements[start.index].type == .parenthetical,
+           // Only between the brackets. A caret before the opener or after the
+           // closer splits cleanly on its own, and those splits already behave.
+           start.offset > 0,
+           start.offset < (elements[start.index].text as NSString).length {
+            let text = elements[start.index].text as NSString
+            let cut = start.offset
+            let head = Normalize.normalizeParenthetical(text.substring(to: cut))
+
+            // Return before the direction has begun — the caret just inside
+            // the opener — would leave an empty bracket behind. Keep the
+            // direction whole instead and open the speech beneath it: nothing
+            // is lost, and nothing is left half-written.
+            let keepsWhole = head.isEmpty
+            var result = elements
+            result[start.index].text = keepsWhole ? elements[start.index].text : head
+            let spoken = keepsWhole
+                ? ""
+                : Normalize.unwrapParenthetical(text.substring(from: cut))
+            let dialogue = ScriptElement(type: .dialogue, text: spoken)
+            result.insert(dialogue, at: start.index + 1)
+
+            let caret = ranges(for: result)[start.index + 1].range.location
+            return Plan(
+                elements: result,
+                selection: NSRange(location: caret, length: 0),
+                activeElementID: dialogue.id,
                 activeOffset: 0
             )
         }

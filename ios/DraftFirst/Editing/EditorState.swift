@@ -20,12 +20,44 @@ final class EditorState {
     @ObservationIgnored var onPredictionChange: (() -> Void)?
     @ObservationIgnored var onAcceptPrediction: (() -> Void)?
     @ObservationIgnored var onChangeElementKind: ((ScreenplayKind) -> Void)?
+    /// Places finished elements after the caret's own. Implemented by the text
+    /// view, because an edit that skips its undo registration leaves the Undo
+    /// button and the model disagreeing about what the document contains.
+    @ObservationIgnored var onInsertElements: (([ScriptElement]) -> Void)?
+    /// Replaces the whole element list as one undoable step, named for the
+    /// Undo menu. Same reasoning as `onInsertElements`: the text view owns
+    /// registration, so nothing may write the model behind its back.
+    @ObservationIgnored var onApplyElements: (([ScriptElement], String) -> Void)?
     @ObservationIgnored var onJumpToElement: ((UUID) -> Void)?
     @ObservationIgnored var onNativeUndo: (() -> Bool)?
     @ObservationIgnored var onNativeRedo: (() -> Bool)?
     @ObservationIgnored var onClearNativeUndo: (() -> Void)?
+    /// Puts the writer into the script, or takes them out of it. The text
+    /// surface owns first-responder status, so asking is the only honest way
+    /// to change it: see `isEditing`.
+    @ObservationIgnored var onSetEditing: ((Bool) -> Void)?
 
-    /// A transient, non-modal notice ("Updated from iCloud", the swipe
+    /// Whether the writer is editing the script or reading it.
+    ///
+    /// This is not a mode the app keeps. It is the text surface's own
+    /// first-responder state, reported here so the chrome can follow it, and
+    /// that single source of truth is the whole point: a bar that reads the
+    /// keyboard's state cannot come to disagree with the keyboard. Tapping
+    /// the page, dismissing it by swipe, presenting a sheet over it — every
+    /// one of those already moves focus, and the chrome simply follows.
+    private(set) var isEditing = false
+
+    /// The surface reporting what focus did.
+    func reportEditing(_ editing: Bool) {
+        guard isEditing != editing else { return }
+        isEditing = editing
+    }
+
+    /// The chrome asking for focus to move.
+    func beginEditing() { onSetEditing?(true) }
+    func endEditing() { onSetEditing?(false) }
+
+    /// A transient, non-modal notice ("Updated elsewhere", the swipe
     /// element toast). The view renders it as a capsule under the chrome.
     var banner: String?
     @ObservationIgnored private var bannerTask: Task<Void, Never>?
@@ -213,19 +245,109 @@ final class EditorState {
         return screenplay.elements.enumerated().compactMap { index, element in
             guard element.type == .scene, !element.text.isEmpty else { return nil }
             number += 1
-            return SceneRow(id: element.id, number: number, title: element.text, elementIndex: index)
+            return SceneRow(
+                id: element.id,
+                number: number,
+                page: stats.scenePages[index],
+                sceneNumber: element.sceneNumber,
+                title: element.text,
+                elementIndex: index
+            )
         }
     }
 
     var cast: [CastRow] {
         var counts: [String: Int] = [:]
+        var firstCue: [String: UUID] = [:]
         for element in screenplay.elements where element.type == .character {
             let name = Self.canonicalCharacterName(element.text)
-            if !name.isEmpty { counts[name, default: 0] += 1 }
+            guard !name.isEmpty else { continue }
+            counts[name, default: 0] += 1
+            // First appearance, not last: a writer opening a character is
+            // looking for where they come in.
+            if firstCue[name] == nil { firstCue[name] = element.id }
         }
         return counts
-            .map { CastRow(id: $0.key, name: $0.key, cues: $0.value) }
+            .compactMap { name, cues in
+                firstCue[name].map { CastRow(id: name, name: name, cues: cues, firstCueID: $0) }
+            }
             .sorted { $0.cues == $1.cues ? $0.name < $1.name : $0.cues > $1.cues }
+    }
+
+    /// A character's thread through the script: every scene they speak in,
+    /// and what they say while they are there.
+    ///
+    /// One walk answers both questions a writer asks about a character. Read
+    /// down the speeches and you hear whether they sound like one person.
+    /// Read down the headings and you see where they appear, how often, and
+    /// the stretches where they vanish — which is their shape in the story.
+    ///
+    /// Every row carries the id of a real element, so the view navigates to
+    /// places rather than to guesses.
+    func appearances(of character: String) -> [CharacterAppearance] {
+        let elements = screenplay.elements
+        var appearances: [CharacterAppearance] = []
+        var scene: (id: UUID, label: String, heading: String, page: Int?)?
+        var ordinal = 0
+        var lines: [SpokenLine] = []
+
+        /// Closes the scene being read, keeping it only if the character
+        /// actually spoke in it.
+        func closeScene() {
+            guard !lines.isEmpty else { return }
+            let place = scene ?? (
+                id: lines[0].id, label: "—", heading: "Before the first scene", page: nil
+            )
+            appearances.append(CharacterAppearance(
+                id: place.id, label: place.label, heading: place.heading,
+                page: place.page, lines: lines
+            ))
+            lines = []
+        }
+
+        var index = 0
+        while index < elements.count {
+            let element = elements[index]
+
+            switch element.type {
+            case .scene:
+                closeScene()
+                ordinal += 1
+                scene = (
+                    element.id,
+                    element.sceneNumber ?? String(ordinal),
+                    element.text,
+                    stats.scenePages[index]
+                )
+                index += 1
+
+            case .character where Self.canonicalCharacterName(element.text) == character:
+                // A cue owns everything spoken under it until the block ends.
+                index += 1
+                var direction: String?
+                block: while index < elements.count {
+                    switch elements[index].type {
+                    case .parenthetical:
+                        direction = elements[index].text
+                    case .dialogue:
+                        lines.append(SpokenLine(
+                            id: elements[index].id,
+                            parenthetical: direction,
+                            text: elements[index].text
+                        ))
+                        direction = nil
+                    default:
+                        break block
+                    }
+                    index += 1
+                }
+
+            default:
+                index += 1
+            }
+        }
+        closeScene()
+        return appearances
     }
 
     /// The Navigator's context numbers, derived from the same scenes and
@@ -270,6 +392,112 @@ final class EditorState {
             )
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .uppercased()
+    }
+
+    /// Whatever follows a cue's name — " (V.O.)", " (CONT'D)".
+    ///
+    /// An extension is production information about *how* the line is heard,
+    /// not part of who says it, so a rename keeps it exactly as written. The
+    /// pattern is the one `canonicalCharacterName` strips, read from the other
+    /// end: what it removes is what this returns.
+    static func cueExtension(_ text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let range = trimmed.range(
+            of: #"(?:\s*\([^)]*\))+\s*$"#, options: .regularExpression
+        ) else { return "" }
+        return String(trimmed[range])
+    }
+
+    /// Matches a name only where it stands as a whole word.
+    ///
+    /// Lookarounds rather than `\b`, so a name ending in punctuation — "DR."
+    /// — still anchors correctly, and the pattern is escaped because a cue
+    /// may legitimately contain regex characters: "MR. O'BRIEN (V.O.)".
+    ///
+    /// Whole-word matching is what stops MARAUDER becoming ELENAUDER. It does
+    /// not stop a character called WILL from matching "will you come" — no
+    /// pattern can — which is why the count is shown before anything changes.
+    private static func mentionPattern(for name: String) -> String? {
+        let escaped = NSRegularExpression.escapedPattern(
+            for: name.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+        guard !escaped.isEmpty else { return nil }
+        return "(?<![\\p{L}\\p{N}])\(escaped)(?![\\p{L}\\p{N}])"
+    }
+
+    /// How often the character is named outside their own cues — in action,
+    /// in other characters' dialogue, in a slug like INT. MARA'S FLAT.
+    func characterMentions(_ name: String) -> Int {
+        guard let pattern = Self.mentionPattern(for: name),
+              let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+        else { return 0 }
+
+        return screenplay.elements.reduce(0) { total, element in
+            guard element.type != .character else { return total }
+            let length = (element.text as NSString).length
+            return total + regex.numberOfMatches(
+                in: element.text, range: NSRange(location: 0, length: length)
+            )
+        }
+    }
+
+    /// Renames a character and reports how many elements it touched.
+    ///
+    /// Cues always. Mentions in prose only when asked, because the safety of
+    /// that depends entirely on the name: renaming MARA is unambiguous, while
+    /// renaming WILL would rewrite half the action. The caller shows both
+    /// counts first and lets the writer decide, which is the part Final Draft
+    /// and WriterDuet leave to a global replace.
+    ///
+    /// Cues take the name uppercased, as their lane requires; prose takes it
+    /// exactly as the writer typed it, so "Elena crosses to the window" reads
+    /// as prose rather than as shouting.
+    @discardableResult
+    func renameCharacter(
+        _ current: String, to proposed: String, includingMentions: Bool = false
+    ) -> Int {
+        guard let apply = onApplyElements else { return 0 }
+        let typed = proposed.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cueName = Self.canonicalCharacterName(typed)
+        guard !cueName.isEmpty, cueName != current else { return 0 }
+
+        var elements = screenplay.elements
+        var changed = 0
+
+        for index in elements.indices where elements[index].type == .character {
+            guard Self.canonicalCharacterName(elements[index].text) == current else { continue }
+            elements[index].text = cueName + Self.cueExtension(elements[index].text)
+            changed += 1
+        }
+
+        if includingMentions,
+           let pattern = Self.mentionPattern(for: current),
+           let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) {
+            let template = NSRegularExpression.escapedTemplate(for: typed)
+            for index in elements.indices where elements[index].type != .character {
+                let text = elements[index].text
+                let range = NSRange(location: 0, length: (text as NSString).length)
+                guard regex.firstMatch(in: text, range: range) != nil else { continue }
+                elements[index].text = regex.stringByReplacingMatches(
+                    in: text, range: range, withTemplate: template
+                )
+                changed += 1
+            }
+        }
+
+        guard changed > 0 else { return 0 }
+        apply(elements, "Rename Character")
+        return changed
+    }
+
+    /// Whether a rename would fold this character into one that already
+    /// speaks — worth saying out loud before it happens.
+    func characterExists(_ name: String) -> Bool {
+        let canonical = Self.canonicalCharacterName(name)
+        guard !canonical.isEmpty else { return false }
+        return screenplay.elements.contains {
+            $0.type == .character && Self.canonicalCharacterName($0.text) == canonical
+        }
     }
 
     func selectionChanged(elementID: UUID, offset: Int) {
@@ -348,7 +576,13 @@ final class EditorState {
         // stale model. Cancel the debounced write instead — last-writer-wins
         // is the document store's semantics, and the sync is the newer write.
         sourceTask?.cancel()
-        guard let parsed = try? Fountain.parse(source) else { return }
+        guard let parsed = try? Fountain.parse(source) else {
+            // Keeping our own copy is right; keeping quiet is not. The writer
+            // has a device or a file somewhere holding something this app
+            // cannot read, and only they can go and look at it.
+            showBanner("A change from elsewhere couldn't be read")
+            return
+        }
         let fresh = Screenplay(engineModel: parsed)
 
         // Monotonic alignment: each old element lends its identity to the
@@ -405,7 +639,11 @@ final class EditorState {
         lastKnownSource = serializedSource()
         scheduleStatsRefresh()
         refreshPredictions()
-        showBanner("Updated from iCloud")
+        // Not necessarily iCloud: this fires for anything that changed the
+        // file outside this editor — another device, an edit made in Files,
+        // a conflict resolved by the system. Naming one source was wrong
+        // three times out of four.
+        showBanner("Updated elsewhere")
     }
 
     private static func identityKey(for element: ScriptElement) -> String {
@@ -430,6 +668,46 @@ final class EditorState {
         if Self.looksLikeCharacterCue(trimmed, uppercase: uppercase) { return .character }
         guard let previous else { return .action }
         return nextKind(after: previous.type, text: previous.text)
+    }
+
+    // MARK: - Scene numbers
+
+    enum SceneNumberingMode { case all, newScenesOnly, clear }
+
+    /// Whether the script has been addressed yet — what decides between
+    /// adding numbers and renumbering over somebody's schedule.
+    var isSceneNumbered: Bool {
+        SceneNumbering.isNumbered(screenplay.engineModel.elements)
+    }
+
+
+    /// Applies numbering and reports how many scenes it touched.
+    ///
+    /// The numbers are carried onto the existing elements rather than a fresh
+    /// list: every element keeps its identity, so the caret, the undo timeline
+    /// and the case memory all survive an operation that changed no text.
+    @discardableResult
+    func applySceneNumbering(_ mode: SceneNumberingMode) -> Int {
+        guard let apply = onApplyElements else { return 0 }
+
+        let source = screenplay.engineModel.elements
+        let numbered: [ScreenplayElement] = switch mode {
+        case .all: SceneNumbering.numberingAll(source)
+        case .newScenesOnly: SceneNumbering.numberingNewScenes(source)
+        case .clear: SceneNumbering.cleared(source)
+        }
+
+        var elements = screenplay.elements
+        guard numbered.count == elements.count else { return 0 }
+        var changed = 0
+        for index in elements.indices where elements[index].sceneNumber != numbered[index].sceneNumber {
+            elements[index].sceneNumber = numbered[index].sceneNumber
+            changed += 1
+        }
+        guard changed > 0 else { return 0 }
+
+        apply(elements, mode == .clear ? "Remove Scene Numbers" : "Number Scenes")
+        return changed
     }
 
     func acceptPrediction() {
@@ -601,6 +879,28 @@ final class EditorState {
         return text
     }
 
+    /// Where the caret belongs after an element changes lane.
+    ///
+    /// Wrapping text in brackets shifts every character right by the opener
+    /// that was added, so carrying the old offset across unchanged strands the
+    /// caret one character behind the letter the writer left it on. Unwrapping
+    /// shifts the other way.
+    ///
+    /// Inside a parenthetical the caret then belongs *between* the brackets.
+    /// Outside the closer looks tidier and is worse: the next thing typed
+    /// lands after the direction — "(whispering)softly" — which is the very
+    /// bracket damage the position was meant to avoid.
+    static func caretAfterConversion(
+        from old: String, to new: String, caret: Int, kind: ScreenplayKind
+    ) -> Int {
+        let length = (new as NSString).length
+        var offset = caret + (new.hasPrefix("(") ? 1 : 0) - (old.hasPrefix("(") ? 1 : 0)
+        if kind == .parenthetical, new.hasPrefix("("), new.hasSuffix(")"), length >= 2 {
+            offset = min(max(offset, 1), length - 1)
+        }
+        return min(max(offset, 0), length)
+    }
+
     /// The casing rule for INPUT paths — typing, paste, import: uppercase
     /// kinds store uppercase text, everything else stores the writer's text
     /// verbatim. Element CONVERSION applies the same rule through
@@ -717,6 +1017,27 @@ final class EditorState {
     /// Precise stats from the native paginator over the cached engine model,
     /// with the line-count estimate as the unreachable-in-practice guard.
     /// `nonisolated`: pure function of its inputs, called from detached tasks.
+    /// The page each scene opens on, keyed by element index.
+    ///
+    /// Read back out of the paginated pages rather than counted separately:
+    /// a page number the Navigator computed its own way would drift from the
+    /// one the export prints, and a writer would have no way to tell which
+    /// was lying. A slug broken across a page break keeps the earlier page —
+    /// the scene starts where its first line does.
+    nonisolated static func scenePages(
+        in pages: [DraftFirstEngine.ScriptPage]
+    ) -> [Int: Int] {
+        var found: [Int: Int] = [:]
+        for page in pages {
+            for line in page.lines {
+                guard case .element(.scene) = line.type, line.element >= 0,
+                      found[line.element] == nil else { continue }
+                found[line.element] = page.number
+            }
+        }
+        return found
+    }
+
     private nonisolated static func screenplayStats(
         for model: DraftFirstEngine.Screenplay,
         linesPerPage: Int
@@ -736,7 +1057,8 @@ final class EditorState {
         return ScreenplayStats(
             pages: max(1, pages.count),
             runtime: Paginator.estimateRuntime(pages),
-            words: words
+            words: words,
+            scenePages: scenePages(in: pages)
         )
     }
 

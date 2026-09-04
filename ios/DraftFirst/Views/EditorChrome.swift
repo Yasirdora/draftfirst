@@ -1,4 +1,5 @@
 import SwiftUI
+import DraftFirstEngine
 import UIKit
 
 /// The editor's chrome, configured straight onto the system navigation
@@ -39,6 +40,9 @@ struct EditorChrome {
     let contextualKinds: [ScreenplayKind]
     let canUndo: Bool
     let canRedo: Bool
+    /// Reading or writing. Read from the text surface's own focus, never
+    /// kept here — see `EditorState.isEditing`.
+    let isEditing: Bool
 }
 
 /// Owns the bar controls and applies them to the editor's navigation item.
@@ -58,6 +62,9 @@ final class ChromeCoordinator {
     /// act on live state); only the visible writes are gated on these.
     private var lastUndoSignature: (canUndo: Bool, canRedo: Bool)?
     private var lastMenuAppearance: AppearancePreference?
+    /// Whether this coordinator has put its items in the bar before. Until it
+    /// has, there is no previous state to animate from.
+    private var hasConfiguredBar = false
 
     // The controls are created once and mutated in place: identity matters,
     // because replacing an item's menu while it is presented kills the
@@ -94,14 +101,11 @@ final class ChromeCoordinator {
         UIBarButtonItem(customView: elementButton)
     }()
 
-    /// The seam between the two trailing items: adjacent items fuse into
-    /// one capsule on this bar (groups included — verified), so a fixed
-    /// space splits them into two circles at the system's inter-group gap.
-    private let trailingSpacer: UIBarButtonItem = {
-        let spacer = UIBarButtonItem(systemItem: .fixedSpace)
-        spacer.width = 8
-        return spacer
-    }()
+    /// The seam between trailing items: adjacent items fuse into one capsule
+    /// on this bar (groups included — verified), so a fixed space splits them
+    /// into separate circles at the system's inter-group gap. One instance
+    /// per seam, because a bar button item can occupy only one position.
+    private let trailingSpacer = ChromeMetrics.seam()
 
     init(chrome: EditorChrome) {
         self.chrome = chrome
@@ -110,6 +114,7 @@ final class ChromeCoordinator {
             self.chrome.editor.onChangeElementKind?(kind)
             UISelectionFeedbackGenerator().selectionChanged()
         }
+        elementButton.onEdit = { [weak self] in self?.chrome.editor.beginEditing() }
     }
 
     // MARK: Navigation item
@@ -140,20 +145,65 @@ final class ChromeCoordinator {
         if item.titleMenuProvider != nil { item.titleMenuProvider = nil }
         if !item.centerItemGroups.isEmpty { item.centerItemGroups = [] }
 
-        // Leading: the system's close button stays and the element pill
-        // supplements it — never replaces it — exactly the requested
-        // order: (back) (element) … (undo) (settings).
+        // The bar states which of the two things the writer is doing, and
+        // says it by what it leaves out.
+        //
+        // Reading is (close) (Edit) … (menu); writing is (close) (element) …
+        // (undo) (menu). The capsule is the same control throughout — the
+        // way in while reading, the element selector while writing — so the
+        // mode change is a morph in place rather than a control arriving.
+        // The undo arrow is the only thing that comes and goes, because an
+        // undo arrow for edits not being made describes an activity that is
+        // not happening.
+        //
+        // Nothing floats over the page for this: the way out is the menu,
+        // the keyboard's own dismissal, or Escape.
+        //
+        // Hiding the close button belongs to SwiftUI, not here: it owns this
+        // navigation item under DocumentGroup and re-applies its own state
+        // every pass, so a UIKit-level `hidesBackButton` is overwritten and
+        // the writer gets a back chevron beside the Done tick. EditorView
+        // carries `.navigationBarBackButtonHidden` instead.
+        //
+        // The animated setters are what make the change a morph rather than
+        // a swap: the bar cross-fades and re-spaces its own items. They are
+        // reached only through the change guards, because this method re-runs
+        // on every SwiftUI pass — one per keystroke — and animating an
+        // unchanged bar would flicker it under the writer's hands.
+        //
+        // The first configuration is not a change and is not animated. A
+        // screen arriving has no previous state to morph from, and animating
+        // there plays the pill into a bar the writer is only now seeing —
+        // twice over when a document is opened, closed and opened again,
+        // since the item outlives the view that configured it.
         item.leftItemsSupplementBackButton = true
+        let animated = hasConfiguredBar
+        // Never animated. The capsule is in both modes, so this only ever
+        // re-seats an item the system dropped during a transition — and
+        // animating that plays the capsule out of the close button's edge, as
+        // though it were arriving from inside it.
         let leading = [pillItem]
-        if item.leftBarButtonItems != leading { item.leftBarButtonItems = leading }
+        if item.leftBarButtonItems ?? [] != leading {
+            item.setLeftBarButtonItems(leading, animated: false)
+        }
+        // The capsule stays; only what it says changes. Reading, it offers
+        // the way in; writing, it names the element under the caret.
         elementButton.update(
-            activeKind: chrome.activeKind, contextualKinds: chrome.contextualKinds
+            chrome.isEditing
+                ? .writing(active: chrome.activeKind, contextual: chrome.contextualKinds)
+                : .reading
         )
 
-        // First element is rightmost: [undo] [settings] left to right,
-        // the fixed space between them splitting the capsule in two.
-        let trailing = [settingsItem, trailingSpacer, undoItem]
-        if item.rightBarButtonItems != trailing { item.rightBarButtonItems = trailing }
+        // First element is rightmost: writing reads [undo] [menu] left to
+        // right, reading [menu] [Edit]. The fixed space between them splits
+        // the capsule in two.
+        let trailing = chrome.isEditing
+            ? [settingsItem, trailingSpacer, undoItem]
+            : [settingsItem]
+        if item.rightBarButtonItems ?? [] != trailing {
+            item.setRightBarButtonItems(trailing, animated: animated)
+        }
+        hasConfiguredBar = true
         updateUndoButton()
         updateSettingsMenu()
         return true
@@ -266,6 +316,52 @@ final class ChromeCoordinator {
             title: "", options: .displayInline, children: [navigator, titlePage]
         )
 
+        // Leaving the script is the one row here that is about the moment
+        // rather than the document, so it leads — and it is absent while
+        // reading, where it would only name the state the writer is already
+        // in. Deferred rather than rebuilt: this menu is cached on purpose
+        // (rebuilding it dismisses it mid-gesture), and an uncached element
+        // is resolved each time the menu opens, which is exactly when the
+        // answer can have changed.
+        let readingGroup = UIMenu(
+            title: "", options: .displayInline,
+            children: [
+                UIDeferredMenuElement.uncached { [weak self] complete in
+                    guard let self, self.chrome.editor.isEditing else { return complete([]) }
+                    complete([
+                        UIAction(
+                            title: "Reading Mode",
+                            image: UIImage(systemName: "book")
+                        ) { [weak self] _ in
+                            self?.chrome.editor.endEditing()
+                        }
+                    ])
+                }
+            ]
+        )
+
+        // Paper, brought in where the writing is. Two sources and no more:
+        // where the pages should land is a better question once there are
+        // pages to land, and a scan that comes back unreadable never has to
+        // ask it at all.
+        let importGroup = UIMenu(
+            title: "", options: .displayInline,
+            children: [
+                UIAction(
+                    title: "Import Screenplay",
+                    image: UIImage(systemName: "square.and.arrow.down")
+                ) { [weak self] _ in
+                    self?.addPages(scanning: false)
+                },
+                UIAction(
+                    title: "Scan Screenplay",
+                    image: UIImage(systemName: "doc.viewfinder")
+                ) { [weak self] _ in
+                    self?.addPages(scanning: true)
+                }
+            ]
+        )
+
         let export = UIMenu(
             title: "Export & Send", image: UIImage(systemName: "square.and.arrow.up"),
             children: [
@@ -324,8 +420,123 @@ final class ChromeCoordinator {
             title: "", options: .displayInline, children: [settings]
         )
 
-        var children: [UIMenuElement] = [documentGroup, exportGroup, viewGroup, settingsGroup]
-        return UIMenu(children: children)
+        return UIMenu(children: [
+            readingGroup, documentGroup, importGroup, exportGroup, viewGroup, settingsGroup
+        ])
+    }
+
+    // MARK: Adding pages
+
+    private func addPages(scanning: Bool) {
+        Task { @MainActor in
+            let editor = chrome.editor
+            let source: String?
+
+            if scanning {
+                let pages = await ScanPresenter.shared.scan()
+                guard !pages.isEmpty else { return }   // cancelled
+                editor.showBanner("Reading the pages…")
+                source = await ScanCreation.readScreenplay(from: pages)
+            } else {
+                guard let url = await ScanPresenter.shared.pickDocument() else { return }
+                editor.showBanner("Reading the pages…")
+                source = try? await ScreenplayImport.source(at: url)
+            }
+
+            guard let source, !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let parsed = try? Fountain.parse(source),
+                  !parsed.elements.isEmpty else {
+                editor.showBanner("Nothing readable on those pages")
+                return
+            }
+
+            guard let intoOpenScript = await askDestination(scanned: scanning, read: parsed.elements.count)
+            else { return }   // cancelled: the pages are simply not used
+
+            if intoOpenScript {
+                insert(Screenplay(engineModel: parsed).elements, into: editor)
+            } else {
+                saveAsNewScript(source, announcingTo: editor)
+            }
+        }
+    }
+
+    /// True to add to the open screenplay, false to start a new one, nil if
+    /// the writer changed their mind. Asked only once there is something to
+    /// place, and phrased in terms of what was actually read.
+    private func askDestination(scanned: Bool, read count: Int) async -> Bool? {
+        guard let presenter = topViewController() else { return nil }
+
+        return await withCheckedContinuation { continuation in
+            var answered = false
+            func answer(_ value: Bool?) {
+                guard !answered else { return }
+                answered = true
+                continuation.resume(returning: value)
+            }
+
+            let alert = UIAlertController(
+                title: scanned ? "Pages Scanned" : "Screenplay Imported",
+                message: count == 1
+                    ? "Read 1 element. Where should it go?"
+                    : "Read \(count) elements. Where should they go?",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "Add to This Screenplay", style: .default) { _ in
+                answer(true)
+            })
+            alert.addAction(UIAlertAction(title: "Create New Screenplay", style: .default) { _ in
+                answer(false)
+            })
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+                answer(nil)
+            })
+            presenter.present(alert, animated: true)
+        }
+    }
+
+    /// Hands the pages to the text view, which places them after the element
+    /// the caret is in — never inside it, so nothing lands mid-sentence — and
+    /// registers the whole arrival as one step on the writer's undo timeline.
+    private func insert(_ pages: [ScriptElement], into editor: EditorState) {
+        guard let place = editor.onInsertElements else {
+            editor.showBanner("The editor isn't ready yet — try again")
+            return
+        }
+        place(pages)
+        editor.showBanner(pages.count == 1 ? "Added 1 element" : "Added \(pages.count) elements")
+    }
+
+    /// Writes the pages as their own screenplay beside this one.
+    ///
+    /// It cannot be opened from here: iOS gives a document app no way to open
+    /// one document from inside another — `openDocument` is macOS only — so
+    /// the honest thing is to say where it went rather than appear to fail.
+    private func saveAsNewScript(_ source: String, announcingTo editor: EditorState) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
+        let stamp = "Scan \(formatter.string(from: .now))"
+        let folder = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+
+        // Never write over a screenplay that is already there. Two scans can
+        // land in the same second, and the one that arrived first is somebody's
+        // work.
+        var name = stamp
+        var url = folder.appendingPathComponent("\(name).draft")
+        var attempt = 2
+        while FileManager.default.fileExists(atPath: url.path) {
+            name = "\(stamp) (\(attempt))"
+            url = folder.appendingPathComponent("\(name).draft")
+            attempt += 1
+        }
+
+        do {
+            try Data(source.utf8).write(to: url, options: .withoutOverwriting)
+            editor.showBanner("Saved as \(name) — close this script to open it")
+        } catch {
+            editor.showBanner("Couldn't save: \(error.localizedDescription)")
+        }
     }
 
     private func exportAction(
@@ -432,4 +643,13 @@ enum ChromeMetrics {
     static let controlSize: CGFloat = 44
     /// One uniform glyph: 18 pt medium, matching Apple's top bars.
     static let symbol = UIImage.SymbolConfiguration(font: .systemFont(ofSize: 18, weight: .medium))
+
+    /// A gap between two bar items. Adjacent items fuse into one capsule on
+    /// this bar, so every seam needs its own instance: an item can occupy
+    /// only one position.
+    static func seam() -> UIBarButtonItem {
+        let spacer = UIBarButtonItem(systemItem: .fixedSpace)
+        spacer.width = 8
+        return spacer
+    }
 }

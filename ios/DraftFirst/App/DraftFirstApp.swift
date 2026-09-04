@@ -57,14 +57,25 @@ struct DraftFirstApp: App {
         // chrome; the editor's navigation bar keeps only the system's close
         // button, and everything else in that bar is ours, configured on
         // the navigation item directly (see EditorChrome).
-        DocumentGroupLaunchScene("Screenplays") {
+        DocumentGroupLaunchScene("eDraft") {
             NewDocumentButton("New Screenplay")
+            ScreenplayLaunchActions.scan()
+            ScreenplayLaunchActions.importExisting()
         }
         DocumentGroup(newDocument: DraftFirstDocument()) { file in
-            // A writer resumes where the writing ends: the caret opens at the
-            // end of the document, never stranded on the first element. For a
-            // blank screenplay that is its single empty Action.
-            EditorView(document: file.$document, fileURL: file.fileURL, startsAtEnd: true)
+            // A script opens at its first page, because opening one now means
+            // reading it. Resuming at the end was right while opening always
+            // meant writing, but a screenplay's last lines are usually the
+            // blank ones left behind by the last Return — so a document opened
+            // to be read showed a blank screen with the writing above it.
+            EditorView(document: file.$document, fileURL: file.fileURL)
+        }
+        // Scans share the browser with screenplays rather than living in a
+        // library of their own. A writer's paper — a marked-up draft, a
+        // contract, a page of research — belongs beside the script it relates
+        // to, and declaring the type is the whole of what that takes.
+        DocumentGroup(viewing: ScanDocument.self) { file in
+            ScanReaderView(document: file.document)
         }
 #endif
     }

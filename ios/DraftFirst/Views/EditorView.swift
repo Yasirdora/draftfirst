@@ -97,6 +97,15 @@ struct EditorView: View {
             // wedged shut and every panel button would look dead. Re-entering
             // the editor is proof no sheet is up — re-arm the gate.
             panelFullyDismissed = true
+            // A screenplay the writer has only now created opens ready to
+            // write; every other one opens to be read. See
+            // DraftFirstDocument.isNewlyCreated.
+            // A screenplay the writer has only now created opens ready to
+            // write; every other one opens to be read. See
+            // DraftFirstDocument.claimNewlyCreated.
+            // A screenplay the writer has only now made opens ready to
+            // write; every other one opens to be read. See DocumentArrival.
+            if DocumentArrival.isNewlyCreated(at: fileURL) { editor.beginEditing() }
             // A scene restored after the file was deleted in Documents must
             // not live on: close it before any save can resurrect the file.
             closeIfDocumentDeleted()
@@ -113,6 +122,11 @@ struct EditorView: View {
 #endif
         }
         .onDisappear {
+            // Leaving the document ends the edit. Without this the surface
+            // resigns focus somewhere inside its own teardown — after the
+            // transition has begun — and the bar spends the pop still
+            // dressed for writing, then dresses again on the way back.
+            editor.endEditing()
             // The close button belongs to the system, so disappearance is
             // the last guaranteed moment to land debounced work — keyboard
             // dismissal, backgrounding, and close all pass through here.
@@ -169,7 +183,8 @@ struct EditorView: View {
             activeKind: editor.activeKind,
             contextualKinds: editor.contextualKinds,
             canUndo: editor.canUndo,
-            canRedo: editor.canRedo
+            canRedo: editor.canRedo,
+            isEditing: editor.isEditing
         )
     }
 

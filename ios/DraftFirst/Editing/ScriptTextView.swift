@@ -83,7 +83,7 @@ struct ScriptTextView: UIViewRepresentable {
                 if isPredictionFixture {
                     textView.selectedRange = NSRange(location: textView.textStorage.length, length: 0)
                 }
-                textView.becomeFirstResponder()
+                editor.beginEditing()
                 if isPredictionFixture {
                     textView.scrollRangeToVisible(textView.selectedRange)
                 }
@@ -168,6 +168,8 @@ struct ScriptTextView: UIViewRepresentable {
         private var renderedRevision = -1
         private var applyingModel = false
         private var ranges: [ElementRange] = []
+        private var pendingSeparatorEscape: SeparatorEscape?
+        private var acceptsFocus = false
         private var pendingEdit: PendingEdit?
         private var documentWidth: CGFloat = 0
         private var traitSignature = ""
@@ -219,13 +221,10 @@ struct ScriptTextView: UIViewRepresentable {
                 self?.layoutChanged(width: width, traits: traits)
             }
 
-            editor?.onAcceptPrediction = { [weak self] in self?.acceptPrediction() }
-            editor?.onPredictionChange = { [weak self] in self?.updateGhost() }
-            editor?.onChangeElementKind = { [weak self] kind in self?.changeKind(to: kind) }
-            editor?.onJumpToElement = { [weak self] id in self?.jump(to: id) }
-            editor?.onNativeUndo = { [weak self] in self?.performNativeUndo() ?? false }
-            editor?.onNativeRedo = { [weak self] in self?.performNativeRedo() ?? false }
-            editor?.onClearNativeUndo = { [weak self] in self?.clearNativeUndoHistory() }
+            // One list, wired in one place. `rebindIfNeeded` re-runs exactly
+            // this set after an external document change, and a second copy
+            // here could only drift out of step with it.
+            if let editor { wireEditorCallbacks(for: editor) }
 
             installSwipeGestures(on: textView)
             updateAccessibilityActions()
@@ -281,10 +280,40 @@ struct ScriptTextView: UIViewRepresentable {
             editor.onAcceptPrediction = { [weak self] in self?.acceptPrediction() }
             editor.onPredictionChange = { [weak self] in self?.updateGhost() }
             editor.onChangeElementKind = { [weak self] kind in self?.changeKind(to: kind) }
+            editor.onInsertElements = { [weak self] pages in self?.insertElements(pages) }
+            editor.onApplyElements = { [weak self] elements, name in
+                self?.applyElements(elements, actionName: name)
+            }
             editor.onJumpToElement = { [weak self] id in self?.jump(to: id) }
             editor.onNativeUndo = { [weak self] in self?.performNativeUndo() ?? false }
             editor.onNativeRedo = { [weak self] in self?.performNativeRedo() ?? false }
             editor.onClearNativeUndo = { [weak self] in self?.clearNativeUndoHistory() }
+            editor.onSetEditing = { [weak self] editing in
+                guard let textView = self?.textView else { return }
+                // Focus is asked for here and nowhere else; `acceptsFocus`
+                // is what makes a touch on the page unable to ask for it.
+                if editing {
+                    self?.acceptsFocus = true
+                    // Where the caret belongs, decided before focus arrives.
+                    // The surface carries no selection while reading, so
+                    // taking focus first draws a caret at the top of the
+                    // script and moves it a beat later — the jump a writer
+                    // sees on pressing the pencil.
+                    self?.placeCaretForEditing()
+                    // A new document asks for the caret as it appears, which
+                    // can be before the surface has joined a window — and a
+                    // view with no window cannot take focus. Asking again on
+                    // the next turn costs nothing and covers that ordering.
+                    if !textView.becomeFirstResponder() {
+                        DispatchQueue.main.async { [weak textView] in
+                            textView?.becomeFirstResponder()
+                        }
+                    }
+                } else {
+                    textView.resignFirstResponder()
+                    self?.acceptsFocus = false
+                }
+            }
         }
 
         func renderExternalChangeIfNeeded() {
@@ -313,6 +342,10 @@ struct ScriptTextView: UIViewRepresentable {
             // signature) and never touches small or downward adjustments —
             // those are UIKit's own caret reveal and must keep working.
             let preservedOffset = textView.contentOffset
+            // Where the caret sits on screen now, so the page can be put back
+            // around it: a line inserted above it moves every line below down,
+            // and the writer's eye should not have to follow.
+            let caretBefore = caretScreenY(in: textView)
 
             applyingModel = true
             textView.textStorage.setAttributedString(rendered.string)
@@ -330,7 +363,7 @@ struct ScriptTextView: UIViewRepresentable {
                 textView.selectedRange = NSRange(location: mapped.range.location + offset, length: 0)
             }
             applyingModel = false
-            restoreViewportIfReset(to: preservedOffset, in: textView)
+            restoreViewport(around: caretBefore, otherwise: preservedOffset, in: textView)
             renderedRevision = editor.revision
             updateTypingTraits()
             updateGhost()
@@ -362,31 +395,136 @@ struct ScriptTextView: UIViewRepresentable {
             return (y > top && y < bottom) ? y : nil
         }
 
-        private func restoreViewportIfReset(to preserved: CGPoint, in textView: ScreenplayTextView) {
-            applyIfReset(to: preserved, in: textView)
-            // The container settles one beat later; the same guard applies,
-            // and a user scroll cannot land inside a single runloop turn.
-            DispatchQueue.main.async { [weak textView] in
-                guard let textView else { return }
-                self.applyIfReset(to: preserved, in: textView)
+        /// Settles the page after a re-render, twice: now, and again once the
+        /// text container has settled a beat later and may have moved it.
+        private func restoreViewport(
+            around caretBefore: CGFloat?, otherwise preserved: CGPoint, in textView: ScreenplayTextView
+        ) {
+            settleViewport(around: caretBefore, otherwise: preserved, in: textView)
+            DispatchQueue.main.async { [weak self, weak textView] in
+                guard let self, let textView else { return }
+                self.settleViewport(around: caretBefore, otherwise: preserved, in: textView)
             }
+        }
+
+        /// Two rules, in order.
+        ///
+        /// The insertion point holds its place on the screen: rebuilding the
+        /// text moves lines about, and the line being written should not
+        /// wander because of it. This is about the text moving under the
+        /// selection rather than about who owns the keyboard, so it applies
+        /// whether or not the surface is focused — with no selection to
+        /// follow at all, the page simply stays where it was.
+        ///
+        /// Then, whichever applied, the caret must still be visible. Holding
+        /// it in place is right until the place itself is hidden — under the
+        /// keyboard as it rises, or above the bar — and then the smallest
+        /// correction that shows it wins. Doing only the first is how typing
+        /// disappeared under the keyboard; doing only the second is how the
+        /// page lurched on every keystroke.
+        private func settleViewport(
+            around caretBefore: CGFloat?, otherwise preserved: CGPoint, in textView: ScreenplayTextView
+        ) {
+            let range = scrollableRange(in: textView)
+            let wanted: CGFloat
+            if let caretBefore, let caretAfter = caretScreenY(in: textView) {
+                wanted = textView.contentOffset.y + (caretAfter - caretBefore)
+            } else {
+                wanted = preserved.y
+            }
+            let y = min(max(wanted, range.top), range.bottom)
+            if abs(textView.contentOffset.y - y) > 0.5 {
+                textView.setContentOffset(CGPoint(x: preserved.x, y: y), animated: false)
+            }
+            revealCaretIfHidden(in: textView)
         }
 
         /// Restores the offset only when the viewport jumped significantly
         /// UPWARD — the re-pin reset's signature. Everything else (Return's
         /// one-line caret move, UIKit's reveal scroll) is left alone.
-        private func applyIfReset(to preserved: CGPoint, in textView: UITextView) {
-            if textView.contentOffset.y < preserved.y - 40 {
-                textView.setContentOffset(preserved, animated: false)
+        /// The offsets this page may rest at: the top is minus the bar's
+        /// clearance, not zero, because the content begins below the bar.
+        private func scrollableRange(in textView: UITextView) -> (top: CGFloat, bottom: CGFloat) {
+            let top = -textView.adjustedContentInset.top
+            let bottom = max(
+                textView.contentSize.height - textView.bounds.height
+                    + textView.adjustedContentInset.bottom,
+                top
+            )
+            return (top, bottom)
+        }
+
+        /// Brings the caret back inside the readable band, moving the page as
+        /// little as possible.
+        ///
+        /// The page holding still across a render is right until it hides what
+        /// is being typed — a line pushed under the keyboard, or above the bar
+        /// — and then the smallest correction that shows it again is the one
+        /// the writer expects. Scrolling it to the top instead would be a jump
+        /// of its own.
+        private func revealCaretIfHidden(in textView: UITextView) {
+            guard textView.isFirstResponder,
+                  let position = textView.selectedTextRange?.end else { return }
+            let caret = textView.caretRect(for: position)
+            guard !caret.isNull, !caret.isInfinite else { return }
+
+            let margin: CGFloat = 8
+            let visibleTop = textView.contentOffset.y + textView.adjustedContentInset.top
+            let visibleBottom = textView.contentOffset.y + textView.bounds.height
+                - textView.adjustedContentInset.bottom
+            var y = textView.contentOffset.y
+            if caret.minY < visibleTop + margin {
+                y -= visibleTop + margin - caret.minY
+            } else if caret.maxY > visibleBottom - margin {
+                y += caret.maxY - (visibleBottom - margin)
+            } else {
+                return
             }
+            let range = scrollableRange(in: textView)
+            textView.setContentOffset(
+                CGPoint(x: textView.contentOffset.x, y: min(max(y, range.top), range.bottom)),
+                animated: false
+            )
+        }
+
+        /// Puts the caret where the model says the writer is, before the
+        /// surface takes focus.
+        ///
+        /// Reading leaves no selection behind — there is no caret to leave —
+        /// so a surface that takes focus first shows one at offset zero and
+        /// then corrects itself once the model is consulted. Deciding first
+        /// means the caret only ever appears where it belongs.
+        private func placeCaretForEditing() {
+            guard let textView, let editor,
+                  let id = editor.activeElementID,
+                  let mapped = ranges.first(where: { $0.id == id }) else { return }
+            let offset = min(max(0, editor.selectionOffset), mapped.range.length)
+            textView.selectedRange = NSRange(
+                location: mapped.range.location + offset, length: 0
+            )
+        }
+
+        /// Whether a touch on the page may begin an edit. Reading mode says
+        /// no, so the stray touches a reader makes — scrolling, lifting a
+        /// line out — cannot start one; the pencil says yes by asking for
+        /// editing outright.
+        ///
+        /// Refusing focus rather than clearing `isEditable`: taking
+        /// editability away and giving it back re-lays the text container,
+        /// and the page arrives under the writer's eyes shifted by about
+        /// three lines. The QA scroll fixture catches it exactly there.
+        func textViewShouldBeginEditing(_ textView: UITextView) -> Bool {
+            acceptsFocus
         }
 
         func textViewDidBeginEditing(_ textView: UITextView) {
+            editor?.reportEditing(true)
             updateSelection(from: textView)
             reportNativeUndoAvailability()
         }
 
         func textViewDidEndEditing(_ textView: UITextView) {
+            editor?.reportEditing(false)
             hideGhost()
             editor?.flushPendingWork()
         }
@@ -425,6 +563,12 @@ struct ScriptTextView: UIViewRepresentable {
         ) -> Bool {
             guard let editor else { return true }
 
+            // The separator's escape hatch lives for exactly one keystroke:
+            // the delete that immediately follows it. Consuming it here means
+            // every other path clears it simply by not being that delete.
+            let separatorEscape = pendingSeparatorEscape
+            pendingSeparatorEscape = nil
+
             if textView.markedTextRange != nil {
                 pendingEdit = nil
                 hideGhost()
@@ -451,6 +595,18 @@ struct ScriptTextView: UIViewRepresentable {
             ) {
                 acceptPrediction(appendingSpace: true)
                 return false
+            }
+
+            if let mapped, let index {
+                if text == "-", writeSceneSeparator(replacing: range, in: mapped, at: index) {
+                    return false
+                }
+                if text.isEmpty, range.length == 1, let separatorEscape,
+                   collapseSceneSeparator(
+                    replacing: range, in: mapped, at: index, escape: separatorEscape
+                   ) {
+                    return false
+                }
             }
 
             let source = textView.text as NSString
@@ -1058,6 +1214,78 @@ struct ScriptTextView: UIViewRepresentable {
             return "Edit"
         }
 
+        // MARK: - Scene heading separator
+
+        /// A separator the dash key has just written, and where it left the
+        /// caret. One delete against it collapses it back to a tight hyphen;
+        /// any other keystroke lets it stand. See `SceneHeadingSeparator`.
+        private struct SeparatorEscape {
+            let elementID: UUID
+            let caret: Int
+        }
+
+        /// Writes the separator a scene heading needs, in place of the dash
+        /// that was typed. Answers whether it took the keystroke.
+        private func writeSceneSeparator(
+            replacing range: NSRange, in mapped: ElementRange, at index: Int
+        ) -> Bool {
+            guard let editor, editor.screenplay.elements[index].type == .scene else { return false }
+            let element = editor.screenplay.elements[index]
+            guard let local = elementRelative(range, in: mapped),
+                  let separated = SceneHeadingSeparator.spaced(
+                    in: element.text as NSString, replacing: local
+                  ) else { return false }
+
+            write(separated, to: element, at: index, in: mapped, actionName: "Scene Heading")
+            pendingSeparatorEscape = SeparatorEscape(elementID: element.id, caret: separated.caret)
+            return true
+        }
+
+        /// Takes the separator back, for the heading that meant a hyphen —
+        /// DRIVE-IN. Answers whether it took the keystroke.
+        private func collapseSceneSeparator(
+            replacing range: NSRange, in mapped: ElementRange, at index: Int, escape: SeparatorEscape
+        ) -> Bool {
+            guard let editor, editor.screenplay.elements[index].type == .scene else { return false }
+            let element = editor.screenplay.elements[index]
+            guard element.id == escape.elementID,
+                  let local = elementRelative(range, in: mapped),
+                  NSMaxRange(local) == escape.caret,
+                  let collapsed = SceneHeadingSeparator.collapsed(
+                    in: element.text as NSString, endingAt: escape.caret
+                  ) else { return false }
+
+            write(collapsed, to: element, at: index, in: mapped, actionName: "Scene Heading")
+            return true
+        }
+
+        private func write(
+            _ edit: (text: String, caret: Int),
+            to element: ScriptElement,
+            at index: Int,
+            in mapped: ElementRange,
+            actionName: String
+        ) {
+            guard let editor else { return }
+            var elements = editor.screenplay.elements
+            elements[index].text = edit.text
+            applyModelEdit(
+                elements,
+                activeID: element.id,
+                offset: edit.caret,
+                selection: NSRange(location: mapped.range.location + edit.caret, length: 0),
+                actionName: actionName
+            )
+        }
+
+        /// A document range in the coordinates of the element that holds it,
+        /// or nil when it reaches outside that element.
+        private func elementRelative(_ range: NSRange, in mapped: ElementRange) -> NSRange? {
+            let start = range.location - mapped.range.location
+            guard start >= 0, start + range.length <= mapped.range.length else { return nil }
+            return NSRange(location: start, length: range.length)
+        }
+
         private func acceptPrediction(appendingSpace: Bool = false) {
             guard let editor,
                   let prediction = editor.currentPrediction,
@@ -1164,10 +1392,16 @@ struct ScriptTextView: UIViewRepresentable {
             // makes the re-case reversible — converting back restores
             // "Mara", not "MARA" — and any edit after the conversion wins
             // over the memory.
+            let previousText = elements[index].text
             elements[index].text = editor.textForKindConversion(of: elements[index], to: kind)
             elements[index].type = kind
             let id = elements[index].id
-            let offset = min(editor.selectionOffset, (elements[index].text as NSString).length)
+            let offset = EditorState.caretAfterConversion(
+                from: previousText,
+                to: elements[index].text,
+                caret: editor.selectionOffset,
+                kind: kind
+            )
             let location = ranges.first(where: { $0.id == id })?.range.location ?? 0
             applyModelEdit(
                 elements,
@@ -1178,10 +1412,56 @@ struct ScriptTextView: UIViewRepresentable {
             )
         }
 
+        /// Places scanned or imported elements after the one holding the
+        /// caret, through the same path as every other structural edit — so
+        /// the pages arrive as one undoable step on the writer's own timeline
+        /// and the view renders them immediately.
+        private func insertElements(_ pages: [ScriptElement]) {
+            guard let editor, let last = pages.last else { return }
+            var elements = editor.screenplay.elements
+            let index = min(
+                editor.activeElementIndex.map { $0 + 1 } ?? elements.count,
+                elements.count
+            )
+            elements.insert(contentsOf: pages, at: index)
+
+            // Ranges of the document as it will be, not as it was: the caret
+            // belongs at the end of what arrived, and everything after the
+            // insertion point has moved.
+            let offset = (last.text as NSString).length
+            let placed = index + pages.count - 1
+            let location = ScreenplayEditPlanner.ranges(for: elements)[placed].range.location
+
+            applyModelEdit(
+                elements,
+                activeID: last.id,
+                offset: offset,
+                selection: NSRange(location: location + offset, length: 0),
+                actionName: "Add Pages"
+            )
+        }
+
+        /// Replaces every element without moving the writer.
+        ///
+        /// Used by edits that change what an element *is* rather than what it
+        /// says — scene numbering writes metadata the flattened text does not
+        /// contain — so the caret and selection are carried across untouched.
+        private func applyElements(_ elements: [ScriptElement], actionName: String) {
+            guard let editor, let textView,
+                  let activeID = editor.activeElementID ?? elements.first?.id else { return }
+            applyModelEdit(
+                elements,
+                activeID: activeID,
+                offset: editor.selectionOffset,
+                selection: textView.selectedRange,
+                actionName: actionName
+            )
+        }
+
         private func jump(to id: UUID) {
             guard let textView, let mapped = ranges.first(where: { $0.id == id }) else { return }
             textView.selectedRange = NSRange(location: mapped.range.location, length: 0)
-            textView.scrollRangeToVisible(mapped.range)
+            scroll(to: mapped.range, in: textView)
             // UITextView re-pins the offset one layout beat after a
             // programmatic scroll into unrealized layout — the same
             // container-settling quirk renderModel guards against.
@@ -1190,6 +1470,49 @@ struct ScriptTextView: UIViewRepresentable {
                 textView?.setContentOffset(target, animated: false)
             }
             updateSelection(from: textView)
+        }
+
+        /// Brings a range to rest just under the navigation bar.
+        ///
+        /// Not `scrollRangeToVisible`. The page deliberately runs under a
+        /// transparent bar, so its top inset is contributed by the system
+        /// rather than owned by the text view — `contentInset.top` is 0 while
+        /// `adjustedContentInset.top` is the bar's height — and UITextView's
+        /// own scroll-to-range does nothing at all in that configuration.
+        /// Measured on a 4776pt document parked at its end: a heading laid
+        /// out at y=2960 left the offset at 3936, unmoved. Every Navigator
+        /// row looked dead because of it — the caret arrived on the right
+        /// line and the page stayed where it was — and the re-pin below,
+        /// reading an offset that had not changed, then nailed it there.
+        ///
+        /// The layout manager knows where the line is, so ask it and set the
+        /// offset. The range lands at the top of the page rather than at the
+        /// minimum scroll that would reveal it: a writer who asks for a scene
+        /// wants to read down from it.
+        private func scroll(to range: NSRange, in textView: UITextView) {
+            let layout = textView.layoutManager
+            // A zero-length range encloses no glyphs and so has no rectangle
+            // to aim at — the caret's own range is exactly that. Measure the
+            // character it sits against instead, which is the line it is on.
+            let length = textView.textStorage.length
+            var measured = range
+            if measured.length == 0, length > 0 {
+                let anchor = min(max(measured.location, 0), length - 1)
+                measured = NSRange(location: anchor, length: 1)
+            }
+            let glyphs = layout.glyphRange(forCharacterRange: measured, actualCharacterRange: nil)
+            layout.ensureLayout(forGlyphRange: glyphs)
+            let rect = layout.boundingRect(forGlyphRange: glyphs, in: textView.textContainer)
+            // Content space: the container's own inset, then the offset that
+            // corresponds to "resting at the top" under the system's inset.
+            // A page that fits on the screen has nowhere to go, and pinning it
+            // anyway puts a short script under the navigation bar: the resting
+            // offset of an inset scroll view is not zero, and this ran before
+            // the bar's clearance had been measured.
+            let (top, bottom) = scrollableRange(in: textView)
+            guard bottom > top else { return }
+            let y = min(max(rect.minY + textView.textContainerInset.top + top, top), bottom)
+            textView.setContentOffset(CGPoint(x: 0, y: y), animated: false)
         }
 
         private func performNativeUndo() -> Bool {
@@ -1271,14 +1594,34 @@ struct ScriptTextView: UIViewRepresentable {
             // by reloadInputViews(), Apple's documented mechanism for making a
             // live keyboard re-read its input traits. The value comparison
             // keeps that reload to genuine transitions only.
-            let desired: UITextAutocapitalizationType = editor.activeKind.uppercasesInput
+            //
+            // A cue is the one kind where the keyboard's guesses are worse
+            // than no guesses: the app already predicts cast names itself, so
+            // autocorrect adds nothing, and a name it "fixes" — MARA to MARE
+            // — does not misspell a word, it invents a second character and
+            // splits her dialogue between the two. Everywhere else, headings
+            // included, the writer keeps their own system setting.
+            let cue = editor.activeKind == .character
+            let desiredCase: UITextAutocapitalizationType = editor.activeKind.uppercasesInput
                 ? .allCharacters
                 : .sentences
-            if textView.autocapitalizationType != desired {
-                textView.autocapitalizationType = desired
-                if textView.isFirstResponder {
-                    textView.reloadInputViews()
-                }
+            let desiredCorrection: UITextAutocorrectionType = cue ? .no : .yes
+            let desiredSpelling: UITextSpellCheckingType = cue ? .no : .yes
+            var traitsChanged = false
+            if textView.autocapitalizationType != desiredCase {
+                textView.autocapitalizationType = desiredCase
+                traitsChanged = true
+            }
+            if textView.autocorrectionType != desiredCorrection {
+                textView.autocorrectionType = desiredCorrection
+                traitsChanged = true
+            }
+            if textView.spellCheckingType != desiredSpelling {
+                textView.spellCheckingType = desiredSpelling
+                traitsChanged = true
+            }
+            if traitsChanged, textView.isFirstResponder {
+                textView.reloadInputViews()
             }
         }
 
@@ -1305,7 +1648,10 @@ struct ScriptTextView: UIViewRepresentable {
             restoreSelection(nativeSelection)
             if !didFrameInitialPosition, editor?.opensAtEnd == true {
                 didFrameInitialPosition = true
-                textView.scrollRangeToVisible(textView.selectedRange)
+                // Same reason as `scroll(to:in:)`: under a transparent bar,
+                // scrollRangeToVisible leaves the page at the top and the
+                // writer resumes at page one instead of where they stopped.
+                scroll(to: textView.selectedRange, in: textView)
                 // The same container-settling reset can yank the resume
                 // scroll back to the top a beat later; re-apply it once.
                 let target = textView.contentOffset
@@ -1773,6 +2119,16 @@ final class ScreenplayTextView: UITextView {
                 action: #selector(acceptPrediction),
                 input: UIKeyCommand.inputRightArrow,
                 modifierFlags: [.command]
+            ),
+            // A hardware keyboard has no Done above it to reach for, and
+            // Escape is what leaves an editing context everywhere else on
+            // the platform. Resigning is the whole action: the chrome reads
+            // focus, so the bar follows without being told.
+            UIKeyCommand(
+                title: "Done Editing",
+                action: #selector(doneEditing),
+                input: UIKeyCommand.inputEscape,
+                modifierFlags: []
             )
         ]
         // One selector serves all nine: the digit the writer pressed is the
@@ -1840,6 +2196,7 @@ final class ScreenplayTextView: UITextView {
         return nil
     }
 
+    @objc private func doneEditing() { resignFirstResponder() }
     @objc private func tabForward() { onTab?(false) }
     @objc private func tabBackward() { onTab?(true) }
     @objc private func acceptPrediction() { onAcceptPrediction?() }

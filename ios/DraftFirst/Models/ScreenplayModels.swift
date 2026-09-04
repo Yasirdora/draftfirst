@@ -160,11 +160,14 @@ struct Screenplay: Codable, Equatable, Sendable {
             TitlePageEntry(key: "Credit", values: ["written by"])
         ],
         elements: [
-            // A truly blank page: a single empty Action, never an empty
-            // Scene — an invisible uppercase kind under the caret would
-            // capitalize everything the writer types. Scene promotion
-            // comes from the prediction engine.
-            ScriptElement(type: .action, text: "")
+            // A truly blank page — no FADE IN:, no ritual — but a page that
+            // knows what a screenplay opens with. The first line of a script
+            // is a slug, so the caret starts on an empty Scene: the keyboard
+            // comes up in capitals and the first thing typed is a heading,
+            // which is what the writer was going to type anyway. The kind is
+            // not invisible while it does this — the bar names it, and one
+            // swipe leaves it for Action.
+            ScriptElement(type: .scene, text: "")
         ]
     )
 
@@ -258,6 +261,10 @@ struct ScreenplayStats: Equatable, Sendable {
     var pages: Int = 1
     var runtime: String = "~1 minute"
     var words: Int = 0
+    /// The page each scene opens on, by element index — computed in the same
+    /// pagination pass as the page count, so the Navigator and the PDF can
+    /// never disagree about where a scene falls.
+    var scenePages: [Int: Int] = [:]
 }
 
 /// Paper size for pagination and PDF. US Letter is the Hollywood default;
@@ -312,9 +319,21 @@ enum PageFormat: String, CaseIterable, Identifiable {
 
 struct SceneRow: Identifiable, Equatable, Sendable {
     let id: UUID
+    /// Position in the script, counting from 1.
     let number: Int
+    /// The page it opens on, at the paper size currently set. Nil only before
+    /// the first pagination has settled.
+    let page: Int?
+    /// The production's own number, once the script carries them — the
+    /// address a call sheet or a schedule cites, which after an insert is no
+    /// longer the same as the position (12A is the thirteenth scene).
+    let sceneNumber: String?
     let title: String
     let elementIndex: Int
+
+    /// What the Navigator shows: the production's number when there is one,
+    /// otherwise where the scene falls.
+    var label: String { sceneNumber ?? String(number) }
 }
 
 /// The Navigator's per-tab context line: structure and voice at a glance.
@@ -333,10 +352,33 @@ struct StoryStats: Equatable, Sendable {
     var leadingShare: Double = 0
 }
 
+/// One speech: what was said, and how it was marked to be said.
+struct SpokenLine: Identifiable, Equatable, Sendable {
+    /// The dialogue element itself, so the line is a place the caret can go.
+    let id: UUID
+    let parenthetical: String?
+    let text: String
+}
+
+/// A character's presence in one scene — where they are, and what they say
+/// while they are there.
+struct CharacterAppearance: Identifiable, Equatable, Sendable {
+    /// The scene heading element, so the row can open the scene itself.
+    let id: UUID
+    /// The scene's own number when the script carries them, else its position.
+    let label: String
+    let heading: String
+    let page: Int?
+    let lines: [SpokenLine]
+}
+
 struct CastRow: Identifiable, Equatable, Sendable {
     let id: String
     let name: String
     let cues: Int
+    /// The character's first cue — where tapping the row goes. A name is not
+    /// a place in the script, so the row has to carry one.
+    let firstCueID: UUID
 }
 
 private extension String {
