@@ -2853,19 +2853,19 @@
       "current": "action",
       "key": "enter",
       "text": "",
-      "result": "action"
+      "result": "character"
     },
     {
       "current": "action",
       "key": "enter",
       "text": "   ",
-      "result": "action"
+      "result": "character"
     },
     {
       "current": "action",
       "key": "enter",
       "text": " ",
-      "result": "action"
+      "result": "character"
     },
     {
       "current": "action",

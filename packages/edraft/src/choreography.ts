@@ -25,6 +25,26 @@ export const ENTER_FLOW: Readonly<Record<string, AnyElementType>> = {
 };
 
 /**
+ * Where a line that has nothing on it goes when Return is pressed on it.
+ *
+ * An empty line is a writer saying they are done with this kind, so Return
+ * changes what the line is rather than making another one below it. From
+ * anywhere in a speech that means action — the way out of the block. From
+ * action it means a character cue, because the thing a writer reaches for
+ * after describing something is usually someone speaking, and it makes the
+ * blank line a cycle instead of a dead end: press again and it is action
+ * once more.
+ */
+export const EMPTY_LINE_ESCAPE: Readonly<Record<string, AnyElementType>> = {
+	action: 'character'
+};
+
+/** What an empty line becomes on Return. */
+export function emptyLineEscape(current: AnyElementType): AnyElementType {
+	return EMPTY_LINE_ESCAPE[current] ?? 'action';
+}
+
+/**
  * Stable fallback order for Tab navigation. Each primary element type appears
  * exactly once, preventing two-state cycles.
  */
@@ -124,7 +144,7 @@ export function nextElement(
 	currentText = 'x'
 ): AnyElementType {
 	if (key === 'enter') {
-		if (currentText.trim() === '' && current !== 'action') return 'action';
+		if (currentText.trim() === '') return emptyLineEscape(current);
 		return ENTER_FLOW[current] ?? 'action';
 	}
 	return tabNext(current);

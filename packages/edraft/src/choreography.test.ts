@@ -2,7 +2,15 @@
  * Tests for element choreography (Tab/Enter contract) and SmartType derivation.
  */
 import { describe, expect, it } from 'vitest';
-import { nextElement, tabNext, tabCycle, tabSetFor, TAB_RING, TAB_SET_FRESH } from './choreography.js';
+import {
+	emptyLineEscape,
+	nextElement,
+	tabNext,
+	tabCycle,
+	tabSetFor,
+	TAB_RING,
+	TAB_SET_FRESH
+} from './choreography.js';
 import { collectSmartType, findLocationDrift, splitSceneHeading, stripCueExtensions } from './smarttype.js';
 import { parseFountain } from './parse.js';
 
@@ -22,10 +30,17 @@ describe('choreography · Enter, the forward flow', () => {
 		expect(nextElement('transition', 'enter')).toBe('scene');
 	});
 
-	it('Enter on an empty element collapses back to action', () => {
+	it('Enter on an empty line changes what the line is, and action reaches a cue', () => {
+		// The way out of a speech block, from anywhere inside it.
 		expect(nextElement('character', 'enter', '')).toBe('action');
+		expect(nextElement('dialogue', 'enter', '')).toBe('action');
+		expect(nextElement('parenthetical', 'enter', '')).toBe('action');
 		expect(nextElement('scene', 'enter', '   ')).toBe('action');
-		expect(nextElement('action', 'enter', '')).toBe('action');
+		// And out of action: a second Return on the blank line it just made
+		// reaches for the person who speaks next.
+		expect(nextElement('action', 'enter', '')).toBe('character');
+		// So a blank line is a cycle rather than a dead end.
+		expect(nextElement(emptyLineEscape('action'), 'enter', '')).toBe('action');
 	});
 });
 

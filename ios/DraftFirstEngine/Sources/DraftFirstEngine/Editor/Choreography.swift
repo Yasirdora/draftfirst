@@ -29,6 +29,20 @@ public enum Choreography {
         .lyrics: .lyrics,
     ]
 
+    /// Where a line that has nothing on it goes when Return is pressed on it
+    /// (TypeScript `EMPTY_LINE_ESCAPE`).
+    ///
+    /// An empty line is a writer saying they are done with this kind, so
+    /// Return changes what the line is rather than making another one below
+    /// it. From anywhere in a speech that means action — the way out of the
+    /// block. From action it means a character cue, because the thing a
+    /// writer reaches for after describing something is usually someone
+    /// speaking, and it makes the blank line a cycle rather than a dead end:
+    /// press again and it is action once more.
+    private static let emptyLineEscapes: [ElementKind: ElementKind] = [
+        .action: .character
+    ]
+
     /// Ring order used for free cycling (TypeScript `TAB_RING`).
     private static let tabRing: [ElementKind] = [
         .character, .dialogue, .parenthetical, .transition, .scene, .action,
@@ -103,10 +117,15 @@ public enum Choreography {
     public static func nextElement(after current: ElementKind,
                                    currentText: String) -> ElementKind {
         let text = currentText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if text.isEmpty && current != .action {
-            return .action
+        if text.isEmpty {
+            return emptyLineEscape(from: current)
         }
         return enterFlow[current] ?? .action
+    }
+
+    /// What an empty line becomes on Return (TypeScript `emptyLineEscape`).
+    public static func emptyLineEscape(from current: ElementKind) -> ElementKind {
+        emptyLineEscapes[current] ?? .action
     }
 
     /// The element a key press creates after `previous` (TypeScript

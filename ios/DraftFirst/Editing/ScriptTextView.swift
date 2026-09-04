@@ -1,3 +1,4 @@
+import DraftFirstEngine
 import SwiftUI
 import UIKit
 
@@ -624,15 +625,14 @@ struct ScriptTextView: UIViewRepresentable {
                     && (textView.selectedRange.location == range.location
                         || textView.selectedRange.location == NSMaxRange(range))
 
-                if text == "\n",
-                   range.length == 0,
-                   let index,
-                   editor.screenplay.elements[index].text
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .isEmpty,
-                   editor.screenplay.elements[index].type != .action {
+                // Return on a line with nothing on it changes what the line
+                // is rather than making another one under it — the writer is
+                // saying they are done with this kind, not asking for more of
+                // it. What it becomes is the engine's to say: action out of a
+                // speech, a cue out of action. See Choreography.emptyLineEscape.
+                if text == "\n", range.length == 0, let index, let escaped = emptyLineEscape(at: index) {
                     var elements = editor.screenplay.elements
-                    elements[index].type = .action
+                    elements[index].type = escaped
                     elements[index].text = ""
                     applyModelEdit(
                         elements,
@@ -1205,6 +1205,22 @@ struct ScriptTextView: UIViewRepresentable {
                 actionName: actionName
             )
             return true
+        }
+
+        /// What the element at this index becomes when Return is pressed on
+        /// it while it is empty, or nil when it is not empty — or when the
+        /// escape would leave it exactly as it is, in which case Return has
+        /// its ordinary meaning.
+        private func emptyLineEscape(at index: Int) -> ScreenplayKind? {
+            guard let editor, editor.screenplay.elements.indices.contains(index) else { return nil }
+            let element = editor.screenplay.elements[index]
+            guard element.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return nil
+            }
+            let escaped = ScreenplayKind(
+                engineKind: Choreography.emptyLineEscape(from: element.type.engineKind)
+            )
+            return escaped == element.type ? nil : escaped
         }
 
         private func structuralActionName(replacement: String) -> String {
