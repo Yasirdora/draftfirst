@@ -66,12 +66,26 @@ export const TAB_SET_FRESH: readonly AnyElementType[] = [
 	'transition'
 ];
 
+/**
+ * After a speech the writer is choosing between five real destinations, in
+ * the order a script actually goes: keep speaking, cut away, open a new
+ * scene, describe, or cue the next voice. Enter lands the new line on a
+ * character cue, so one Tab forward from there wraps to dialogue — the
+ * speech continues — and one Tab back reaches action. A parenthetical is not
+ * in the set: a direction belongs under the cue that introduces the speech
+ * (where TAB_SETS.character offers it), not between two lines of one.
+ *
+ * The fresh set was wrong here for the same reason it was wrong after
+ * action, and worse: with dialogue missing from it, no gesture could turn
+ * that new line back into the speech the writer meant to continue. The
+ * block was a one-way door.
+ */
 export const TAB_SETS: Readonly<Record<string, readonly AnyElementType[]>> = {
 	scene: ['action', 'character', 'transition'],
 	action: ['action', 'character', 'transition'],
 	character: ['dialogue', 'parenthetical'],
 	parenthetical: ['dialogue'],
-	dialogue: TAB_SET_FRESH,
+	dialogue: ['dialogue', 'transition', 'scene', 'action', 'character'],
 	transition: TAB_SET_FRESH
 };
 

@@ -177,10 +177,11 @@
     {
       "prev": "dialogue",
       "result": [
+        "dialogue",
+        "transition",
         "scene",
         "action",
-        "character",
-        "transition"
+        "character"
       ]
     },
     {
@@ -684,7 +685,7 @@
       "current": "character",
       "prev": "dialogue",
       "reverse": false,
-      "result": "transition"
+      "result": "dialogue"
     },
     {
       "current": "character",
@@ -864,13 +865,13 @@
       "current": "dialogue",
       "prev": "dialogue",
       "reverse": false,
-      "result": "scene"
+      "result": "transition"
     },
     {
       "current": "dialogue",
       "prev": "dialogue",
       "reverse": true,
-      "result": "transition"
+      "result": "character"
     },
     {
       "current": "dialogue",
@@ -1044,13 +1045,13 @@
       "current": "parenthetical",
       "prev": "dialogue",
       "reverse": false,
-      "result": "scene"
+      "result": "dialogue"
     },
     {
       "current": "parenthetical",
       "prev": "dialogue",
       "reverse": true,
-      "result": "transition"
+      "result": "character"
     },
     {
       "current": "parenthetical",
@@ -1230,7 +1231,7 @@
       "current": "transition",
       "prev": "dialogue",
       "reverse": true,
-      "result": "character"
+      "result": "dialogue"
     },
     {
       "current": "transition",
@@ -1404,13 +1405,13 @@
       "current": "shot",
       "prev": "dialogue",
       "reverse": false,
-      "result": "scene"
+      "result": "dialogue"
     },
     {
       "current": "shot",
       "prev": "dialogue",
       "reverse": true,
-      "result": "transition"
+      "result": "character"
     },
     {
       "current": "shot",
@@ -1584,13 +1585,13 @@
       "current": "general",
       "prev": "dialogue",
       "reverse": false,
-      "result": "scene"
+      "result": "dialogue"
     },
     {
       "current": "general",
       "prev": "dialogue",
       "reverse": true,
-      "result": "transition"
+      "result": "character"
     },
     {
       "current": "general",
@@ -1764,13 +1765,13 @@
       "current": "centered",
       "prev": "dialogue",
       "reverse": false,
-      "result": "scene"
+      "result": "dialogue"
     },
     {
       "current": "centered",
       "prev": "dialogue",
       "reverse": true,
-      "result": "transition"
+      "result": "character"
     },
     {
       "current": "centered",
@@ -1944,13 +1945,13 @@
       "current": "lyrics",
       "prev": "dialogue",
       "reverse": false,
-      "result": "scene"
+      "result": "dialogue"
     },
     {
       "current": "lyrics",
       "prev": "dialogue",
       "reverse": true,
-      "result": "transition"
+      "result": "character"
     },
     {
       "current": "lyrics",
@@ -2124,13 +2125,13 @@
       "current": "note",
       "prev": "dialogue",
       "reverse": false,
-      "result": "scene"
+      "result": "dialogue"
     },
     {
       "current": "note",
       "prev": "dialogue",
       "reverse": true,
-      "result": "transition"
+      "result": "character"
     },
     {
       "current": "note",
@@ -2304,13 +2305,13 @@
       "current": "section",
       "prev": "dialogue",
       "reverse": false,
-      "result": "scene"
+      "result": "dialogue"
     },
     {
       "current": "section",
       "prev": "dialogue",
       "reverse": true,
-      "result": "transition"
+      "result": "character"
     },
     {
       "current": "section",
@@ -2484,13 +2485,13 @@
       "current": "synopsis",
       "prev": "dialogue",
       "reverse": false,
-      "result": "scene"
+      "result": "dialogue"
     },
     {
       "current": "synopsis",
       "prev": "dialogue",
       "reverse": true,
-      "result": "transition"
+      "result": "character"
     },
     {
       "current": "synopsis",
@@ -2664,13 +2665,13 @@
       "current": "pagebreak",
       "prev": "dialogue",
       "reverse": false,
-      "result": "scene"
+      "result": "dialogue"
     },
     {
       "current": "pagebreak",
       "prev": "dialogue",
       "reverse": true,
-      "result": "transition"
+      "result": "character"
     },
     {
       "current": "pagebreak",

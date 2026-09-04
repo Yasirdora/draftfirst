@@ -50,7 +50,19 @@ public enum Choreography {
         .action: [.action, .character, .transition],
         .character: [.dialogue, .parenthetical],
         .parenthetical: [.dialogue],
-        .dialogue: tabSetFresh,
+        // After a speech the writer is choosing between five real
+        // destinations, in the order a script actually goes: keep speaking,
+        // cut away, open a new scene, describe, or cue the next voice. Enter
+        // lands the new line on a character cue, so one Tab forward wraps to
+        // dialogue — the speech continues — and one Tab back reaches action.
+        // A parenthetical is not in the set: a direction belongs under the
+        // cue that introduces the speech, not between two lines of one.
+        //
+        // The fresh set was wrong here for the same reason it was wrong
+        // after action, and worse: with dialogue missing from it, no gesture
+        // could turn that new line back into the speech it was meant to
+        // continue. The block was a one-way door.
+        .dialogue: [.dialogue, .transition, .scene, .action, .character],
         .transition: tabSetFresh,
     ]
 

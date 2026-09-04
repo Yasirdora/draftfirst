@@ -150,10 +150,31 @@ describe('choreography · context-narrowed Tab sets (document syntax)', () => {
 		expect(tabCycle('action', 'parenthetical')).toBe('dialogue');
 	});
 
-	it('after dialogue or a transition: the fresh-line set, scene included', () => {
-		expect([...tabSetFor('dialogue')]).toEqual([...TAB_SET_FRESH]);
+	it('after dialogue: keep speaking, cut away, open, describe, cue — and back', () => {
+		expect([...tabSetFor('dialogue')]).toEqual([
+			'dialogue', 'transition', 'scene', 'action', 'character'
+		]);
+		// Enter from a speech lands on a cue. One Tab forward from there
+		// wraps to dialogue, so a writer who meant to keep talking gets
+		// there in a single gesture.
+		expect(tabCycle('character', 'dialogue')).toBe('dialogue');
+		expect(tabCycle('dialogue', 'dialogue')).toBe('transition');
+		expect(tabCycle('transition', 'dialogue')).toBe('scene');
+		expect(tabCycle('scene', 'dialogue')).toBe('action');
+		expect(tabCycle('action', 'dialogue')).toBe('character');
+		// Backwards is the same walk in reverse, all the way round.
+		expect(tabCycle('character', 'dialogue', true)).toBe('action');
+		expect(tabCycle('action', 'dialogue', true)).toBe('scene');
+		expect(tabCycle('scene', 'dialogue', true)).toBe('transition');
+		expect(tabCycle('transition', 'dialogue', true)).toBe('dialogue');
+		expect(tabCycle('dialogue', 'dialogue', true)).toBe('character');
+		// A direction belongs under the cue that opens the speech, not
+		// between two of its lines.
+		expect(tabSetFor('dialogue')).not.toContain('parenthetical');
+	});
+
+	it('after a transition: the fresh-line set, scene included', () => {
 		expect([...tabSetFor('transition')]).toEqual([...TAB_SET_FRESH]);
-		expect(tabCycle('character', 'dialogue')).toBe('transition');
 		expect(tabCycle('scene', 'transition')).toBe('action');
 	});
 
