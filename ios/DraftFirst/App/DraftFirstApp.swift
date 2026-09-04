@@ -57,6 +57,14 @@ struct DraftFirstApp: App {
         // chrome; the editor's navigation bar keeps only the system's close
         // button, and everything else in that bar is ours, configured on
         // the navigation item directly (see EditorChrome).
+        // Scanning and importing are actions in the system's own stack,
+        // which renders a third as "More…". Drawing them into the card
+        // instead was tried and abandoned: the launch scene's overlay
+        // accessory is the only layer that reaches the card, and the browser
+        // sits above it for touches — a hit test at a button drawn there
+        // returns the browser's scroll view, so the buttons look right and do
+        // nothing. `DocumentLaunchGeometryProxy`, which would have placed
+        // them honestly, reports both of its rectangles as zero.
         DocumentGroupLaunchScene("eDraft") {
             NewDocumentButton("New Screenplay")
             ScreenplayLaunchActions.scan()
