@@ -1,0 +1,660 @@
+<title>eDraft on macOS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Courier+Prime:wght@400;700&family=Literata:opsz,wght@7..72,400;7..72,500&display=swap">
+
+<style>
+  :root {
+    /* Script paper, ink, and the first of the production revision colours.
+       Blue pages are what a rewrite is printed on; it earns the accent. */
+    --paper:      #FBFAF7;
+    --surface:    #FFFFFF;
+    --sunk:       #F2F0EB;
+    --ink:        #16151A;
+    --ink-soft:   #55525C;
+    --ink-faint:  #86828E;
+    --rule:       #DEDAD2;
+    --accent:     #1F4FA8;
+    --accent-pale:#DCE7F5;
+    --good:       #2C6E49;
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Literata", Georgia, "Times New Roman", serif;
+    --mono: "Courier Prime", "Courier New", Courier, monospace;
+
+    --measure: 64ch;
+    --step-0: 1.0625rem;
+    --step-1: 1.25rem;
+    --step-2: 1.6rem;
+    --step-3: 2.25rem;
+    --step-4: 3.4rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #131217;
+      --surface:    #1B1A20;
+      --sunk:       #0E0D12;
+      --ink:        #E9E6E0;
+      --ink-soft:   #A6A2AC;
+      --ink-faint:  #78747F;
+      --rule:       #2E2C35;
+      --accent:     #8FB4F0;
+      --accent-pale:#20293C;
+      --good:       #7FBF9A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #131217;
+    --surface:    #1B1A20;
+    --sunk:       #0E0D12;
+    --ink:        #E9E6E0;
+    --ink-soft:   #A6A2AC;
+    --ink-faint:  #78747F;
+    --rule:       #2E2C35;
+    --accent:     #8FB4F0;
+    --accent-pale:#20293C;
+    --good:       #7FBF9A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: var(--step-0);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 4vw, 56px) 96px;
+  }
+
+  /* ---- masthead ---------------------------------------------------- */
+
+  .masthead {
+    padding: clamp(48px, 9vw, 104px) 0 clamp(32px, 5vw, 56px);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .slug {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 22px;
+  }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: var(--step-4);
+    line-height: 0.98;
+    letter-spacing: -0.028em;
+    margin: 0 0 20px;
+    text-wrap: balance;
+  }
+
+  .thesis {
+    font-size: var(--step-1);
+    line-height: 1.5;
+    max-width: 46ch;
+    margin: 0 0 34px;
+    color: var(--ink-soft);
+  }
+  .thesis strong { color: var(--ink); font-weight: 500; }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 28px;
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    color: var(--ink-faint);
+  }
+  .facts b { color: var(--ink); font-weight: 400; }
+
+  /* ---- the page's own sidebar + content -------------------------- */
+
+  .body-grid {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: clamp(28px, 5vw, 72px);
+    align-items: start;
+    padding-top: clamp(36px, 5vw, 64px);
+  }
+
+  .rail { position: sticky; top: 28px; }
+
+  .rail-title {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--rule);
+    margin: 0 0 6px;
+  }
+
+  .rail ol { list-style: none; margin: 0; padding: 0; }
+
+  .rail a {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 10px;
+    align-items: baseline;
+    padding: 7px 8px 7px 0;
+    color: var(--ink-soft);
+    text-decoration: none;
+    font-size: 0.9rem;
+    border-radius: 5px;
+  }
+  .rail a:hover { color: var(--ink); }
+  .rail a span {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .rail a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  main { min-width: 0; }
+
+  section { padding-bottom: clamp(44px, 6vw, 76px); }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: var(--step-3);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: var(--step-1);
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+  }
+
+  p { margin: 0 0 18px; max-width: var(--measure); }
+  p:last-child { margin-bottom: 0; }
+
+  .lede { font-size: var(--step-1); color: var(--ink-soft); max-width: 52ch; }
+
+  a { color: var(--accent); }
+
+  /* ---- the seven rules ------------------------------------------- */
+
+  .rules { display: grid; gap: 1px; background: var(--rule); border-block: 1px solid var(--rule); margin-top: 26px; }
+  .rule-row {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 18px;
+    background: var(--paper);
+    padding: 20px 4px;
+  }
+  .rule-row .mark {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    color: var(--accent);
+    padding-top: 3px;
+  }
+  .rule-row p { margin: 6px 0 0; font-size: 1rem; color: var(--ink-soft); }
+  .rule-row h3 { font-size: 1.0625rem; }
+
+  /* ---- window anatomy -------------------------------------------- */
+
+  .window {
+    margin-top: 26px;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .window-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--sunk);
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rule); }
+  .window-bar .name {
+    margin-left: 10px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.06em;
+  }
+  .panes { display: grid; grid-template-columns: 200px minmax(0, 1fr) 190px; min-height: 292px; }
+  .pane { padding: 16px 14px; }
+  .pane + .pane { border-left: 1px solid var(--rule); }
+  .pane-nav { background: var(--sunk); }
+  .pane-page { background: var(--sunk); display: grid; place-items: center; padding: 22px; }
+  .pane-insp { background: var(--surface); }
+
+  .pane-label {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 12px;
+  }
+  .pane-label.dim { opacity: 0.55; }
+
+  .segment {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border: 1px solid var(--rule);
+    border-radius: 7px;
+    overflow: hidden;
+    font-family: var(--display);
+    font-size: 0.75rem;
+    margin-bottom: 12px;
+    background: var(--surface);
+  }
+  .segment span { padding: 5px 0; text-align: center; color: var(--ink-soft); }
+  .segment span.on { background: var(--accent); color: #fff; }
+
+  .nav-row {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: baseline;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+  }
+  .nav-row.sel { background: var(--accent); color: #fff; }
+  .nav-row.sel .num, .nav-row.sel .pg { color: rgba(255,255,255,0.82); }
+  .num, .pg { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .nav-foot {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    color: var(--ink-faint);
+  }
+
+  .sheet {
+    width: 100%;
+    max-width: 210px;
+    aspect-ratio: 8.5 / 11;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.10);
+    padding: 20px 16px;
+    font-family: var(--mono);
+    font-size: 0.5625rem;
+    line-height: 1.75;
+    color: var(--ink-soft);
+  }
+  .sheet .heading { color: var(--ink); }
+  .sheet .cue { padding-left: 42%; color: var(--ink); }
+  .sheet .dial { padding-left: 26%; padding-right: 12%; }
+  .sheet .marked { background: var(--accent-pale); }
+
+  .insp-field { border-bottom: 1px solid var(--rule); padding: 7px 0; display: flex; justify-content: space-between; gap: 10px; font-family: var(--mono); font-size: 0.6875rem; color: var(--ink-soft); }
+  .insp-field b { font-weight: 400; color: var(--ink); }
+
+  .caption {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--ink-faint);
+    margin-top: 12px;
+  }
+
+  /* ---- tables ------------------------------------------------------ */
+
+  .table-wrap { overflow-x: auto; margin-top: 22px; border-block: 1px solid var(--rule); }
+  table { border-collapse: collapse; width: 100%; min-width: 460px; }
+  th, td { text-align: left; padding: 11px 16px 11px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  th {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 400;
+  }
+  td { font-size: 0.95rem; }
+  td.mono, .mono-cell { font-family: var(--mono); font-size: 0.8125rem; font-variant-numeric: tabular-nums; }
+
+  /* ---- refusals ---------------------------------------------------- */
+
+  .refusals { display: grid; gap: 18px; margin-top: 24px; }
+  .refusal {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding-left: 18px;
+    border-left: 2px solid var(--rule);
+  }
+  .refusal h3 { font-size: 1rem; margin-bottom: 2px; }
+  .refusal p { font-size: 0.95rem; color: var(--ink-soft); margin: 0; }
+
+  /* ---- milestones, marked in the revision colours ----------------- */
+
+  .milestones { margin-top: 24px; display: grid; gap: 1px; background: var(--rule); border-block: 1px solid var(--rule); }
+  .ms {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr) auto;
+    gap: 16px;
+    align-items: baseline;
+    background: var(--paper);
+    padding: 15px 4px;
+  }
+  .ms .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--ink-soft);
+  }
+  .chip { width: 11px; height: 11px; border-radius: 2px; border: 1px solid rgba(0,0,0,0.22); flex: none; }
+  .ms .what { font-size: 0.98rem; }
+  .ms .what em { color: var(--ink-faint); font-style: normal; font-size: 0.875rem; display: block; }
+  .state {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    white-space: nowrap;
+  }
+  .state.done { color: var(--good); }
+
+  /* ---- tonight's ledger ------------------------------------------- */
+
+  .ledger { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; margin-top: 24px; }
+  .cell { background: var(--surface); padding: 16px 18px; }
+  .cell .n { font-family: var(--display); font-weight: 700; font-size: var(--step-2); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; display: block; }
+  .cell .k { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+
+  /* ---- footer ------------------------------------------------------ */
+
+  footer { border-top: 1px solid var(--rule); padding-top: 26px; }
+  .files { display: grid; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+  .files li { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: 16px; font-size: 0.95rem; color: var(--ink-soft); }
+  .files code { font-family: var(--mono); font-size: 0.8125rem; color: var(--ink); }
+
+  @media (max-width: 860px) {
+    .body-grid { grid-template-columns: minmax(0, 1fr); }
+    .rail { position: static; }
+    .rail ol { display: flex; flex-wrap: wrap; gap: 2px 14px; }
+    .panes { grid-template-columns: minmax(0, 1fr); }
+    .pane + .pane { border-left: 0; border-top: 1px solid var(--rule); }
+    .files li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .ms { grid-template-columns: 92px minmax(0, 1fr); }
+    .ms .state { grid-column: 2; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <p class="slug">Design direction · 5 September 2026</p>
+    <h1>eDraft on macOS</h1>
+    <p class="thesis">The window is the script's desk: <strong>the structure on the left, the page in the middle, the details on the right when asked</strong> — and nothing else.</p>
+    <div class="facts">
+      <span>Read from <b>Finder</b>, <b>Messages</b>, <b>Find My</b></span>
+      <span>Engine already <b>macOS 26</b></span>
+      <span><b>2,155</b> lines freed tonight</span>
+    </div>
+  </header>
+
+  <div class="body-grid">
+
+    <nav class="rail" aria-label="Sections">
+      <p class="rail-title">Contents</p>
+      <ol>
+        <li><a href="#grammar"><span>01</span>One grammar</a></li>
+        <li><a href="#refuse"><span>02</span>What not to copy</a></li>
+        <li><a href="#window"><span>03</span>The window</a></li>
+        <li><a href="#rows"><span>04</span>Row grammar</a></li>
+        <li><a href="#metrics"><span>05</span>Metrics</a></li>
+        <li><a href="#work"><span>06</span>The work</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <section id="grammar">
+        <h2>Three apps, one grammar</h2>
+        <p class="lede">Finder, Messages and Find My are not three layouts. They are one set of rules, and most of what makes them feel native is invisible until you violate it.</p>
+
+        <div class="rules">
+          <div class="rule-row">
+            <div class="mark">i</div>
+            <div>
+              <h3>The sidebar holds destinations, never verbs</h3>
+              <p>Finder names places, Messages names conversations, Find My names things. None contains a control that acts on the content. The moment a sidebar does work on the pane beside it, it becomes a second toolbar and the window loses its centre.</p>
+            </div>
+          </div>
+          <div class="rule-row">
+            <div class="mark">ii</div>
+            <div>
+              <h3>Scope sits on top of the list it scopes</h3>
+              <p>Find My's People · Devices · Items re-populates the list without touching the map. Messages puts search and filter in the same position. Finder does it structurally, with headed sections. Three mechanisms, one placement.</p>
+            </div>
+          </div>
+          <div class="rule-row">
+            <div class="mark">iii</div>
+            <div>
+              <h3>A row is a triplet</h3>
+              <p>Glyph, then a title carrying any status that qualifies the name, then the number you compare rows by, right-aligned. Find My's backpack row is the whole lesson: icon · “Ysr's Backpack” + battery · “0 mi”. It scans because the columns are spines — the eye reads down one, not across each row.</p>
+            </div>
+          </div>
+          <div class="rule-row">
+            <div class="mark">iv</div>
+            <div>
+              <h3>Selection is a filled, inset capsule</h3>
+              <p>Not a tinted row, not a bar in the margin. It reads as “this row is the subject of the pane beside it”, which is exactly the relationship it encodes.</p>
+            </div>
+          </div>
+          <div class="rule-row">
+            <div class="mark">v</div>
+            <div>
+              <h3>Toolbars are grouped pills, pushed right</h3>
+              <p>Relatedness is encoded by grouping; the gaps between groups do the work that separators and labels do in lesser designs. Search is always furthest right, and the title on the left is the location, not the app's name.</p>
+            </div>
+          </div>
+          <div class="rule-row">
+            <div class="mark">vi</div>
+            <div>
+              <h3>Content owns its space; controls float or dock</h3>
+              <p>Find My floats map controls in the corners. Messages docks the composer to the bottom because typing is the recurring act. Neither interrupts the thing it is about.</p>
+            </div>
+          </div>
+          <div class="rule-row">
+            <div class="mark">vii</div>
+            <div>
+              <h3>Three typographic levels, and no more</h3>
+              <p>Title, subtitle, metric, plus a deliberately quiet section header. Depth comes from weight and colour: the size range across an entire Finder sidebar is about two points.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="refuse">
+        <h2>What not to copy</h2>
+        <p>Being faithful to the references means knowing which parts are answers to <em>their</em> problems.</p>
+        <div class="refusals">
+          <div class="refusal">
+            <h3>Messages' docked composer</h3>
+            <p>A chat has a “send”; a screenplay does not. An input bar under the page would compete with it for the eye and steal the only vertical space that matters. What the composer <em>represents</em> — the recurring act, always in reach — becomes the element control and the keyboard.</p>
+          </div>
+          <div class="refusal">
+            <h3>Finder's Tags section</h3>
+            <p>A long, low-value tail that exists because the sidebar had room. We add a section only when a writer navigates by it.</p>
+          </div>
+          <div class="refusal">
+            <h3>Floating controls over content</h3>
+            <p>They work over a map, which has no reading order. Over a page they would occlude the sentence being read. On our canvas they are allowed in the margins beside the page and nowhere else.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="window">
+        <h2>Three panes, not two</h2>
+        <p>Two panes is the reference grammar. A screenplay adds a question the references never had to answer — <em>what are the properties of the thing I am looking at?</em> — and Pages, Keynote and Xcode all resolve it the same way: an inspector on the right, hidden until summoned.</p>
+
+        <div class="window">
+          <div class="window-bar">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="name">The Last Station — 3 pages</span>
+          </div>
+          <div class="panes">
+            <div class="pane pane-nav">
+              <p class="pane-label">Navigator</p>
+              <div class="segment"><span class="on">Scenes</span><span>Cast</span></div>
+              <div class="nav-row"><span class="num">1</span><span>INT. KITCHEN — DAY</span><span class="pg">1</span></div>
+              <div class="nav-row sel"><span class="num">2</span><span>INT. GARAGE — DAY</span><span class="pg">2</span></div>
+              <div class="nav-row"><span class="num">3</span><span>EXT. ROOFTOP — NIGHT</span><span class="pg">3</span></div>
+              <p class="nav-foot">3 scenes · 3 locations<br>2 INT · 1 EXT</p>
+            </div>
+            <div class="pane pane-page">
+              <div class="sheet">
+                <p class="heading">INT. GARAGE — DAY</p>
+                <p>Action for the scene. The room settles and someone decides something.</p>
+                <p class="cue">MARA</p>
+                <p class="dial marked">Line two from Mara, spoken plainly and without hurry at all.</p>
+                <p class="cue">ELIAS</p>
+                <p class="dial">Reply two from Elias, who has heard every word of this before.</p>
+              </div>
+            </div>
+            <div class="pane pane-insp">
+              <p class="pane-label dim">Inspector · ⌥⌘I</p>
+              <div class="insp-field"><span>Scene</span><b>2</b></div>
+              <div class="insp-field"><span>Page</span><b>2</b></div>
+              <div class="insp-field"><span>Length</span><b>⅜ pg</b></div>
+              <div class="insp-field"><span>Present</span><b>MARA, ELIAS</b></div>
+              <div class="insp-field"><span>Revision</span><b>White</b></div>
+            </div>
+          </div>
+        </div>
+        <p class="caption">Sidebar 240–360 pt · inspector 260 pt · page at print metrics, Courier Prime 12 pt, 1.5″ left margin.</p>
+
+        <p style="margin-top:26px">The sidebar is <strong>visible by default</strong>, reversing the earlier plan. On a Mac the sidebar <em>is</em> the organisation panel, and a window that opens without one reads as a ported iPad app. Distraction-free writing is a mode — ⌥⌘S, or Focus — not a default.</p>
+        <p>The blue mark on Mara's line is not decoration. A Navigator row has two jobs: move the page, and show where you landed. A script stops scrolling once its last page reaches the bottom, so a target near the end never reaches the top, and one already on screen never moves the page at all. Both read as a dead row. The mark is the answer, and it already ships on iPhone.</p>
+      </section>
+
+      <section id="rows">
+        <h2>The row, in our own data</h2>
+        <p>The triplet maps onto fields the app already computes — which is why the Navigator can be one implementation on both platforms rather than two lists that drift.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>List</th><th>Leading</th><th>Title</th><th>Trailing</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="mono">Scenes</td><td class="mono">scene number</td><td>the heading, as written</td><td class="mono">page</td></tr>
+              <tr><td class="mono">Cast</td><td class="mono">character glyph</td><td>the name</td><td class="mono">cues</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption">Clicking a row reveals and marks — the same verb, the same feedback, as tapping one on iPhone.</p>
+      </section>
+
+      <section id="metrics">
+        <h2>Metrics worth pinning</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Token</th><th>Value</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">Sidebar</td><td class="mono">240 / 260 / 360</td><td>Finder-class, resizable</td></tr>
+              <tr><td class="mono">Inspector</td><td class="mono">260 fixed</td><td>Pages-class</td></tr>
+              <tr><td class="mono">Row height</td><td class="mono">28 · 44</td><td>compact list · two-line</td></tr>
+              <tr><td class="mono">Selection</td><td class="mono">6 pt continuous</td><td>inset capsule, accent fill</td></tr>
+              <tr><td class="mono">Title / meta</td><td class="mono">13 semibold / 11</td><td>three levels, no more</td></tr>
+              <tr><td class="mono">Script face</td><td class="mono">Courier Prime 12</td><td>identical to iOS and to print</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="caption">Materials are the system's: <span class="mono-cell">.sidebar</span>, <span class="mono-cell">underPageBackgroundColor</span>, semantic colours only. The accent is the user's, never ours.</p>
+      </section>
+
+      <section id="work">
+        <h2>Where the work stands</h2>
+        <p class="lede">No Mac app yet, on purpose — but the code it will be built from now exists and compiles for macOS.</p>
+
+        <div class="ledger">
+          <div class="cell"><span class="n">2,155</span><span class="k">lines freed</span></div>
+          <div class="cell"><span class="n">35</span><span class="k">tests on macOS</span></div>
+          <div class="cell"><span class="n">89</span><span class="k">app tests</span></div>
+          <div class="cell"><span class="n">406</span><span class="k">engine tests (TS)</span></div>
+        </div>
+        <p class="caption" style="margin-bottom:26px">The portable code was trapped inside an iOS app target no Mac target can link. <span class="mono-cell">EDraftCore</span> and <span class="mono-cell">EDraftUI</span> are packages now; the Navigator, character thread, title page and settings build for macOS today.</p>
+
+        <div class="milestones">
+          <div class="ms">
+            <span class="tag"><span class="chip" style="background:#FFFFFF"></span>M0</span>
+            <span class="what">Modularise<em>Moves, not rewrites — three of six steps done</em></span>
+            <span class="state done">In progress</span>
+          </div>
+          <div class="ms">
+            <span class="tag"><span class="chip" style="background:#BFD4E8"></span>M1</span>
+            <span class="what">The spike<em>NSTextView, element metrics, ghost, reveal — one day, throwaway allowed</em></span>
+            <span class="state">Next</span>
+          </div>
+          <div class="ms">
+            <span class="tag"><span class="chip" style="background:#F2C4D2"></span>M2</span>
+            <span class="what">The window<em>Documents, three panes, menu bar, ⌘1–9, export, print</em></span>
+            <span class="state">Planned</span>
+          </div>
+          <div class="ms">
+            <span class="tag"><span class="chip" style="background:#F5E6A8"></span>M3</span>
+            <span class="what">The desk<em>Inspector, statistics, typewriter and focus modes, VoiceOver pass</em></span>
+            <span class="state">Planned</span>
+          </div>
+          <div class="ms">
+            <span class="tag"><span class="chip" style="background:#C7E4C2"></span>M4</span>
+            <span class="what">The production layer<em>Revision colours, locked pages, scene numbers, table read</em></span>
+            <span class="state">Planned</span>
+          </div>
+          <div class="ms">
+            <span class="tag"><span class="chip" style="background:#E8C88F"></span>M5</span>
+            <span class="what">The platform<em>Handoff, Shortcuts, Spotlight, Quick Look, Services</em></span>
+            <span class="state">Planned</span>
+          </div>
+        </div>
+        <p class="caption">Marked in the production revision run — White, Blue, Pink, Yellow, Green, Goldenrod — because a milestone list is a sequence, and that is the sequence this craft already counts in.</p>
+      </section>
+
+      <footer>
+        <h3>Where it is written down</h3>
+        <p>The documents are the source of truth; this page is their summary. Read them in this order.</p>
+        <ul class="files">
+          <li><code>docs/MACOS-EXECUTION.md</code><span>The working document — milestones, proofs, the green baseline, decisions taken. Start here.</span></li>
+          <li><code>docs/MACOS-DESIGN.md</code><span>The full reading of the references, and the window it argues for.</span></li>
+          <li><code>docs/SHARED-ARCHITECTURE.md</code><span>The boundary between engine, core, shared panels and the two surfaces.</span></li>
+          <li><code>docs/MACOS-PLAN.md</code><span>Why macOS, why now — the market position that started it.</span></li>
+        </ul>
+      </footer>
+
+    </main>
+  </div>
+</div>

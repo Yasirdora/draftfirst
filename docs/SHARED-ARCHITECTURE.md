@@ -38,7 +38,7 @@ imports (`ios/eDraft`, 8,141 lines):
 | `Editing/RevealHighlight.swift` | 72 | UIKit | Per-platform view, shared *rule* |
 | `Document/ScanDocument.swift` | 55 | PDFKit · SwiftUI · UTType | iOS-only today |
 
-**The finding:** 2,155 lines were already platform-agnostic, and 1,087 more were
+**The finding:** 2,155 lines were already platform-agnostic, and 1,187 more were
 plain SwiftUI. They were portable in principle and unusable in practice, because
 they lived inside an iOS **app target** — a macOS target cannot link them. The
 single most valuable pre-macOS act was not writing Mac code; it was moving that

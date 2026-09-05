@@ -1,6 +1,8 @@
 # eDraft on macOS — Design
 
-*Status: design, pre-code · Companion to [MACOS-PLAN.md](MACOS-PLAN.md) (why and when) and [SHARED-ARCHITECTURE.md](SHARED-ARCHITECTURE.md) (how the two apps stay one app).*
+*Status: design, pre-code · A one-page summary of this document is published at
+<https://claude.ai/code/artifact/8165da3d-ddcc-4c8a-8dd1-5778ec970307> and kept in
+`docs/artifacts/macos-design-direction.html`. Companion to [MACOS-PLAN.md](MACOS-PLAN.md) (why and when) and [SHARED-ARCHITECTURE.md](SHARED-ARCHITECTURE.md) (how the two apps stay one app).*
 
 ---
 
