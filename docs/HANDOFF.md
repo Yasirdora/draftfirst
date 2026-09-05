@@ -38,7 +38,7 @@ reading a number, not by reasoning about what ought to happen.
 |---|---|
 | Branch | `rename/edraft` |
 | iOS app | Feature-complete for its own plan; ships |
-| macOS app | Builds, launches, opens a screenplay onto a page card, types, ghosts, finds, exports and prints. Inspector (M3) is next |
+| macOS app | Greets on launch with recents, opens a screenplay onto a page card, types, ghosts, finds, exports and prints. Inspector (M3) is next |
 | Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface` |
 | Xcode targets | `eDraft`, `eDraftTests`, `eDraft (macOS)` |
 
@@ -49,8 +49,8 @@ a number drops, you broke something.
 npm test                                              # 414 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
 swift test --package-path ios/EDraftCore              #  84 core        (macOS)
-swift test --package-path ios/EDraftUI                #  16 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  61 Mac surface (macOS)
+swift test --package-path ios/EDraftUI                #  20 document    (macOS)
+swift test --package-path ios/EDraftMacSurface        #  68 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -104,6 +104,12 @@ prevent.**
 The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
 
 1. **The inspector** (third pane) — M3. Title page, scene, character.
+   The right-hand pane is reserved for it; do not put navigation there
+   (`MACOS-DESIGN` §1.1, §3.3).
+1b. **The element control** in the toolbar (`MACOS-DESIGN` §3.4), drawn from
+   `ScreenplayKind.symbol` in `EDraftCore` so the glyphs are literally the
+   phone's and cannot drift. Routed through `onChangeElementKind`, the channel
+   ⌘1–9 and Tab already use.
 2. **The rest of the menu bar** still owed: View modes (Page · Typewriter ·
    Focus), inspector toggle. Format → Element and Scene Numbers are done.
 3. **M0.6**, optional: move to an `apple/` directory layout. The `ios/` name is

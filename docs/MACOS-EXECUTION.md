@@ -303,6 +303,25 @@ driven to Open that file; the import path calls the same extract.
 
 ### M3 — The desk
 
+- [x] **A launch window, so the Mac says what it is before a word is written.**
+      *Done 2026-09-05 (`04766ab`, `cff3f2c`).* A document app otherwise opens
+      into a file dialog or an untitled document, and neither says what the
+      application is for. `LaunchIdentity` — the margin rule at the inch and a
+      half, the production revision run along the foot — moved from the phone's
+      app target to `EDraftUI`, so one ground serves both machines; its colours
+      resolve from the environment rather than a `UIColor` provider, because
+      that package may import neither kit. **Measured:**
+      - `DocumentGroupLaunchScene` is `@available(macOS, unavailable)`. The
+        symbol is in the macOS interface file, marked unavailable — reading only
+        the tvOS/watchOS lines above it will tell you the opposite.
+      - `applicationShouldHandleReopen` returning `hasVisibleWindows` is a bug:
+        with nothing on screen it answers "I handled it" and handles nothing,
+        leaving a running app with no window and no way back but the Window
+        menu. `openWindow` is readable only inside a view, so the action is
+        captured while one exists.
+      - `NSDocumentController.shared.recentDocumentURLs` is populated by launch;
+        the app's `NSRecentDocumentRecords` default is not the place to look for
+        it. `File → Open Recent` is the honest probe.
 - [ ] Inspector: title page · scene · character.
 - [ ] Statistics in the window's status area.
 - [ ] Writing-assistance settings, shared with iOS.
