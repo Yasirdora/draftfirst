@@ -144,17 +144,13 @@ public struct CharacterThreadView: View {
     /// rewritten, and no amount of pattern matching can tell the two apart —
     /// only the writer can, and only if shown the number first.
     private var renameWarning: String {
-        let counted = cues == 1 ? "1 cue" : "\(cues) cues"
-        let merges = editor.characterExists(draftName)
-            && EditorState.canonicalCharacterName(draftName) != name
-        let merge = merges ? " That name already speaks, so the two characters merge." : ""
-
-        guard mentionCount > 0 else {
-            return "Renames \(counted) for \(name).\(merge)"
-        }
-        let mentions = mentionCount == 1 ? "once" : "\(mentionCount) times"
-        return "Renames \(counted). \(name) is also named \(mentions) in action and "
-            + "dialogue.\(merge)"
+        CharacterRename.warning(
+            name: name,
+            cues: cues,
+            mentions: mentionCount,
+            merges: editor.characterExists(draftName)
+                && EditorState.canonicalCharacterName(draftName) != name
+        )
     }
 }
 
