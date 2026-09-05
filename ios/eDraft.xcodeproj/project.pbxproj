@@ -23,6 +23,7 @@
 		DF2600000000000000000112 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000012 /* PrivacyInfo.xcprivacy */; };
 		DF2700000000000000000101 /* ScreenplayEditPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */; };
 		DF26000000000000000001F9 /* NavigatorJumpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF26000000000000000000F9 /* NavigatorJumpTests.swift */; };
+		DF26000000000000000001FD /* CaretTransitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF26000000000000000000FD /* CaretTransitTests.swift */; };
 		DF26000000000000000001FC /* ScenePromotionSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF26000000000000000000FC /* ScenePromotionSurfaceTests.swift */; };
 		DF26000000000000000001FB /* AppearancePreferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF26000000000000000000FB /* AppearancePreferenceTests.swift */; };
 		DF2800000000000000000101 /* EDraftEngine in Frameworks */ = {isa = PBXBuildFile; productRef = DF2800000000000000000900 /* EDraftEngine */; };
@@ -64,6 +65,7 @@
 		DF2600000000000000000012 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenplayEditPlannerTests.swift; sourceTree = "<group>"; };
 		DF26000000000000000000F9 /* NavigatorJumpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigatorJumpTests.swift; sourceTree = "<group>"; };
+		DF26000000000000000000FD /* CaretTransitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaretTransitTests.swift; sourceTree = "<group>"; };
 		DF26000000000000000000FC /* ScenePromotionSurfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScenePromotionSurfaceTests.swift; sourceTree = "<group>"; };
 		DF26000000000000000000FB /* AppearancePreferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearancePreferenceTests.swift; sourceTree = "<group>"; };
 		DF2700000000000000000002 /* eDraftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eDraftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -198,6 +200,7 @@
 			children = (
 				DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */,
 				DF26000000000000000000F9 /* NavigatorJumpTests.swift */,
+				DF26000000000000000000FD /* CaretTransitTests.swift */,
 				DF26000000000000000000FC /* ScenePromotionSurfaceTests.swift */,
 				DF26000000000000000000FB /* AppearancePreferenceTests.swift */,
 			);
@@ -367,6 +370,7 @@
 			files = (
 				DF2700000000000000000101 /* ScreenplayEditPlannerTests.swift in Sources */,
 				DF26000000000000000001F9 /* NavigatorJumpTests.swift in Sources */,
+				DF26000000000000000001FD /* CaretTransitTests.swift in Sources */,
 				DF26000000000000000001FC /* ScenePromotionSurfaceTests.swift in Sources */,
 				DF26000000000000000001FB /* AppearancePreferenceTests.swift in Sources */,
 			);
