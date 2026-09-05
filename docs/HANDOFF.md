@@ -232,5 +232,5 @@ The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
 | [SHARED-ARCHITECTURE.md](SHARED-ARCHITECTURE.md) | The layer boundary, the file-by-file inventory, and the migration |
 | [MACOS-PLAN.md](MACOS-PLAN.md) | Why macOS, why now — the market position |
 | [IOS-COMPLETENESS.md](IOS-COMPLETENESS.md) | Where the iPhone app stands |
-| [VISION.md](VISION.md) | The product, from the beginning |
+| [VISION.md](VISION.md) | The product — the writer never formats |
 | `docs/artifacts/macos-design-direction.html` | A one-page summary of the design, also published as an artifact |

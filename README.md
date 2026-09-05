@@ -30,8 +30,12 @@ editor policies were separated into a tested package.
 
 ## Why this project exists
 
-Screenwriting software should be predictable, portable, and honest about file
-compatibility. eDraft separates document logic from interface code so the
+The writer never formats. The form is the app's job; the story is the writer's.
+That is the product, and it is already true of the code — the charter is
+[docs/VISION.md](docs/VISION.md).
+
+Screenwriting software should also be predictable, portable, and honest about
+file compatibility. eDraft separates document logic from interface code so the
 same tested engine can power a browser editor, command-line tool, desktop app,
 or integration without bringing along a UI framework.
 

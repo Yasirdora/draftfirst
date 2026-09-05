@@ -105,4 +105,6 @@ The stated bar is "iPhone **and** iPad." Today the app runs on iPad; it is not y
 
 ## 7. Non-goals confirmed for this phase
 
-No AI features, no collaboration/server, no pricing surface — consistent with VISION.md and prior decisions. Voice drafting is deferred to a later release by owner decision.
+No collaboration/server, no pricing surface — a file leaves the device when
+the writer exports it ([VISION.md](VISION.md)). Voice drafting is deferred to
+a later release by owner decision.
