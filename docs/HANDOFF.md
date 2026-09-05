@@ -1,7 +1,7 @@
 # Handoff
 
-*Written 2026-09-05, last updated at commit `aa885b3`, branch `rename/edraft`,
-working tree clean. For whoever picks this up next — human or otherwise.*
+*Written 2026-09-05, last updated on branch `rename/edraft`.
+For whoever picks this up next — human or otherwise.*
 
 Read this file first, then [MACOS-EXECUTION.md](MACOS-EXECUTION.md), which is
 the live working document with the milestone checkboxes. Everything below is
@@ -36,9 +36,9 @@ reading a number, not by reasoning about what ought to happen.
 
 | | |
 |---|---|
-| Branch | `rename/edraft`, clean, `aa885b3` |
+| Branch | `rename/edraft` |
 | iOS app | Feature-complete for its own plan; ships |
-| macOS app | Builds, launches, opens a screenplay in a window. No typing yet |
+| macOS app | Builds, launches, opens a screenplay, **types**. No ghost yet |
 | Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface` |
 | Xcode targets | `eDraft`, `eDraftTests`, `eDraft (macOS)` |
 
@@ -50,7 +50,7 @@ npm test                                              # 413 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
 swift test --package-path ios/EDraftCore              #  58 core        (macOS)
 swift test --package-path ios/EDraftUI                #  12 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  16 Mac surface (macOS)
+swift test --package-path ios/EDraftMacSurface        #  31 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -101,22 +101,17 @@ prevent.**
 
 ## 4. What to do next
 
-The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md); 18 boxes are open. In
-order of value:
+The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
 
-1. **Typing on the Mac.** Wire `ScreenplayEditPlanner` to `NSTextView`'s
-   delegate — `textView(_:shouldChangeTextIn:replacementText:)` on iOS maps to
-   `textView(_:shouldChangeTextIn:replacementString:)`. The iOS coordinator in
-   `ios/eDraft/Editing/ScriptTextView.swift` is the reference; the planner, the
-   choreography and the scroll arithmetic are already shared, so what you are
-   writing is the delegate plumbing, not the behaviour. Put it in
-   `ScriptSurface` where the tests can reach it.
-2. **Tab / ⇧Tab choreography and the ghost prediction** — `Choreography.tabCycle`
-   and `PredictionEngine` are in the engine already.
-3. **Export and print on the Mac.** `ScreenplayExporter` (core) already gives
+1. **Ghost prediction on the Mac.** `PredictionEngine` is in the engine already;
+   Tab / ⇧Tab already cycle the kind. What is missing is drawing the suffix as
+   inline secondary text, Space-to-accept, and ⌘→. The phone's ghost overlay
+   in `ScriptTextView` is the reference — port the drawing, not the rule.
+2. **Export and print on the Mac.** `ScreenplayExporter` (core) already gives
    Fountain, FDX and text. What is missing is the drawn half: copy
    `ios/eDraft/Document/ScreenplayPageRenderer.swift` to AppKit names. Its
    header comment says exactly this.
+3. **Find (⌘F), Find Scene (⌘L).**
 4. **The inspector** (third pane) — M3.
 5. **M0.6**, optional: move to an `apple/` directory layout. The `ios/` name is
    now wrong for a tree with a Mac app in it.
@@ -133,6 +128,9 @@ order of value:
 - **Headless `codesign` with the Developer identity hangs forever** waiting for
   a keychain prompt nobody can answer. Pass `CODE_SIGN_IDENTITY="-"
   CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=""`.
+- **`swift test` failing every package with `missing required module 'SwiftShims'`**
+  is a stale `.build` from when this repo lived at another path, not a broken
+  floor. `rm -rf ios/*/.build` and run again.
 - **When the Mac's screen is locked**, `screencapture` returns black and the
   accessibility API reports zero windows. Neither means the app is broken. Use
   `CGWindowListCopyWindowInfo` to see what really exists — there is a working
@@ -176,6 +174,14 @@ order of value:
   Binding it to `_` deallocates it immediately and every callback silently does
   nothing — this produced an hour of chasing a bug in the app that was really a
   bug in the test. `withExtendedLifetime(coordinator) {}`.
+- **`NSTextView.undoManager` is nil without a window.** The tests drive the
+  surface windowless. `ScriptSurface` owns an `UndoManager` and vends it
+  through `undoManager(for:)`. Do not read `textView.undoManager` in a test
+  and conclude undo is broken.
+- **Tab on the Mac is `textView(_:doCommandBy:)`, not an `NSTextView` subclass.**
+  Return stays in `shouldChangeTextIn` only — one path per key. Tests of Tab
+  and ⌘1–9 must set the selection directly; `reveal` also jumps the model and
+  will hide a missing `textViewDidChangeSelection`.
 - **`Screenplay` names two different types** — `EDraftEngine.Screenplay` and
   `EDraftCore.Screenplay`. Nine call sites qualify it explicitly. Qualifying is
   a label, not a fix; renaming one of them is worth a focused pass and should

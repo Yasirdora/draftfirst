@@ -18,50 +18,25 @@ public struct ScriptPageView: NSViewRepresentable {
 
     public func makeNSView(context: Context) -> NSScrollView {
         let surface = context.coordinator.surface
-        context.coordinator.bind(to: editor)
-        surface.render(editor.screenplay.elements)
+        surface.bind(to: editor)
+        surface.renderIfNeeded(editor)
         return surface.scrollView
     }
 
     public func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        context.coordinator.bind(to: editor)
-        context.coordinator.renderIfChanged(editor)
+        context.coordinator.surface.bind(to: editor)
+        context.coordinator.surface.renderIfNeeded(editor)
         context.coordinator.remeasureIfNeeded(editor, in: scrollView)
     }
 
     public func makeCoordinator() -> Coordinator { Coordinator() }
 
     /// What the representable cannot hold itself: the surface, and the last
-    /// thing it drew.
+    /// measure it laid the page to.
     @MainActor
     public final class Coordinator {
         let surface = ScriptSurface()
-        private weak var editor: EditorState?
-        private var renderedRevision = -1
         private var measure: CGFloat = 0
-
-        /// Points the model's callbacks at this surface.
-        ///
-        /// Re-run on every update rather than once, because SwiftUI may hand
-        /// the view a different `EditorState` after an external change to the
-        /// document — the same rebinding the phone's surface does, for the same
-        /// reason: a surface still bound to a state nobody owns is an editor
-        /// that has quietly stopped working.
-        func bind(to editor: EditorState) {
-            guard self.editor !== editor else { return }
-            self.editor = editor
-            renderedRevision = -1
-            editor.onJumpToElement = { [weak self] id in
-                self?.surface.reveal(id, reduceMotion: NSWorkspace.shared
-                    .accessibilityDisplayShouldReduceMotion)
-            }
-        }
-
-        func renderIfChanged(_ editor: EditorState) {
-            guard editor.revision != renderedRevision else { return }
-            surface.render(editor.screenplay.elements)
-            renderedRevision = editor.revision
-        }
 
         /// A resized window is a re-measured script. Ignored until the window
         /// has a width at all, so the first layout pass does not set the page

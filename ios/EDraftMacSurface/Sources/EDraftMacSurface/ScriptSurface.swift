@@ -1,12 +1,14 @@
 import AppKit
 import EDraftCore
+import EDraftEngine
 import Foundation
 
 /// The page, on a Mac.
 ///
 /// Everything that happens between the model and an `NSTextView`: setting the
-/// script, remembering which characters belong to which element, moving the
-/// page when a Navigator row asks, and marking where it landed.
+/// script, remembering which characters belong to which element, taking a
+/// keystroke, moving the page when a Navigator row asks, and marking where it
+/// landed.
 ///
 /// It is a plain class rather than a view so it can be driven by a test. The
 /// SwiftUI wrapper around it (`ScriptPageView`) adds nothing but lifetime — a
@@ -16,8 +18,14 @@ import Foundation
 /// TextKit 1, following the measurements in `ScriptLayoutTests`: its rectangles
 /// are the ones `PageScroll` and the reveal were written against, so the phone's
 /// hard-won behaviour ports rather than being invented again.
+///
+/// Ordinary letters stay with AppKit. The surface steps in only for
+/// screenplay-level actions — Return, a boundary delete, Tab, a scene-heading
+/// dash — and asks `ScreenplayEditPlanner` and `Choreography` what they mean.
+/// A rule that lived here would be a second editor, and the two apps would
+/// disagree eventually.
 @MainActor
-public final class ScriptSurface {
+public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
     public let scrollView: NSScrollView
     public let textView: NSTextView
@@ -29,6 +37,22 @@ public final class ScriptSurface {
     /// changes; the indents are fractions of it, which is why they are
     /// fractions in the first place.
     private var measure: CGFloat
+
+    private weak var editor: EditorState?
+    /// The model's revision this surface last drew. Live typing updates it
+    /// without replacing the storage; a SwiftUI refresh that sees the same
+    /// number must not rebuild the page, or the caret visits the top of the
+    /// document on every keystroke. See `CaretTransitTests` on the phone.
+    private var renderedRevision = -1
+    private var applyingModel = false
+    private var pendingEdit: PendingEdit?
+    private var pendingSeparatorEscape: SeparatorEscape?
+
+    /// AppKit's text view takes its undo manager off the responder chain, which
+    /// is the window — so a surface driven without one, as every test here is,
+    /// would see `textView.undoManager == nil` and silently drop structural
+    /// undo. Vend this instead, through `undoManager(for:)`.
+    private let editingUndo = UndoManager()
 
     public init(measure: CGFloat = 640) {
         self.measure = measure
@@ -42,7 +66,7 @@ public final class ScriptSurface {
         storage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(container)
 
-        textView = NSTextView(
+        let textView = NSTextView(
             frame: NSRect(x: 0, y: 0, width: measure, height: 0), textContainer: container
         )
         textView.isRichText = false
@@ -58,11 +82,66 @@ public final class ScriptSurface {
         textView.isAutomaticQuoteSubstitutionEnabled = false
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
+        textView.allowsUndo = true
+        self.textView = textView
 
-        scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: measure, height: 480))
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: measure, height: 480))
         scrollView.hasVerticalScroller = true
         scrollView.drawsBackground = false
         scrollView.documentView = textView
+        self.scrollView = scrollView
+
+        super.init()
+        textView.delegate = self
+    }
+
+    // MARK: - Binding
+
+    /// Points the model's callbacks at this surface.
+    ///
+    /// Re-run when SwiftUI hands over a different `EditorState` after an
+    /// external document change — the same rebinding the phone's surface does,
+    /// for the same reason: a surface still bound to a state nobody owns is an
+    /// editor that has quietly stopped working.
+    public func bind(to editor: EditorState) {
+        guard self.editor !== editor else { return }
+        self.editor = editor
+        renderedRevision = -1
+        editor.onJumpToElement = { [weak self] id in
+            self?.reveal(
+                id,
+                reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            )
+        }
+        editor.onChangeElementKind = { [weak self] kind in self?.changeKind(to: kind) }
+        editor.onInsertElements = { [weak self] pages in self?.insertElements(pages) }
+        editor.onApplyElements = { [weak self] elements, name in
+            self?.applyElements(elements, actionName: name)
+        }
+        editor.onNativeUndo = { [weak self] in self?.performNativeUndo() ?? false }
+        editor.onNativeRedo = { [weak self] in self?.performNativeRedo() ?? false }
+        editor.onClearNativeUndo = { [weak self] in self?.clearNativeUndoHistory() }
+        editor.onSetEditing = { [weak self] editing in
+            guard let self else { return }
+            if editing {
+                self.placeCaretForEditing()
+                self.scrollView.window?.makeFirstResponder(self.textView)
+            } else if self.scrollView.window?.firstResponder === self.textView {
+                self.scrollView.window?.makeFirstResponder(nil)
+            }
+        }
+    }
+
+    /// Draws the model only when this surface has not already mirrored this
+    /// revision. Live typing bumps `editor.revision` and then records it here
+    /// so a later SwiftUI pass — the subtitle reading `stats`, for example —
+    /// cannot replace the storage and send the caret to the top.
+    public func renderIfNeeded(_ editor: EditorState) {
+        guard editor.revision != renderedRevision else { return }
+        render(editor.screenplay.elements)
+        restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
+        renderedRevision = editor.revision
+        updateTypingAttributes()
     }
 
     // MARK: - Setting the script
@@ -73,10 +152,20 @@ public final class ScriptSurface {
     /// document, and rebuilding from them is what keeps the text and the model
     /// from ever disagreeing about what is on the page.
     public func render(_ elements: [ScriptElement]) {
+        let shouldHoldPage = editor != nil && renderedRevision >= 0
+        let preserved = scrollView.contentView.bounds.origin
+        let caretBefore = shouldHoldPage ? caretContentY() : nil
+
+        applyingModel = true
         let script = ScriptLayout.attributedScript(elements, measure: measure)
         ranges = script.ranges
         textView.textStorage?.setAttributedString(script.text)
         layOut()
+        applyingModel = false
+
+        if shouldHoldPage {
+            restoreViewport(caretWas: caretBefore, preserved: preserved)
+        }
     }
 
     /// Brings the view's own geometry up to date with the text in it.
@@ -105,6 +194,10 @@ public final class ScriptSurface {
             width: width, height: .greatestFiniteMagnitude
         )
         render(elements)
+        if let editor {
+            restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
+            updateTypingAttributes()
+        }
     }
 
     // MARK: - Going to an element
@@ -117,11 +210,15 @@ public final class ScriptSurface {
     /// `RevealMark`.
     @discardableResult
     public func reveal(_ id: UUID, reduceMotion: Bool = false) -> Bool {
+        if let editor, editor.revision != renderedRevision {
+            renderIfNeeded(editor)
+        }
         guard let mapped = ranges.first(where: { $0.id == id }),
               let rect = ScriptLayout.boundingRect(of: mapped.range, in: textView)
         else { return false }
 
         textView.setSelectedRange(NSRange(location: mapped.range.location, length: 0))
+        updateSelection()
         scroll(bringingToTop: rect)
         mark(rect, reduceMotion: reduceMotion)
         return true
@@ -169,6 +266,680 @@ public final class ScriptSurface {
 
     /// Which element the insertion point is in, if any.
     public func element(at location: Int) -> UUID? {
-        ranges.first { NSLocationInRange(location, $0.range) || $0.range.location == location }?.id
+        elementRange(at: location)?.id
+    }
+
+    // MARK: - NSTextViewDelegate
+
+    /// Tab is a kind cycle, never a character. `doCommandBy` is the AppKit
+    /// path; there is no `NSTextView` subclass, so this is also the only path.
+    /// Return and delete fall through to `shouldChangeTextIn`, which is the
+    /// one place they are handled.
+    public func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.insertTab(_:)) {
+            editor?.cycleActiveKind(backwards: false)
+            return true
+        }
+        if commandSelector == #selector(NSResponder.insertBacktab(_:)) {
+            editor?.cycleActiveKind(backwards: true)
+            return true
+        }
+        return false
+    }
+
+    public func undoManager(for view: NSTextView) -> UndoManager? {
+        editingUndo
+    }
+
+    public func textView(
+        _ textView: NSTextView,
+        shouldChangeTextIn range: NSRange,
+        replacementString replacement: String?
+    ) -> Bool {
+        guard let editor else { return true }
+        guard let replacement else { return true }
+
+        // The separator's escape hatch lives for exactly one keystroke:
+        // the delete that immediately follows it. Consuming it here means
+        // every other path clears it simply by not being that delete.
+        let separatorEscape = pendingSeparatorEscape
+        pendingSeparatorEscape = nil
+
+        if textView.hasMarkedText() {
+            pendingEdit = nil
+            return true
+        }
+
+        let text = replacement
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+
+        if text == "\t" {
+            editor.cycleActiveKind(backwards: false)
+            return false
+        }
+
+        let mapped = elementRange(at: range.location)
+        let index = mapped.flatMap { mapped in
+            editor.screenplay.elements.firstIndex(where: { $0.id == mapped.id })
+        }
+
+        if let mapped, let index {
+            if text == "-", writeSceneSeparator(replacing: range, in: mapped, at: index) {
+                return false
+            }
+            if text.isEmpty, range.length == 1, let separatorEscape,
+               collapseSceneSeparator(
+                replacing: range, in: mapped, at: index, escape: separatorEscape
+               ) {
+                return false
+            }
+        }
+
+        let source = textView.string as NSString
+        if ScreenplayEditPlanner.touchesParagraphBoundary(
+            in: source,
+            range: range,
+            replacement: text
+        ) {
+            let deleted = range.location >= 0 && NSMaxRange(range) <= source.length
+                ? source.substring(with: range)
+                : ""
+            let selected = textView.selectedRange()
+            let isBoundaryDeletion = text.isEmpty
+                && deleted == "\n"
+                && selected.length == 0
+                && (selected.location == range.location
+                    || selected.location == NSMaxRange(range))
+
+            // Return on a line with nothing on it changes what the line
+            // is rather than making another one under it — the writer is
+            // saying they are done with this kind, not asking for more of
+            // it. What it becomes is the engine's to say: action out of a
+            // speech, a cue out of action. See Choreography.emptyLineEscape.
+            if text == "\n", range.length == 0, let index, let escaped = emptyLineEscape(at: index) {
+                var elements = editor.screenplay.elements
+                elements[index].type = escaped
+                elements[index].text = ""
+                applyModelEdit(
+                    elements,
+                    activeID: elements[index].id,
+                    offset: 0,
+                    selection: NSRange(location: mapped?.range.location ?? range.location, length: 0),
+                    actionName: "Change Element"
+                )
+                return false
+            }
+
+            let intent: ScreenplayEditPlanner.Intent
+            if isBoundaryDeletion {
+                intent = selected.location == NSMaxRange(range)
+                    ? .backspaceAtElementStart
+                    : .boundaryDeletion
+            } else if text == "\n" {
+                intent = .returnKey
+            } else if text.contains("\n") {
+                intent = .multilinePaste
+            } else {
+                intent = .replacement
+            }
+            if applyStructuralReplacement(
+                range: range,
+                replacement: text,
+                intent: intent,
+                actionName: structuralActionName(replacement: text)
+            ) {
+                return false
+            }
+        }
+
+        guard let mapped else {
+            pendingEdit = nil
+            return true
+        }
+
+        editor.prepareForNativeEdit()
+        if !text.contains("\n"),
+           range.location >= mapped.range.location,
+           NSMaxRange(range) <= NSMaxRange(mapped.range) {
+            pendingEdit = PendingEdit(
+                elementID: mapped.id,
+                replacedRange: range,
+                insertedLength: (text as NSString).length
+            )
+        } else {
+            pendingEdit = nil
+        }
+        return true
+    }
+
+    public func textDidChange(_ notification: Notification) {
+        guard !applyingModel, let editor else { return }
+        if let pendingEdit, applyIncrementalEdit(pendingEdit) {
+            self.pendingEdit = nil
+        } else {
+            self.pendingEdit = nil
+            synchronizeModelFromNativeText()
+        }
+        promoteToSceneHeadingIfTyped()
+        renderedRevision = editor.revision
+        updateTypingAttributes()
+        reportNativeUndoAvailability()
+    }
+
+    public func textViewDidChangeSelection(_ notification: Notification) {
+        guard !applyingModel else { return }
+        updateSelection()
+    }
+
+    // MARK: - Incremental edits
+
+    private func applyIncrementalEdit(_ edit: PendingEdit) -> Bool {
+        guard let editor,
+              let rangeIndex = ranges.firstIndex(where: { $0.id == edit.elementID }) else {
+            return false
+        }
+
+        let delta = edit.insertedLength - edit.replacedRange.length
+        let newLength = ranges[rangeIndex].range.length + delta
+        guard newLength >= 0 else { return false }
+
+        adjustRange(at: rangeIndex, length: newLength, shiftLaterBy: delta)
+
+        let updatedRange = ranges[rangeIndex].range
+        let storage = textView.textStorage
+        guard let storage, NSMaxRange(updatedRange) <= storage.length else { return false }
+        var text = storage.attributedSubstring(from: updatedRange).string
+        if let elementIndex = editor.screenplay.elements.firstIndex(where: {
+            $0.id == edit.elementID
+        }), editor.screenplay.elements[elementIndex].type.uppercasesInput {
+            let uppercased = text.uppercased()
+            // Preserve AppKit's native undo range. The screenplay kinds that
+            // uppercase normal Latin text keep the same UTF-16 length; for
+            // rare expanding case mappings, leave the native text untouched.
+            // On the Mac this is the primary capitalisation path: there is
+            // no software-keyboard trait to type the caps for us.
+            if uppercased != text,
+               (uppercased as NSString).length == (text as NSString).length {
+                applyingModel = true
+                storage.replaceCharacters(in: updatedRange, with: uppercased)
+                applyingModel = false
+                text = uppercased
+            }
+        }
+        let selected = textView.selectedRange()
+        let offset = max(
+            0,
+            min(updatedRange.length, selected.location - updatedRange.location)
+        )
+        editor.applyLiveText(id: edit.elementID, text: text, selectionOffset: offset)
+        return true
+    }
+
+    private func synchronizeModelFromNativeText() {
+        guard let editor else { return }
+        let previousText = ScreenplayEditPlanner.flattenedText(editor.screenplay.elements)
+        guard let difference = ScreenplayEditPlanner.replacementBetween(
+            previousText,
+            textView.string
+        ) else { return }
+
+        editor.prepareForNativeEdit()
+        let source = previousText as NSString
+        if !ScreenplayEditPlanner.touchesParagraphBoundary(
+            in: source,
+            range: difference.0,
+            replacement: difference.1
+        ),
+           let mapped = elementRange(at: difference.0.location),
+           difference.0.location >= mapped.range.location,
+           NSMaxRange(difference.0) <= NSMaxRange(mapped.range) {
+            let edit = PendingEdit(
+                elementID: mapped.id,
+                replacedRange: difference.0,
+                insertedLength: (difference.1 as NSString).length
+            )
+            if applyIncrementalEdit(edit) { return }
+        }
+
+        let nativeSelection = textView.selectedRange()
+        guard let plan = ScreenplayEditPlanner.plan(
+            elements: editor.screenplay.elements,
+            replacing: difference.0,
+            with: difference.1,
+            intent: .replacement,
+            kindForNewElement: { previous, text in
+                editor.kindForInsertedElement(after: previous, text: text)
+            }
+        ) else { return }
+        editor.replaceAllElements(
+            plan.elements,
+            activeID: plan.activeElementID,
+            offset: plan.activeOffset,
+            structural: false,
+            recordsUndo: false
+        )
+        render(plan.elements)
+        restoreSelection(nativeSelection)
+        renderedRevision = editor.revision
+    }
+
+    // MARK: - Structural edits
+
+    private func applyStructuralReplacement(
+        range: NSRange,
+        replacement: String,
+        intent: ScreenplayEditPlanner.Intent,
+        actionName: String
+    ) -> Bool {
+        guard let editor,
+              let plan = ScreenplayEditPlanner.plan(
+                elements: editor.screenplay.elements,
+                replacing: range,
+                with: replacement,
+                intent: intent,
+                kindForNewElement: { previous, text in
+                    editor.kindForInsertedElement(after: previous, text: text)
+                }
+              ) else { return false }
+        applyModelEdit(
+            plan.elements,
+            activeID: plan.activeElementID,
+            offset: plan.activeOffset,
+            selection: plan.selection,
+            actionName: actionName
+        )
+        return true
+    }
+
+    /// What the element at this index becomes when Return is pressed on
+    /// it while it is empty, or nil when it is not empty — or when the
+    /// escape would leave it exactly as it is, in which case Return has
+    /// its ordinary meaning. `Choreography.emptyLineEscape` is the rule;
+    /// the whitespace and no-op guards are the surface's, because they
+    /// decide whether to ask at all.
+    private func emptyLineEscape(at index: Int) -> ScreenplayKind? {
+        guard let editor, editor.screenplay.elements.indices.contains(index) else { return nil }
+        let element = editor.screenplay.elements[index]
+        guard element.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        let escaped = ScreenplayKind(
+            engineKind: Choreography.emptyLineEscape(from: element.type.engineKind)
+        )
+        return escaped == element.type ? nil : escaped
+    }
+
+    private func structuralActionName(replacement: String) -> String {
+        if replacement == "\n" { return "Insert Paragraph" }
+        if replacement.isEmpty { return "Delete" }
+        if replacement.contains("\n") { return "Paste" }
+        return "Edit"
+    }
+
+    private func applyModelEdit(
+        _ elements: [ScriptElement],
+        activeID: UUID,
+        offset: Int,
+        selection: NSRange,
+        actionName: String
+    ) {
+        guard let editor else { return }
+        editor.prepareForNativeEdit()
+        let previousState = ModelUndoState(
+            elements: editor.screenplay.elements,
+            activeElementID: editor.activeElementID,
+            selectionOffset: editor.selectionOffset,
+            selection: textView.selectedRange()
+        )
+        editor.replaceAllElements(
+            elements,
+            activeID: activeID,
+            offset: offset,
+            structural: true,
+            recordsUndo: false
+        )
+        registerModelUndo(previousState, actionName: actionName)
+        render(elements)
+        restoreSelection(selection)
+        renderedRevision = editor.revision
+        updateTypingAttributes()
+        reportNativeUndoAvailability()
+    }
+
+    private func registerModelUndo(_ state: ModelUndoState, actionName: String) {
+        editingUndo.registerUndo(withTarget: self) { target in
+            MainActor.assumeIsolated {
+                target.restoreModelUndoState(state, actionName: actionName)
+            }
+        }
+        editingUndo.setActionName(actionName)
+    }
+
+    private func restoreModelUndoState(_ state: ModelUndoState, actionName: String) {
+        guard let editor else { return }
+        let inverse = ModelUndoState(
+            elements: editor.screenplay.elements,
+            activeElementID: editor.activeElementID,
+            selectionOffset: editor.selectionOffset,
+            selection: textView.selectedRange()
+        )
+        registerModelUndo(inverse, actionName: actionName)
+        editor.replaceAllElements(
+            state.elements,
+            activeID: state.activeElementID,
+            offset: state.selectionOffset,
+            structural: true,
+            recordsUndo: false
+        )
+        render(state.elements)
+        restoreSelection(state.selection)
+        renderedRevision = editor.revision
+        updateTypingAttributes()
+        reportNativeUndoAvailability()
+    }
+
+    // MARK: - Kind, insert, apply
+
+    private func promoteToSceneHeadingIfTyped() {
+        guard let editor, let index = editor.activeElementIndex else { return }
+        let element = editor.screenplay.elements[index]
+        guard let promoted = ScenePromotion.kind(for: element.text, currently: element.type)
+        else { return }
+        changeKind(to: promoted)
+    }
+
+    private func changeKind(to kind: ScreenplayKind) {
+        guard let editor, let index = editor.activeElementIndex else { return }
+        var elements = editor.screenplay.elements
+        // Screenplay convention re-cases on conversion: scene headings,
+        // characters, transitions, and shots are caps; action and
+        // dialogue keep the writer's own casing. The session memory
+        // makes the re-case reversible — converting back restores
+        // "Mara", not "MARA" — and any edit after the conversion wins
+        // over the memory.
+        let previousText = elements[index].text
+        elements[index].text = editor.textForKindConversion(of: elements[index], to: kind)
+        elements[index].type = kind
+        let id = elements[index].id
+        let offset = EditorState.caretAfterConversion(
+            from: previousText,
+            to: elements[index].text,
+            caret: editor.selectionOffset,
+            kind: kind
+        )
+        let location = ranges.first(where: { $0.id == id })?.range.location ?? 0
+        applyModelEdit(
+            elements,
+            activeID: id,
+            offset: offset,
+            selection: NSRange(location: location + offset, length: 0),
+            actionName: "Change Element"
+        )
+    }
+
+    private func insertElements(_ pages: [ScriptElement]) {
+        guard let editor, let last = pages.last else { return }
+        var elements = editor.screenplay.elements
+        let index = min(
+            editor.activeElementIndex.map { $0 + 1 } ?? elements.count,
+            elements.count
+        )
+        elements.insert(contentsOf: pages, at: index)
+        let offset = (last.text as NSString).length
+        let placed = index + pages.count - 1
+        let location = ScreenplayEditPlanner.ranges(for: elements)[placed].range.location
+        applyModelEdit(
+            elements,
+            activeID: last.id,
+            offset: offset,
+            selection: NSRange(location: location + offset, length: 0),
+            actionName: "Add Pages"
+        )
+    }
+
+    private func applyElements(_ elements: [ScriptElement], actionName: String) {
+        guard let editor,
+              let activeID = editor.activeElementID ?? elements.first?.id else { return }
+        applyModelEdit(
+            elements,
+            activeID: activeID,
+            offset: editor.selectionOffset,
+            selection: textView.selectedRange(),
+            actionName: actionName
+        )
+    }
+
+    // MARK: - Scene heading separator
+
+    /// A separator the dash key has just written, and where it left the
+    /// caret. One delete against it collapses it back to a tight hyphen;
+    /// any other keystroke lets it stand. See `SceneHeadingSeparator`.
+    private struct SeparatorEscape {
+        let elementID: UUID
+        let caret: Int
+    }
+
+    private func writeSceneSeparator(
+        replacing range: NSRange, in mapped: ScriptLayout.ElementRange, at index: Int
+    ) -> Bool {
+        guard let editor, editor.screenplay.elements[index].type == .scene else { return false }
+        let element = editor.screenplay.elements[index]
+        guard let local = elementRelative(range, in: mapped),
+              let separated = SceneHeadingSeparator.spaced(
+                in: element.text as NSString, replacing: local
+              ) else { return false }
+
+        write(separated, to: element, at: index, in: mapped, actionName: "Scene Heading")
+        pendingSeparatorEscape = SeparatorEscape(elementID: element.id, caret: separated.caret)
+        return true
+    }
+
+    private func collapseSceneSeparator(
+        replacing range: NSRange,
+        in mapped: ScriptLayout.ElementRange,
+        at index: Int,
+        escape: SeparatorEscape
+    ) -> Bool {
+        guard let editor, editor.screenplay.elements[index].type == .scene else { return false }
+        let element = editor.screenplay.elements[index]
+        guard element.id == escape.elementID,
+              let local = elementRelative(range, in: mapped),
+              NSMaxRange(local) == escape.caret,
+              let collapsed = SceneHeadingSeparator.collapsed(
+                in: element.text as NSString, endingAt: escape.caret
+              ) else { return false }
+
+        write(collapsed, to: element, at: index, in: mapped, actionName: "Scene Heading")
+        return true
+    }
+
+    private func write(
+        _ edit: (text: String, caret: Int),
+        to element: ScriptElement,
+        at index: Int,
+        in mapped: ScriptLayout.ElementRange,
+        actionName: String
+    ) {
+        guard let editor else { return }
+        var elements = editor.screenplay.elements
+        elements[index].text = edit.text
+        applyModelEdit(
+            elements,
+            activeID: element.id,
+            offset: edit.caret,
+            selection: NSRange(location: mapped.range.location + edit.caret, length: 0),
+            actionName: actionName
+        )
+    }
+
+    private func elementRelative(
+        _ range: NSRange, in mapped: ScriptLayout.ElementRange
+    ) -> NSRange? {
+        let start = range.location - mapped.range.location
+        guard start >= 0, start + range.length <= mapped.range.length else { return nil }
+        return NSRange(location: start, length: range.length)
+    }
+
+    // MARK: - Selection and typing attributes
+
+    private func updateSelection() {
+        guard let editor, let mapped = elementRange(at: textView.selectedRange().location) else {
+            return
+        }
+        editor.selectionChanged(
+            elementID: mapped.id,
+            offset: min(
+                mapped.range.length,
+                max(0, textView.selectedRange().location - mapped.range.location)
+            )
+        )
+        updateTypingAttributes()
+    }
+
+    /// Characters typed onto a fresh line inherit this, not whatever the last
+    /// paragraph happened to wear. There is no software-keyboard trait on the
+    /// Mac to fall back on, so a stale indent here is the indent the writer
+    /// sees until the next full render.
+    private func updateTypingAttributes() {
+        guard let editor else { return }
+        textView.typingAttributes = ScriptLayout.attributes(
+            for: editor.activeKind, measure: measure, spacingAfter: 0
+        )
+    }
+
+    private func restoreSelection(_ requestedRange: NSRange) {
+        let length = (textView.string as NSString).length
+        let location = min(max(0, requestedRange.location), length)
+        let selectionLength = min(max(0, requestedRange.length), length - location)
+        applyingModel = true
+        textView.setSelectedRange(NSRange(location: location, length: selectionLength))
+        applyingModel = false
+        updateSelection()
+    }
+
+    private func restoreSelection(elementID: UUID?, offset: Int) {
+        guard let elementID, let mapped = ranges.first(where: { $0.id == elementID }) else { return }
+        let clamped = min(max(0, offset), mapped.range.length)
+        restoreSelection(NSRange(location: mapped.range.location + clamped, length: 0))
+    }
+
+    private func placeCaretForEditing() {
+        guard let editor else { return }
+        restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
+    }
+
+    // MARK: - Ranges
+
+    /// The phone's lookup: an empty line is still a place (`length == 0` is
+    /// not `NSLocationInRange`), and a caret sitting on the joining newline
+    /// belongs to the element it just finished, not the one it is about to
+    /// start.
+    private func elementRange(at location: Int) -> ScriptLayout.ElementRange? {
+        if let exact = ranges.first(where: {
+            ($0.range.length == 0 && $0.range.location == location)
+                || NSLocationInRange(location, $0.range)
+        }) { return exact }
+        if let preceding = ranges.last(where: { NSMaxRange($0.range) <= location }) {
+            return preceding
+        }
+        return ranges.first
+    }
+
+    private func adjustRange(at index: Int, length: Int, shiftLaterBy delta: Int) {
+        let current = ranges[index]
+        ranges[index] = ScriptLayout.ElementRange(
+            id: current.id,
+            range: NSRange(location: current.range.location, length: length)
+        )
+        guard delta != 0, index + 1 < ranges.count else { return }
+        for later in (index + 1)..<ranges.count {
+            let moved = ranges[later]
+            ranges[later] = ScriptLayout.ElementRange(
+                id: moved.id,
+                range: NSRange(
+                    location: moved.range.location + delta, length: moved.range.length
+                )
+            )
+        }
+    }
+
+    // MARK: - Viewport
+
+    private func caretContentY() -> CGFloat? {
+        let location = textView.selectedRange().location
+        let probe = NSRange(location: location, length: 0)
+        if let rect = ScriptLayout.boundingRect(of: probe, in: textView), rect.height > 0 {
+            return rect.minY + textView.textContainerInset.height
+        }
+        let fallbackLocation = max(0, min(location, max(0, (textView.string as NSString).length - 1)))
+        guard let rect = ScriptLayout.boundingRect(
+            of: NSRange(location: fallbackLocation, length: 0), in: textView
+        ) else { return nil }
+        return rect.minY + textView.textContainerInset.height
+    }
+
+    private func restoreViewport(caretWas: CGFloat?, preserved: NSPoint) {
+        let range = scrollableRange
+        let y = PageScroll.settled(
+            caretWas: caretWas,
+            caretIs: caretContentY(),
+            preserved: preserved.y,
+            offset: scrollView.contentView.bounds.origin.y,
+            in: range
+        )
+        if abs(scrollView.contentView.bounds.origin.y - y) > 0.5 {
+            scrollView.contentView.scroll(to: NSPoint(x: preserved.x, y: y))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+        }
+    }
+
+    // MARK: - Native undo
+
+    private func performNativeUndo() -> Bool {
+        guard editingUndo.canUndo else {
+            reportNativeUndoAvailability()
+            return false
+        }
+        editingUndo.undo()
+        reportNativeUndoAvailability()
+        return true
+    }
+
+    private func performNativeRedo() -> Bool {
+        guard editingUndo.canRedo else {
+            reportNativeUndoAvailability()
+            return false
+        }
+        editingUndo.redo()
+        reportNativeUndoAvailability()
+        return true
+    }
+
+    private func clearNativeUndoHistory() {
+        editingUndo.removeAllActions()
+        editor?.reportNativeUndoAvailability(canUndo: false, canRedo: false)
+    }
+
+    private func reportNativeUndoAvailability() {
+        editor?.reportNativeUndoAvailability(
+            canUndo: editingUndo.canUndo,
+            canRedo: editingUndo.canRedo
+        )
+    }
+
+    // MARK: - Types
+
+    private struct PendingEdit {
+        let elementID: UUID
+        let replacedRange: NSRange
+        let insertedLength: Int
+    }
+
+    private struct ModelUndoState {
+        let elements: [ScriptElement]
+        let activeElementID: UUID?
+        let selectionOffset: Int
+        let selection: NSRange
     }
 }

@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: M0 all but complete · M1 answered · **M2 has a window that builds** · Last updated 2026-09-05*
+*Status: M0 all but complete · M1 answered · **M2 types** · Last updated 2026-09-05*
 
 This is the working document. New here? Read [HANDOFF.md](HANDOFF.md) first —
 it carries the state, the rules and the traps in one page.
@@ -13,24 +13,29 @@ product. **Start here, then read those.**
 
 ## 0. Where we are today
 
-No macOS *app* yet — by design. But the code it will be built from now exists
-and compiles for macOS: `EDraftCore` and `EDraftUI` are packages, and 35 of the
-app's tests run on the Mac under `swift test`.
+The Mac app builds, opens a `.draft` / Fountain file, scrolls, reveals, and
+**types**. Ghost prediction, Find, export/print and the inspector are still
+ahead.
 
 **Green baseline** (re-run these before and after every step):
 
 ```bash
-npm test                                    # 406 TypeScript engine tests
-cd ios/eDraftEngine && swift test           #  89 Swift engine tests
-cd ios/EDraftCore   && swift test           #  39 core tests — runs on macOS
-cd ios/EDraftUI     && swift test           #   8 document tests — runs on macOS
-cd ios/EDraftMacSurface && swift test       #  15 layout and page tests — macOS
-xcodebuild build -project ios/eDraft.xcodeproj \
-  -scheme 'eDraft (macOS)' -configuration Debug           # the Mac app
-npm run check:boundaries                    #  the layers stay separate
+npm test                                              # 413 TypeScript
+swift test --package-path ios/eDraftEngine            #  95 engine
+swift test --package-path ios/EDraftCore              #  58 core        (macOS)
+swift test --package-path ios/EDraftUI                #  12 document    (macOS)
+swift test --package-path ios/EDraftMacSurface        #  31 layout/page/typing (macOS)
+npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'   #  82 app tests
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
+xcodebuild build -project ios/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
+  -configuration Debug CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
+  DEVELOPMENT_TEAM=""                                        # the Mac app
 ```
+
+If `swift test` fails in every package with `missing required module 'SwiftShims'`,
+the `.build` directories were compiled at an older path of this repo. That is
+not a broken floor: `rm -rf ios/*/.build` and run again.
 
 The packages live at `ios/EDraftCore` and `ios/EDraftUI`, beside
 `ios/eDraftEngine`, and are wired into `ios/eDraft.xcodeproj` as local package
@@ -39,8 +44,7 @@ references.
 **State of the tree:** the directory rename `DraftFirst → eDraft` is complete
 and verified (targets `eDraft`/`eDraftTests`, bundle ids `xyz.edraft.ios`,
 module `EDraftEngine`, no stale references in source). The iOS app is feature-
-complete for M1–M3 of its own plan; the most recent work was the Navigator
-reveal mark (see §6).
+complete for M1–M3 of its own plan. The Mac page now takes a keystroke (see M2).
 
 **To resume cold:** read this file, then §1's next unchecked box. Every box
 states its own proof; if the proof passes, the box is done.
@@ -123,8 +127,9 @@ second with no window ever shown.
       rewritten. **Decision: TextKit 1 for the Mac surface**, with TextKit 2
       kept behind `ScriptLayout.TextStack` and under the same tests, so the
       choice can be revisited with evidence rather than argued.
-- [ ] Ghost prediction drawn as inline secondary text — still to do.
-- [ ] The text view inside an `NSViewRepresentable`, in a window.
+- [ ] Ghost prediction drawn as inline secondary text — tracked under M2.
+- [x] The text view inside an `NSViewRepresentable`, in a window.
+      *Done with the M2 window (`ScriptPageView`).*
 
 **What the measurements found.** A line with nothing on it encloses no glyphs
 and therefore measures **no width** — and `CGRect.isEmpty` is true when *either*
@@ -151,13 +156,43 @@ and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
       document-based app unable to open a document.
 - [x] Two of the three panes: `StoryList` in a sidebar at 240/260/360, the page
       beside it on `underPageBackgroundColor`. Sidebar visible by default.
-- [x] The page itself — `ScriptSurface` — scrolls, reveals and marks, with 15
-      tests. A Navigator row on the Mac does exactly what it does on the phone.
+- [x] The page itself — `ScriptSurface` — scrolls, reveals and marks. A
+      Navigator row on the Mac does exactly what it does on the phone.
 - [x] Format → Element with ⌘1–⌘9, through the model's own conversion channel,
       so casing memory and undo grouping come along rather than being
-      re-implemented for a menu.
-- [ ] Typing: the edit planner wired to the text view's delegate. **Next.**
-- [ ] Tab / ⇧Tab choreography, and the ghost prediction.
+      re-implemented for a menu. The callback was unwired until typing bound
+      it; the menu is live now.
+- [x] Typing: the edit planner wired to the text view's delegate.
+      *Done 2026-09-05.* `ScriptSurface` is the `NSTextViewDelegate`. Ordinary
+      letters stay with AppKit; Return, a boundary delete, a scene-heading
+      dash, empty-line escape and scene promotion go through the planner and
+      the engine, never through a view-local rule. 15 typing tests, no window.
+      **Measured, not assumed:**
+      - `NSTextView.undoManager` is nil without a window (the tests never have
+        one). The surface owns an `UndoManager` and vends it through
+        `undoManager(for:)`.
+      - Tab is `textView(_:doCommandBy:)` — `insertTab` / `insertBacktab` —
+        not an `NSTextView` subclass. Return stays in `shouldChangeTextIn`
+        only, so it has one path.
+      - `textViewDidChangeSelection` writes `editor.selectionChanged`. Tab and
+        ⌘1–9 read `activeElementID`; without this they convert whichever
+        element was last rendered or jumped to. The tests set the selection
+        directly, not via `reveal`.
+      - `typingAttributes` come from `ScriptLayout.attributes` on every
+        selection change. There is no software-keyboard trait on the Mac.
+      - `isRichText = false` did **not** steal a cue's indent when a letter
+        was typed into the action below it
+        (`testTypingDoesNotRestyleADifferentElement`).
+      - `Choreography.emptyLineEscape` is the primitive; the surface still
+        wraps it with the whitespace-only guard and the no-op-when-same-kind
+        guard, same as the phone.
+      - A SwiftUI refresh after a keystroke (`renderIfNeeded`, which is what
+        `updateNSView` calls) must not replace the storage. Live typing
+        records `renderedRevision` so the subtitle reading `stats` cannot
+        send the caret to the top.
+- [x] Tab / ⇧Tab choreography. *Shipped with typing.* Ghost prediction is
+      still open — that is drawing, not the key.
+- [ ] Ghost prediction drawn as inline secondary text. **Next.**
 - [ ] Find (⌘F), Find Scene (⌘L).
 - [ ] Export PDF · FDX · Fountain · Text; native print.
 - [ ] The rest of the menu bar: File, Edit, View per MACOS-DESIGN §3.4.
@@ -259,7 +294,8 @@ neither a screenshot nor the accessibility API can see a window in that state.
   or AppKit. It is plain Node, so it runs on the Linux box that runs CI, and it
   is wired into `npm run quality`. Verified by planting a violation and
   watching it fail.
-- **A macOS CI job** now runs `swift test` over all four packages — 143 tests.
+- **A macOS CI job** now runs `swift test` over all four packages — 196 tests
+  (95 + 58 + 12 + 31).
   It has not run on a GitHub runner yet: the packages require macOS 26, so the
   first run needs watching in case `macos-latest` is still older than that.
 
