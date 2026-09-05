@@ -1,3 +1,4 @@
+import CoreGraphics
 import EDraftCore
 import UIKit
 
@@ -46,7 +47,13 @@ enum ScreenplayPageRenderer {
 
     static func pdfData(_ screenplay: EDraftCore.Screenplay) -> Data {
         let format = PageFormat.current
-        let renderer = UIGraphicsPDFRenderer(bounds: format.pageRect)
+        let rendererFormat = UIGraphicsPDFRendererFormat()
+        rendererFormat.documentInfo = [
+            kCGPDFContextKeywords as String: PdfSignal.encode(
+                ScreenplayExporter.fountainSource(screenplay)
+            )
+        ]
+        let renderer = UIGraphicsPDFRenderer(bounds: format.pageRect, format: rendererFormat)
         let includeTitlePage = UserDefaults.standard.object(forKey: includeTitlePageKey) as? Bool ?? true
         let hasTitlePage = screenplay.titlePage.contains { entry in
             entry.values.contains { !$0.isEmpty }
@@ -78,7 +85,7 @@ enum ScreenplayPageRenderer {
                 ))
             }
         }
-        return PdfSignal.stamped(pdf, fountain: ScreenplayExporter.fountainSource(screenplay))
+        return pdf
     }
 
     private static func draw(_ runs: [ScreenplayPageLayout.Run]) {

@@ -12,6 +12,11 @@ import Foundation
 /// The payload hex-encodes UTF-8 *bytes*, not UTF-16 code units — curly
 /// quotes, em dashes, and every non-Latin script survive intact. Mirrors
 /// `packages/edraft/src/pdfsignal.ts` byte for byte.
+///
+/// Two `/Keywords` spellings are read: a PDF hex string `<…>` (the web
+/// exporter) and a PDF literal `(…)` (Core Graphics). Both live in the
+/// Info dictionary. Bytes after `%%EOF` are not a field and are not how
+/// we write.
 public nonisolated enum PdfSignal {
 
     public static let markerPrefix = "EDRAFT_FOUNTAIN"
@@ -40,7 +45,7 @@ public nonisolated enum PdfSignal {
                     continue outer
                 }
             }
-            if let hex = readKeywordsHex(source, from: i),
+            if let hex = readKeywordsValue(source, from: i),
                let payload = decodePayload(hex) {
                 return payload
             }
@@ -49,27 +54,17 @@ public nonisolated enum PdfSignal {
         return nil
     }
 
-    /// Ensures `pdf` carries a signal that extracts back to `fountain`.
-    ///
-    /// Core Graphics writes `/Keywords` as a PDF *string* (`(…)`), which
-    /// the extractor — matching the TypeScript engine — will not read.
-    /// The hex form (`<…>`) is appended where the scanner will find it
-    /// and PDF parsers will ignore it as trailing junk after `%%EOF`.
-    public static func stamped(_ pdf: Data, fountain: String) -> Data {
-        if extract(from: pdf) == fountain { return pdf }
-        var out = pdf
-        if out.last != 0x0a { out.append(0x0a) }
-        out.append(contentsOf: Array("/Keywords <\(encode(fountain))>\n".utf8))
-        return out
-    }
-
     // MARK: - Internals
 
     private static func isKnownPrefix(_ prefix: String) -> Bool {
         prefix == markerPrefix || legacyMarkerPrefixes.contains(prefix)
     }
 
-    private static func readKeywordsHex(_ source: Data, from: Int) -> String? {
+    /// Hex digits of a `/Keywords` value. Accepts a PDF hex string `<…>`
+    /// (the web exporter) and a PDF literal `(…)` (Core Graphics
+    /// `kCGPDFContextKeywords`). The payload is hex either way, so both
+    /// sit in the Info dictionary and survive a viewer re-save.
+    private static func readKeywordsValue(_ source: Data, from: Int) -> String? {
         var at = from + "/Keywords".utf8.count
         while at < source.count {
             let b = source[at]
@@ -79,12 +74,20 @@ public nonisolated enum PdfSignal {
             }
             break
         }
-        guard at < source.count, source[at] == 0x3c else { return nil }
-        // `<<` is a dictionary, not a hex string.
-        if at + 1 < source.count, source[at + 1] == 0x3c { return nil }
+        guard at < source.count else { return nil }
+        let closer: UInt8
+        if source[at] == 0x3c {
+            // `<<` is a dictionary, not a hex string.
+            if at + 1 < source.count, source[at + 1] == 0x3c { return nil }
+            closer = 0x3e
+        } else if source[at] == 0x28 {
+            closer = 0x29
+        } else {
+            return nil
+        }
         at += 1
         var hex = ""
-        while at < source.count, source[at] != 0x3e {
+        while at < source.count, source[at] != closer {
             let ch = Character(UnicodeScalar(source[at]))
             guard ch.isHexDigit else { return nil }
             hex.append(ch)

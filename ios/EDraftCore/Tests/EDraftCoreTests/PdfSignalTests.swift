@@ -47,17 +47,20 @@ final class PdfSignalTests: XCTestCase {
         XCTAssertNil(PdfSignal.extract(from: pdf))
     }
 
-    func testStampingMakesABarePdfExtractable() {
-        let bare = Data("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n".utf8)
-        XCTAssertNil(PdfSignal.extract(from: bare))
-        let stamped = PdfSignal.stamped(bare, fountain: fountain)
-        XCTAssertEqual(PdfSignal.extract(from: stamped), fountain)
+    func testAPdfLiteralStringIsReadAsWellAsAHexString() {
+        let hex = PdfSignal.encode(fountain)
+        let asLiteral = Data("%PDF-1.4\n<< /Keywords (\(hex)) >>\n%%EOF".utf8)
+        XCTAssertEqual(PdfSignal.extract(from: asLiteral), fountain)
+        XCTAssertEqual(PdfSignal.extract(from: fakePdf(keywordsHex: hex)), fountain)
     }
 
-    func testStampingIsIdempotentWhenTheSignalAlreadyMatches() {
-        let stamped = PdfSignal.stamped(Data("%PDF-1.4\n%%EOF".utf8), fountain: fountain)
-        let again = PdfSignal.stamped(stamped, fountain: fountain)
-        XCTAssertEqual(again, stamped)
+    /// PDFs exported during the brief window that stamped `<hex>` after
+    /// `%%EOF` are writers' files. We do not write that way; we still read it.
+    func testATrailingHexStampFromAnOlderExportStillExtracts() {
+        let hex = PdfSignal.encode(fountain)
+        var pdf = Data("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n".utf8)
+        pdf.append(contentsOf: Array("/Keywords <\(hex)>\n".utf8))
+        XCTAssertEqual(PdfSignal.extract(from: pdf), fountain)
     }
 
     /// The rename compatibility contract, on the Swift side of the same

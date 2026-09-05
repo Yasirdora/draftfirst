@@ -46,30 +46,55 @@ final class MacPdfRoundTripTests: XCTestCase {
         XCTAssertTrue(recovered.contains("日本語も。"), "non-Latin script was lost")
     }
 
-    /// Core Graphics writes `/Keywords` as a PDF string `(…)`. The engine
-    /// extractor only accepts the hex form `<…>`. That is why we stamp
-    /// rather than trusting `kCGPDFContextKeywords`.
-    func testCgKeywordsStringIsNotTheHexSignal() {
+    /// Core Graphics writes `/Keywords (hex)` as a PDF literal in the Info
+    /// dictionary. The extractor must accept that spelling, or a Mac PDF
+    /// only round-trips until someone re-saves it.
+    func testCgKeywordsLiteralExtracts() {
         let fountain = "INT. ROOM - DAY\n"
+        XCTAssertEqual(PdfSignal.extract(from: cgPdf(keywords: PdfSignal.encode(fountain))), fountain)
+    }
+
+    /// The test that would have caught a `%%EOF` stamp: a PDF reader that
+    /// rewrites the file must still yield the source. Preview, Acrobat,
+    /// Quartz filters all do this.
+    func testTheExportedPdfSurvivesAPdfReaderRewrite() throws {
+        let screenplay = EDraftCore.Screenplay(engineModel: try Fountain.parse(fountain))
+        let pdf = ScreenplayPageRenderer.pdfData(screenplay)
+        let document = try XCTUnwrap(PDFDocument(data: pdf), "PDFKit refused the export")
+        let rewritten = try XCTUnwrap(document.dataRepresentation(), "PDFKit produced no bytes on write-back")
+        let recovered = try XCTUnwrap(
+            PdfSignal.extract(from: rewritten),
+            "the signal did not survive a PDFDocument rewrite — it was not in the Info dictionary"
+        )
+        XCTAssertEqual(recovered, ScreenplayExporter.fountainSource(screenplay))
+        XCTAssertTrue(recovered.contains("Molly’s"))
+        XCTAssertTrue(recovered.contains("日本語も。"))
+    }
+
+    /// Measured: Core Graphics carried 500_000 hex characters in
+    /// `/Keywords` and PDFKit's rewrite kept them. A feature script is
+    /// ~240KB of hex; well under that. File-attachment fallback not needed.
+    func testAFeatureLengthKeywordsPayloadSurvivesAPdfReaderRewrite() {
+        let fountain = String(repeating: "INT. STAGE - DAY\n\nThe lights hold.\n\n", count: 3500)
+        let hex = PdfSignal.encode(fountain)
+        XCTAssertGreaterThan(hex.count, 200_000, "the fixture must be in the feature-length band")
+        let raw = cgPdf(keywords: hex)
+        let rewritten = PDFDocument(data: raw)?.dataRepresentation()
+        XCTAssertEqual(PdfSignal.extract(from: raw), fountain)
+        XCTAssertEqual(PdfSignal.extract(from: rewritten ?? Data()), fountain)
+    }
+
+    private func cgPdf(keywords: String) -> Data {
         var mediaBox = CGRect(x: 0, y: 0, width: 612, height: 792)
         let data = NSMutableData()
-        let hex = PdfSignal.encode(fountain)
-        let info: [CFString: Any] = [kCGPDFContextKeywords: hex]
+        let info: [CFString: Any] = [kCGPDFContextKeywords: keywords]
         guard let consumer = CGDataConsumer(data: data),
               let context = CGContext(consumer: consumer, mediaBox: &mediaBox, info as CFDictionary)
-        else {
-            return XCTFail("could not create a CGPDFContext to measure")
-        }
+        else { return Data() }
         context.beginPDFPage(nil)
         context.endPDFPage()
         context.closePDF()
-        let raw = Data(referencing: data)
-
-        XCTAssertNil(
-            PdfSignal.extract(from: raw),
-            "if this starts passing, CG now writes hex and the stamp is redundant"
-        )
-        XCTAssertEqual(PdfSignal.extract(from: PdfSignal.stamped(raw, fountain: fountain)), fountain)
+        return Data(referencing: data)
     }
 
     func testPrintOperationIsTheExportedPdf() throws {

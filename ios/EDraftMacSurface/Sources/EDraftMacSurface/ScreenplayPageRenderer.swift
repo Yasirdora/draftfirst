@@ -44,8 +44,13 @@ public enum ScreenplayPageRenderer {
         let format = PageFormat.current
         var mediaBox = format.pageRect
         let data = NSMutableData()
+        let fountain = ScreenplayExporter.fountainSource(screenplay)
+        // Hex is `[0-9a-f]`, legal inside a PDF literal with no escaping.
+        // Core Graphics writes `/Keywords (hex)` into the Info dictionary,
+        // which survives a viewer re-save; trailing bytes after `%%EOF` do not.
+        let info: [CFString: Any] = [kCGPDFContextKeywords: PdfSignal.encode(fountain)]
         guard let consumer = CGDataConsumer(data: data),
-              let context = CGContext(consumer: consumer, mediaBox: &mediaBox, nil)
+              let context = CGContext(consumer: consumer, mediaBox: &mediaBox, info as CFDictionary)
         else { return Data() }
 
         let includeTitlePage = UserDefaults.standard.object(
@@ -84,10 +89,7 @@ public enum ScreenplayPageRenderer {
         }
 
         context.closePDF()
-        return PdfSignal.stamped(
-            Data(referencing: data),
-            fountain: ScreenplayExporter.fountainSource(screenplay)
-        )
+        return Data(referencing: data)
     }
 
     /// Print the PDF we already export — not a second drawing that could

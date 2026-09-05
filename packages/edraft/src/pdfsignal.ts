@@ -48,17 +48,31 @@ export function encodePdfPayload(fountain: string): string {
 const KEYWORD_FIELD = '/Keywords';
 const HEX_DIGIT = /^[0-9a-fA-F]$/;
 
-/** The raw bytes of a `/Keywords <hex>` value starting at `from`, or null. */
+/** Hex digits of a `/Keywords` value starting at `from`, or null.
+ *
+ *  Two spellings are legal: a PDF hex string `<…>` (what the web exporter
+ *  writes into the Info dict) and a PDF literal `(…)` (what Core Graphics
+ *  writes for `kCGPDFContextKeywords`). The payload is hex either way —
+ *  `[0-9a-fA-F]` needs no escaping inside a literal — so both survive a
+ *  viewer re-save. Trailing bytes after `%%EOF` do not. */
 function readKeywordsHex(source: Uint8Array, from: number): string | null {
 	let at = from + KEYWORD_FIELD.length;
 	while (at < source.length && (source[at] === 0x20 || source[at] === 0x09 || source[at] === 0x0a || source[at] === 0x0d)) {
 		at++;
 	}
-	if (source[at] !== 0x3c /* '<' */) return null;
-	if (source[at + 1] === 0x3c /* '<<' — a dictionary, not a hex string */) return null;
+	const opener = source[at];
+	let closer: number;
+	if (opener === 0x3c /* '<' */) {
+		if (source[at + 1] === 0x3c /* '<<' — a dictionary, not a hex string */) return null;
+		closer = 0x3e; /* '>' */
+	} else if (opener === 0x28 /* '(' */) {
+		closer = 0x29; /* ')' */
+	} else {
+		return null;
+	}
 	at++;
 	let hex = '';
-	while (at < source.length && source[at] !== 0x3e /* '>' */) {
+	while (at < source.length && source[at] !== closer) {
 		const ch = String.fromCharCode(source[at]!);
 		if (!HEX_DIGIT.test(ch)) return null;
 		hex += ch;

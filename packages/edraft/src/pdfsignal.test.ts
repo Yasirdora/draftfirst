@@ -62,6 +62,14 @@ describe('encodePdfPayload / extractPdfPayload', () => {
 		const bytes = encodeUtf8('%PDF-1.4\n<< /Keywords << /Nested true >> >>\n%%EOF');
 		expect(extractPdfPayload(bytes)).toBeNull();
 	});
+
+	it('reads a PDF literal string as well as a hex string', () => {
+		const fountain = 'INT. CAFÉ - DAY\n';
+		const hex = encodePdfPayload(fountain);
+		const asLiteral = encodeUtf8(`%PDF-1.4\n<< /Keywords (${hex}) >>\n%%EOF`);
+		expect(extractPdfPayload(asLiteral)).toBe(fountain);
+		expect(extractPdfPayload(fakePdfWithKeywords(hex))).toBe(fountain);
+	});
 });
 
 /**
