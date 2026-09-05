@@ -184,8 +184,10 @@ These are the only places where new architecture — not new views — is needed
   this is the one real unknown and is spiked first (see the execution plan).
 - **Menus and key equivalents.** SwiftUI `Commands`, one command per verb the
   app already has; no new behaviour, only new access.
-- **The inspector.** A right-hand pane whose content is a function of the
-  selection — the same data the iOS sheets already show, in a persistent pane.
+- **A right-hand pane, later.** Reserved for comments and notes alongside
+  the page, keyed to `ScriptElement.id`. Not a properties inspector: the
+  writer never formats, so there is nothing continuous for a Format panel
+  to hold. Title page is a sheet; the character thread is the Cast tab.
 - **Windows.** Multiple windows and tabs per document, state restoration.
 
 ## 7. What stays iOS-only, on purpose

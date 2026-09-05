@@ -46,15 +46,6 @@ public struct StoryPanel: View {
                     Button("Done") { dismiss() }
                 }
             }
-            // Pushed by name rather than by row, so a rename performed on the
-            // character's page does not pull the page out from under itself
-            // when the row it came from stops existing.
-            .navigationDestination(for: String.self) { name in
-                CharacterThreadView(editor: editor, name: name) { element in
-                    editor.jump(to: element)
-                    dismiss()
-                }
-            }
         }
     }
 }
@@ -131,6 +122,13 @@ public struct StoryList: View {
         }
         .onChange(of: focusSceneFilter) { _, _ in
             filterFocused = true
+        }
+        // Pushed by name rather than by row, so a rename performed on the
+        // character's page does not pull the page out from under itself
+        // when the row it came from stops existing. Lives on the list, not
+        // the phone's sheet, so the Mac sidebar can push the same thread.
+        .navigationDestination(for: String.self) { name in
+            CharacterThreadView(editor: editor, name: name, open: open)
         }
     }
 

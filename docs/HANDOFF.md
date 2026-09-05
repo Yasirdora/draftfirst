@@ -38,7 +38,7 @@ reading a number, not by reasoning about what ought to happen.
 |---|---|
 | Branch | `rename/edraft` |
 | iOS app | Feature-complete for its own plan; ships |
-| macOS app | Greets on launch, page card, types, ghosts, finds, exports, prints, **inspector** (⌥⌘I). View modes and statistics still M3 |
+| macOS app | Greets on launch, page card, types, ghosts, finds, exports, prints. Title page is a sheet; Cast opens the character thread. View modes and statistics still M3 |
 | Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface` |
 | Xcode targets | `eDraft`, `eDraftTests`, `eDraft (macOS)` |
 
@@ -48,9 +48,9 @@ a number drops, you broke something.
 ```bash
 npm test                                              # 414 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
-swift test --package-path ios/EDraftCore              #  97 core        (macOS)
+swift test --package-path ios/EDraftCore              #  88 core        (macOS)
 swift test --package-path ios/EDraftUI                #  18 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  73 Mac surface (macOS)
+swift test --package-path ios/EDraftMacSurface        #  76 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -71,7 +71,7 @@ EDraftCore       the app's mind. Foundation + Observation, never a UI framework.
                  EditorState, the edit planner, the models, casing memory,
                  PageScroll, ScriptTypography, RevealMark, ScreenplayFile,
                  ScreenplayExporter, ScreenplayPageLayout, PdfSignal,
-                 InspectorFocus, SceneInspection, CharacterRename.
+                 CharacterRename.
       ▲
 EDraftUI         shared SwiftUI: Navigator (StoryList/StoryPanel), character
                  thread, title page, settings, EDraftDocument.
@@ -105,8 +105,9 @@ prevent.**
 The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
 
 1. **View modes** (Page · Typewriter · Focus) and statistics in the
-   status area — remaining M3. Inspector (⌥⌘I) and the element control
-   are done. Format → Element and Scene Numbers are done.
+   status area — remaining M3. The inspector was retired: a properties
+   pane has nothing continuous to hold. Format → Element, Scene Numbers,
+   File → Title Page, and the Cast thread are done.
 2. **Writing-assistance settings**, shared with iOS.
 3. **M0.6**, optional: move to an `apple/` directory layout. The `ios/` name is
    now wrong for a tree with a Mac app in it.
@@ -255,7 +256,7 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
 | File | What it is |
 |---|---|
 | [MACOS-EXECUTION.md](MACOS-EXECUTION.md) | **The working document.** Milestones, proofs, decisions taken, known issues |
-| [MACOS-DESIGN.md](MACOS-DESIGN.md) | What the Mac app is: the reading of Finder/Messages/Find My, and the three-pane window it argues for |
+| [MACOS-DESIGN.md](MACOS-DESIGN.md) | What the Mac app is: the reading of Finder/Messages/Find My, and the two-pane window it argues for |
 | [SHARED-ARCHITECTURE.md](SHARED-ARCHITECTURE.md) | The layer boundary, the file-by-file inventory, and the migration |
 | [MACOS-PLAN.md](MACOS-PLAN.md) | Why macOS, why now — the market position |
 | [IOS-COMPLETENESS.md](IOS-COMPLETENESS.md) | Where the iPhone app stands |

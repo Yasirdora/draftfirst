@@ -67,18 +67,18 @@ surface. That was the right call. Two apps that disagree about Return
 are two products; the port is how they stay one.
 
 A desk is not a bigger phone. It is simultaneous surfaces — a page you
-are in *and* a list you can see, later an inspector, later a second
-window. A hand sequences those (a sheet, a modal). A desk shows them.
-`MACOS-DESIGN.md` already drew that window. Two of the three panes are
-built; Find, export and print closed M2; the inspector (⌥⌘I) is the
-third. None of that is a new screenplay rule. It is the same script,
-visible at once.
+are in *and* a list you can see, later a second window. A hand sequences
+those (a sheet, a modal). A desk shows them. `MACOS-DESIGN.md` already
+drew that window. The third column was tried and retired: a properties
+pane exists for continuous formatting, and the writer never formats.
+What would earn it back is something to read *alongside* the page
+(comments, notes). None of that is a new screenplay rule. It is the
+same script, visible at once.
 
 What would have to be true before "the desk" is a behaviour rather than
 a layout: something a writer cannot do in one hand, not merely something
 prettier at arm's length. Two documents side by side is a candidate.
-An inspector that stays while they type is a candidate. Inventing either
-before Find and the third pane exist would be decorating a port.
+A notes column that stays while they type is a candidate.
 
 Until then the Mac's job is the same as the phone's: the writer never
 formats.

@@ -7,8 +7,8 @@ import PackageDescription
 /// writing-assistance settings: these are the same views on a phone and on a
 /// Mac, because they answer the same questions about the same document. What
 /// differs is the chrome around them — a sheet with a nav bar here, a sidebar
-/// and an inspector there — and that difference is held in small shims rather
-/// than in two copies of a list.
+/// there — and that difference is held in small shims rather than in two
+/// copies of a list.
 ///
 /// SwiftUI only. Anything that needs UIKit or AppKit belongs to a surface, not
 /// here. See docs/SHARED-ARCHITECTURE.md.

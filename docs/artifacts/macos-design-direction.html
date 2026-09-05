@@ -239,12 +239,11 @@
     color: var(--ink-faint);
     letter-spacing: 0.06em;
   }
-  .panes { display: grid; grid-template-columns: 200px minmax(0, 1fr) 190px; min-height: 292px; }
+  .panes { display: grid; grid-template-columns: 200px minmax(0, 1fr); min-height: 292px; }
   .pane { padding: 16px 14px; }
   .pane + .pane { border-left: 1px solid var(--rule); }
   .pane-nav { background: var(--sunk); }
   .pane-page { background: var(--sunk); display: grid; place-items: center; padding: 22px; }
-  .pane-insp { background: var(--surface); }
 
   .pane-label {
     font-family: var(--mono);
@@ -519,8 +518,8 @@
       </section>
 
       <section id="window">
-        <h2>Three panes, not two</h2>
-        <p>Two panes is the reference grammar. A screenplay adds a question the references never had to answer — <em>what are the properties of the thing I am looking at?</em> — and Pages, Keynote and Xcode all resolve it the same way: an inspector on the right, hidden until summoned.</p>
+        <h2>Two panes</h2>
+        <p>Two panes is the reference grammar, and it is the grammar we use. Pages keeps a Format inspector open <em>while you work</em>, because in Pages you are formatting continuously. This product's charter is the opposite: the writer never formats. Title page is a sheet; a character's thread is the Cast tab; the right column is reserved for comments and notes alongside the page, not for properties of the selection.</p>
 
         <div class="window">
           <div class="window-bar">
@@ -546,17 +545,9 @@
                 <p class="dial">Reply two from Elias, who has heard every word of this before.</p>
               </div>
             </div>
-            <div class="pane pane-insp">
-              <p class="pane-label dim">Inspector · ⌥⌘I</p>
-              <div class="insp-field"><span>Scene</span><b>2</b></div>
-              <div class="insp-field"><span>Page</span><b>2</b></div>
-              <div class="insp-field"><span>Length</span><b>⅜ pg</b></div>
-              <div class="insp-field"><span>Present</span><b>MARA, ELIAS</b></div>
-              <div class="insp-field"><span>Revision</span><b>White</b></div>
-            </div>
           </div>
         </div>
-        <p class="caption">Sidebar 240–360 pt · inspector 260 pt · page at print metrics, Courier Prime 12 pt, 1.5″ left margin.</p>
+        <p class="caption">Sidebar 240–360 pt · page at print metrics, Courier Prime 12 pt, 1.5″ left margin.</p>
 
         <p style="margin-top:26px">The sidebar is <strong>visible by default</strong>, reversing the earlier plan. On a Mac the sidebar <em>is</em> the organisation panel, and a window that opens without one reads as a ported iPad app. Distraction-free writing is a mode — ⌥⌘S, or Focus — not a default.</p>
         <p>The blue mark on Mara's line is not decoration. A Navigator row has two jobs: move the page, and show where you landed. A script stops scrolling once its last page reaches the bottom, so a target near the end never reaches the top, and one already on screen never moves the page at all. Both read as a dead row. The mark is the answer, and it already ships on iPhone.</p>
@@ -586,7 +577,6 @@
             <thead><tr><th>Token</th><th>Value</th><th>Why</th></tr></thead>
             <tbody>
               <tr><td class="mono">Sidebar</td><td class="mono">240 / 260 / 360</td><td>Finder-class, resizable</td></tr>
-              <tr><td class="mono">Inspector</td><td class="mono">260 fixed</td><td>Pages-class</td></tr>
               <tr><td class="mono">Row height</td><td class="mono">28 · 44</td><td>compact list · two-line</td></tr>
               <tr><td class="mono">Selection</td><td class="mono">6 pt continuous</td><td>inset capsule, accent fill</td></tr>
               <tr><td class="mono">Title / meta</td><td class="mono">13 semibold / 11</td><td>three levels, no more</td></tr>
@@ -626,12 +616,12 @@
           </div>
           <div class="ms">
             <span class="tag"><span class="chip" style="background:#F2C4D2"></span>M2</span>
-            <span class="what">The window<em>Documents, three panes, menu bar, ⌘1–9, export, print</em></span>
+            <span class="what">The window<em>Documents, two panes, menu bar, ⌘1–9, export, print</em></span>
             <span class="state">Next</span>
           </div>
           <div class="ms">
             <span class="tag"><span class="chip" style="background:#F5E6A8"></span>M3</span>
-            <span class="what">The desk<em>Inspector, statistics, typewriter and focus modes, VoiceOver pass</em></span>
+            <span class="what">The desk<em>Title page, Cast thread, statistics, typewriter and focus, VoiceOver</em></span>
             <span class="state">Planned</span>
           </div>
           <div class="ms">

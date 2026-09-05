@@ -2,7 +2,7 @@ import XCTest
 @testable import EDraftCore
 
 /// The blast-radius sentence. Copied out of CharacterThreadView so the
-/// Mac inspector and the phone cannot drift.
+/// Mac's Cast thread and the phone cannot drift.
 final class CharacterRenameTests: XCTestCase {
 
     func testANameWithNoMentionsStatesTheCueCount() {

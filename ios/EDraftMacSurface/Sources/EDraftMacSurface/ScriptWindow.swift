@@ -4,9 +4,11 @@ import SwiftUI
 
 /// One screenplay, in one window.
 ///
-/// The arrangement the design settled on: the structure on the left, the page
-/// in the middle, and the details on the right when asked. The inspector is
-/// hidden until ⌥⌘I — a third pane that is always open is a narrower page.
+/// The structure on the left, the page in the middle. A properties column
+/// on the right is reserved for comments and notes — something to read
+/// *alongside* the page. Title page, scene facts and a character rename
+/// are transient, and a transient thing is a sheet or a destination in
+/// the sidebar, not a pane.
 ///
 /// The sidebar is `StoryList`, the same Navigator the phone shows in a sheet.
 /// It is visible by default, because on a Mac the sidebar *is* the organisation
@@ -19,31 +21,34 @@ public struct ScriptWindow: View {
     @State private var columns: NavigationSplitViewVisibility = .all
     @State private var sceneQuery = ""
     @State private var focusSceneFilter = 0
-    @State private var inspector = InspectorChrome()
+    @State private var showingTitlePage = false
 
     public init(editor: EditorState) {
         self.editor = editor
     }
 
     public var body: some View {
-        @Bindable var inspector = inspector
         NavigationSplitView(columnVisibility: $columns) {
-            StoryList(
-                editor: editor,
-                tab: $tab,
-                showsSceneFilter: true,
-                showsSceneNumbering: false,
-                sceneQuery: $sceneQuery,
-                focusSceneFilter: focusSceneFilter,
-                onFilterSubmit: { id in
-                    editor.jump(to: id)
-                    editor.beginEditing()
+            NavigationStack {
+                StoryList(
+                    editor: editor,
+                    tab: $tab,
+                    showsSceneFilter: true,
+                    showsSceneNumbering: false,
+                    sceneQuery: $sceneQuery,
+                    focusSceneFilter: focusSceneFilter,
+                    onFilterSubmit: { id in
+                        editor.jump(to: id)
+                        editor.beginEditing()
+                    }
+                ) { element in
+                    // The sidebar stays where it is: a Mac reader keeps their
+                    // place in the list while the page moves beside it, which is
+                    // exactly what a sidebar is for. The character thread uses
+                    // this same `open` — a speech reveals the line, the thread
+                    // remains.
+                    editor.jump(to: element)
                 }
-            ) { element in
-                // The sidebar stays where it is: a Mac reader keeps their
-                // place in the list while the page moves beside it, which is
-                // exactly what a sidebar is for.
-                editor.jump(to: element)
             }
             .navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 360)
         } detail: {
@@ -57,18 +62,13 @@ public struct ScriptWindow: View {
                         ElementModeControl(editor: editor)
                     }
                 }
-                .inspector(isPresented: $inspector.isPresented) {
-                    InspectorPane(editor: editor, chrome: inspector)
-                        .inspectorColumnWidth(min: 260, ideal: 260, max: 260)
-                }
         }
-        .focusedSceneValue(\.inspectorPresented, $inspector.isPresented)
+        .sheet(isPresented: $showingTitlePage) {
+            TitlePageSheet(editor: editor)
+        }
+        .focusedSceneValue(\.onShowTitlePage, { showingTitlePage = true })
         .onAppear {
             editor.onFindScene = { findScene() }
-            inspector.follow(kind: editor.activeKind)
-        }
-        .onChange(of: editor.activeElementID) { _, _ in
-            inspector.follow(kind: editor.activeKind)
         }
     }
 
@@ -85,5 +85,17 @@ public struct ScriptWindow: View {
     private var subtitle: String {
         let pages = editor.stats.pages
         return "\(pages) \(pages == 1 ? "page" : "pages") · \(editor.stats.runtime)"
+    }
+}
+
+/// So File → Title Page… can present the same sheet the phone uses.
+public struct ShowTitlePageKey: FocusedValueKey {
+    public typealias Value = () -> Void
+}
+
+extension FocusedValues {
+    public var onShowTitlePage: (() -> Void)? {
+        get { self[ShowTitlePageKey.self] }
+        set { self[ShowTitlePageKey.self] = newValue }
     }
 }

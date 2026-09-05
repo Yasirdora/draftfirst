@@ -116,28 +116,34 @@ problems.
 ## 3. The direction
 
 > **The window is the script's desk: the structure on the left, the page in the
-> middle, the details on the right when asked — and nothing else.**
+> middle — and nothing else, until there is something to read alongside the page.**
 
-Two panes is the reference grammar. We use **three**, because a screenplay has a
-third question the references do not have to answer: *what are the properties of
-the thing I am looking at?* Pages, Keynote, Xcode and Sketch all resolve it the
-same way, and Mac users already know where to look — the inspector on the right,
-hidden until summoned.
+Two panes is the reference grammar, and it is the grammar we use. A third pane
+was drawn here because Pages, Keynote, Xcode and Sketch all keep a properties
+inspector on the right. Those inspectors earn permanent width because in those
+apps you are formatting continuously. This product's charter is the opposite:
+the writer never formats. A title is set once, a scene's length checked
+occasionally, a character renamed rarely. Transient things are a sheet or a
+destination in the sidebar, not a column that clips the page.
+
+The right column is **reserved**, not cancelled. It returns when there is
+something to read *alongside* the page: comments and notes anchored to
+`ScriptElement.id`. That is a real workflow. Properties of the selection are not.
 
 ```
-┌──────────────┬───────────────────────────────────┬──────────────┐
-│  NAVIGATOR   │              PAGE                 │  INSPECTOR   │
-│              │                                   │  (⌥⌘I,       │
-│ ⌜Scenes│Cast⌝│      ┌───────────────────┐        │   hidden by  │
-│              │      │                   │        │   default)   │
-│ 1  INT. …  1 │      │   the page, on a  │        │              │
-│ 2  EXT. …  3 │      │   neutral canvas  │        │  title page  │
-│ 3  INT. …  4 │      │                   │        │  scene       │
-│              │      │                   │        │  character   │
-│ ──────────── │      └───────────────────┘        │  revision    │
-│ 3 scenes ·   │                                   │              │
-│ 2 locations  │                                   │              │
-└──────────────┴───────────────────────────────────┴──────────────┘
+┌──────────────┬──────────────────────────────────────────┐
+│  NAVIGATOR   │                 PAGE                     │
+│              │                                          │
+│ ⌜Scenes│Cast⌝│         ┌───────────────────┐            │
+│              │         │                   │            │
+│ 1  INT. …  1 │         │   the page, on a  │            │
+│ 2  EXT. …  3 │         │   neutral canvas  │            │
+│ 3  INT. …  4 │         │                   │            │
+│              │         │                   │            │
+│ ──────────── │         └───────────────────┘            │
+│ 3 scenes ·   │                                          │
+│ 2 locations  │                                          │
+└──────────────┴──────────────────────────────────────────┘
 ```
 
 ### 3.1 Left — the Navigator
@@ -172,33 +178,35 @@ page edge is the ruler a screenwriter reads length by, and taking it away breaks
 the one measurement the craft depends on.
 
 Three view modes, in the toolbar's view group: **Page** (default), **Typewriter**
-(current line held at a fixed height), **Focus** (sidebar and inspector collapse,
-canvas widens). Margin-floating controls only (§2).
+(current line held at a fixed height), **Focus** (sidebar collapses, canvas
+widens). Margin-floating controls only (§2).
 
-### 3.3 Right — the Inspector
+### 3.3 Where the properties live, without a pane
 
-Contextual to the selection, and empty of anything the page can do better:
-
-- **Title page** — the fields, edited in place instead of in a sheet.
-- **Scene** — number, page, characters present, length; the place where scene
-  numbering is applied and explained.
-- **Character** — cue count, scenes, first/last appearance, rename with the same
-  blast-radius warning the iOS character page shows.
-- **Revision** (M4) — colour, marks, locked pages.
+- **Title page** — File → Title Page…. The same `TitlePageSheet` the phone
+  presents. Set once, not consulted while typing.
+- **Scene** — number and page on the Navigator row, where you compare scenes.
+  Numbering is Format → Scene Numbers. Length is the page itself.
+- **Character** — the Cast tab. A name is not a place, so the row opens the
+  character's thread (scenes and every speech); a speech reveals that line
+  on the page. Rename lives on that thread, with the blast-radius warning
+  both surfaces already share.
+- **Comments and notes** (later) — the thing that would earn the right column
+  back: something to read alongside the page, keyed to `ScriptElement.id`.
 
 ### 3.4 The toolbar, and the menu bar behind it
 
 Toolbar, following §1.5 exactly: title left; on the right,
-`[element control] [view: page · typewriter · focus] [share] [inspector]` and
+`[element control] [view: page · typewriter · focus] [share]` and
 search furthest right. Nothing else. Everything a professional reaches for lives
 in the menu bar, where Mac users look for it:
 
 | Menu | Contents |
 |---|---|
-| File | New, Open, Save, Revert, Export (PDF · FDX · Fountain · Text), Print |
+| File | New, Open, Save, Revert, Title Page, Export (PDF · FDX · Fountain · Text), Print |
 | Edit | Undo/Redo, Find (⌘F), Find Scene (⌘L), Writing Assistance |
 | Format | Element ⌘1–⌘9, Scene Numbers, Revision |
-| View | Sidebar (⌥⌘S), Inspector (⌥⌘I), Page/Typewriter/Focus, Zoom |
+| View | Sidebar (⌥⌘S), Page/Typewriter/Focus, Zoom |
 | Window, Help | Standard |
 
 ### 3.5 What must not appear
@@ -216,7 +224,6 @@ Shared with iOS wherever the platform allows, so the two apps are one product.
 | Token | Value | Note |
 |---|---|---|
 | Sidebar width | 240 min · 260 default · 360 max | Finder-class |
-| Inspector width | 260 fixed | Pages-class |
 | Row height | 28 (compact list) · 44 (two-line) | |
 | Row inset | 8 leading, 10 trailing | selection capsule inset |
 | Selection | accent fill, 6pt continuous corner | §1.4 |
@@ -227,7 +234,7 @@ Shared with iOS wherever the platform allows, so the two apps are one product.
 | Page | `textBackgroundColor`, 1pt shadow | |
 | Script face | Courier Prime 12pt, engine metrics | identical to iOS and to print |
 
-Materials: sidebar `.sidebar`, inspector `.contentBackground`, toolbar unified.
+Materials: sidebar `.sidebar`, toolbar unified.
 Semantic colours only — accent colour is the user's, never ours.
 
 ---
@@ -256,6 +263,7 @@ must pass before it ships:
    `EDraftEngine` and is pinned by the conformance corpus — never re-decided in
    a view.
 4. **Same document.** One `.draft` on iCloud Drive; no macOS-only fields.
-5. **Different surfaces, honestly.** The Mac gets menus, an inspector, windows
-   and a pointer; iOS gets touch, scanning and a keyboard bar. Neither pretends
-   to be the other.
+5. **Different surfaces, honestly.** The Mac gets menus, windows and a
+   pointer; iOS gets touch, scanning and a keyboard bar. Neither pretends
+   to be the other. A right-hand pane returns when there is something to
+   read alongside the page, not something to state about it.

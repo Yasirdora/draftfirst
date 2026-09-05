@@ -53,13 +53,11 @@ struct EDraftMacApp: App {
                 SceneNumbersCommands()
             }
             CommandGroup(after: .saveItem) {
+                TitlePageCommand()
                 ExportCommands()
             }
             CommandGroup(replacing: .printItem) {
                 PrintCommand()
-            }
-            CommandGroup(after: .sidebar) {
-                InspectorCommand()
             }
         }
     }
@@ -263,16 +261,15 @@ struct SceneNumbersCommands: View {
     }
 }
 
-/// View → Inspector, ⌥⌘I. Hidden until summoned.
-struct InspectorCommand: View {
-    @FocusedValue(\.inspectorPresented) private var presented
+/// File → Title Page…. The same sheet the phone presents — not a second form.
+struct TitlePageCommand: View {
+    @FocusedValue(\.onShowTitlePage) private var show
 
     var body: some View {
-        Button("Inspector") {
-            presented?.wrappedValue.toggle()
+        Button("Title Page…") {
+            show?()
         }
-        .keyboardShortcut("i", modifiers: [.option, .command])
-        .disabled(presented == nil)
+        .disabled(show == nil)
     }
 }
 

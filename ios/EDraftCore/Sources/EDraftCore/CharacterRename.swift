@@ -5,7 +5,7 @@ import Foundation
 /// A writer renaming MARA wants it changed everywhere. A writer renaming
 /// WILL does not want "will you come" rewritten. Only they can tell the
 /// two apart, and only if shown the number first. Lives here so the
-/// phone's character page and the Mac inspector cannot disagree.
+/// phone's character page and the Mac's Cast thread cannot disagree.
 public nonisolated enum CharacterRename {
 
     public static func warning(

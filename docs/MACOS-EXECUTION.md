@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: M0 all but complete · M1 answered · M2 closed · **M3 inspector** · Last updated 2026-09-06*
+*Status: M0 all but complete · M1 answered · M2 closed · **M3** · Last updated 2026-09-06*
 
 This is the working document. New here? Read [HANDOFF.md](HANDOFF.md) first —
 it carries the state, the rules and the traps in one page.
@@ -14,17 +14,18 @@ product. **Start here, then read those.**
 ## 0. Where we are today
 
 The Mac app builds, opens a `.draft` / Fountain file, scrolls, reveals,
-types, ghosts, finds, exports, prints, and inspects (⌥⌘I). View modes
-and statistics are still ahead.
+types, ghosts, finds, exports, prints. Title page is a sheet; the
+character thread is the Cast tab. View modes and statistics are still
+ahead.
 
 **Green baseline** (re-run these before and after every step):
 
 ```bash
 npm test                                              # 414 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
-swift test --package-path ios/EDraftCore              #  97 core        (macOS)
+swift test --package-path ios/EDraftCore              #  88 core        (macOS)
 swift test --package-path ios/EDraftUI                #  18 document/filter (macOS)
-swift test --package-path ios/EDraftMacSurface        #  73 Mac surface (macOS)
+swift test --package-path ios/EDraftMacSurface        #  76 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -180,7 +181,7 @@ and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
       Info.plist (our own, plain text, Final Draft); they cannot be expressed as
       `INFOPLIST_KEY_*` settings, and a generated plist quietly leaves a
       document-based app unable to open a document.
-- [x] Two of the three panes: `StoryList` in a sidebar at 240/260/360, the page
+- [x] Two panes: `StoryList` in a sidebar at 240/260/360, the page
       beside it on `underPageBackgroundColor`. Sidebar visible by default.
 - [x] The page itself — `ScriptSurface` — scrolls, reveals and marks. A
       Navigator row on the Mac does exactly what it does on the phone.
@@ -292,7 +293,8 @@ and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
         top margin mid-element (a split action, a (MORE) break), so
         stacked cards with gaps were refused rather than faked.
 - [ ] The rest of the menu bar: View modes (Page · Typewriter · Focus).
-      Inspector toggle is done. Format → Element and Scene Numbers are done.
+      File → Title Page and the Cast thread are done. Format → Element
+      and Scene Numbers are done. There is no inspector.
 
 *Proof, executed:* a script written entirely on the Mac, exported to PDF
 via `ScreenplayPageRenderer.pdfData`, opened with `PDFDocument` and
@@ -322,16 +324,17 @@ driven to Open that file; the import path calls the same extract.
       - `NSDocumentController.shared.recentDocumentURLs` is populated by launch;
         the app's `NSRecentDocumentRecords` default is not the place to look for
         it. `File → Open Recent` is the honest probe.
-- [x] Inspector: title page · scene · character.
-      *Done 2026-09-06.* Hidden until View → Inspector (⌥⌘I). Segment
-      Title · Scene · Character; caret proposes, writer can still open
-      Title without a sheet. Scene reports number, page, characters,
-      length — **no numbering buttons** (Format already has the verb;
-      M4 owns locked numbers). Character rename uses `CharacterRename.warning`,
-      the same sentence as the phone. Revision is absent.
-      **Measured:** `InspectorFocus.proposed(for: .character)` first
-      failed `("title") is not equal to ("character")` on a stub that
-      always returned Title. Then the taxonomy was applied.
+- [x] Title page · character thread · scene facts — without a third pane.
+      *The inspector was built 2026-09-06 and retired 2026-09-06.* A
+      properties column earns width when properties are what you are
+      doing. The writer never formats, so there is nothing continuous
+      to hold. Replaced by: File → Title Page… (`TitlePageSheet`, the
+      same sheet as the phone); Cast tab → `CharacterThreadView` (the
+      destination had only been wired on the phone's sheet); scene
+      number and page stay on the Navigator row. The right column is
+      **reserved** for comments and notes keyed to `ScriptElement.id`.
+      `InspectorFocus` and `SceneInspection` went with the pane;
+      `CharacterRename` stays.
 - [ ] Statistics in the window's status area.
 - [ ] Writing-assistance settings, shared with iOS.
 - [ ] Typewriter and Focus view modes.
@@ -341,7 +344,8 @@ driven to Open that file; the import path calls the same extract.
 
 - [ ] Revision colours, marks, locked pages (engine already has `RevisionDiff`,
       `SceneNumbering`).
-- [ ] Scene numbering UI in the inspector.
+- [ ] Scene numbering for locked pages / production (Format already
+      applies numbers; this is the M4 meaning of them).
 - [ ] Table read with `AVSpeechSynthesizer`, a voice per character.
 
 ### M5 — The platform
@@ -391,6 +395,7 @@ None blocking. Two worth a decision when convenient:
 |---|---|---|
 | 2026-09-05 | Sidebar **visible** by default, reversing the earlier plan | The reference apps make the sidebar the organisation panel; a Mac window without one reads as a ported iPad app. Focus mode covers distraction-free writing. |
 | 2026-09-05 | Three panes, not two | A screenplay needs a properties surface; Pages/Keynote/Xcode users look right for it. |
+| 2026-09-06 | **Reversed: two panes.** The writer never formats, so a properties pane has nothing continuous to hold. | Pages' inspector is open *while you work*. Title, scene length and a rename are transient — a sheet or a Cast destination, not a column that clips the page. The right pane is reserved for comments/notes alongside the page. |
 | 2026-09-05 | Modularise before writing Mac code | 2,155 lines are portable but trapped in an app target. |
 | 2026-09-05 | No Catalyst, no Electron | Catalyst would ship iOS compromises to a desktop whose whole point is not having them. |
 | 2026-09-05 | Packages sit at `ios/EDraftCore` and `ios/EDraftUI` for now | The `apple/` move (M0.6) is still worth doing, but not while three other steps were in flight. |
@@ -426,8 +431,8 @@ neither a screenshot nor the accessibility API can see a window in that state.
   or AppKit. It is plain Node, so it runs on the Linux box that runs CI, and it
   is wired into `npm run quality`. Verified by planting a violation and
   watching it fail.
-- **A macOS CI job** now runs `swift test` over all four packages — 283 tests
-  (95 + 97 + 18 + 73).
+- **A macOS CI job** now runs `swift test` over all four packages — 277 tests
+  (95 + 88 + 18 + 76).
   It has not run on a GitHub runner yet: the packages require macOS 26, so the
   first run needs watching in case `macos-latest` is still older than that.
 
