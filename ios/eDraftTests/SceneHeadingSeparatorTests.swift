@@ -1,3 +1,4 @@
+import EDraftCore
 import Foundation
 import XCTest
 @testable import eDraft

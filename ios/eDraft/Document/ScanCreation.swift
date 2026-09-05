@@ -1,5 +1,6 @@
 import CoreGraphics
 import CoreText
+import EDraftCore
 import EDraftEngine
 import SwiftUI
 import UniformTypeIdentifiers

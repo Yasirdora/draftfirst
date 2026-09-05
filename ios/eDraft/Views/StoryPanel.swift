@@ -1,3 +1,4 @@
+import EDraftCore
 import SwiftUI
 
 /// A compact view of the screenplay's structure — scenes and cast. The way

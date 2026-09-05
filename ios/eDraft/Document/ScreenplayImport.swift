@@ -1,4 +1,5 @@
 import CoreGraphics
+import EDraftCore
 import EDraftEngine
 import ImageIO
 import PDFKit

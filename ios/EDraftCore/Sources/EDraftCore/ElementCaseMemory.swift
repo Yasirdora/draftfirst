@@ -22,7 +22,9 @@ import Foundation
 ///   only when the text is untouched since the conversion. Once the writer
 ///   edits the re-cased text, their edit wins and the memory is dropped:
 ///   restoring over fresh typing would be data loss.
-struct ElementCaseMemory {
+public struct ElementCaseMemory {
+
+    public init() {}
 
     private struct Entry {
         /// The text exactly as the writer had it before the first re-case.
@@ -35,7 +37,7 @@ struct ElementCaseMemory {
     private var entries: [UUID: Entry] = [:]
 
     /// The text `element` should carry after conversion to `kind`.
-    mutating func text(for element: ScriptElement, convertedTo kind: ScreenplayKind) -> String {
+    public mutating func text(for element: ScriptElement, convertedTo kind: ScreenplayKind) -> String {
         if kind.uppercasesInput {
             let converted = EditorState.normalizedText(element.text, for: kind)
             // Nothing worth remembering about an empty element — and no
@@ -58,7 +60,7 @@ struct ElementCaseMemory {
 
     /// Drops memories for elements that no longer exist, so the map can
     /// never grow past the document itself.
-    mutating func prune(toAlive ids: Set<UUID>) {
+    public mutating func prune(toAlive ids: Set<UUID>) {
         entries = entries.filter { ids.contains($0.key) }
     }
 }

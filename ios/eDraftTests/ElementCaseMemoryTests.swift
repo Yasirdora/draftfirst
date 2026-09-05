@@ -1,3 +1,4 @@
+import EDraftCore
 import XCTest
 import UIKit
 @testable import eDraft

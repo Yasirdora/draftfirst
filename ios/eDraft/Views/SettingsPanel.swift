@@ -1,3 +1,4 @@
+import EDraftCore
 import SwiftUI
 
 /// The long-tail preferences behind the document menu's Settings… —

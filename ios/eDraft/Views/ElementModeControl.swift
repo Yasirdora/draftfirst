@@ -1,3 +1,4 @@
+import EDraftCore
 import UIKit
 
 /// The element selector as a UIKit menu button: an icon + name capsule that

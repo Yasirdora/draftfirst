@@ -1,10 +1,11 @@
+import CoreGraphics
 import Foundation
 import os
 import EDraftEngine
 
-private let modelLog = Logger(subsystem: "xyz.edraft.ios", category: "ScreenplayModels")
+nonisolated private let modelLog = Logger(subsystem: "xyz.edraft.ios", category: "ScreenplayModels")
 
-enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendable {
+public enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case scene
     case action
     case character
@@ -20,13 +21,13 @@ enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendable {
     case synopsis
     case pagebreak
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
     /// The matching kind in the native `EDraftEngine` package. Both
     /// enums carry the identical fourteen raw values (pinned by the
     /// engine's conformance corpus), so a miss means a careless rename —
     /// a bug to catch in debug, never a reason to crash a writer's app.
-    var engineKind: ElementKind {
+    public var engineKind: ElementKind {
         guard let kind = ElementKind(rawValue: rawValue) else {
             assertionFailure("ScreenplayKind.\(rawValue) has no ElementKind counterpart")
             modelLog.fault("ScreenplayKind.\(self.rawValue, privacy: .public) has no ElementKind counterpart; fell back to action")
@@ -35,7 +36,7 @@ enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendable {
         return kind
     }
 
-    init(engineKind: ElementKind) {
+    nonisolated public init(engineKind: ElementKind) {
         guard let kind = ScreenplayKind(rawValue: engineKind.rawValue) else {
             assertionFailure("ElementKind.\(engineKind.rawValue) has no ScreenplayKind counterpart")
             modelLog.fault("ElementKind.\(engineKind.rawValue, privacy: .public) has no ScreenplayKind counterpart; fell back to action")
@@ -45,7 +46,7 @@ enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendable {
         self = kind
     }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .scene: "Scene Heading"
         case .action: "Action"
@@ -64,14 +65,14 @@ enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var shortTitle: String {
+    public var shortTitle: String {
         switch self {
         case .scene: "Scene"
         default: title
         }
     }
 
-    var symbol: String {
+    public var symbol: String {
         switch self {
         case .scene: "film.stack"
         case .action: "text.alignleft"
@@ -90,31 +91,31 @@ enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var uppercasesInput: Bool {
+    public var uppercasesInput: Bool {
         switch self {
         case .scene, .character, .transition, .shot: true
         default: false
         }
     }
 
-    static let editorKinds: [ScreenplayKind] = [
+    public static let editorKinds: [ScreenplayKind] = [
         .scene, .action, .character, .parenthetical, .dialogue,
         .transition, .shot, .general, .centered
     ]
 }
 
-struct ScriptElement: Identifiable, Codable, Equatable, Sendable {
-    var id: UUID
-    var type: ScreenplayKind
-    var text: String
-    var dual: Bool?
-    var sceneNumber: String?
+public struct ScriptElement: Identifiable, Codable, Equatable, Sendable {
+    public var id: UUID
+    public var type: ScreenplayKind
+    public var text: String
+    public var dual: Bool?
+    public var sceneNumber: String?
     /// Section depth (`#` count). Carried losslessly even though the editor
     /// has no section UI yet — a collaborator's outline must survive a
     /// round-trip through eDraft untouched.
-    var depth: Int?
+    public var depth: Int?
 
-    init(
+    nonisolated public init(
         id: UUID = UUID(),
         type: ScreenplayKind,
         text: String,
@@ -134,7 +135,7 @@ struct ScriptElement: Identifiable, Codable, Equatable, Sendable {
         case type, text, dual, sceneNumber, depth
     }
 
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = UUID()
         type = try container.decode(ScreenplayKind.self, forKey: .type)
@@ -145,16 +146,26 @@ struct ScriptElement: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
-struct TitlePageEntry: Codable, Equatable, Sendable {
-    var key: String
-    var values: [String]
+public struct TitlePageEntry: Codable, Equatable, Sendable {
+
+    nonisolated public init(key: String, values: [String]) {
+        self.key = key
+        self.values = values
+    }
+    public var key: String
+    public var values: [String]
 }
 
-struct Screenplay: Codable, Equatable, Sendable {
-    var titlePage: [TitlePageEntry]
-    var elements: [ScriptElement]
+public struct Screenplay: Codable, Equatable, Sendable {
 
-    static let blank = Screenplay(
+    nonisolated public init(titlePage: [TitlePageEntry] = [], elements: [ScriptElement] = []) {
+        self.titlePage = titlePage
+        self.elements = elements
+    }
+    public var titlePage: [TitlePageEntry]
+    public var elements: [ScriptElement]
+
+    public static let blank = Screenplay(
         titlePage: [
             TitlePageEntry(key: "Title", values: ["Untitled Screenplay"]),
             TitlePageEntry(key: "Credit", values: ["written by"])
@@ -171,7 +182,7 @@ struct Screenplay: Codable, Equatable, Sendable {
         ]
     )
 
-    var title: String {
+    public var title: String {
         titlePage.first(where: { $0.key.caseInsensitiveCompare("Title") == .orderedSame })?
             .values.first?.trimmingCharacters(in: .whitespacesAndNewlines)
             .nonEmpty ?? "Untitled Screenplay"
@@ -183,7 +194,7 @@ struct Screenplay: Codable, Equatable, Sendable {
 extension Screenplay {
     /// The engine package's identity-free model. Every field the engine
     /// carries — dual, sceneNumber, section depth — round-trips losslessly.
-    var engineModel: EDraftEngine.Screenplay {
+    public var engineModel: EDraftEngine.Screenplay {
         EDraftEngine.Screenplay(
             titlePage: titlePage.map {
                 EDraftEngine.TitlePageEntry(key: $0.key, values: $0.values)
@@ -202,7 +213,7 @@ extension Screenplay {
 
     /// A fresh app screenplay from the engine model; elements receive new
     /// identities, exactly as a JSON decode through the old bridge did.
-    init(engineModel: EDraftEngine.Screenplay) {
+    nonisolated public init(engineModel: EDraftEngine.Screenplay) {
         self.init(
             titlePage: engineModel.titlePage.map { TitlePageEntry(key: $0.key, values: $0.values) },
             elements: engineModel.elements.map {
@@ -218,21 +229,28 @@ extension Screenplay {
     }
 }
 
-struct EnginePrediction: Codable, Equatable, Sendable {
-    var text: String
-    var why: String
-    var becomes: ScreenplayKind?
-    var hint: Bool?
+public struct EnginePrediction: Codable, Equatable, Sendable {
+
+    nonisolated public init(text: String, why: String, becomes: ScreenplayKind? = nil, hint: Bool? = nil) {
+        self.text = text
+        self.why = why
+        self.becomes = becomes
+        self.hint = hint
+    }
+    public var text: String
+    public var why: String
+    public var becomes: ScreenplayKind?
+    public var hint: Bool?
 }
 
-enum PredictionMode: String, CaseIterable, Identifiable, Sendable {
+public enum PredictionMode: String, CaseIterable, Identifiable, Sendable {
     case smart
     case formatOnly
     case off
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .smart: "Smart"
         case .formatOnly: "Format Only"
@@ -240,7 +258,7 @@ enum PredictionMode: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var detail: String {
+    public var detail: String {
         switch self {
         case .smart: "Characters, locations, structure, and formatting"
         case .formatOnly: "Screenplay shape without story suggestions"
@@ -248,7 +266,7 @@ enum PredictionMode: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var symbol: String {
+    public var symbol: String {
         switch self {
         case .smart: "sparkles"
         case .formatOnly: "textformat"
@@ -257,26 +275,36 @@ enum PredictionMode: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
-struct ScreenplayStats: Equatable, Sendable {
-    var pages: Int = 1
-    var runtime: String = "~1 minute"
-    var words: Int = 0
+public struct ScreenplayStats: Equatable, Sendable {
+
+    nonisolated public init(
+        pages: Int = 1, runtime: String = "~1 minute",
+        words: Int = 0, scenePages: [Int: Int] = [:]
+    ) {
+        self.pages = pages
+        self.runtime = runtime
+        self.words = words
+        self.scenePages = scenePages
+    }
+    public var pages: Int = 1
+    public var runtime: String = "~1 minute"
+    public var words: Int = 0
     /// The page each scene opens on, by element index — computed in the same
     /// pagination pass as the page count, so the Navigator and the PDF can
     /// never disagree about where a scene falls.
-    var scenePages: [Int: Int] = [:]
+    public var scenePages: [Int: Int] = [:]
 }
 
 /// Paper size for pagination and PDF. US Letter is the Hollywood default;
 /// A4 serves European productions. The choice changes the paginator's line
 /// budget, which is why stats and exports read the same value.
-enum PageFormat: String, CaseIterable, Identifiable {
+public enum PageFormat: String, CaseIterable, Identifiable {
     case letter
     case a4
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .letter: "US Letter"
         case .a4: "A4"
@@ -287,24 +315,24 @@ enum PageFormat: String, CaseIterable, Identifiable {
     /// A4: the same margins leave 58 lines. Width stays a 60-character text
     /// block — Courier's pitch is fixed, so A4's right margin absorbs the
     /// difference, exactly as real A4 screenplay templates do.
-    var linesPerPage: Int {
+    public var linesPerPage: Int {
         switch self {
         case .letter: 55
         case .a4: 58
         }
     }
 
-    var pageRect: CGRect {
+    public var pageRect: CGRect {
         switch self {
         case .letter: CGRect(x: 0, y: 0, width: 612, height: 792)
         case .a4: CGRect(x: 0, y: 0, width: 595.28, height: 841.89)
         }
     }
 
-    var textTop: CGFloat { 72 }
+    public var textTop: CGFloat { 72 }
 
     /// Right edge of the 60-character text block (1″ right margin on Letter).
-    var textRight: CGFloat {
+    public var textRight: CGFloat {
         switch self {
         case .letter: 540
         case .a4: 540
@@ -312,75 +340,123 @@ enum PageFormat: String, CaseIterable, Identifiable {
     }
 
     /// The app-wide choice, persisted under the "pageFormat" defaults key.
-    static var current: PageFormat {
+    public static var current: PageFormat {
         PageFormat(rawValue: UserDefaults.standard.string(forKey: "pageFormat") ?? "") ?? .letter
     }
 }
 
-struct SceneRow: Identifiable, Equatable, Sendable {
-    let id: UUID
+public struct SceneRow: Identifiable, Equatable, Sendable {
+
+    nonisolated public init(
+        id: UUID, number: Int, page: Int?, sceneNumber: String?,
+        title: String, elementIndex: Int
+    ) {
+        self.id = id
+        self.number = number
+        self.page = page
+        self.sceneNumber = sceneNumber
+        self.title = title
+        self.elementIndex = elementIndex
+    }
+    public let id: UUID
     /// Position in the script, counting from 1.
-    let number: Int
+    public let number: Int
     /// The page it opens on, at the paper size currently set. Nil only before
     /// the first pagination has settled.
-    let page: Int?
+    public let page: Int?
     /// The production's own number, once the script carries them — the
     /// address a call sheet or a schedule cites, which after an insert is no
     /// longer the same as the position (12A is the thirteenth scene).
-    let sceneNumber: String?
-    let title: String
-    let elementIndex: Int
+    public let sceneNumber: String?
+    public let title: String
+    public let elementIndex: Int
 
     /// What the Navigator shows: the production's number when there is one,
     /// otherwise where the scene falls.
-    var label: String { sceneNumber ?? String(number) }
+    public var label: String { sceneNumber ?? String(number) }
 }
 
 /// The Navigator's per-tab context line: structure and voice at a glance.
 /// Scene side echoes Final Draft's Scene/Location Reports (counts, INT/EXT
 /// texture); cast side echoes Highland's dialogue-share analysis without
 /// requiring any metadata entry from the writer.
-struct StoryStats: Equatable, Sendable {
-    var scenes = 0
-    var locations = 0
-    var interior = 0
-    var exterior = 0
-    var characters = 0
-    var cues = 0
+public struct StoryStats: Equatable, Sendable {
+
+    nonisolated public init(
+        scenes: Int = 0, locations: Int = 0, interior: Int = 0, exterior: Int = 0,
+        characters: Int = 0, cues: Int = 0,
+        leadingCharacter: String? = nil, leadingShare: Double = 0
+    ) {
+        self.scenes = scenes
+        self.locations = locations
+        self.interior = interior
+        self.exterior = exterior
+        self.characters = characters
+        self.cues = cues
+        self.leadingCharacter = leadingCharacter
+        self.leadingShare = leadingShare
+    }
+    public var scenes = 0
+    public var locations = 0
+    public var interior = 0
+    public var exterior = 0
+    public var characters = 0
+    public var cues = 0
     /// The cast's loudest voice and its share of all cues (0…1).
-    var leadingCharacter: String?
-    var leadingShare: Double = 0
+    public var leadingCharacter: String?
+    public var leadingShare: Double = 0
 }
 
 /// One speech: what was said, and how it was marked to be said.
-struct SpokenLine: Identifiable, Equatable, Sendable {
+public struct SpokenLine: Identifiable, Equatable, Sendable {
+
+    nonisolated public init(id: UUID, parenthetical: String?, text: String) {
+        self.id = id
+        self.parenthetical = parenthetical
+        self.text = text
+    }
     /// The dialogue element itself, so the line is a place the caret can go.
-    let id: UUID
-    let parenthetical: String?
-    let text: String
+    public let id: UUID
+    public let parenthetical: String?
+    public let text: String
 }
 
 /// A character's presence in one scene — where they are, and what they say
 /// while they are there.
-struct CharacterAppearance: Identifiable, Equatable, Sendable {
+public struct CharacterAppearance: Identifiable, Equatable, Sendable {
+
+    nonisolated public init(id: UUID, label: String, heading: String, page: Int?, lines: [SpokenLine]) {
+        self.id = id
+        self.label = label
+        self.heading = heading
+        self.page = page
+        self.lines = lines
+    }
     /// The scene heading element, so the row can open the scene itself.
-    let id: UUID
+    public let id: UUID
     /// The scene's own number when the script carries them, else its position.
-    let label: String
-    let heading: String
-    let page: Int?
-    let lines: [SpokenLine]
+    public let label: String
+    public let heading: String
+    public let page: Int?
+    public let lines: [SpokenLine]
 }
 
-struct CastRow: Identifiable, Equatable, Sendable {
-    let id: String
-    let name: String
-    let cues: Int
+public struct CastRow: Identifiable, Equatable, Sendable {
+
+    nonisolated public init(id: String, name: String, cues: Int, firstCueID: UUID) {
+        self.id = id
+        self.name = name
+        self.cues = cues
+        self.firstCueID = firstCueID
+    }
+    public let id: String
+    public let name: String
+    public let cues: Int
     /// The character's first cue — where tapping the row goes. A name is not
     /// a place in the script, so the row has to carry one.
-    let firstCueID: UUID
+    public let firstCueID: UUID
 }
 
 private extension String {
-    var nonEmpty: String? { isEmpty ? nil : self }
+    public var nonEmpty: String? { isEmpty ? nil : self }
 }

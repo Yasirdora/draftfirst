@@ -4,38 +4,38 @@ import EDraftEngine
 
 @MainActor
 @Observable
-final class EditorState {
-    var screenplay: Screenplay
-    var activeElementID: UUID?
-    var selectionOffset = 0
-    var predictions: [EnginePrediction] = []
-    var predictionIndex = 0
-    var predictionMode: PredictionMode = .smart
-    var stats = ScreenplayStats()
-    var revision = 0
-    var canUndo = false
-    var canRedo = false
+public final class EditorState {
+    public var screenplay: Screenplay
+    public var activeElementID: UUID?
+    public var selectionOffset = 0
+    public var predictions: [EnginePrediction] = []
+    public var predictionIndex = 0
+    public var predictionMode: PredictionMode = .smart
+    public var stats = ScreenplayStats()
+    public var revision = 0
+    public var canUndo = false
+    public var canRedo = false
 
-    @ObservationIgnored var onSourceChange: ((String) -> Void)?
-    @ObservationIgnored var onPredictionChange: (() -> Void)?
-    @ObservationIgnored var onAcceptPrediction: (() -> Void)?
-    @ObservationIgnored var onChangeElementKind: ((ScreenplayKind) -> Void)?
+    @ObservationIgnored public var onSourceChange: ((String) -> Void)?
+    @ObservationIgnored public var onPredictionChange: (() -> Void)?
+    @ObservationIgnored public var onAcceptPrediction: (() -> Void)?
+    @ObservationIgnored public var onChangeElementKind: ((ScreenplayKind) -> Void)?
     /// Places finished elements after the caret's own. Implemented by the text
     /// view, because an edit that skips its undo registration leaves the Undo
     /// button and the model disagreeing about what the document contains.
-    @ObservationIgnored var onInsertElements: (([ScriptElement]) -> Void)?
+    @ObservationIgnored public var onInsertElements: (([ScriptElement]) -> Void)?
     /// Replaces the whole element list as one undoable step, named for the
     /// Undo menu. Same reasoning as `onInsertElements`: the text view owns
     /// registration, so nothing may write the model behind its back.
-    @ObservationIgnored var onApplyElements: (([ScriptElement], String) -> Void)?
-    @ObservationIgnored var onJumpToElement: ((UUID) -> Void)?
-    @ObservationIgnored var onNativeUndo: (() -> Bool)?
-    @ObservationIgnored var onNativeRedo: (() -> Bool)?
-    @ObservationIgnored var onClearNativeUndo: (() -> Void)?
+    @ObservationIgnored public var onApplyElements: (([ScriptElement], String) -> Void)?
+    @ObservationIgnored public var onJumpToElement: ((UUID) -> Void)?
+    @ObservationIgnored public var onNativeUndo: (() -> Bool)?
+    @ObservationIgnored public var onNativeRedo: (() -> Bool)?
+    @ObservationIgnored public var onClearNativeUndo: (() -> Void)?
     /// Puts the writer into the script, or takes them out of it. The text
     /// surface owns first-responder status, so asking is the only honest way
     /// to change it: see `isEditing`.
-    @ObservationIgnored var onSetEditing: ((Bool) -> Void)?
+    @ObservationIgnored public var onSetEditing: ((Bool) -> Void)?
 
     /// Whether the writer is editing the script or reading it.
     ///
@@ -45,24 +45,24 @@ final class EditorState {
     /// keyboard's state cannot come to disagree with the keyboard. Tapping
     /// the page, dismissing it by swipe, presenting a sheet over it — every
     /// one of those already moves focus, and the chrome simply follows.
-    private(set) var isEditing = false
+    public private(set) var isEditing = false
 
     /// The surface reporting what focus did.
-    func reportEditing(_ editing: Bool) {
+    public func reportEditing(_ editing: Bool) {
         guard isEditing != editing else { return }
         isEditing = editing
     }
 
     /// The chrome asking for focus to move.
-    func beginEditing() { onSetEditing?(true) }
-    func endEditing() { onSetEditing?(false) }
+    public func beginEditing() { onSetEditing?(true) }
+    public func endEditing() { onSetEditing?(false) }
 
     /// A transient, non-modal notice ("Updated elsewhere", the swipe
     /// element toast). The view renders it as a capsule under the chrome.
-    var banner: String?
+    public var banner: String?
     @ObservationIgnored private var bannerTask: Task<Void, Never>?
 
-    func showBanner(_ text: String) {
+    public func showBanner(_ text: String) {
         bannerTask?.cancel()
         banner = text
         bannerTask = Task { [weak self] in
@@ -75,11 +75,11 @@ final class EditorState {
     /// The last source this state published or was created with, so the
     /// document binding can tell its own echoes — and unchanged redeliveries
     /// at launch — apart from genuinely external document changes.
-    @ObservationIgnored private(set) var lastKnownSource: String?
+    @ObservationIgnored public private(set) var lastKnownSource: String?
     /// True when this state opened with the caret at the end of the document.
     /// The text surface reads it once to scroll the resume point into view
     /// after the first real layout.
-    @ObservationIgnored let opensAtEnd: Bool
+    @ObservationIgnored public let opensAtEnd: Bool
     @ObservationIgnored private var predictionTask: Task<Void, Never>?
     @ObservationIgnored private var sourceTask: Task<Void, Never>?
     @ObservationIgnored private var statsTask: Task<Void, Never>?
@@ -107,13 +107,13 @@ final class EditorState {
     @ObservationIgnored private var nativeCanUndo = false
     @ObservationIgnored private var nativeCanRedo = false
 
-    var engineVersion: String? { EngineInfo.version }
+    public var engineVersion: String? { EngineInfo.version }
 
     /// UserDefaults key for the writing-assistance mode (see init and
     /// setPredictionMode).
     private static let predictionModeKey = "writingAssistance"
 
-    init(
+    public init(
         source: String,
         startsAtEnd: Bool = false
     ) {
@@ -149,7 +149,7 @@ final class EditorState {
         bannerTask?.cancel()
     }
 
-    func titlePageValue(for key: String) -> String? {
+    public func titlePageValue(for key: String) -> String? {
         screenplay.titlePage
             .first(where: { $0.key.caseInsensitiveCompare(key) == .orderedSame })?
             .values
@@ -157,7 +157,7 @@ final class EditorState {
     }
 
     /// The entry's lines as stored (empty when the key is absent).
-    func titlePageValues(for key: String) -> [String] {
+    public func titlePageValues(for key: String) -> [String] {
         screenplay.titlePage
             .first(where: { $0.key.caseInsensitiveCompare(key) == .orderedSame })?
             .values ?? []
@@ -167,7 +167,7 @@ final class EditorState {
     /// discipline as updateTitlePage, generalized to any key and any number
     /// of lines. Empty values remove the entry; unchanged values do nothing
     /// (no snapshot, no publish churn).
-    func setTitlePageEntry(_ key: String, values: [String]) {
+    public func setTitlePageEntry(_ key: String, values: [String]) {
         let normalized = values
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -189,17 +189,17 @@ final class EditorState {
         commitChange()
     }
 
-    var activeElementIndex: Int? {
+    public var activeElementIndex: Int? {
         guard let activeElementID else { return nil }
         return screenplay.elements.firstIndex(where: { $0.id == activeElementID })
     }
 
-    var activeKind: ScreenplayKind {
+    public var activeKind: ScreenplayKind {
         guard let index = activeElementIndex else { return .action }
         return screenplay.elements[index].type
     }
 
-    var contextualKinds: [ScreenplayKind] {
+    public var contextualKinds: [ScreenplayKind] {
         guard let index = activeElementIndex else {
             return Choreography.tabSetFor(previous: nil).map(ScreenplayKind.init(engineKind:))
         }
@@ -208,12 +208,12 @@ final class EditorState {
             .map(ScreenplayKind.init(engineKind:))
     }
 
-    var currentPrediction: EnginePrediction? {
+    public var currentPrediction: EnginePrediction? {
         guard predictions.indices.contains(predictionIndex) else { return nil }
         return predictions[predictionIndex]
     }
 
-    var currentSuggestionText: String? {
+    public var currentSuggestionText: String? {
         guard let prediction = currentPrediction,
               let index = activeElementIndex else { return nil }
         let typed = screenplay.elements[index].text
@@ -225,7 +225,7 @@ final class EditorState {
         return typed + suffix
     }
 
-    var currentSuggestionSuffix: String? {
+    public var currentSuggestionSuffix: String? {
         guard let prediction = currentPrediction,
               let index = activeElementIndex else { return nil }
         let typed = screenplay.elements[index].text
@@ -240,7 +240,7 @@ final class EditorState {
         PredictionEngine.ghostSuffix(candidate: candidate, blockText: typed, hint: hint)
     }
 
-    var scenes: [SceneRow] {
+    public var scenes: [SceneRow] {
         var number = 0
         return screenplay.elements.enumerated().compactMap { index, element in
             guard element.type == .scene, !element.text.isEmpty else { return nil }
@@ -256,7 +256,7 @@ final class EditorState {
         }
     }
 
-    var cast: [CastRow] {
+    public var cast: [CastRow] {
         var counts: [String: Int] = [:]
         var firstCue: [String: UUID] = [:]
         for element in screenplay.elements where element.type == .character {
@@ -284,7 +284,7 @@ final class EditorState {
     ///
     /// Every row carries the id of a real element, so the view navigates to
     /// places rather than to guesses.
-    func appearances(of character: String) -> [CharacterAppearance] {
+    public func appearances(of character: String) -> [CharacterAppearance] {
         let elements = screenplay.elements
         var appearances: [CharacterAppearance] = []
         var scene: (id: UUID, label: String, heading: String, page: Int?)?
@@ -354,7 +354,7 @@ final class EditorState {
     /// cast the panel lists — headings are split by the engine's own
     /// conformance-pinned parser, so the footnote can never disagree with
     /// the rows above it.
-    var storyStats: StoryStats {
+    public var storyStats: StoryStats {
         var stats = StoryStats()
         var locations = Set<String>()
         for scene in scenes {
@@ -382,7 +382,7 @@ final class EditorState {
     /// other trailing parenthetical modify the delivery, never the character.
     /// Trailing whitespace or a non-breaking space — left behind when a
     /// ghosted extension is accepted — must not defeat the match.
-    static func canonicalCharacterName(_ text: String) -> String {
+    public static func canonicalCharacterName(_ text: String) -> String {
         text
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(
@@ -400,7 +400,7 @@ final class EditorState {
     /// not part of who says it, so a rename keeps it exactly as written. The
     /// pattern is the one `canonicalCharacterName` strips, read from the other
     /// end: what it removes is what this returns.
-    static func cueExtension(_ text: String) -> String {
+    public static func cueExtension(_ text: String) -> String {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let range = trimmed.range(
             of: #"(?:\s*\([^)]*\))+\s*$"#, options: .regularExpression
@@ -427,7 +427,7 @@ final class EditorState {
 
     /// How often the character is named outside their own cues — in action,
     /// in other characters' dialogue, in a slug like INT. MARA'S FLAT.
-    func characterMentions(_ name: String) -> Int {
+    public func characterMentions(_ name: String) -> Int {
         guard let pattern = Self.mentionPattern(for: name),
               let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
         else { return 0 }
@@ -453,7 +453,7 @@ final class EditorState {
     /// exactly as the writer typed it, so "Elena crosses to the window" reads
     /// as prose rather than as shouting.
     @discardableResult
-    func renameCharacter(
+    public func renameCharacter(
         _ current: String, to proposed: String, includingMentions: Bool = false
     ) -> Int {
         guard let apply = onApplyElements else { return 0 }
@@ -492,7 +492,7 @@ final class EditorState {
 
     /// Whether a rename would fold this character into one that already
     /// speaks — worth saying out loud before it happens.
-    func characterExists(_ name: String) -> Bool {
+    public func characterExists(_ name: String) -> Bool {
         let canonical = Self.canonicalCharacterName(name)
         guard !canonical.isEmpty else { return false }
         return screenplay.elements.contains {
@@ -500,7 +500,7 @@ final class EditorState {
         }
     }
 
-    func selectionChanged(elementID: UUID, offset: Int) {
+    public func selectionChanged(elementID: UUID, offset: Int) {
         let moved = elementID != activeElementID
         activeElementID = elementID
         selectionOffset = max(0, offset)
@@ -508,7 +508,7 @@ final class EditorState {
         refreshPredictions()
     }
 
-    func replaceElementText(id: UUID, text: String, structural: Bool = false) {
+    public func replaceElementText(id: UUID, text: String, structural: Bool = false) {
         guard let index = screenplay.elements.firstIndex(where: { $0.id == id }) else { return }
         recordSnapshot(structural: structural)
         screenplay.elements[index].text = Self.normalizedText(
@@ -522,7 +522,7 @@ final class EditorState {
 
     /// Mirrors a native UITextView edit without asking the surface to render
     /// back into itself. Persistence, pagination, and prediction are debounced.
-    func applyLiveText(id: UUID, text: String, selectionOffset: Int) {
+    public func applyLiveText(id: UUID, text: String, selectionOffset: Int) {
         guard let index = screenplay.elements.firstIndex(where: { $0.id == id }) else { return }
         screenplay.elements[index].text = Self.normalizedText(
             text,
@@ -538,7 +538,7 @@ final class EditorState {
 
     /// Replaces the screenplay model. Native surfaces may disable snapshot
     /// recording when they register the same atomic edit with UndoManager.
-    func replaceAllElements(
+    public func replaceAllElements(
         _ elements: [ScriptElement],
         activeID: UUID?,
         offset: Int,
@@ -553,7 +553,7 @@ final class EditorState {
         commitChange(liveTyping: !structural)
     }
 
-    func cycleActiveKind(backwards: Bool) {
+    public func cycleActiveKind(backwards: Bool) {
         guard let index = activeElementIndex else { return }
         let previous = index > 0 ? screenplay.elements[index - 1].type : nil
         let current = screenplay.elements[index].type
@@ -571,7 +571,7 @@ final class EditorState {
     /// identity, so the caret and the text surface's range map survive; both
     /// undo timelines stay intact; nothing is published back (a sync must
     /// never become a write-after-read).
-    func applyExternalSource(_ source: String) {
+    public func applyExternalSource(_ source: String) {
         // No flush: publishing now would clobber the incoming sync with our
         // stale model. Cancel the debounced write instead — last-writer-wins
         // is the document store's semantics, and the sync is the newer write.
@@ -650,14 +650,14 @@ final class EditorState {
         "\(element.type.rawValue)\u{1F}\(element.text)"
     }
 
-    func nextKind(after kind: ScreenplayKind, text: String) -> ScreenplayKind {
+    public func nextKind(after kind: ScreenplayKind, text: String) -> ScreenplayKind {
         ScreenplayKind(engineKind: Choreography.nextElement(after: kind.engineKind, currentText: text))
     }
 
     /// Classifies paragraphs created by a structural paste or replacement.
     /// Return choreography still comes from the shared engine; the small set of
     /// lexical checks lets pasted Fountain retain its obvious screenplay shape.
-    func kindForInsertedElement(after previous: ScriptElement?, text: String) -> ScreenplayKind {
+    public func kindForInsertedElement(after previous: ScriptElement?, text: String) -> ScreenplayKind {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let uppercase = trimmed.uppercased()
 
@@ -672,11 +672,11 @@ final class EditorState {
 
     // MARK: - Scene numbers
 
-    enum SceneNumberingMode { case all, newScenesOnly, clear }
+    public enum SceneNumberingMode { case all, newScenesOnly, clear }
 
     /// Whether the script has been addressed yet — what decides between
     /// adding numbers and renumbering over somebody's schedule.
-    var isSceneNumbered: Bool {
+    public var isSceneNumbered: Bool {
         SceneNumbering.isNumbered(screenplay.engineModel.elements)
     }
 
@@ -687,7 +687,7 @@ final class EditorState {
     /// list: every element keeps its identity, so the caret, the undo timeline
     /// and the case memory all survive an operation that changed no text.
     @discardableResult
-    func applySceneNumbering(_ mode: SceneNumberingMode) -> Int {
+    public func applySceneNumbering(_ mode: SceneNumberingMode) -> Int {
         guard let apply = onApplyElements else { return 0 }
 
         let source = screenplay.engineModel.elements
@@ -710,19 +710,19 @@ final class EditorState {
         return changed
     }
 
-    func acceptPrediction() {
+    public func acceptPrediction() {
         guard currentPrediction != nil else { return }
         onAcceptPrediction?()
     }
 
-    func setPredictionMode(_ mode: PredictionMode) {
+    public func setPredictionMode(_ mode: PredictionMode) {
         predictionMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: Self.predictionModeKey)
         predictionIndex = 0
         refreshPredictions()
     }
 
-    func updateTitlePage(title: String, writer: String, credit: String) {
+    public func updateTitlePage(title: String, writer: String, credit: String) {
         let changes = [
             (key: "Title", value: title),
             (key: "Credit", value: credit),
@@ -743,13 +743,13 @@ final class EditorState {
         commitChange()
     }
 
-    func flushPendingWork() {
+    public func flushPendingWork() {
         sourceTask?.cancel()
         publishSource()
         scheduleStatsRefresh()
     }
 
-    func jump(to id: UUID) {
+    public func jump(to id: UUID) {
         activeElementID = id
         onJumpToElement?(id)
         refreshPredictions()
@@ -757,20 +757,20 @@ final class EditorState {
 
     /// Captures the start of a native typing group without taking UIKit out of
     /// the input path. UIKit remains the sole character-level undo timeline.
-    func prepareForNativeEdit() {
+    public func prepareForNativeEdit() {
         if !redoStack.isEmpty {
             redoStack.removeAll()
             updateUndoAvailability()
         }
     }
 
-    func reportNativeUndoAvailability(canUndo: Bool, canRedo: Bool) {
+    public func reportNativeUndoAvailability(canUndo: Bool, canRedo: Bool) {
         nativeCanUndo = canUndo
         nativeCanRedo = canRedo
         updateUndoAvailability()
     }
 
-    func undo() {
+    public func undo() {
         if nativeCanUndo, onNativeUndo?() == true { return }
         guard let snapshot = undoStack.popLast() else { return }
         clearNativeUndoHistory()
@@ -778,7 +778,7 @@ final class EditorState {
         restore(snapshot)
     }
 
-    func redo() {
+    public func redo() {
         if nativeCanRedo, onNativeRedo?() == true { return }
         guard let snapshot = redoStack.popLast() else { return }
         clearNativeUndoHistory()
@@ -867,7 +867,7 @@ final class EditorState {
     /// converting out sheds the outer wrapper — the same convergence the
     /// commit-time normalization guarantees. The wrapper sheds FIRST, so
     /// the casing memory memorizes the writer's words, never their brackets.
-    func textForKindConversion(of element: ScriptElement, to kind: ScreenplayKind) -> String {
+    public func textForKindConversion(of element: ScriptElement, to kind: ScreenplayKind) -> String {
         var input = element
         if element.type == .parenthetical, kind != .parenthetical {
             input.text = Normalize.unwrapParenthetical(element.text)
@@ -890,7 +890,7 @@ final class EditorState {
     /// Outside the closer looks tidier and is worse: the next thing typed
     /// lands after the direction — "(whispering)softly" — which is the very
     /// bracket damage the position was meant to avoid.
-    static func caretAfterConversion(
+    public static func caretAfterConversion(
         from old: String, to new: String, caret: Int, kind: ScreenplayKind
     ) -> Int {
         let length = (new as NSString).length
@@ -908,7 +908,7 @@ final class EditorState {
     /// back can restore it. Case mappings that change the UTF-16 length
     /// (ß→SS) are left untouched so the model can never drift out of sync
     /// with the text storage that delivered the edit.
-    static func normalizedText(_ text: String, for kind: ScreenplayKind) -> String {
+    public static func normalizedText(_ text: String, for kind: ScreenplayKind) -> String {
         guard kind.uppercasesInput else { return text }
         let uppercased = text.uppercased()
         return uppercased.utf16.count == text.utf16.count ? uppercased : text
@@ -1024,7 +1024,7 @@ final class EditorState {
     /// one the export prints, and a writer would have no way to tell which
     /// was lying. A slug broken across a page break keeps the earlier page —
     /// the scene starts where its first line does.
-    nonisolated static func scenePages(
+    public nonisolated static func scenePages(
         in pages: [EDraftEngine.ScriptPage]
     ) -> [Int: Int] {
         var found: [Int: Int] = [:]

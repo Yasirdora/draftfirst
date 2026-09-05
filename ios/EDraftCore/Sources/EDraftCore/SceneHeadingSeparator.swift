@@ -24,10 +24,10 @@ import Foundation
 /// The rules are pure and live apart from the text surface deliberately: what
 /// a heading should read is a question about screenplays, and answering it
 /// here keeps it out of the delegate callbacks and under test.
-enum SceneHeadingSeparator {
+public enum SceneHeadingSeparator {
 
     /// What the engine reads as a division, and what this writes.
-    nonisolated static let separator = " - "
+    public nonisolated static let separator = " - "
 
     /// The heading that results from typing a dash into `text` over `range`,
     /// with the caret offset that follows it.
@@ -36,7 +36,7 @@ enum SceneHeadingSeparator {
     /// typed: at the start of a heading, where there is nothing to divide,
     /// and directly after an existing dash, where the writer is reaching for
     /// something else and a second separator would only be in the way.
-    nonisolated static func spaced(
+    public nonisolated static func spaced(
         in text: NSString, replacing range: NSRange
     ) -> (text: String, caret: Int)? {
         guard range.location != NSNotFound,
@@ -56,7 +56,7 @@ enum SceneHeadingSeparator {
     ///
     /// `nil` when the caret does not sit against such a separator, which
     /// leaves every other deletion in the heading to behave as it always has.
-    nonisolated static func collapsed(
+    public nonisolated static func collapsed(
         in text: NSString, endingAt caret: Int
     ) -> (text: String, caret: Int)? {
         let width = (separator as NSString).length

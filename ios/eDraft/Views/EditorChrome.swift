@@ -1,3 +1,4 @@
+import EDraftCore
 import SwiftUI
 import EDraftEngine
 import UIKit
@@ -555,7 +556,7 @@ final class ChromeCoordinator {
 
     private func exportAction(
         _ title: String, ext: String,
-        _ make: @escaping (Screenplay) -> Data?
+        _ make: @escaping (EDraftCore.Screenplay) -> Data?
     ) -> UIAction {
         UIAction(title: title) { [weak self] _ in
             guard let self, let data = make(self.chrome.editor.screenplay) else { return }

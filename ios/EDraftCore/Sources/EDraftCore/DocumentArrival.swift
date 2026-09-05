@@ -19,7 +19,7 @@ import Foundation
 /// they are returning to. Both halves are asked of the file being opened
 /// rather than of the app's recent past, so nothing the browser does in the
 /// background can arm them.
-enum DocumentArrival {
+public enum DocumentArrival {
 
     /// How recently a screenplay must have been made to still count as new.
     ///
@@ -40,7 +40,7 @@ enum DocumentArrival {
     @MainActor private static var opened: Set<URL> = []
 
     @MainActor
-    static func isNewlyCreated(at url: URL?) -> Bool {
+    public static func isNewlyCreated(at url: URL?) -> Bool {
         guard let url, opened.insert(url).inserted else { return false }
         guard let dates = try? url.resourceValues(
                 forKeys: [.creationDateKey, .contentModificationDateKey]

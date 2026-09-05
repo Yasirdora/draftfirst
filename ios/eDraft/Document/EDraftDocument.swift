@@ -1,3 +1,4 @@
+import EDraftCore
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
@@ -105,7 +106,7 @@ enum ScreenplayExporter {
 
     // MARK: Text formats
 
-    static func fountainSource(_ screenplay: Screenplay) -> String {
+    static func fountainSource(_ screenplay: EDraftCore.Screenplay) -> String {
         Fountain.serialise(screenplay.engineModel)
     }
 
@@ -113,13 +114,13 @@ enum ScreenplayExporter {
     /// pinned exporter — the delivery format productions expect. Elements
     /// FDX cannot represent are omitted with an in-file warning comment,
     /// the same contract as the web app.
-    static func fdxSource(_ screenplay: Screenplay) -> String {
+    static func fdxSource(_ screenplay: EDraftCore.Screenplay) -> String {
         Fdx.writeXml(screenplay.engineModel)
     }
 
     /// Monospaced text mirroring the printed layout: element indents applied,
     /// transitions flush right at the 60-character text block.
-    static func plainText(_ screenplay: Screenplay) -> String {
+    static func plainText(_ screenplay: EDraftCore.Screenplay) -> String {
         guard let pages = paginate(screenplay) else { return fountainSource(screenplay) }
         var out: [String] = []
         for page in pages {
@@ -137,7 +138,7 @@ enum ScreenplayExporter {
 
     /// Rich text with Courier at a fixed six-lines-per-inch rhythm. Word
     /// processors reflow page breaks; the on-screen layout still matches.
-    static func rtfData(_ screenplay: Screenplay) -> Data? {
+    static func rtfData(_ screenplay: EDraftCore.Screenplay) -> Data? {
         let paragraph = NSMutableParagraphStyle()
         paragraph.minimumLineHeight = lineHeight
         paragraph.maximumLineHeight = lineHeight
@@ -167,7 +168,7 @@ enum ScreenplayExporter {
     /// on by default.
     static let includeTitlePageKey = "includeTitlePageInPDF"
 
-    static func pdfData(_ screenplay: Screenplay) -> Data {
+    static func pdfData(_ screenplay: EDraftCore.Screenplay) -> Data {
         let format = PageFormat.current
         let renderer = UIGraphicsPDFRenderer(bounds: format.pageRect)
         let includeTitlePage = UserDefaults.standard.object(forKey: includeTitlePageKey) as? Bool ?? true
@@ -226,7 +227,7 @@ enum ScreenplayExporter {
     /// paginator's output byte-identical to its conformance corpus, and puts
     /// the numbers where a production draft actually carries them: the
     /// margins, outside the measured text block.
-    static func sceneNumberIndex(_ screenplay: Screenplay) -> [Int: String] {
+    static func sceneNumberIndex(_ screenplay: EDraftCore.Screenplay) -> [Int: String] {
         var index: [Int: String] = [:]
         for (position, element) in screenplay.elements.enumerated() {
             guard element.type == .scene,
@@ -255,7 +256,7 @@ enum ScreenplayExporter {
         return marks
     }
 
-    private static func paginate(_ screenplay: Screenplay) -> [EDraftEngine.ScriptPage]? {
+    private static func paginate(_ screenplay: EDraftCore.Screenplay) -> [EDraftEngine.ScriptPage]? {
         try? Paginator.paginate(screenplay.engineModel, linesPerPage: PageFormat.current.linesPerPage)
     }
 
@@ -339,7 +340,7 @@ enum ScreenplayExporter {
     /// the script: the title in uppercase ~1/3 down, the credit beneath it,
     /// then the writers, then any source or custom credit lines in document
     /// order. Contact details sit bottom-left, as productions expect them.
-    private static func drawTitlePage(_ screenplay: Screenplay, format: PageFormat) {
+    private static func drawTitlePage(_ screenplay: EDraftCore.Screenplay, format: PageFormat) {
         func values(_ key: String) -> [String] {
             screenplay.titlePage
                 .first { $0.key.caseInsensitiveCompare(key) == .orderedSame }?

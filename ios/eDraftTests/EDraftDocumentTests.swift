@@ -1,3 +1,4 @@
+import EDraftCore
 import EDraftEngine
 import PDFKit
 import XCTest

@@ -1,3 +1,4 @@
+import EDraftCore
 import SwiftUI
 
 /// One character's thread through the script — every scene they speak in, and

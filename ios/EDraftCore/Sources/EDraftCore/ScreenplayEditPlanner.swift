@@ -4,8 +4,8 @@ import Foundation
 /// Converts a text-system replacement into screenplay elements without ever
 /// matching paragraphs by array position. Unaffected elements retain their
 /// identity and type; only paragraphs created by the replacement get new IDs.
-struct ScreenplayEditPlanner {
-    enum Intent {
+public struct ScreenplayEditPlanner {
+    public enum Intent {
         case backspaceAtElementStart
         case boundaryDeletion
         case returnKey
@@ -13,23 +13,23 @@ struct ScreenplayEditPlanner {
         case replacement
     }
 
-    struct Plan {
-        let elements: [ScriptElement]
-        let selection: NSRange
-        let activeElementID: UUID
-        let activeOffset: Int
+    public struct Plan {
+        public let elements: [ScriptElement]
+        public let selection: NSRange
+        public let activeElementID: UUID
+        public let activeOffset: Int
     }
 
-    struct ElementRange {
-        let id: UUID
-        let range: NSRange
+    public struct ElementRange {
+        public let id: UUID
+        public let range: NSRange
     }
 
-    static func flattenedText(_ elements: [ScriptElement]) -> String {
+    public static func flattenedText(_ elements: [ScriptElement]) -> String {
         elements.map(\.text).joined(separator: "\n")
     }
 
-    static func ranges(for elements: [ScriptElement]) -> [ElementRange] {
+    public static func ranges(for elements: [ScriptElement]) -> [ElementRange] {
         var location = 0
         return elements.enumerated().map { index, element in
             let length = (element.text as NSString).length
@@ -38,7 +38,7 @@ struct ScreenplayEditPlanner {
         }
     }
 
-    static func replacementBetween(_ oldText: String, _ newText: String) -> (NSRange, String)? {
+    public static func replacementBetween(_ oldText: String, _ newText: String) -> (NSRange, String)? {
         guard oldText != newText else { return nil }
 
         // Walk Swift Characters, not raw UTF-16 code units. UIKit ranges are
@@ -71,7 +71,7 @@ struct ScreenplayEditPlanner {
         )
     }
 
-    static func touchesParagraphBoundary(
+    public static func touchesParagraphBoundary(
         in source: NSString,
         range: NSRange,
         replacement: String
@@ -81,7 +81,7 @@ struct ScreenplayEditPlanner {
         return normalized.contains("\n") || source.substring(with: range).contains("\n")
     }
 
-    static func plan(
+    public static func plan(
         elements sourceElements: [ScriptElement],
         replacing requestedRange: NSRange,
         with requestedReplacement: String,
