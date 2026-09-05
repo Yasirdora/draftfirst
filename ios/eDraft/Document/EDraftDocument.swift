@@ -166,7 +166,8 @@ enum ScreenplayExporter {
 
     /// The Options toggle's storage key — one app-level export behavior,
     /// on by default.
-    static let includeTitlePageKey = "includeTitlePageInPDF"
+    /// The writer's choice, shared with the panel that offers it.
+    static var includeTitlePageKey: String { ScreenplayExportPreference.includeTitlePageKey }
 
     static func pdfData(_ screenplay: EDraftCore.Screenplay) -> Data {
         let format = PageFormat.current

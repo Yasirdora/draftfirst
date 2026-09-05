@@ -10,13 +10,17 @@ import EDraftEngine
 /// hold a local draft and write once when they close, so every change is
 /// exactly one undoable step. The document model is the only source of
 /// truth — the sheet always reopens to the completed state.
-struct TitlePageSheet: View {
+public struct TitlePageSheet: View {
     let editor: EditorState
 
     @Environment(\.dismiss) private var dismiss
-    @AppStorage(ScreenplayExporter.includeTitlePageKey) private var includeInPDF = true
+    @AppStorage(ScreenplayExportPreference.includeTitlePageKey) private var includeInPDF = true
 
-    var body: some View {
+    public init(editor: EditorState) {
+        self.editor = editor
+    }
+
+    public var body: some View {
         NavigationStack {
             Form {
                 Section("Content") {
@@ -56,7 +60,7 @@ struct TitlePageSheet: View {
                 }
             }
             .navigationTitle("Title Page")
-            .navigationBarTitleDisplayMode(.inline)
+            .compactTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -110,12 +114,12 @@ private struct TitleFieldView: View {
     @State private var draft: String
     @FocusState private var focused: Bool
 
-    init(editor: EditorState) {
+    public init(editor: EditorState) {
         self.editor = editor
         _draft = State(initialValue: editor.titlePageValue(for: "Title") ?? "")
     }
 
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 20) {
             Spacer()
             Text("What is your screenplay called?")
@@ -124,15 +128,15 @@ private struct TitleFieldView: View {
             TextField("The Last Station", text: $draft)
                 .font(.title2)
                 .multilineTextAlignment(.center)
-                .textInputAutocapitalization(.words)
+                .titleCasedInput()
                 .focused($focused)
-                .submitLabel(.done)
+                .submitsAsDone()
                 .padding(.horizontal, 32)
             Spacer()
             Spacer()
         }
         .navigationTitle("Title")
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
         .onAppear { focused = true }
         .onDisappear {
             editor.setTitlePageEntry("Title", values: [draft])
@@ -149,7 +153,7 @@ private struct CreditPickerView: View {
     let editor: EditorState
     @Environment(\.dismiss) private var dismiss
 
-    var body: some View {
+    public var body: some View {
         Form {
             Section("Standard") {
                 ForEach(TitleCredits.StandardCredit.allCases, id: \.rawValue) { option in
@@ -176,7 +180,7 @@ private struct CreditPickerView: View {
             }
         }
         .navigationTitle("Writing Credit")
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
     }
 
     private func isCurrent(_ option: TitleCredits.StandardCredit) -> Bool {
@@ -193,13 +197,13 @@ private struct WritersEditorView: View {
     let editor: EditorState
     @State private var writers: [WriterCredit]
 
-    init(editor: EditorState) {
+    public init(editor: EditorState) {
         self.editor = editor
         let stored = editor.titlePageValue(for: "Author") ?? ""
         _writers = State(initialValue: TitleCredits.parseAuthors(stored))
     }
 
-    var body: some View {
+    public var body: some View {
         Form {
             Section {
                 ForEach(Array(writers.indices), id: \.self) { index in
@@ -228,7 +232,7 @@ private struct WritersEditorView: View {
             }
         }
         .navigationTitle("Writers")
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
         .onDisappear {
             editor.setTitlePageEntry("Author", values: [TitleCredits.renderAuthors(writers)])
         }
@@ -242,7 +246,7 @@ private struct WritersEditorView: View {
 private struct AddCreditView: View {
     let editor: EditorState
 
-    var body: some View {
+    public var body: some View {
         Form {
             Section {
                 NavigationLink("Based On") {
@@ -257,7 +261,7 @@ private struct AddCreditView: View {
             }
         }
         .navigationTitle("Add Credit")
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
     }
 }
 
@@ -268,21 +272,21 @@ private struct CreditEntryEditor: View {
     let prompt: String
     @State private var draft: String
 
-    init(editor: EditorState, key: String, prompt: String) {
+    public init(editor: EditorState, key: String, prompt: String) {
         self.editor = editor
         self.key = key
         self.prompt = prompt
         _draft = State(initialValue: editor.titlePageValues(for: key).joined(separator: " "))
     }
 
-    var body: some View {
+    public var body: some View {
         Form {
             Section {
                 TextField(prompt, text: $draft)
             }
         }
         .navigationTitle(key)
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
         .onDisappear {
             editor.setTitlePageEntry(key, values: [draft])
         }
@@ -296,7 +300,7 @@ private struct CustomCreditEditor: View {
     @State private var label = ""
     @State private var text = ""
 
-    var body: some View {
+    public var body: some View {
         Form {
             Section {
                 TextField("Label (e.g. Story by)", text: $label)
@@ -304,7 +308,7 @@ private struct CustomCreditEditor: View {
             }
         }
         .navigationTitle("Custom Credit")
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
         .onDisappear {
             let key = label.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !key.isEmpty else { return }
@@ -324,7 +328,7 @@ private struct ContactEditorView: View {
     @State private var phone: String
     @State private var address: String
 
-    init(editor: EditorState) {
+    public init(editor: EditorState) {
         self.editor = editor
         let lines = editor.titlePageValues(for: "Contact")
         _name = State(initialValue: lines.indices.contains(0) ? lines[0] : "")
@@ -333,24 +337,23 @@ private struct ContactEditorView: View {
         _address = State(initialValue: lines.indices.contains(3) ? lines[3] : "")
     }
 
-    var body: some View {
+    public var body: some View {
         Form {
             Section("Contact Details") {
                 TextField("Name", text: $name)
                     .textContentType(.name)
                 TextField("Email", text: $email)
                     .textContentType(.emailAddress)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
+                    .softKeyboard(.email)
                 TextField("Phone", text: $phone)
                     .textContentType(.telephoneNumber)
-                    .keyboardType(.phonePad)
+                    .softKeyboard(.phone)
                 TextField("Address", text: $address)
                     .textContentType(.fullStreetAddress)
             }
         }
         .navigationTitle("Contact")
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
         .onDisappear {
             editor.setTitlePageEntry("Contact", values: [name, email, phone, address])
         }

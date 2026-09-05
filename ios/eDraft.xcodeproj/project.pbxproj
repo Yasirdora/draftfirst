@@ -12,17 +12,13 @@
 		DF2600000000000000000118 /* ScreenplayLaunchActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000018 /* ScreenplayLaunchActions.swift */; };
 		DF2600000000000000000115 /* ScanDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000015 /* ScanDocument.swift */; };
 		DF2600000000000000000116 /* ScanReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000016 /* ScanReaderView.swift */; };
-		DF260000000000000000011A /* CharacterThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF260000000000000000001A /* CharacterThreadView.swift */; };
 		DF2600000000000000000101 /* EDraftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000001 /* EDraftApp.swift */; };
 		DF2600000000000000000103 /* EDraftDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000003 /* EDraftDocument.swift */; };
 		DF2600000000000000000106 /* ScriptTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000006 /* ScriptTextView.swift */; };
 		DF2600000000000000000107 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000007 /* EditorView.swift */; };
 		DF2600000000000000000108 /* ElementModeControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000008 /* ElementModeControl.swift */; };
-		DF260000000000000000010A /* StoryPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF260000000000000000000A /* StoryPanel.swift */; };
-		DF260000000000000000010B /* SettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF260000000000000000000B /* SettingsPanel.swift */; };
 		DF260000000000000000010D /* EditorChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF260000000000000000000F /* EditorChrome.swift */; };
 		DF26000000000000000001FA /* RevealHighlight.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF26000000000000000000FA /* RevealHighlight.swift */; };
-		DF260000000000000000010F /* TitlePageSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000013 /* TitlePageSheet.swift */; };
 		DF2600000000000000000111 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000011 /* Assets.xcassets */; };
 		DF2600000000000000000112 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000012 /* PrivacyInfo.xcprivacy */; };
 		DF2700000000000000000101 /* ScreenplayEditPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */; };
@@ -31,6 +27,7 @@
 		DF2700000000000000000103 /* EDraftDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2700000000000000000003 /* EDraftDocumentTests.swift */; };
 		DF2800000000000000000101 /* EDraftEngine in Frameworks */ = {isa = PBXBuildFile; productRef = DF2800000000000000000900 /* EDraftEngine */; };
 		DF2800000000000000000102 /* EDraftCore in Frameworks */ = {isa = PBXBuildFile; productRef = DF2800000000000000000901 /* EDraftCore */; };
+		DF2800000000000000000103 /* EDraftUI in Frameworks */ = {isa = PBXBuildFile; productRef = DF2800000000000000000902 /* EDraftUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,19 +48,15 @@
 		DF2600000000000000000019 /* ScreenplayImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenplayImport.swift; sourceTree = "<group>"; };
 		DF2600000000000000000018 /* ScreenplayLaunchActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenplayLaunchActions.swift; sourceTree = "<group>"; };
 		DF2600000000000000000016 /* ScanReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReaderView.swift; sourceTree = "<group>"; };
-		DF260000000000000000001A /* CharacterThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CharacterThreadView.swift; sourceTree = "<group>"; };
 		DF2600000000000000000006 /* ScriptTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptTextView.swift; sourceTree = "<group>"; };
 		DF2600000000000000000007 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
 		DF2600000000000000000008 /* ElementModeControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElementModeControl.swift; sourceTree = "<group>"; };
-		DF260000000000000000000A /* StoryPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryPanel.swift; sourceTree = "<group>"; };
-		DF260000000000000000000B /* SettingsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPanel.swift; sourceTree = "<group>"; };
 		DF260000000000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DF260000000000000000000E /* eDraft.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = eDraft.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF260000000000000000000F /* EditorChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorChrome.swift; sourceTree = "<group>"; };
 		DF26000000000000000000FA /* RevealHighlight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevealHighlight.swift; sourceTree = "<group>"; };
 		DF2600000000000000000011 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DF2600000000000000000012 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		DF2600000000000000000013 /* TitlePageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitlePageSheet.swift; sourceTree = "<group>"; };
 		DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenplayEditPlannerTests.swift; sourceTree = "<group>"; };
 		DF26000000000000000000F9 /* NavigatorJumpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigatorJumpTests.swift; sourceTree = "<group>"; };
 		DF26000000000000000000FB /* AppearancePreferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearancePreferenceTests.swift; sourceTree = "<group>"; };
@@ -78,6 +71,7 @@
 			files = (
 				DF2800000000000000000101 /* EDraftEngine in Frameworks */,
 				DF2800000000000000000102 /* EDraftCore in Frameworks */,
+				DF2800000000000000000103 /* EDraftUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -163,11 +157,7 @@
 				DF2600000000000000000007 /* EditorView.swift */,
 				DF260000000000000000000F /* EditorChrome.swift */,
 				DF2600000000000000000008 /* ElementModeControl.swift */,
-				DF260000000000000000000A /* StoryPanel.swift */,
-				DF260000000000000000000B /* SettingsPanel.swift */,
-				DF2600000000000000000013 /* TitlePageSheet.swift */,
 				DF2600000000000000000016 /* ScanReaderView.swift */,
-				DF260000000000000000001A /* CharacterThreadView.swift */,
 				DF2600000000000000000018 /* ScreenplayLaunchActions.swift */,
 			);
 			path = Views;
@@ -213,6 +203,7 @@
 			packageProductDependencies = (
 				DF2800000000000000000900 /* EDraftEngine */,
 				DF2800000000000000000901 /* EDraftCore */,
+				DF2800000000000000000902 /* EDraftUI */,
 			);
 			productName = eDraft;
 			productReference = DF260000000000000000000E /* eDraft.app */;
@@ -266,6 +257,7 @@
 			packageReferences = (
 				DF2800000000000000000800 /* XCLocalSwiftPackageReference "eDraftEngine" */,
 				DF2800000000000000000801 /* XCLocalSwiftPackageReference "EDraftCore" */,
+				DF2800000000000000000802 /* XCLocalSwiftPackageReference "EDraftUI" */,
 			);
 			productRefGroup = DF2600000000000000000302 /* Products */;
 			projectDirPath = "";
@@ -298,7 +290,6 @@
 				DF2600000000000000000103 /* EDraftDocument.swift in Sources */,
 				DF2600000000000000000115 /* ScanDocument.swift in Sources */,
 				DF2600000000000000000116 /* ScanReaderView.swift in Sources */,
-				DF260000000000000000011A /* CharacterThreadView.swift in Sources */,
 				DF2600000000000000000117 /* ScanCreation.swift in Sources */,
 				DF2600000000000000000119 /* ScreenplayImport.swift in Sources */,
 				DF2600000000000000000118 /* ScreenplayLaunchActions.swift in Sources */,
@@ -306,10 +297,7 @@
 				DF2600000000000000000106 /* ScriptTextView.swift in Sources */,
 				DF2600000000000000000107 /* EditorView.swift in Sources */,
 				DF2600000000000000000108 /* ElementModeControl.swift in Sources */,
-				DF260000000000000000010A /* StoryPanel.swift in Sources */,
-				DF260000000000000000010B /* SettingsPanel.swift in Sources */,
 				DF260000000000000000010D /* EditorChrome.swift in Sources */,
-				DF260000000000000000010F /* TitlePageSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -517,6 +505,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = EDraftCore;
 		};
+		DF2800000000000000000802 /* XCLocalSwiftPackageReference "EDraftUI" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = EDraftUI;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -527,6 +519,10 @@
 		DF2800000000000000000901 /* EDraftCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = EDraftCore;
+		};
+		DF2800000000000000000902 /* EDraftUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EDraftUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -9,34 +9,34 @@ import SwiftUI
 /// two hundred times, and "go to the character" has no honest destination — so
 /// its row opens the character's own page instead, where every line is a real
 /// place and renaming can show what it would rewrite.
-struct StoryPanel: View {
+public struct StoryPanel: View {
     let editor: EditorState
 
     @Environment(\.dismiss) private var dismiss
     @State private var tab: Tab
 
-    init(editor: EditorState, initialTab: Tab = .scenes) {
+    public init(editor: EditorState, initialTab: Tab = .scenes) {
         self.editor = editor
         _tab = State(initialValue: initialTab)
     }
 
-    enum Tab: String, CaseIterable, Identifiable {
+    public enum Tab: String, CaseIterable, Identifiable {
         case scenes = "Scenes"
         case cast = "Cast"
 
-        var id: String { rawValue }
+        public var id: String { rawValue }
     }
 
     // MARK: - Body
 
-    var body: some View {
+    public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 tabPicker
                 list
             }
             .navigationTitle("Navigator")
-            .navigationBarTitleDisplayMode(.inline)
+            .compactTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -194,7 +194,7 @@ private struct SceneListRow: View {
     let scene: SceneRow
     let open: () -> Void
 
-    var body: some View {
+    public var body: some View {
         Button(action: open) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 // A production number is not a digit count: "12A" and "112"
@@ -247,7 +247,7 @@ private struct SceneListRow: View {
 private struct CastListRow: View {
     let person: CastRow
 
-    var body: some View {
+    public var body: some View {
         NavigationLink(value: person.name) {
             HStack {
                 // Stated, not inherited. The list's tint reaches the rows
@@ -273,7 +273,7 @@ private struct EmptyListRow: View {
     let detail: String
     let symbol: String
 
-    var body: some View {
+    public var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: symbol)
                 .foregroundStyle(.secondary)
@@ -306,7 +306,7 @@ private struct SceneNumbersView: View {
     @State private var confirmingClear = false
     @State private var outcome: String?
 
-    var body: some View {
+    public var body: some View {
         Form {
             Section {
                 LabeledContent("Scenes", value: "\(editor.scenes.count)")
@@ -337,7 +337,7 @@ private struct SceneNumbersView: View {
             }
         }
         .navigationTitle("Scene Numbers")
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
         .alert("Renumber Every Scene?", isPresented: $confirmingRenumber) {
             Button("Renumber", role: .destructive) { report(editor.applySceneNumbering(.all)) }
             Button("Cancel", role: .cancel) {}

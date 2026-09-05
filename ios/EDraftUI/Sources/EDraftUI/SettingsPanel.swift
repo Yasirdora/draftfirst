@@ -10,13 +10,17 @@ import SwiftUI
 /// Structure follows the iOS Settings idiom: each row names its value and
 /// pushes a focused page whose selections commit with a checkmark. Nothing
 /// here is a form to fill in.
-struct SettingsPanel: View {
+public struct SettingsPanel: View {
+
+    public init(editor: EditorState) {
+        self.editor = editor
+    }
     let editor: EditorState
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage("pageFormat") private var pageFormat: PageFormat = .letter
 
-    var body: some View {
+    public var body: some View {
         NavigationStack {
             Form {
                 Section("Writing") {
@@ -55,7 +59,7 @@ struct SettingsPanel: View {
             }
             .tint(.primary)
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
+            .compactTitle()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -79,7 +83,7 @@ struct SettingsPanel: View {
 private struct WritingAssistanceView: View {
     let editor: EditorState
 
-    var body: some View {
+    public var body: some View {
         Form {
             Section {
                 ForEach(PredictionMode.allCases) { mode in
@@ -102,7 +106,7 @@ private struct WritingAssistanceView: View {
             }
         }
         .navigationTitle("Writing Assistance")
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
     }
 }
 
@@ -111,7 +115,7 @@ private struct WritingAssistanceView: View {
 private struct PaperSizeView: View {
     @AppStorage("pageFormat") private var pageFormat: PageFormat = .letter
 
-    var body: some View {
+    public var body: some View {
         Form {
             Section {
                 ForEach(PageFormat.allCases) { format in
@@ -134,7 +138,7 @@ private struct PaperSizeView: View {
             }
         }
         .navigationTitle("Paper Size")
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
     }
 }
 
@@ -143,7 +147,7 @@ private struct PaperSizeView: View {
 private struct PaginationView: View {
     @AppStorage("showPageNumbers") private var showPageNumbers = true
 
-    var body: some View {
+    public var body: some View {
         Form {
             Section {
                 Toggle("Page Numbers", isOn: $showPageNumbers)
@@ -152,6 +156,6 @@ private struct PaginationView: View {
             }
         }
         .navigationTitle("Pagination")
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
     }
 }

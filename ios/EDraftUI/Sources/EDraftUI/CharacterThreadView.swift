@@ -19,7 +19,7 @@ import SwiftUI
 /// Renaming lives here rather than on the cast row because this is the only
 /// screen that shows what a rename would rewrite: the cue count, the mentions,
 /// and the lines themselves.
-struct CharacterThreadView: View {
+public struct CharacterThreadView: View {
     let editor: EditorState
     /// Moves the caret to an element and closes the Navigator behind it.
     /// Passed in because dismissing a pushed view would only pop the push.
@@ -36,7 +36,7 @@ struct CharacterThreadView: View {
     /// rename opens so the writer sees the blast radius before choosing.
     @State private var mentionCount = 0
 
-    init(editor: EditorState, name: String, open: @escaping (UUID) -> Void) {
+    public init(editor: EditorState, name: String, open: @escaping (UUID) -> Void) {
         self.editor = editor
         self.open = open
         _name = State(initialValue: name)
@@ -45,7 +45,7 @@ struct CharacterThreadView: View {
     private var appearances: [CharacterAppearance] { editor.appearances(of: name) }
     private var cues: Int { editor.cast.first { $0.name == name }?.cues ?? 0 }
 
-    var body: some View {
+    public var body: some View {
         List {
             Section {
                 Text(summary)
@@ -85,12 +85,12 @@ struct CharacterThreadView: View {
         }
         .tint(.primary)
         .navigationTitle(name)
-        .navigationBarTitleDisplayMode(.inline)
+        .compactTitle()
         .alert("Rename Character", isPresented: $isRenaming) {
             // Typed as prose, not shouted: cues uppercase themselves, and
             // action wants "Elena crosses", not "ELENA crosses".
             TextField("New name", text: $draftName)
-                .textInputAutocapitalization(.words)
+                .titleCasedInput()
                 .autocorrectionDisabled()
 
             if mentionCount > 0 {
@@ -165,7 +165,7 @@ struct CharacterThreadView: View {
 private struct SceneHeader: View {
     let appearance: CharacterAppearance
 
-    var body: some View {
+    public var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(appearance.label)
                 .font(.caption.monospacedDigit())
@@ -193,7 +193,7 @@ private struct SceneHeader: View {
 private struct SpeechRow: View {
     let line: SpokenLine
 
-    var body: some View {
+    public var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             if let parenthetical = line.parenthetical {
                 Text(parenthetical)
