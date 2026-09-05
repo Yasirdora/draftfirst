@@ -521,17 +521,26 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
     public func textDidChange(_ notification: Notification) {
         guard !applyingModel, let editor else { return }
+        
+        let previousRevision = editor.revision
         if let pendingEdit, applyIncrementalEdit(pendingEdit) {
             self.pendingEdit = nil
         } else {
             self.pendingEdit = nil
             synchronizeModelFromNativeText()
         }
-        promoteToSceneHeadingIfTyped()
-        renderedRevision = editor.revision
-        updateTypingAttributes()
-        reportNativeUndoAvailability()
-        updateGhost()
+        
+        if editor.revision != previousRevision {
+            promoteToSceneHeadingIfTyped()
+            renderedRevision = editor.revision
+            updateTypingAttributes()
+            reportNativeUndoAvailability()
+            updateGhost()
+        } else {
+            render(editor.screenplay.elements)
+            restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
+            updateGhost()
+        }
     }
 
     public func textViewDidChangeSelection(_ notification: Notification) {

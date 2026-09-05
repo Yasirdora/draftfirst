@@ -563,18 +563,24 @@ struct ScriptTextView: UIViewRepresentable {
                 return
             }
 
+            let previousRevision = editor.revision
             if let pendingEdit, applyIncrementalEdit(pendingEdit) {
                 self.pendingEdit = nil
             } else {
                 self.pendingEdit = nil
                 synchronizeModelFromNativeText()
             }
-            promoteToSceneHeadingIfTyped()
-            renderedRevision = editor.revision
-            updateTypingTraits()
-            updateGhost()
-            reportNativeUndoAvailability()
-            applyDeferredLayoutIfNeeded()
+            
+            if editor.revision != previousRevision {
+                promoteToSceneHeadingIfTyped()
+                renderedRevision = editor.revision
+                updateTypingTraits()
+                updateGhost()
+                reportNativeUndoAvailability()
+                applyDeferredLayoutIfNeeded()
+            } else {
+                renderModel(selecting: editor.activeElementID, offset: editor.selectionOffset)
+            }
         }
 
         func textView(
