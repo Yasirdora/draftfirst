@@ -1,6 +1,6 @@
 # eDraft — Shared architecture
 
-*Status: plan, pre-code · Companion to [MACOS-DESIGN.md](MACOS-DESIGN.md) (what the Mac app is) and [MACOS-EXECUTION.md](MACOS-EXECUTION.md) (the order of work).*
+*Status: **partly built** — `EDraftCore` and `EDraftUI` exist and compile for macOS; see [MACOS-EXECUTION.md §0](MACOS-EXECUTION.md) for exactly how far. Companion to [MACOS-DESIGN.md](MACOS-DESIGN.md) (what the Mac app is) and [MACOS-EXECUTION.md](MACOS-EXECUTION.md) (the order of work).*
 
 The macOS app must not be a second codebase that happens to open the same file.
 This document defines the boundary that makes iOS and macOS **one product with
@@ -38,11 +38,17 @@ imports (`ios/eDraft`, 8,141 lines):
 | `Editing/RevealHighlight.swift` | 72 | UIKit | Per-platform view, shared *rule* |
 | `Document/ScanDocument.swift` | 55 | PDFKit · SwiftUI · UTType | iOS-only today |
 
-**The finding:** 2,155 lines are already platform-agnostic, and 1,187 more are
-plain SwiftUI. They are portable in principle and unusable in practice, because
-they live inside an iOS **app target** — a macOS target cannot link them. The
-single most valuable pre-macOS act is not writing Mac code; it is moving that
+**The finding:** 2,155 lines were already platform-agnostic, and 1,087 more were
+plain SwiftUI. They were portable in principle and unusable in practice, because
+they lived inside an iOS **app target** — a macOS target cannot link them. The
+single most valuable pre-macOS act was not writing Mac code; it was moving that
 code across a package boundary where both platforms can reach it.
+
+**Done, 2026-09-05.** `EDraftCore` holds the six Foundation-only files;
+`EDraftUI` holds the four SwiftUI panels and the platform shims they needed.
+Both compile for iOS and macOS. 35 of the app's tests now run on the Mac. What
+remains of this table is the document split (M0.3) and the surfaces themselves,
+which are per-platform by definition.
 
 ---
 
@@ -83,7 +89,8 @@ code across a package boundary where both platforms can reach it.
 **Rules that keep the boundary honest**
 
 1. `EDraftCore` may not import SwiftUI, UIKit or AppKit. Enforced by a build
-   check (§5), not by discipline.
+   check (§5), not by discipline. CoreGraphics is the one allowance, for paper
+   geometry — `CGRect` is a measurement, not a view.
 2. Anything that decides *screenplay behaviour* belongs in `EDraftEngine` and is
    pinned by the corpus. A view may never re-decide a rule — the empty-line
    escape that briefly lived in `ScriptTextView` and now lives in
@@ -122,10 +129,10 @@ Each step ends green. No step mixes a move with a behaviour change.
 
 | Step | Action | Proof it worked |
 |---|---|---|
-| M0.1 | Create `EDraftCore`; move the six Foundation-only files verbatim | iOS builds; 124 app tests pass |
-| M0.2 | Move the app tests that only exercise core into `EDraftCoreTests` | Same count, now running on **both** platforms via `swift test` |
-| M0.3 | Split `EDraftDocument`: model + serialisation into core, thumbnail/UTType glue stays per-platform | Document tests pass |
-| M0.4 | Create `EDraftUI`; move the four SwiftUI panels; replace `navigationBarTitleDisplayMode` with a `.compactTitle()` shim | iOS renders identically — screenshot diff |
+| M0.1 ✅ | Create `EDraftCore`; move the six Foundation-only files verbatim | iOS builds; tests pass (`b96012c`) |
+| M0.2 ✅ | Move the app tests that only exercise core into `EDraftCoreTests` | Same count, now running on **both** platforms via `swift test` (`0e8485e`) |
+| M0.3 | Split `EDraftDocument`: model + serialisation into core, drawing stays per-platform | Document tests pass — member-by-member plan in the execution doc |
+| M0.4 ✅ | Create `EDraftUI`; move the four SwiftUI panels; shim the iOS-only modifiers | Both packages build for macOS (`57534d0`); screenshot check owed |
 | M0.5 | Lift the reveal *rule* (which element, which range, when to mark) into core; leave `RevealHighlightView` per-platform | `NavigatorJumpTests` pass unchanged |
 | M0.6 | Optional: move to the `apple/` layout | Everything builds from a clean checkout |
 
@@ -144,8 +151,15 @@ wrong.
 | Rules are not re-decided in views | Code review checklist; new `Choreography`/`SmartType` calls only |
 | One document format | `EDraftDocumentTests` round-trip on both platforms |
 
-Today's baseline, for comparison after every step: **403** TypeScript · **86**
-engine · **124** app tests green.
+Today's baseline, for comparison after every step: **406** TypeScript · **89**
+engine · **35** core (macOS) · **89** app tests green.
+
+**A name worth fixing.** The boundary immediately exposed that `Screenplay`
+names two different types — the engine's and the app's — and that nine call
+sites had been resolving it by luck of import order. They now say
+`EDraftCore.Screenplay` explicitly. That is a label, not a repair; renaming one
+of the two is a small focused pass worth doing before the Mac app doubles the
+number of call sites.
 
 ---
 

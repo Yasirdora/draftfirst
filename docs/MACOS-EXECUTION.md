@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: ready to start · Last updated 2026-09-05*
+*Status: M0 in progress — three of six steps done · Last updated 2026-09-05*
 
 This is the working document. [MACOS-PLAN.md](MACOS-PLAN.md) says why we are
 building it, [MACOS-DESIGN.md](MACOS-DESIGN.md) says what it is, and
@@ -11,16 +11,24 @@ product. **Start here, then read those.**
 
 ## 0. Where we are today
 
-Nothing macOS has been written yet — by design. The plan was to document first.
+No macOS *app* yet — by design. But the code it will be built from now exists
+and compiles for macOS: `EDraftCore` and `EDraftUI` are packages, and 35 of the
+app's tests run on the Mac under `swift test`.
 
 **Green baseline** (re-run these before and after every step):
 
 ```bash
-npm test                                    # 403 TypeScript engine tests
-cd ios/eDraftEngine && swift test           #  86 Swift engine tests
+npm test                                    # 406 TypeScript engine tests
+cd ios/eDraftEngine && swift test           #  89 Swift engine tests
+cd ios/EDraftCore   && swift test           #  35 core tests — runs on macOS
+cd ios/EDraftUI     && swift build          #  shared panels build for macOS
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'   # 124 app tests
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'   #  89 app tests
 ```
+
+The packages live at `ios/EDraftCore` and `ios/EDraftUI`, beside
+`ios/eDraftEngine`, and are wired into `ios/eDraft.xcodeproj` as local package
+references.
 
 **State of the tree:** the directory rename `DraftFirst → eDraft` is complete
 and verified (targets `eDraft`/`eDraftTests`, bundle ids `xyz.edraft.ios`,
@@ -41,20 +49,40 @@ The macOS app cannot link code that lives in an iOS app target. This milestone
 moves it, and changes nothing else. Detail and file-by-file inventory in
 [SHARED-ARCHITECTURE.md §4](SHARED-ARCHITECTURE.md).
 
-- [ ] **M0.1** `EDraftCore` package; move `EditorState`, `ScreenplayEditPlanner`,
+- [x] **M0.1** `EDraftCore` package; move `EditorState`, `ScreenplayEditPlanner`,
       `ScreenplayModels`, `ElementCaseMemory`, `SceneHeadingSeparator`,
       `DocumentArrival` verbatim.
-      *Proof:* iOS builds; 124 app tests green.
-- [ ] **M0.2** Move core-only tests into `EDraftCoreTests`, run by `swift test`
+      *Done 2026-09-05 (`b96012c`).* iOS builds; all tests green.
+- [x] **M0.2** Move core-only tests into `EDraftCoreTests`, run by `swift test`
       on iOS **and** macOS.
-      *Proof:* same test count, now passing on two platforms.
-- [ ] **M0.3** Split `EDraftDocument` — model and serialisation to core, thumbnail
-      and UTType glue stay per-platform.
-      *Proof:* document round-trip tests green.
-- [ ] **M0.4** `EDraftUI` package; move `StoryPanel`, `CharacterThreadView`,
+      *Done 2026-09-05 (`0e8485e`).* 89 app + 35 core = the same 124, and the
+      35 now run on macOS.
+- [ ] **M0.3** Split `EDraftDocument` — **next up**, and the fiddliest of the
+      six, because one `enum ScreenplayExporter` interleaves pure and
+      platform-bound code. The split, member by member:
+
+      | To `EDraftCore` | Stays on the surface |
+      |---|---|
+      | `extension UTType` (both declarations) | `pdfData` and its `UIFont`/`UIColor`/`UIGraphicsPDFRenderer` drawing |
+      | `decode`/`encode`, typed and untyped | `rtfData` (uses the same font) |
+      | `blankSource` | |
+      | `fountainSource`, `fdxSource`, `plainText` | |
+      | `sceneNumberIndex`, `sceneNumberMarks` | |
+      | `paginate`, `leadingSpaces`, `renderedText` | |
+      | `temporaryFile` | |
+
+      The `FileDocument` conformance itself is cross-platform SwiftUI and
+      belongs in `EDraftUI`, which is what gives the Mac app open/save for
+      free. Name the platform half `ScreenplayPageRenderer` and update its
+      three call sites in `EditorChrome` (`pdfData` ×2, `rtfData` ×1).
+      *Proof:* document round-trip tests green; `EDraftUI` still builds for macOS.
+- [x] **M0.4** `EDraftUI` package; move `StoryPanel`, `CharacterThreadView`,
       `TitlePageSheet`, `SettingsPanel`; replace `navigationBarTitleDisplayMode`
       with a platform shim.
-      *Proof:* iOS Navigator screenshot identical to before.
+      *Done 2026-09-05 (`57534d0`).* Both packages build for macOS; iOS tests
+      green. **Owed:** the screenshot comparison — the Mac's screen locked
+      before it could be taken. Take it first thing: open a document, open the
+      Navigator, compare against `docs/images` or a fresh baseline.
 - [ ] **M0.5** Lift the reveal rule into core; keep `RevealHighlightView` per-platform.
       *Proof:* `NavigatorJumpTests` pass unchanged.
 - [ ] **M0.6** *(optional, recommended)* adopt the `apple/` directory layout.
@@ -154,10 +182,27 @@ None blocking. Two worth a decision when convenient:
 | 2026-09-05 | Three panes, not two | A screenplay needs a properties surface; Pages/Keynote/Xcode users look right for it. |
 | 2026-09-05 | Modularise before writing Mac code | 2,155 lines are portable but trapped in an app target. |
 | 2026-09-05 | No Catalyst, no Electron | Catalyst would ship iOS compromises to a desktop whose whole point is not having them. |
+| 2026-09-05 | Packages sit at `ios/EDraftCore` and `ios/EDraftUI` for now | The `apple/` move (M0.6) is still worth doing, but not while three other steps were in flight. |
+| 2026-09-05 | Core and UI packages are main-actor-by-default; their **test** targets are not | Matches the app targets exactly, and XCTestCase cannot inherit main-actor isolation. |
 
 ---
 
-## 6. Recent iOS work this plan assumes
+## 6. Known issues, carried forward
+
+- **`Screenplay` names two different types** — the engine's and the app's. Nine
+  call sites now say `EDraftCore.Screenplay` explicitly. Qualifying is a label,
+  not a fix; renaming one of them (the app's, most likely, to
+  `ScreenplayDocumentModel`) is worth a focused pass.
+- **The iOS Navigator screenshot comparison for M0.4 is owed** (see above).
+- **The FDX rename-compatibility contract was lost and restored** during the
+  rename: `LEGACY_ATTRIBUTE_PREFIXES` had been emptied in both engines and the
+  TypeScript suite guarding it deleted, which would have silently dropped
+  `draftfirst:` extension data — lyrics types, keyed title pages — from every
+  file exported under the old name. Both engines now carry the prefix and both
+  have tests. If any other back-compat was swept up in that rename, this is the
+  shape it would take.
+
+## 7. Recent iOS work this plan assumes
 
 - **Navigator reveal + mark.** A Navigator row now reveals its element *and
   marks it*, because a page stops scrolling when its last page reaches the
