@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: M0 all but complete; **M1's unknown is answered** · Last updated 2026-09-05*
+*Status: M0 all but complete · M1 answered · **M2 has a window that builds** · Last updated 2026-09-05*
 
 This is the working document. [MACOS-PLAN.md](MACOS-PLAN.md) says why we are
 building it, [MACOS-DESIGN.md](MACOS-DESIGN.md) says what it is, and
@@ -22,7 +22,9 @@ npm test                                    # 406 TypeScript engine tests
 cd ios/eDraftEngine && swift test           #  89 Swift engine tests
 cd ios/EDraftCore   && swift test           #  39 core tests — runs on macOS
 cd ios/EDraftUI     && swift test           #   8 document tests — runs on macOS
-cd ios/EDraftMacSurface && swift test       #   7 layout measurements — macOS
+cd ios/EDraftMacSurface && swift test       #  15 layout and page tests — macOS
+xcodebuild build -project ios/eDraft.xcodeproj \
+  -scheme 'eDraft (macOS)' -configuration Debug           # the Mac app
 npm run check:boundaries                    #  the layers stay separate
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'   #  82 app tests
@@ -134,18 +136,32 @@ measurement: revealing a blank line drew no mark, and a reveal of the last line
 of a script would have marked the wrong one. Both are fixed, in both surfaces,
 and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
 
-### M2 — The window
+### M2 — The window · *begun*
 
-- [ ] `DocumentGroup`, open/save/iCloud, one document per window, tabs.
-- [ ] Three-pane layout: Navigator · page canvas · inspector (hidden).
-- [ ] Navigator from `EDraftUI` with the Scenes/Cast scope control.
-- [ ] Page canvas: centred page, `underPageBackgroundColor`, zoom.
-- [ ] Menu bar: File/Edit/Format/View per [MACOS-DESIGN.md §3.4](MACOS-DESIGN.md).
-- [ ] ⌘1–9 element conversion; Tab/⇧Tab; ⌘F find; ⌘L find scene.
+- [x] A macOS app target, `eDraft (macOS)`, with its own scheme. It shares the
+      project with the phone deliberately: one place to open, one set of
+      packages, no second copy of anything.
+- [x] `DocumentGroup` over the same `EDraftDocument` the phone opens — so a
+      script started on an iPhone opens here with no conversion and no second
+      format. The Mac declares the same three document types in its own
+      Info.plist (our own, plain text, Final Draft); they cannot be expressed as
+      `INFOPLIST_KEY_*` settings, and a generated plist quietly leaves a
+      document-based app unable to open a document.
+- [x] Two of the three panes: `StoryList` in a sidebar at 240/260/360, the page
+      beside it on `underPageBackgroundColor`. Sidebar visible by default.
+- [x] The page itself — `ScriptSurface` — scrolls, reveals and marks, with 15
+      tests. A Navigator row on the Mac does exactly what it does on the phone.
+- [x] Format → Element with ⌘1–⌘9, through the model's own conversion channel,
+      so casing memory and undo grouping come along rather than being
+      re-implemented for a menu.
+- [ ] Typing: the edit planner wired to the text view's delegate. **Next.**
+- [ ] Tab / ⇧Tab choreography, and the ghost prediction.
+- [ ] Find (⌘F), Find Scene (⌘L).
 - [ ] Export PDF · FDX · Fountain · Text; native print.
+- [ ] The rest of the menu bar: File, Edit, View per MACOS-DESIGN §3.4.
 
-*Proof:* a script written entirely on the Mac, exported to PDF, opens on iPhone
-unchanged.
+*Proof, when it closes:* a script written entirely on the Mac, exported to PDF,
+opens on iPhone unchanged.
 
 ### M3 — The desk
 
@@ -215,6 +231,23 @@ None blocking. Two worth a decision when convenient:
 | 2026-09-05 | Core and UI packages are main-actor-by-default; their **test** targets are not | Matches the app targets exactly, and XCTestCase cannot inherit main-actor isolation. |
 
 ---
+
+## 4a. Building and running the Mac app
+
+```bash
+xcodebuild build -project ios/eDraft.xcodeproj -scheme 'eDraft (macOS)' -configuration Debug
+```
+
+**One environmental note.** Signing with the Developer identity asks the
+keychain for permission, which a headless build cannot answer — the build then
+hangs at `codesign` indefinitely. From Xcode this is a prompt you click once.
+From a script, pass `CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual
+DEVELOPMENT_TEAM=""` to sign ad hoc, which is enough to run locally.
+
+Verified on 2026-09-05: the app builds, launches, presents its menu bar (File,
+Edit, View, Window) and opens a `.fountain` script into a document window —
+confirmed through `CGWindowListCopyWindowInfo`, since the screen was locked and
+neither a screenshot nor the accessibility API can see a window in that state.
 
 ## 5a. Enforcement added
 

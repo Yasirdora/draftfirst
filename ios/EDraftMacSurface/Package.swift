@@ -25,14 +25,16 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../eDraftEngine"),
-        .package(path: "../EDraftCore")
+        .package(path: "../EDraftCore"),
+        .package(path: "../EDraftUI")
     ],
     targets: [
         .target(
             name: "EDraftMacSurface",
             dependencies: [
                 .product(name: "EDraftEngine", package: "eDraftEngine"),
-                .product(name: "EDraftCore", package: "EDraftCore")
+                .product(name: "EDraftCore", package: "EDraftCore"),
+                .product(name: "EDraftUI", package: "EDraftUI")
             ],
             swiftSettings: surfaceSettings
         ),

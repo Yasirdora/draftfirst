@@ -27,6 +27,11 @@
 		DF2800000000000000000101 /* EDraftEngine in Frameworks */ = {isa = PBXBuildFile; productRef = DF2800000000000000000900 /* EDraftEngine */; };
 		DF2800000000000000000102 /* EDraftCore in Frameworks */ = {isa = PBXBuildFile; productRef = DF2800000000000000000901 /* EDraftCore */; };
 		DF2800000000000000000103 /* EDraftUI in Frameworks */ = {isa = PBXBuildFile; productRef = DF2800000000000000000902 /* EDraftUI */; };
+		DF2900000000000000000101 /* EDraftMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2900000000000000000100 /* EDraftMacApp.swift */; };
+		DF2900000000000000000110 /* EDraftEngine in Frameworks */ = {isa = PBXBuildFile; productRef = DF2900000000000000000900 /* EDraftEngine */; };
+		DF2900000000000000000111 /* EDraftCore in Frameworks */ = {isa = PBXBuildFile; productRef = DF2900000000000000000901 /* EDraftCore */; };
+		DF2900000000000000000112 /* EDraftUI in Frameworks */ = {isa = PBXBuildFile; productRef = DF2900000000000000000902 /* EDraftUI */; };
+		DF2900000000000000000113 /* EDraftMacSurface in Frameworks */ = {isa = PBXBuildFile; productRef = DF2900000000000000000903 /* EDraftMacSurface */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,6 +65,8 @@
 		DF26000000000000000000F9 /* NavigatorJumpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigatorJumpTests.swift; sourceTree = "<group>"; };
 		DF26000000000000000000FB /* AppearancePreferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearancePreferenceTests.swift; sourceTree = "<group>"; };
 		DF2700000000000000000002 /* eDraftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eDraftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DF2900000000000000000100 /* EDraftMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EDraftMacApp.swift; sourceTree = "<group>"; };
+		DF290000000000000000000E /* eDraft.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "eDraft (macOS).app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -80,6 +87,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		DF2900000000000000000202 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DF2900000000000000000110 /* EDraftEngine in Frameworks */,
+				DF2900000000000000000111 /* EDraftCore in Frameworks */,
+				DF2900000000000000000112 /* EDraftUI in Frameworks */,
+				DF2900000000000000000113 /* EDraftMacSurface in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -89,6 +107,7 @@
 				DF2600000000000000000301 /* eDraft */,
 				DF2700000000000000000300 /* eDraftTests */,
 				DF2600000000000000000302 /* Products */,
+				DF2900000000000000000300 /* macOS */,
 			);
 			sourceTree = "<group>";
 		};
@@ -110,6 +129,7 @@
 			children = (
 				DF260000000000000000000E /* eDraft.app */,
 				DF2700000000000000000002 /* eDraftTests.xctest */,
+				DF290000000000000000000E /* eDraft.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -181,6 +201,14 @@
 			path = eDraftTests;
 			sourceTree = "<group>";
 		};
+		DF2900000000000000000300 /* macOS */ = {
+			isa = PBXGroup;
+			children = (
+				DF2900000000000000000100 /* EDraftMacApp.swift */,
+			);
+			path = macOS;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -223,6 +251,29 @@
 			productReference = DF2700000000000000000002 /* eDraftTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		DF2900000000000000000400 /* eDraft (macOS) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DF2900000000000000000601 /* Build configuration list for PBXNativeTarget "eDraft (macOS)" */;
+			buildPhases = (
+				DF2900000000000000000201 /* Sources */,
+				DF2900000000000000000202 /* Frameworks */,
+				DF2900000000000000000203 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "eDraft (macOS)";
+			packageProductDependencies = (
+				DF2900000000000000000900 /* EDraftEngine */,
+				DF2900000000000000000901 /* EDraftCore */,
+				DF2900000000000000000902 /* EDraftUI */,
+				DF2900000000000000000903 /* EDraftMacSurface */,
+			);
+			productName = "eDraft (macOS)";
+			productReference = DF290000000000000000000E /* eDraft.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -255,6 +306,7 @@
 				DF2800000000000000000800 /* XCLocalSwiftPackageReference "eDraftEngine" */,
 				DF2800000000000000000801 /* XCLocalSwiftPackageReference "EDraftCore" */,
 				DF2800000000000000000802 /* XCLocalSwiftPackageReference "EDraftUI" */,
+				DF2800000000000000000803 /* XCLocalSwiftPackageReference "EDraftMacSurface" */,
 			);
 			productRefGroup = DF2600000000000000000302 /* Products */;
 			projectDirPath = "";
@@ -262,6 +314,7 @@
 			targets = (
 				DF2600000000000000000400 /* eDraft */,
 				DF2700000000000000000400 /* eDraftTests */,
+				DF2900000000000000000400 /* eDraft (macOS) */,
 			);
 		};
 /* End PBXProject section */
@@ -273,6 +326,13 @@
 			files = (
 				DF2600000000000000000112 /* PrivacyInfo.xcprivacy in Resources */,
 				DF2600000000000000000111 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF2900000000000000000203 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -305,6 +365,14 @@
 				DF2700000000000000000101 /* ScreenplayEditPlannerTests.swift in Sources */,
 				DF26000000000000000001F9 /* NavigatorJumpTests.swift in Sources */,
 				DF26000000000000000001FB /* AppearancePreferenceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DF2900000000000000000201 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DF2900000000000000000101 /* EDraftMacApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -460,6 +528,59 @@
 			};
 			name = Release;
 		};
+		DF2900000000000000000602 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4487AHC2YM;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = macOS/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = xyz.edraft.mac;
+				PRODUCT_NAME = "eDraft (macOS)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		DF2900000000000000000603 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4487AHC2YM;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = macOS/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = xyz.edraft.mac;
+				PRODUCT_NAME = "eDraft (macOS)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 2;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -490,6 +611,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		DF2900000000000000000601 /* Build configuration list for PBXNativeTarget "eDraft (macOS)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF2900000000000000000602 /* Debug */,
+				DF2900000000000000000603 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -505,6 +635,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = EDraftUI;
 		};
+		DF2800000000000000000803 /* XCLocalSwiftPackageReference "EDraftMacSurface" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = EDraftMacSurface;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -519,6 +653,22 @@
 		DF2800000000000000000902 /* EDraftUI */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = EDraftUI;
+		};
+		DF2900000000000000000900 /* EDraftEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EDraftEngine;
+		};
+		DF2900000000000000000901 /* EDraftCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EDraftCore;
+		};
+		DF2900000000000000000902 /* EDraftUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EDraftUI;
+		};
+		DF2900000000000000000903 /* EDraftMacSurface */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EDraftMacSurface;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
