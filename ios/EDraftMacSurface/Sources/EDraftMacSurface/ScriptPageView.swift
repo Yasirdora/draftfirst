@@ -38,9 +38,9 @@ public struct ScriptPageView: NSViewRepresentable {
         let surface = ScriptSurface()
         private var measure: CGFloat = 0
 
-        /// A resized window is a re-measured script. Ignored until the window
-        /// has a width at all, so the first layout pass does not set the page
-        /// to zero and lay every line out one character wide.
+        /// A resized window recentres the page card. Ignored until the window
+        /// has a width at all, so the first layout pass does not centre a
+        /// card on a zero-width canvas.
         func remeasureIfNeeded(_ editor: EditorState, in scrollView: NSScrollView) {
             let width = scrollView.contentView.bounds.width
             guard width > 1, abs(width - measure) > 0.5 else { return }

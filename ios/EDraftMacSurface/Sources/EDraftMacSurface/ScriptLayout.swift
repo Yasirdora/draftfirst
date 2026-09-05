@@ -7,8 +7,10 @@ import Foundation
 /// This is the Mac's half of what `ScriptTextView` does on the phone: turn a
 /// list of elements into one attributed string, remember which character range
 /// each element occupies, and answer where a given element sits on the page.
-/// Every measurement it sets comes from `ScriptTypography`, so the two
-/// platforms cannot disagree about the shape of a page.
+/// Measurements come from `ScreenplayPageLayout` — Courier 12, the paginator's
+/// character indents, six lines per inch — so the page a writer types on is
+/// the page the PDF prints. The phone still reads `ScriptTypography` (a
+/// fraction of a hand-width); the desk has paper.
 ///
 /// It exists as a package rather than inside an app target for one reason: the
 /// question that decides the whole Mac port — whether the text system can tell
@@ -50,7 +52,7 @@ public enum ScriptLayout {
         for (index, element) in elements.enumerated() {
             let location = result.length
             let spacingAfter = index + 1 < elements.count
-                ? ScriptTypography.spacing(before: elements[index + 1].type)
+                ? ScreenplayPageLayout.spacing(before: elements[index + 1].type)
                 : 0
             let style = attributes(
                 for: element.type, measure: measure, spacingAfter: spacingAfter
@@ -69,25 +71,26 @@ public enum ScriptLayout {
         return (result, ranges)
     }
 
-    /// One element's attributes, built from the shared measurements.
+    /// One element's attributes, built from the print measurements.
     public static func attributes(
         for kind: ScreenplayKind, measure: CGFloat, spacingAfter: Double
     ) -> [NSAttributedString.Key: Any] {
         let font = font(for: kind)
         let paragraph = NSMutableParagraphStyle()
-        let lineHeight = ScriptTypography.lineHeight(
-            forFontLineHeight: Double(font.ascender - font.descender + font.leading)
-        )
+        let lineHeight = ScreenplayPageLayout.lineHeight
         paragraph.minimumLineHeight = lineHeight
         paragraph.maximumLineHeight = lineHeight
         // Space belongs to the paragraph before, so the caret is drawn at the
         // next baseline rather than stretched through screenplay whitespace.
         paragraph.paragraphSpacing = spacingAfter
 
-        if let indents = ScriptTypography.indents(for: kind) {
-            paragraph.firstLineHeadIndent = measure * indents.head
-            paragraph.headIndent = measure * indents.head
-            paragraph.tailIndent = -(measure * indents.tail)
+        let characterWidth = ("0" as NSString).size(withAttributes: [.font: font]).width
+        if let indents = ScreenplayPageLayout.indents(
+            for: kind, measure: measure, characterWidth: characterWidth
+        ) {
+            paragraph.firstLineHeadIndent = indents.head
+            paragraph.headIndent = indents.head
+            paragraph.tailIndent = -indents.tail
         }
         switch ScriptTypography.alignment(for: kind) {
         case .natural: break
@@ -102,9 +105,16 @@ public enum ScriptLayout {
         ]
     }
 
+    /// Courier 12, the face the PDF prints. A missing Courier falls back to
+    /// the system mono at the same size so layout still measures a pitch.
     public static func font(for kind: ScreenplayKind) -> NSFont {
-        let weight: NSFont.Weight = ScriptTypography.isEmphasised(kind) ? .semibold : .regular
-        return .monospacedSystemFont(ofSize: 13, weight: weight)
+        NSFont(name: "Courier", size: ScreenplayPageLayout.fontSize)
+            ?? .monospacedSystemFont(ofSize: ScreenplayPageLayout.fontSize, weight: .regular)
+    }
+
+    /// The text-block width the page is set to — not the window.
+    public static var pageMeasure: CGFloat {
+        ScreenplayPageLayout.textBlockWidth(PageFormat.current)
     }
 
     // MARK: - Asking where an element is

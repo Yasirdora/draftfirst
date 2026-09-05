@@ -29,14 +29,14 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
     public let scrollView: NSScrollView
     public let textView: NSTextView
+    let canvas: PageCanvasView
 
     private var ranges: [ScriptLayout.ElementRange] = []
     private let highlight = RevealHighlightViewMac()
     private let ghost = GhostTextOverlay()
 
-    /// The measure the script is set to. A Mac window is resizable, so this
-    /// changes; the indents are fractions of it, which is why they are
-    /// fractions in the first place.
+    /// The text-block width, locked to the printed page. A resized window
+    /// recentres the card; it does not stretch the script.
     private var measure: CGFloat
 
     private weak var editor: EditorState?
@@ -60,27 +60,31 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     private let findClient: FindBarClient
 
     public init(measure: CGFloat = 640) {
-        self.measure = measure
+        let textWidth = ScriptLayout.pageMeasure
+        self.measure = textWidth
 
         let container = NSTextContainer(
-            size: CGSize(width: measure, height: .greatestFiniteMagnitude)
+            size: CGSize(width: textWidth, height: .greatestFiniteMagnitude)
         )
-        container.widthTracksTextView = true
+        // The page is paper, not the window: tracking the clip view would
+        // stretch a 60-character block across whatever the writer resized to.
+        container.widthTracksTextView = false
         let layoutManager = NSLayoutManager()
         let storage = NSTextStorage()
         storage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(container)
 
         let textView = NSTextView(
-            frame: NSRect(x: 0, y: 0, width: measure, height: 0), textContainer: container
+            frame: NSRect(x: 0, y: 0, width: textWidth, height: 0), textContainer: container
         )
         textView.isRichText = false
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
-        textView.autoresizingMask = [.width]
-        textView.textContainerInset = NSSize(width: 0, height: 24)
+        textView.autoresizingMask = []
+        textView.textContainerInset = .zero
         container.lineFragmentPadding = 0
-        textView.backgroundColor = .textBackgroundColor
+        textView.drawsBackground = false
+        textView.backgroundColor = .clear
         // The screenplay's own rules decide what a line looks like; nothing
         // the system might helpfully add belongs on a page that has to print
         // exactly as it reads.
@@ -90,10 +94,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         textView.allowsUndo = true
         self.textView = textView
 
+        let canvas = PageCanvasView()
+        canvas.attach(textView)
+        self.canvas = canvas
+
         let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: measure, height: 480))
         scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = true
+        scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
-        scrollView.documentView = textView
+        scrollView.documentView = canvas
         self.scrollView = scrollView
 
         let findClient = FindBarClient(textView: textView)
@@ -203,27 +213,27 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// then the layout had caught up on its own.
     private func layOut() {
         if let layoutManager = textView.layoutManager, let container = textView.textContainer {
+            container.size = CGSize(width: measure, height: .greatestFiniteMagnitude)
             layoutManager.ensureLayout(for: container)
         }
         textView.sizeToFit()
+        let viewport = scrollView.contentView.bounds.size
+        let size = viewport.width > 1 ? viewport : scrollView.frame.size
+        canvas.layoutPage(textHeight: max(textView.frame.height, 1), viewport: size)
         scrollView.layoutSubtreeIfNeeded()
     }
 
-    /// Re-sets the page for a new width. A resized window is a re-measured
-    /// script, because every indent is a fraction of the measure.
+    /// Recentres the page card in a resized window. The script's measure is
+    /// the printed text block, so a wider window does not stretch a line.
     public func remeasure(to width: CGFloat, elements: [ScriptElement]) {
-        guard width > 0, abs(width - measure) > 0.5 else { return }
-        measure = width
-        textView.textContainer?.size = CGSize(
-            width: width, height: .greatestFiniteMagnitude
-        )
-        render(elements)
-        if let editor {
-            restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
-            updateTypingAttributes()
-        }
+        guard width > 0 else { return }
+        layOut()
         updateGhost()
     }
+
+    /// The page card, in the canvas's coordinates — what a test asks when
+    /// it wants to know the paper is actually there.
+    public var pageFrame: CGRect { canvas.pageView.frame }
 
     // MARK: - Going to an element
 
@@ -254,7 +264,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     public var scrollableRange: ClosedRange<CGFloat> {
         layOut()
         return PageScroll.range(
-            contentHeight: textView.frame.height,
+            contentHeight: canvas.frame.height,
             viewportHeight: scrollView.contentView.bounds.height,
             topInset: scrollView.contentInsets.top,
             bottomInset: scrollView.contentInsets.bottom
@@ -267,10 +277,20 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         let range = scrollableRange
         guard PageScroll.canScroll(range) else { return }
         let y = PageScroll.offset(
-            bringingContentY: rect.minY + textView.textContainerInset.height, toTopOf: range
+            bringingContentY: canvasY(ofTextRect: rect), toTopOf: range
         )
-        scrollView.contentView.scroll(to: NSPoint(x: 0, y: y))
+        scrollView.contentView.scroll(to: NSPoint(x: max(0, canvas.pageView.frame.minX - canvas.canvasPadding), y: y))
         scrollView.reflectScrolledClipView(scrollView.contentView)
+    }
+
+    /// A text-view rectangle, lifted into the canvas the scroll view actually
+    /// moves. The page card sits around the text; without this, a reveal
+    /// would scroll as if the paper's top margin were not there.
+    private func canvasY(ofTextRect rect: CGRect) -> CGFloat {
+        rect.minY
+            + textView.frame.minY
+            + canvas.pageView.frame.minY
+            + textView.textContainerInset.height
     }
 
     private func mark(_ rect: CGRect, reduceMotion: Bool) {
@@ -1057,13 +1077,13 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         let location = textView.selectedRange().location
         let probe = NSRange(location: location, length: 0)
         if let rect = ScriptLayout.boundingRect(of: probe, in: textView), rect.height > 0 {
-            return rect.minY + textView.textContainerInset.height
+            return canvasY(ofTextRect: rect)
         }
         let fallbackLocation = max(0, min(location, max(0, (textView.string as NSString).length - 1)))
         guard let rect = ScriptLayout.boundingRect(
             of: NSRange(location: fallbackLocation, length: 0), in: textView
         ) else { return nil }
-        return rect.minY + textView.textContainerInset.height
+        return canvasY(ofTextRect: rect)
     }
 
     private func restoreViewport(caretWas: CGFloat?, preserved: NSPoint) {

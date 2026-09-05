@@ -74,18 +74,69 @@ final class ScriptSurfaceTests: XCTestCase {
 
     /// A script that fits in the window has nowhere to scroll. The reveal must
     /// still answer — with the mark, which is the whole reason it exists.
+    /// The page card is one letter sheet (792pt) plus padding; the viewport
+    /// has to be taller than that or the paper itself is what scrolls.
     func testAScriptThatFitsIsStillAnswered() throws {
         let elements = [
             ScriptElement(type: .scene, text: "INT. ROOM - DAY"),
             ScriptElement(type: .action, text: "She waits.")
         ]
-        let surface = surface(elements)
+        let surface = ScriptSurface(measure: 700)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 1000)
+        surface.render(elements)
         XCTAssertFalse(
             PageScroll.canScroll(surface.scrollableRange),
             "this script is meant to fit in the window"
         )
         XCTAssertTrue(surface.reveal(elements[1].id))
         XCTAssertTrue(surface.isMarking)
+    }
+
+    /// The design's page: a real sheet, centred, with the PDF's left margin.
+    /// Flush-to-divider text was the thing that broke the length-ruler.
+    func testThePageIsACardAtPrintMetrics() {
+        let surface = surface([ScriptElement(type: .scene, text: "INT. ROOM - DAY")])
+        XCTAssertEqual(surface.pageFrame.width, PageFormat.letter.pageRect.width, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(surface.pageFrame.height, PageFormat.letter.pageRect.height)
+        XCTAssertEqual(surface.textView.frame.minX, ScreenplayPageLayout.textLeft, accuracy: 0.5)
+        XCTAssertEqual(
+            surface.textView.frame.width,
+            ScreenplayPageLayout.textBlockWidth(.letter),
+            accuracy: 0.5
+        )
+        XCTAssertGreaterThan(surface.canvas.pageView.layer?.borderWidth ?? 0, 0)
+    }
+
+    /// A page card is a surface with edges. Layer `cgColor`s do not track
+    /// appearance on their own, so both looks have to be applied and read
+    /// back — a card that only looks right in light has no edge in dark.
+    func testThePageCardHasAnEdgeInDarkAndLight() {
+        let surface = surface([ScriptElement(type: .scene, text: "INT. ROOM - DAY")])
+        let canvas = surface.canvas
+
+        canvas.appearance = NSAppearance(named: .darkAqua)
+        canvas.layoutSubtreeIfNeeded()
+        canvas.applyAppearance()
+        let darkFill = canvas.pageView.layer?.backgroundColor
+        let darkCanvas = canvas.layer?.backgroundColor
+        XCTAssertEqual(canvas.pageView.layer?.borderWidth, 1)
+        XCTAssertNotNil(canvas.pageView.layer?.borderColor)
+        XCTAssertNotEqual(
+            darkFill, darkCanvas,
+            "in dark mode the page and the canvas must not be the same colour or the edge vanishes"
+        )
+
+        canvas.appearance = NSAppearance(named: .aqua)
+        canvas.layoutSubtreeIfNeeded()
+        canvas.applyAppearance()
+        let lightFill = canvas.pageView.layer?.backgroundColor
+        let lightCanvas = canvas.layer?.backgroundColor
+        XCTAssertEqual(canvas.pageView.layer?.borderWidth, 1)
+        XCTAssertNotEqual(
+            lightFill, lightCanvas,
+            "in light mode the page and the canvas must not be the same colour or the edge vanishes"
+        )
+        XCTAssertNotEqual(darkFill, lightFill, "the page should actually change with appearance")
     }
 
     /// The blank line a writer is about to type into — the case that was
@@ -123,26 +174,29 @@ final class ScriptSurfaceTests: XCTestCase {
         }
     }
 
-    /// A resized window is a re-measured script, because every indent is a
-    /// fraction of the measure rather than a fixed inch.
-    func testResizingRemeasuresTheScript() throws {
+    /// A resized window recentres the card. It must not stretch the script —
+    /// the page is paper, and a line that grew with the window would no
+    /// longer be the line the PDF prints.
+    func testResizingDoesNotStretchTheScript() throws {
         let elements = [
             ScriptElement(type: .dialogue, text: "A line she says.")
         ]
         let surface = surface(elements)
-        let narrow = try XCTUnwrap(
+        let before = try XCTUnwrap(
             ScriptLayout.boundingRect(of: NSRange(location: 0, length: 16), in: surface.textView)
         )
 
+        surface.scrollView.frame.size.width = 900
         surface.remeasure(to: 900, elements: elements)
-        let wide = try XCTUnwrap(
+        let after = try XCTUnwrap(
             ScriptLayout.boundingRect(of: NSRange(location: 0, length: 16), in: surface.textView)
         )
 
-        XCTAssertGreaterThan(
-            wide.minX, narrow.minX,
-            "dialogue's indent is a fraction of the measure, so a wider page indents further"
+        XCTAssertEqual(
+            after.minX, before.minX, accuracy: 0.5,
+            "dialogue's indent is a print measurement, not a fraction of the window"
         )
+        XCTAssertEqual(surface.pageFrame.width, PageFormat.letter.pageRect.width, accuracy: 0.5)
     }
 
     /// The phone's bug, in its Mac form: a reveal that arrives in the same turn

@@ -57,21 +57,30 @@ final class ScriptLayoutTests: XCTestCase {
 
     // MARK: - The page keeps its shape
 
-    /// Dialogue is indented and a scene heading is not: the fractions come from
-    /// `ScriptTypography`, shared with the phone, and this is what proves the
-    /// Mac actually applies them rather than merely importing them.
+    /// Dialogue is indented and a scene heading is not: the indents come from
+    /// `ScreenplayPageLayout` (the paginator's ten-character dialogue inset),
+    /// so the Mac page and the PDF cannot disagree about where a line begins.
     func testDialogueIsIndentedAndAHeadingIsNot() throws {
         let elements = [
             ScriptElement(type: .scene, text: "INT. ROOM - DAY"),
             ScriptElement(type: .dialogue, text: "A line she says.")
         ]
-        let (view, ranges) = ScriptLayout.textView(elements, measure: measure, using: .textKit1)
+        let (view, ranges) = ScriptLayout.textView(elements, measure: ScriptLayout.pageMeasure, using: .textKit1)
 
         let heading = try XCTUnwrap(ScriptLayout.boundingRect(of: ranges[0].range, in: view))
         let dialogue = try XCTUnwrap(ScriptLayout.boundingRect(of: ranges[1].range, in: view))
 
-        let expected = measure * ScriptTypography.indents(for: .dialogue)!.head
-        XCTAssertEqual(dialogue.minX, expected, accuracy: 1, "dialogue sits at the shared indent")
+        let font = ScriptLayout.font(for: .dialogue)
+        let pitch = ("0" as NSString).size(withAttributes: [.font: font]).width
+        // Glyph bounding boxes sit left of the advance origin (Courier's
+        // side bearing). The indent itself is the paragraph style — the
+        // same ten-character inset the PDF uses.
+        let style = try XCTUnwrap(
+            view.textStorage?.attribute(
+                .paragraphStyle, at: ranges[1].range.location, effectiveRange: nil
+            ) as? NSParagraphStyle
+        )
+        XCTAssertEqual(style.firstLineHeadIndent, 10 * pitch, accuracy: 0.5, "dialogue sits at the print indent")
         XCTAssertLessThan(heading.minX, dialogue.minX, "a slug runs full measure")
     }
 
