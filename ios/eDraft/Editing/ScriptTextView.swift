@@ -430,13 +430,13 @@ struct ScriptTextView: UIViewRepresentable {
             around caretBefore: CGFloat?, otherwise preserved: CGPoint, in textView: ScreenplayTextView
         ) {
             let range = scrollableRange(in: textView)
-            let wanted: CGFloat
-            if let caretBefore, let caretAfter = caretScreenY(in: textView) {
-                wanted = textView.contentOffset.y + (caretAfter - caretBefore)
-            } else {
-                wanted = preserved.y
-            }
-            let y = min(max(wanted, range.top), range.bottom)
+            let y = PageScroll.settled(
+                caretWas: caretBefore,
+                caretIs: caretScreenY(in: textView),
+                preserved: preserved.y,
+                offset: textView.contentOffset.y,
+                in: range
+            )
             if abs(textView.contentOffset.y - y) > 0.5 {
                 textView.setContentOffset(CGPoint(x: preserved.x, y: y), animated: false)
             }
@@ -448,14 +448,13 @@ struct ScriptTextView: UIViewRepresentable {
         /// one-line caret move, UIKit's reveal scroll) is left alone.
         /// The offsets this page may rest at: the top is minus the bar's
         /// clearance, not zero, because the content begins below the bar.
-        private func scrollableRange(in textView: UITextView) -> (top: CGFloat, bottom: CGFloat) {
-            let top = -textView.adjustedContentInset.top
-            let bottom = max(
-                textView.contentSize.height - textView.bounds.height
-                    + textView.adjustedContentInset.bottom,
-                top
+        private func scrollableRange(in textView: UITextView) -> ClosedRange<CGFloat> {
+            PageScroll.range(
+                contentHeight: textView.contentSize.height,
+                viewportHeight: textView.bounds.height,
+                topInset: textView.adjustedContentInset.top,
+                bottomInset: textView.adjustedContentInset.bottom
             )
-            return (top, bottom)
         }
 
         /// Brings the caret back inside the readable band, moving the page as
@@ -472,22 +471,20 @@ struct ScriptTextView: UIViewRepresentable {
             let caret = textView.caretRect(for: position)
             guard !caret.isNull, !caret.isInfinite else { return }
 
-            let margin: CGFloat = 8
             let visibleTop = textView.contentOffset.y + textView.adjustedContentInset.top
             let visibleBottom = textView.contentOffset.y + textView.bounds.height
                 - textView.adjustedContentInset.bottom
-            var y = textView.contentOffset.y
-            if caret.minY < visibleTop + margin {
-                y -= visibleTop + margin - caret.minY
-            } else if caret.maxY > visibleBottom - margin {
-                y += caret.maxY - (visibleBottom - margin)
-            } else {
-                return
-            }
-            let range = scrollableRange(in: textView)
+            guard visibleBottom > visibleTop,
+                  let y = PageScroll.correction(
+                      revealing: caret.minY...max(caret.minY, caret.maxY),
+                      within: visibleTop...visibleBottom,
+                      margin: 8,
+                      from: textView.contentOffset.y,
+                      in: scrollableRange(in: textView)
+                  )
+            else { return }
             textView.setContentOffset(
-                CGPoint(x: textView.contentOffset.x, y: min(max(y, range.top), range.bottom)),
-                animated: false
+                CGPoint(x: textView.contentOffset.x, y: y), animated: false
             )
         }
 
@@ -1588,9 +1585,11 @@ struct ScriptTextView: UIViewRepresentable {
             // anyway puts a short script under the navigation bar: the resting
             // offset of an inset scroll view is not zero, and this ran before
             // the bar's clearance had been measured.
-            let (top, bottom) = scrollableRange(in: textView)
-            guard bottom > top else { return }
-            let y = min(max(rect.minY + textView.textContainerInset.top + top, top), bottom)
+            let range = scrollableRange(in: textView)
+            guard PageScroll.canScroll(range) else { return }
+            let y = PageScroll.offset(
+                bringingContentY: rect.minY + textView.textContainerInset.top, toTopOf: range
+            )
             textView.setContentOffset(CGPoint(x: 0, y: y), animated: false)
         }
 
