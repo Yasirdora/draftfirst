@@ -37,39 +37,67 @@ public enum LaunchIdentity {
     /// rather than a line near it.
     public nonisolated static let marginRuleFraction: CGFloat = 1.5 / 8.5
 
-    /// A colour that answers to the appearance the writer chose.
+    /// One colour, kept as components so a test can weigh it rather than
+    /// only compare it. Asserting that two colours differ says nothing about
+    /// whether one can be read on the other.
+    public nonisolated struct Tone: Sendable, Equatable {
+        public let red: Double
+        public let green: Double
+        public let blue: Double
+
+        public init(_ red: Double, _ green: Double, _ blue: Double) {
+            self.red = red
+            self.green = green
+            self.blue = blue
+        }
+
+        public var color: Color { Color(red: red, green: green, blue: blue) }
+
+        /// Rec. 709 relative luminance — how light this reads, not how light
+        /// its numbers look.
+        public var luminance: Double { 0.2126 * red + 0.7152 * green + 0.0722 * blue }
+    }
+
+    /// A tone that answers to the appearance the writer chose.
     ///
     /// A pair, resolved at draw time, rather than a `UIColor`/`NSColor` dynamic
     /// provider: this package may import neither kit, and a pair is also
     /// something a test can read without rendering anything.
     public nonisolated struct Ink: Sendable, Equatable {
-        public let light: Color
-        public let dark: Color
+        public let light: Tone
+        public let dark: Tone
 
-        public init(light: Color, dark: Color) {
+        public init(light: Tone, dark: Tone) {
             self.light = light
             self.dark = dark
         }
 
-        public func resolved(_ scheme: ColorScheme) -> Color {
+        public func resolved(_ scheme: ColorScheme) -> Tone {
             scheme == .dark ? dark : light
         }
+
+        public func color(_ scheme: ColorScheme) -> Color { resolved(scheme).color }
     }
 
-    /// Slightly warm, like paper; not the system's neutral grey.
-    public nonisolated static let paper = Ink(
-        light: Color(red: 0.129, green: 0.122, blue: 0.157),
-        dark: Color(red: 0.055, green: 0.051, blue: 0.071)
+    /// The desk, not the page.
+    ///
+    /// Dark in *both* appearances, and deliberately so: on the phone this is a
+    /// frame around a launch card that covers most of the screen, and a ground
+    /// the colour of paper would say nothing at all. The name matters — called
+    /// `paper`, it invited text in `ink.light` to be drawn on it, which is
+    /// black on black. It is a desk. Things on it are lit.
+    public nonisolated static let desk = Ink(
+        light: Tone(0.129, 0.122, 0.157),
+        dark: Tone(0.055, 0.051, 0.071)
     )
 
-    public nonisolated static let ink = Ink(
-        light: Color(red: 0.086, green: 0.082, blue: 0.102),
-        dark: Color(red: 0.914, green: 0.902, blue: 0.878)
-    )
+    /// What reads on the desk. One tone, because the desk is dark in both
+    /// appearances and so its lettering is light in both.
+    public nonisolated static let deskInk = Tone(0.914, 0.902, 0.878)
 
     public nonisolated static let rule = Ink(
-        light: Color(red: 0.239, green: 0.227, blue: 0.290),
-        dark: Color(red: 0.180, green: 0.173, blue: 0.208)
+        light: Tone(0.239, 0.227, 0.290),
+        dark: Tone(0.180, 0.173, 0.208)
     )
 
     /// The production revision colours, in the order a script reprints in —
@@ -103,12 +131,12 @@ public enum LaunchIdentity {
 
         public var body: some View {
             ZStack(alignment: .topLeading) {
-                LaunchIdentity.paper.resolved(scheme)
+                LaunchIdentity.desk.color(scheme)
 
                 // Drawn once, at a weight you notice only if you look for it.
                 GeometryReader { geometry in
                     Rectangle()
-                        .fill(LaunchIdentity.rule.resolved(scheme))
+                        .fill(LaunchIdentity.rule.color(scheme))
                         .frame(width: 1)
                         .offset(x: geometry.size.width * LaunchIdentity.marginRuleFraction)
                 }

@@ -26,24 +26,42 @@ final class LaunchIdentityTests: XCTestCase {
         XCTAssertEqual(LaunchIdentity.revisionRun.count, 9)
     }
 
-    func testTheGroundAnswersToBothAppearances() {
-        XCTAssertNotEqual(
-            LaunchIdentity.paper.resolved(.light),
-            LaunchIdentity.paper.resolved(.dark),
-            "a ground that ignores the appearance has no edge in one of them"
-        )
-        XCTAssertNotEqual(
-            LaunchIdentity.ink.resolved(.light),
-            LaunchIdentity.ink.resolved(.dark)
-        )
+    func testTheDeskIsDarkInBothAppearances() {
+        // Not an oversight: on the phone this is a frame around a launch card,
+        // and a ground the colour of paper would say nothing at all.
+        for scheme in [ColorScheme.light, .dark] {
+            XCTAssertLessThan(
+                LaunchIdentity.desk.resolved(scheme).luminance,
+                0.2,
+                "the ground is a desk, not a page (\(scheme))"
+            )
+        }
     }
 
-    func testInkAndPaperAreNotTheSameColourInEitherAppearance() {
+    /// The test that should have existed the first time. Asserting two colours
+    /// are *different* passes for black on black; asserting one can be read on
+    /// the other does not.
+    func testTheLetteringCanBeReadOnTheDeskInBothAppearances() {
         for scheme in [ColorScheme.light, .dark] {
-            XCTAssertNotEqual(
-                LaunchIdentity.ink.resolved(scheme),
-                LaunchIdentity.paper.resolved(scheme),
-                "unreadable in \(scheme)"
+            let ground = LaunchIdentity.desk.resolved(scheme).luminance
+            let lettering = LaunchIdentity.deskInk.luminance
+            XCTAssertGreaterThan(
+                lettering - ground,
+                0.5,
+                "unreadable in \(scheme): lettering \(lettering) on ground \(ground)"
+            )
+        }
+    }
+
+    func testTheMarginRuleIsVisibleAgainstTheDeskWithoutShouting() {
+        for scheme in [ColorScheme.light, .dark] {
+            let ground = LaunchIdentity.desk.resolved(scheme).luminance
+            let rule = LaunchIdentity.rule.resolved(scheme).luminance
+            XCTAssertGreaterThan(rule, ground, "the rule must be lighter than the desk")
+            XCTAssertLessThan(
+                rule - ground,
+                0.25,
+                "a weight you notice only if you look for it, not a stripe"
             )
         }
     }

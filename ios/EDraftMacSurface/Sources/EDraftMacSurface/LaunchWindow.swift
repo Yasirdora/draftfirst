@@ -119,16 +119,20 @@ public struct LaunchWindow: View {
             .padding(.bottom, 24)
         }
         .frame(minWidth: 560, minHeight: 420)
+        // The desk is dark in both appearances, so the system controls on it
+        // must be too. Without this a bordered button renders for light mode
+        // and puts dark lettering on a dark ground.
+        .preferredColorScheme(.dark)
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             LaunchIdentity.title
                 .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(LaunchIdentity.ink.resolved(scheme))
+                .foregroundStyle(LaunchIdentity.deskInk.color)
             Text("Screenplays, in plain text that stays yours.")
                 .font(.callout)
-                .foregroundStyle(LaunchIdentity.ink.resolved(scheme).opacity(0.65))
+                .foregroundStyle(LaunchIdentity.deskInk.color.opacity(0.65))
         }
     }
 
@@ -149,10 +153,10 @@ public struct LaunchWindow: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("No Recent Scripts")
                 .font(.headline)
-                .foregroundStyle(LaunchIdentity.ink.resolved(scheme))
+                .foregroundStyle(LaunchIdentity.deskInk.color)
             Text("To start one, click New Screenplay.")
                 .font(.subheadline)
-                .foregroundStyle(LaunchIdentity.ink.resolved(scheme).opacity(0.6))
+                .foregroundStyle(LaunchIdentity.deskInk.color.opacity(0.6))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -161,19 +165,19 @@ public struct LaunchWindow: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Recent")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(LaunchIdentity.ink.resolved(scheme).opacity(0.6))
+                .foregroundStyle(LaunchIdentity.deskInk.color.opacity(0.6))
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(recents) { script in
                         Button { onPick(script.url) } label: {
                             HStack {
                                 Text(script.name)
-                                    .foregroundStyle(LaunchIdentity.ink.resolved(scheme))
+                                    .foregroundStyle(LaunchIdentity.deskInk.color)
                                 Spacer()
                                 Text(script.when)
                                     .font(.caption)
                                     .foregroundStyle(
-                                        LaunchIdentity.ink.resolved(scheme).opacity(0.5)
+                                        LaunchIdentity.deskInk.color.opacity(0.5)
                                     )
                             }
                             .contentShape(Rectangle())
