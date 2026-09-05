@@ -2,7 +2,7 @@
  * iOS bridge entry — bundled together with the engine dist into a single IIFE
  * that JavaScriptCore can evaluate (scripts/ios-engine-sync.mjs).
  *
- * Swift talks to exactly one global: __draftfirstCall(fn, argsArray) -> JSON string.
+ * Swift talks to exactly one global: __edraftCall(fn, argsArray) -> JSON string.
  * Arguments cross Swift→JS via JSValue bridging (NSString/NSArray/NSDictionary
  * become real JS strings/arrays/objects). Results cross JS→Swift as JSON text
  * so nothing depends on bridging quirks (undefined, prototypes, Maps).
@@ -30,9 +30,9 @@ const api = {
 	nextElement
 };
 
-globalThis.__draftfirstVersion = ENGINE_VERSION;
+globalThis.__edraftVersion = ENGINE_VERSION;
 
-globalThis.__draftfirstCall = function __draftfirstCall(fn, args) {
+globalThis.__edraftCall = function __edraftCall(fn, args) {
 	const f = api[fn];
 	if (typeof f !== 'function') {
 		throw new Error('edraft: unknown engine function "' + fn + '"');
@@ -47,7 +47,7 @@ globalThis.__draftfirstCall = function __draftfirstCall(fn, args) {
  * so Phase 0 Spike B measures the real thing on both. Timings exclude bridge
  * overhead by construction.
  */
-globalThis.__draftfirstBench = function __draftfirstBench(sceneCount) {
+globalThis.__edraftBench = function __edraftBench(sceneCount) {
 	const scenes = Math.max(1, Math.floor(sceneCount) || 1);
 	const parts = ['FADE IN:'];
 	for (let i = 1; i <= scenes; i++) {

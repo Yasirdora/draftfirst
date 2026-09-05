@@ -1939,7 +1939,7 @@
 				</div>
 				<p class="modal-msg">The current draft will be replaced. ⌘Z brings it right back — or keep a copy first.</p>
 				<div class="modal-foot">
-					<button type="button" class="spbtn secondary" onclick={exportThenNew}>Export .draft first</button>
+					<button type="button" class="spbtn secondary" onclick={exportThenNew}>Export .draft copy</button>
 					<button type="button" class="spbtn primary" onclick={startNew}>Start new</button>
 				</div>
 			</div>

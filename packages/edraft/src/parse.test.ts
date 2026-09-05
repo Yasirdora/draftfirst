@@ -54,9 +54,9 @@ describe('parseFountain · title page', () => {
 	});
 
 	it('accepts custom title-page keys emitted by the serializer', () => {
-		const s = parseFountain('Project Code: DRAFT-FIRST-7\nTitle: Custom metadata\n\n');
+		const s = parseFountain('Project Code: EDRAFT-7\nTitle: Custom metadata\n\n');
 		expect(s.titlePage).toEqual([
-			{ key: 'Project Code', values: ['DRAFT-FIRST-7'] },
+			{ key: 'Project Code', values: ['EDRAFT-7'] },
 			{ key: 'Title', values: ['Custom metadata'] }
 		]);
 	});

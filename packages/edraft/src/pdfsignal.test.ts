@@ -71,7 +71,7 @@ describe('encodePdfPayload / extractPdfPayload', () => {
  */
 describe('pre-rename PDFs', () => {
 	const legacyPayload = (fountain: string): string => {
-		const bytes = encodeUtf8(`DRAFT_FIRST_FOUNTAIN:1\n${fountain}`);
+		const bytes = encodeUtf8(`EDRAFT_FOUNTAIN:1\n${fountain}`);
 		let hex = '';
 		for (let i = 0; i < bytes.length; i++) hex += bytes[i]!.toString(16).padStart(2, '0');
 		return hex;

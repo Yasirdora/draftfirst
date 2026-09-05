@@ -32,7 +32,7 @@ describe('choreography · Enter, the forward flow', () => {
 
 	it('Enter on an empty line changes what the line is, and action reaches a cue', () => {
 		// The way out of a speech block, from anywhere inside it.
-		expect(nextElement('character', 'enter', '')).toBe('action');
+		expect(nextElement('character', 'enter', '')).toBe('scene');
 		expect(nextElement('dialogue', 'enter', '')).toBe('action');
 		expect(nextElement('parenthetical', 'enter', '')).toBe('action');
 		expect(nextElement('scene', 'enter', '   ')).toBe('action');
@@ -40,7 +40,7 @@ describe('choreography · Enter, the forward flow', () => {
 		// reaches for the person who speaks next.
 		expect(nextElement('action', 'enter', '')).toBe('character');
 		// So a blank line is a cycle rather than a dead end.
-		expect(nextElement(emptyLineEscape('action'), 'enter', '')).toBe('action');
+		expect(nextElement(emptyLineEscape('action'), 'enter', '')).toBe('scene');
 	});
 });
 

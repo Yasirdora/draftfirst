@@ -1,0 +1,610 @@
+[0/1] Planning build
+Building for debugging...
+[0/2] Write swift-version--58304C5D6DBC2206.txt
+Build complete! (0.13s)
+Test Suite 'Selected tests' started at 2026-09-05 00:47:37.209.
+Test Suite 'EDraftEnginePackageTests.xctest' started at 2026-09-05 00:47:37.211.
+Test Suite 'EDraftEnginePackageTests.xctest' passed at 2026-09-05 00:47:37.211.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-09-05 00:47:37.211.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1902
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Suite "Choreography conformance" started.
+◇ Test "corpus loads non-empty" started.
+◇ Test "tabRingCycle" started.
+◇ Test "nextElement" started.
+◇ Test "tabSetFor" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "scene", reverse: true, result: "transition") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "action", reverse: false, result: "character") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: nil, result: ["scene", "action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "scene", key: "enter", text: "x", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "scene", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "action", reverse: true, result: "scene") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "scene", reverse: false, result: "action") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "scene", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "character", reverse: false, result: "dialogue") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("scene"), result: ["action", "character", "transition"]) to "tabSetFor" started.
+◇ Test "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "character", reverse: true, result: "action") to "tabRingCycle" started.
+✔ Test "corpus loads non-empty" passed after 0.001 seconds.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("action"), result: ["action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "scene", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "scene", key: "tab", text: "x", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "dialogue", reverse: false, result: "parenthetical") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "scene", key: "tab", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "parenthetical", reverse: false, result: "transition") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("character"), result: ["dialogue", "parenthetical"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "dialogue", reverse: true, result: "character") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("dialogue"), result: ["dialogue", "transition", "scene", "action", "character"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "parenthetical", reverse: true, result: "dialogue") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "transition", reverse: false, result: "scene") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("transition"), result: ["scene", "action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("shot"), result: ["scene", "action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("parenthetical"), result: ["dialogue"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "action", key: "enter", text: "x", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "action", key: "enter", text: "", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "shot", reverse: false, result: "character") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("general"), result: ["scene", "action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "shot", reverse: true, result: "scene") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "transition", reverse: true, result: "parenthetical") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("centered"), result: ["scene", "action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "action", key: "enter", text: "   ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "general", reverse: false, result: "character") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "general", reverse: true, result: "scene") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("lyrics"), result: ["scene", "action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "scene", key: "tab", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "action", key: "tab", text: "x", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "centered", reverse: false, result: "character") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "scene", key: "tab", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("note"), result: ["scene", "action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "action", key: "tab", text: "", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "centered", reverse: true, result: "scene") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("section"), result: ["scene", "action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "action", key: "enter", text: " ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "lyrics", reverse: false, result: "character") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "action", key: "tab", text: " ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "lyrics", reverse: true, result: "scene") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "note", reverse: false, result: "character") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "action", key: "tab", text: "   ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("synopsis"), result: ["scene", "action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "character", key: "enter", text: "x", result: "dialogue") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabSetFor(prev: Optional("pagebreak"), result: ["scene", "action", "character", "transition"]) to "tabSetFor" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "note", reverse: true, result: "scene") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "section", reverse: false, result: "character") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "character", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "character", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "synopsis", reverse: false, result: "character") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "synopsis", reverse: true, result: "scene") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "section", reverse: true, result: "scene") to "tabRingCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "character", key: "tab", text: "x", result: "dialogue") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "character", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "pagebreak", reverse: false, result: "character") to "tabRingCycle" started.
+✘ Test "nextElement" recorded an issue with 1 argument case_ → NextElement(current: "character", key: "enter", text: " ", result: "action") at ChoreographyConformanceTests.swift:56:9: Expectation failed: (Choreography.nextKind(after: current, key: key,
+                                      currentText: case_.text) → .scene) == (expected → .action)
+◇ Test case passing 1 argument case_ → NextElement(current: "character", key: "tab", text: "", result: "dialogue") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "character", key: "tab", text: "   ", result: "dialogue") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabNext(current: "pagebreak", reverse: true, result: "scene") to "tabRingCycle" started.
+✘ Test "nextElement" recorded an issue with 1 argument case_ → NextElement(current: "character", key: "enter", text: "   ", result: "action") at ChoreographyConformanceTests.swift:56:9: Expectation failed: (Choreography.nextKind(after: current, key: key,
+                                      currentText: case_.text) → .scene) == (expected → .action)
+✘ Test "nextElement" recorded an issue with 1 argument case_ → NextElement(current: "character", key: "enter", text: "", result: "action") at ChoreographyConformanceTests.swift:56:9: Expectation failed: (Choreography.nextKind(after: current, key: key,
+                                      currentText: case_.text) → .scene) == (expected → .action)
+◇ Test case passing 1 argument case_ → NextElement(current: "dialogue", key: "enter", text: "x", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "dialogue", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "dialogue", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "dialogue", key: "tab", text: "x", result: "parenthetical") to "nextElement" started.
+✔ Test "tabRingCycle" with 28 test cases passed after 0.001 seconds.
+◇ Test case passing 1 argument case_ → NextElement(current: "character", key: "tab", text: " ", result: "dialogue") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "dialogue", key: "tab", text: "", result: "parenthetical") to "nextElement" started.
+✔ Test "tabSetFor" with 15 test cases passed after 0.001 seconds.
+◇ Test case passing 1 argument case_ → NextElement(current: "dialogue", key: "tab", text: "   ", result: "parenthetical") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "dialogue", key: "tab", text: " ", result: "parenthetical") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "parenthetical", key: "enter", text: "x", result: "dialogue") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "parenthetical", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "dialogue", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "parenthetical", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "parenthetical", key: "tab", text: "x", result: "transition") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "parenthetical", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: nil, reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "parenthetical", key: "tab", text: " ", result: "transition") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "parenthetical", key: "tab", text: "   ", result: "transition") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "transition", key: "enter", text: "x", result: "scene") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "transition", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "parenthetical", key: "tab", text: "", result: "transition") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "transition", key: "tab", text: "x", result: "scene") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "transition", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("dialogue"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("dialogue"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "transition", key: "tab", text: "   ", result: "scene") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "transition", key: "tab", text: "", result: "scene") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "transition", key: "tab", text: " ", result: "scene") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "shot", key: "enter", text: "x", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("transition"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "transition", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "shot", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "shot", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "shot", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("general"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "shot", key: "tab", text: "", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("shot"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "shot", key: "tab", text: "   ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "shot", key: "tab", text: "x", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("centered"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "shot", key: "tab", text: " ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "general", key: "enter", text: "x", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("lyrics"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "general", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "general", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "general", key: "tab", text: "x", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "general", key: "tab", text: "", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "general", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "general", key: "tab", text: "   ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "general", key: "tab", text: " ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("note"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "centered", key: "enter", text: "x", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("section"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "centered", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "centered", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("pagebreak"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "scene", prev: Optional("synopsis"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: nil, reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "centered", key: "tab", text: "x", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "centered", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("scene"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "centered", key: "tab", text: "   ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: nil, reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "centered", key: "tab", text: " ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("action"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "lyrics", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "centered", key: "tab", text: "", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "lyrics", key: "enter", text: "x", result: "lyrics") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "lyrics", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "lyrics", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("dialogue"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "lyrics", key: "tab", text: "", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "lyrics", key: "tab", text: "x", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "lyrics", key: "tab", text: "   ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("dialogue"), reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "note", key: "enter", text: "x", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "note", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("transition"), reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("transition"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("shot"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "lyrics", key: "tab", text: " ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "note", key: "tab", text: "x", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("shot"), reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "note", key: "tab", text: "", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("general"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("general"), reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("centered"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "note", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "note", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "note", key: "tab", text: " ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "section", key: "enter", text: "x", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("lyrics"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "section", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("lyrics"), reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "section", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("centered"), reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("note"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("note"), reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("section"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "section", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("section"), reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "section", key: "tab", text: "   ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "note", key: "tab", text: "   ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "section", key: "tab", text: " ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "section", key: "tab", text: "x", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("synopsis"), reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "synopsis", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "synopsis", key: "enter", text: "x", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("pagebreak"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("synopsis"), reverse: false, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "synopsis", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "action", prev: Optional("pagebreak"), reverse: true, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "synopsis", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "section", key: "tab", text: "", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: nil, reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: nil, reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "synopsis", key: "tab", text: "", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "synopsis", key: "tab", text: "x", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("scene"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("scene"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "synopsis", key: "tab", text: "   ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("action"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "synopsis", key: "tab", text: " ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "pagebreak", key: "enter", text: "", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "pagebreak", key: "enter", text: "   ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "pagebreak", key: "tab", text: "x", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("dialogue"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("action"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "pagebreak", key: "enter", text: " ", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "pagebreak", key: "enter", text: "x", result: "action") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "pagebreak", key: "tab", text: "", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "pagebreak", key: "tab", text: "   ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("dialogue"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("transition"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("transition"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → NextElement(current: "pagebreak", key: "tab", text: " ", result: "character") to "nextElement" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("shot"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("centered"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("general"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("general"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("centered"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("lyrics"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("shot"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("note"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("lyrics"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("section"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("section"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("synopsis"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("synopsis"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("note"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("pagebreak"), reverse: true, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("character"), reverse: false, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("dialogue"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("dialogue"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "character", prev: Optional("pagebreak"), reverse: false, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "dialogue", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("character"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("dialogue"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("dialogue"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: nil, reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("action"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("scene"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "parenthetical", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("dialogue"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("dialogue"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("general"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("transition"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("centered"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("lyrics"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("shot"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("note"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("pagebreak"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("synopsis"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("section"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "transition", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("dialogue"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("dialogue"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "shot", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("dialogue"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("dialogue"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("dialogue"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("dialogue"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "general", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "centered", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("dialogue"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("dialogue"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "lyrics", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("dialogue"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("dialogue"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("dialogue"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("dialogue"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "note", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("dialogue"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("dialogue"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "section", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: nil, reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: nil, reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("scene"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("scene"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "synopsis", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("character"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("character"), reverse: true, result: "parenthetical") to "tabCycle" started.
+✘ Test "nextElement" with 112 test cases failed after 0.010 seconds with 3 issues.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("action"), reverse: false, result: "action") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("parenthetical"), reverse: true, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("parenthetical"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("dialogue"), reverse: false, result: "dialogue") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("action"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("dialogue"), reverse: true, result: "character") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("transition"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("shot"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("transition"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("centered"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("shot"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("lyrics"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("note"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("general"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("general"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("section"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("synopsis"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("centered"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("pagebreak"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("pagebreak"), reverse: false, result: "scene") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("lyrics"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("note"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("synopsis"), reverse: true, result: "transition") to "tabCycle" started.
+◇ Test case passing 1 argument case_ → TabCycle(current: "pagebreak", prev: Optional("section"), reverse: true, result: "transition") to "tabCycle" started.
+✔ Test "tabCycle" with 420 test cases passed after 0.010 seconds.
+✘ Suite "Choreography conformance" failed after 0.011 seconds with 3 issues.
+↳ /// Conformance of `Choreography` against the TypeScript engine's exported
+↳ /// corpus (`Fixtures/choreography.json`). Every row was produced by the TS
+↳ /// implementation; the Swift port must match it exactly.
+✘ Test run with 5 tests in 1 suite failed after 0.011 seconds with 3 issues.

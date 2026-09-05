@@ -36,7 +36,8 @@ export const ENTER_FLOW: Readonly<Record<string, AnyElementType>> = {
  * once more.
  */
 export const EMPTY_LINE_ESCAPE: Readonly<Record<string, AnyElementType>> = {
-	action: 'character'
+	action: 'character',
+	character: 'scene'
 };
 
 /** What an empty line becomes on Return. */

@@ -30,7 +30,7 @@ export const PDF_MARKER_VERSION = '1';
  * theirs.
  */
 export const LEGACY_PDF_MARKER_PREFIXES: readonly string[] = Object.freeze([
-	'DRAFT_FIRST_FOUNTAIN'
+	'EDRAFT_FOUNTAIN'
 ]);
 
 function isKnownMarkerPrefix(prefix: string): boolean {

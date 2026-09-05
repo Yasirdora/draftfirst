@@ -3,7 +3,7 @@
  * Engine conformance corpus exporter.
  *
  * Runs the TypeScript engine — the web source of truth — over a curated
- * fixture matrix and writes golden masters to ios/DraftFirstEngine/Fixtures/.
+ * fixture matrix and writes golden masters to ios/eDraftEngine/Fixtures/.
  * The Swift engine must reproduce every expected value exactly. Regenerating
  * after an engine change produces a diff: that diff IS the behaviour change,
  * and it is reviewed like code.
@@ -33,7 +33,7 @@ import {
 import { crc32 } from '../packages/edraft/dist/crc32.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const outDir = join(root, 'ios/DraftFirstEngine/Fixtures');
+const outDir = join(root, 'ios/eDraftEngine/Fixtures');
 mkdirSync(outDir, { recursive: true });
 
 const PRINTING_TYPES = [
@@ -467,12 +467,12 @@ addFdxImport(
 	`<FinalDraft><Content><Paragraph Type="Character" Dual="Yes"><Text>MARA</Text></Paragraph><Paragraph Type="Action" Number="9"><Text>Number on action is ignored.</Text></Paragraph></Content></FinalDraft>`
 );
 addFdxImport(
-	'draftfirst-markers',
-	`<FinalDraft><Content><Paragraph Type="General" DraftFirst:ElementType="lyrics"><Text>La la</Text></Paragraph><Paragraph Type="General" Alignment="Center"><Text>THE END</Text></Paragraph></Content></FinalDraft>`
+	'edraft-markers',
+	`<FinalDraft><Content><Paragraph Type="General" EDraft:ElementType="lyrics"><Text>La la</Text></Paragraph><Paragraph Type="General" Alignment="Center"><Text>THE END</Text></Paragraph></Content></FinalDraft>`
 );
 addFdxImport(
 	'conflicting-title-metadata',
-	`<FinalDraft><Content/><TitlePage><Content><Paragraph Type="General" DraftFirst:TitleKey="Title" DraftFirst:TitleEntry="0"><Text>A</Text></Paragraph><Paragraph Type="General" DraftFirst:TitleKey="Author" DraftFirst:TitleEntry="0"><Text>B</Text></Paragraph></Content></TitlePage></FinalDraft>`
+	`<FinalDraft><Content/><TitlePage><Content><Paragraph Type="General" EDraft:TitleKey="Title" EDraft:TitleEntry="0"><Text>A</Text></Paragraph><Paragraph Type="General" EDraft:TitleKey="Author" EDraft:TitleEntry="0"><Text>B</Text></Paragraph></Content></TitlePage></FinalDraft>`
 );
 /* Real Final Draft title pages run long — title, credit, multiple writers,
    source, copyright, address. Eight positional paragraphs exceed the five
@@ -537,4 +537,4 @@ addFdxExport('illegal-characters', {
 
 writeFixture('fdx.json', { import: fdxImport, export: fdxExport });
 
-console.log('✓ conformance corpus written to ios/DraftFirstEngine/Fixtures/');
+console.log('✓ conformance corpus written to ios/eDraftEngine/Fixtures/');
