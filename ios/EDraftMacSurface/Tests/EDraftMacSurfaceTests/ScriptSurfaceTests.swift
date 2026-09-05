@@ -107,6 +107,75 @@ final class ScriptSurfaceTests: XCTestCase {
         XCTAssertGreaterThan(surface.canvas.pageView.layer?.borderWidth ?? 0, 0)
     }
 
+    /// The card is not the page. A glyph of the last element must sit on it
+    /// — position and containment, not a height greater than zero, which a
+    /// one-line-tall view would also satisfy. This is the assertion that
+    /// would have stopped a blank page shipping green.
+    func testTheLastElementLandsOnTheCard() throws {
+        let elements = script(scenes: 3)
+        let surface = surface(elements)
+        let last = try XCTUnwrap(ScreenplayEditPlanner.ranges(for: elements).last)
+        let lastRect = try XCTUnwrap(
+            ScriptLayout.boundingRect(of: last.range, in: surface.textView),
+            "the last element has no rectangle — there is nothing to put on the card"
+        )
+
+        let view = surface.textView
+        XCTAssertTrue(
+            view.bounds.insetBy(dx: -1, dy: -1).contains(lastRect),
+            """
+            the last line sits at \(lastRect) but the text view is only \(view.frame.size) \
+            (minSize=\(view.minSize) maxSize=\(view.maxSize)) — the script is not on the card
+            """
+        )
+
+        let inPage = lastRect.offsetBy(dx: view.frame.minX, dy: view.frame.minY)
+        let pageBounds = CGRect(origin: .zero, size: surface.pageFrame.size)
+        XCTAssertTrue(
+            pageBounds.insetBy(dx: -1, dy: -1).contains(inPage),
+            "the last line \(inPage) is not inside the page card \(pageBounds)"
+        )
+    }
+
+    /// The page card is taller than a short window. If the text view is
+    /// pinned to the bottom of an unflipped page, the writer sees a blank
+    /// card and has to scroll to find a script that is already "on" it.
+    func testTheFirstLineSitsAtTheTopOfTheCard() throws {
+        let elements = script(scenes: 3)
+        let surface = surface(elements)
+        let first = try XCTUnwrap(ScreenplayEditPlanner.ranges(for: elements).first)
+        let firstRect = try XCTUnwrap(
+            ScriptLayout.boundingRect(of: first.range, in: surface.textView)
+        )
+        let inCanvas = surface.canvas.convert(firstRect, from: surface.textView)
+        let expectedY = surface.pageFrame.minY + PageFormat.current.textTop
+        XCTAssertEqual(
+            inCanvas.minY, expectedY, accuracy: 8,
+            "the first line is at canvas y=\(inCanvas.minY), expected \(expectedY) (page top + 1″ margin). a blank window means the script is at the bottom of the card"
+        )
+    }
+
+    /// A 450pt window on an 11″ card. The first line has to be in the
+    /// visible rect without the writer scrolling — a flipped document
+    /// view that opens at the foot looks like a blank page.
+    func testAShortWindowShowsTheFirstLineWithoutScrolling() throws {
+        let elements = script(scenes: 3)
+        let surface = ScriptSurface(measure: 700)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.render(elements)
+        let first = try XCTUnwrap(ScreenplayEditPlanner.ranges(for: elements).first)
+        let firstRect = try XCTUnwrap(
+            ScriptLayout.boundingRect(of: first.range, in: surface.textView)
+        )
+        let visible = surface.scrollView.contentView.bounds
+        let inClip = surface.textView.convert(firstRect, to: surface.scrollView.contentView)
+        XCTAssertFalse(
+            visible.intersection(inClip).isNull,
+            "the first line is at \(inClip) and the visible rect is \(visible) — the window opened looking at empty paper"
+        )
+    }
+
     /// A page card is a surface with edges. Layer `cgColor`s do not track
     /// appearance on their own, so both looks have to be applied and read
     /// back — a card that only looks right in light has no edge in dark.

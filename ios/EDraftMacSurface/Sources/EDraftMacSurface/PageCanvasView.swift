@@ -11,11 +11,18 @@ import EDraftCore
 /// because a layer's `cgColor` does not track dark/light on its own, and
 /// a page card that only looks right in one of them has no edge in the other.
 final class PageCanvasView: NSView {
-    let pageView = NSView()
+    let pageView = FlippedView()
     private weak var textView: NSTextView?
     var canvasPadding: CGFloat = 36
 
     override var isFlipped: Bool { true }
+
+    /// Matches the canvas and the text view. An unflipped card inside a
+    /// flipped canvas puts y=72 at the bottom of the sheet, and a short
+    /// window shows a blank page with the script scrolled off the foot.
+    final class FlippedView: NSView {
+        override var isFlipped: Bool { true }
+    }
 
     func attach(_ textView: NSTextView) {
         self.textView = textView

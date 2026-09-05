@@ -80,6 +80,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         textView.isRichText = false
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
+        // `init(frame:textContainer:)` copies the frame into minSize/maxSize.
+        // Height 0 means sizeToFit cannot grow the view, so the script is
+        // laid out in the layout manager and displayed one point tall —
+        // which is invisible. NSScrollView used to hide this by sizing
+        // its document view; the page card does not.
+        textView.minSize = NSSize(width: 0, height: 0)
+        textView.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
         textView.autoresizingMask = []
         textView.textContainerInset = .zero
         container.lineFragmentPadding = 0
@@ -211,12 +221,36 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// scroll, and a reveal quietly does nothing. That is precisely the bug the
     /// phone shipped: a Navigator row that worked on the second tap, because by
     /// then the layout had caught up on its own.
+    ///
+    /// Asking is also not enough if `maxSize.height` is 0. `sizeToFit` will
+    /// not grow past `maxSize`, and a view that started with frame height 0
+    /// inherits that ceiling. The layout manager still has the glyphs; the
+    /// view does not display them. See `testTheLastElementLandsOnTheCard`.
     private func layOut() {
         if let layoutManager = textView.layoutManager, let container = textView.textContainer {
             container.size = CGSize(width: measure, height: .greatestFiniteMagnitude)
             layoutManager.ensureLayout(for: container)
+            // sizeToFit uses usedRect, which is shorter than the glyph
+            // bounding boxes (Courier's descent sits a couple of points
+            // past the used rect). A view sized to usedRect clips the last
+            // line's bounding box, and a containment test — or a selection
+            // highlight — would miss it.
+            let used = layoutManager.usedRect(for: container)
+            let extra = layoutManager.extraLineFragmentUsedRect
+            let glyphs = layoutManager.numberOfGlyphs
+            let glyphBounds = glyphs > 0
+                ? layoutManager.boundingRect(
+                    forGlyphRange: NSRange(location: 0, length: glyphs), in: container
+                )
+                : .zero
+            let height = max(used.maxY, extra.maxY, glyphBounds.maxY, 1)
+            var frame = textView.frame
+            frame.size.width = measure
+            frame.size.height = ceil(height)
+            textView.frame = frame
+        } else {
+            textView.sizeToFit()
         }
-        textView.sizeToFit()
         let viewport = scrollView.contentView.bounds.size
         let size = viewport.width > 1 ? viewport : scrollView.frame.size
         canvas.layoutPage(textHeight: max(textView.frame.height, 1), viewport: size)
