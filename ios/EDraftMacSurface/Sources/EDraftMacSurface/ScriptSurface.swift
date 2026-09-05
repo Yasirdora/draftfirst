@@ -509,6 +509,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         return true
     }
 
+    public func textDidBeginEditing(_ notification: Notification) {
+        editor?.reportEditing(true)
+    }
+
+    public func textDidEndEditing(_ notification: Notification) {
+        editor?.reportEditing(false)
+        hideGhost()
+        editor?.flushPendingWork()
+    }
+
     public func textDidChange(_ notification: Notification) {
         guard !applyingModel, let editor else { return }
         if let pendingEdit, applyIncrementalEdit(pendingEdit) {
