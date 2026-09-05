@@ -5,6 +5,11 @@
 [![CI](https://github.com/Yasirdora/edraft/actions/workflows/ci.yml/badge.svg)](https://github.com/Yasirdora/edraft/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-2ea44f.svg)](./LICENSE)
 
+
+> **Continuing this work?** Start with [docs/HANDOFF.md](docs/HANDOFF.md) —
+> current state, the rules that hold the architecture up, and the traps that
+> have already cost someone hours.
+
 eDraft is a privacy-first screenwriting workspace backed by a reusable,
 framework-independent TypeScript engine. It supports Fountain and a deliberately
 bounded subset of FDX, deterministic screenplay pagination, story-aware writing

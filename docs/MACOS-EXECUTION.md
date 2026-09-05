@@ -2,7 +2,9 @@
 
 *Status: M0 all but complete · M1 answered · **M2 has a window that builds** · Last updated 2026-09-05*
 
-This is the working document. [MACOS-PLAN.md](MACOS-PLAN.md) says why we are
+This is the working document. New here? Read [HANDOFF.md](HANDOFF.md) first —
+it carries the state, the rules and the traps in one page.
+[MACOS-PLAN.md](MACOS-PLAN.md) says why we are
 building it, [MACOS-DESIGN.md](MACOS-DESIGN.md) says what it is, and
 [SHARED-ARCHITECTURE.md](SHARED-ARCHITECTURE.md) says how the two apps stay one
 product. **Start here, then read those.**
