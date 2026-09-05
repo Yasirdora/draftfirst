@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: M0 all but complete · M1 answered · **M2 closed** · Last updated 2026-09-05*
+*Status: M0 all but complete · M1 answered · **M2 closed** (reopened: blank page, then closed) · Last updated 2026-09-05*
 
 This is the working document. New here? Read [HANDOFF.md](HANDOFF.md) first —
 it carries the state, the rules and the traps in one page.
@@ -19,11 +19,11 @@ types, ghosts, finds, **exports and prints**. The inspector (M3) is next.
 **Green baseline** (re-run these before and after every step):
 
 ```bash
-npm test                                              # 413 TypeScript
+npm test                                              # 414 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
 swift test --package-path ios/EDraftCore              #  84 core        (macOS)
 swift test --package-path ios/EDraftUI                #  16 document/filter (macOS)
-swift test --package-path ios/EDraftMacSurface        #  56 layout/page/typing/ghost/find/export (macOS)
+swift test --package-path ios/EDraftMacSurface        #  61 layout/page/typing/ghost/find/export (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -137,6 +137,32 @@ blank line at the very end of a script is worse still: it has no line fragment
 of its own at all and lives in the text system's *extra* fragment, which only
 exists once the whole container has been laid out.
 
+**The height is a result of layout, and of `maxSize`.** M1: a text view's
+height is not recomputed until it is asked (`sizeToFit` / `ensureLayout`).
+M2's page card, two stacked causes, both required:
+
+1. `NSTextView.init(frame:textContainer:)` copies the frame into min/max
+   size. We passed height 0; `sizeToFit` will not grow past `maxSize`.
+   `layoutPage` then set the view to `max(0, 1)` — one point tall, glyphs
+   still in the layout manager. `NSScrollView` had been sizing its
+   document view and hiding this. Measured after init: `frame=(432, 0)
+   min=(432, 0) max=(432, 0)`. After render, before the fix:
+   `frame=(432, 1) max=(432, 1)`.
+2. The page card itself was not flipped. The canvas and the text view
+   are. An unflipped card inside a flipped canvas puts `y = 72` at the
+   *bottom* of the sheet. A 450pt window shows the top of an 11″ card
+   — empty paper — with the script sitting at the foot. Measured:
+   first line at canvas y=450, expected 108. `testTheFirstLineSitsAtTheTopOfTheCard`.
+
+The third occurrence should be recognised on sight: if the script is
+not on the page, print `minSize` / `maxSize` / `frame.height` **and**
+convert the first line into the canvas and see whether it is at the
+top of the card. `testTheLastElementLandsOnTheCard` is the assertion
+that would have stopped a 1pt-tall view shipping green — last
+element's bounding rect inside the text view and inside the card,
+not a height greater than zero. It would not have caught the flip;
+that needed a coordinate in the canvas.
+
 **This was a live bug on iOS**, found by writing the Mac's version as a
 measurement: revealing a blank line drew no mark, and a reveal of the last line
 of a script would have marked the wrong one. Both are fixed, in both surfaces,
@@ -241,10 +267,16 @@ and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
       centred on `underPageBackgroundColor`. File → Export offers the
       four formats; Print is the exported PDF.
       **Measured, not assumed:**
-      - `kCGPDFContextKeywords` writes `/Keywords (…)` as a PDF string.
-        The engine extractor only accepts `/Keywords <hex>` (UTF-8
-        bytes). CG lost; we stamp the hex after `%%EOF`, which the
-        scanner finds and PDFKit still opens.
+      - `kCGPDFContextKeywords` writes `/Keywords (hex)` as a PDF
+        literal in the Info dictionary. Hex is `[0-9a-f]`, legal inside
+        a literal with no escaping. The extractor (TypeScript and Swift)
+        accepts both `(hex)` and `<hex>`. A `%%EOF` stamp is not a
+        field and is dropped by Preview's re-save. Size: 32, 1K, 10K,
+        50K, 100K, 240K, **500K** hex characters all survived a
+        `PDFDocument` rewrite (`hexPresent=true` on the rewritten
+        bytes). A feature script is ~240KB of hex. No attachment
+        fallback. `testTheExportedPdfSurvivesAPdfReaderRewrite` is the
+        test that would have caught the stamp.
       - `NSPrintOperation` over a custom view would paginate again
         against `NSPrintInfo`'s paper. Print is `PDFDocument.printOperation`
         over the bytes we already export, so print cannot drift from PDF.
@@ -263,11 +295,11 @@ and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
       moved with this box.
 
 *Proof, executed:* a script written entirely on the Mac, exported to PDF
-via `ScreenplayPageRenderer.pdfData`, extracts through `PdfSignal` — the
-same function iOS `ScreenplayImport` now calls before OCR — identical,
-including curly quotes, an em dash, and Japanese.
-`MacPdfRoundTripTests.testTheExportedPdfComesBackIdenticalIncludingUnicode`.
-The iPhone UI was not driven to Open that file; the import path is.
+via `ScreenplayPageRenderer.pdfData`, opened with `PDFDocument` and
+written back out, extracts through `PdfSignal` identical — including
+curly quotes, an em dash, and Japanese.
+`testTheExportedPdfSurvivesAPdfReaderRewrite`. The iPhone UI was not
+driven to Open that file; the import path calls the same extract.
 
 ### M3 — The desk
 
@@ -336,6 +368,7 @@ None blocking. Two worth a decision when convenient:
 | 2026-09-05 | Packages sit at `ios/EDraftCore` and `ios/EDraftUI` for now | The `apple/` move (M0.6) is still worth doing, but not while three other steps were in flight. |
 | 2026-09-05 | Core and UI packages are main-actor-by-default; their **test** targets are not | Matches the app targets exactly, and XCTestCase cannot inherit main-actor isolation. |
 | 2026-09-05 | PDF via `CGPDFContext` + hex stamp; print is that PDF | `kCGPDFContextKeywords` writes a PDF string the extractor will not read. `NSPrintOperation` over a view would paginate twice. |
+| 2026-09-05 | **Reversed:** `/Keywords` is a PDF literal in the Info dict, not a `%%EOF` stamp | Measured: `(hex)` survives `PDFDocument` rewrite at 500KB. Trailing junk does not survive a re-save. Extractor widened in both engines. |
 | 2026-09-05 | Page placement in `EDraftCore.ScreenplayPageLayout`, not two renderers | Two 233-line renderers would be two answers to where a line sits. iOS substitution only. |
 
 ---
@@ -365,8 +398,8 @@ neither a screenshot nor the accessibility API can see a window in that state.
   or AppKit. It is plain Node, so it runs on the Linux box that runs CI, and it
   is wired into `npm run quality`. Verified by planting a violation and
   watching it fail.
-- **A macOS CI job** now runs `swift test` over all four packages — 251 tests
-  (95 + 84 + 16 + 56).
+- **A macOS CI job** now runs `swift test` over all four packages — 256 tests
+  (95 + 84 + 16 + 61).
   It has not run on a GitHub runner yet: the packages require macOS 26, so the
   first run needs watching in case `macos-latest` is still older than that.
 

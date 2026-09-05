@@ -38,7 +38,7 @@ reading a number, not by reasoning about what ought to happen.
 |---|---|
 | Branch | `rename/edraft` |
 | iOS app | Feature-complete for its own plan; ships |
-| macOS app | Builds, launches, opens a screenplay, types, ghosts, finds, **exports and prints**. Inspector (M3) is next |
+| macOS app | Builds, launches, opens a screenplay onto a page card, types, ghosts, finds, exports and prints. Inspector (M3) is next |
 | Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface` |
 | Xcode targets | `eDraft`, `eDraftTests`, `eDraft (macOS)` |
 
@@ -46,11 +46,11 @@ reading a number, not by reasoning about what ought to happen.
 a number drops, you broke something.
 
 ```bash
-npm test                                              # 413 TypeScript
+npm test                                              # 414 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
 swift test --package-path ios/EDraftCore              #  84 core        (macOS)
 swift test --package-path ios/EDraftUI                #  16 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  56 Mac surface (macOS)
+swift test --package-path ios/EDraftMacSurface        #  61 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -193,10 +193,19 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
 - **`CommandGroupPlacement.textFinding` is not in this SDK.** Find commands
   go in Edit after Paste. The system find bar itself does not appear from
   `performFindPanelAction(nil)` in a windowed XCTest — hand-pass ⌘F.
-- **`kCGPDFContextKeywords` writes `/Keywords (string)`, not `/Keywords <hex>`.**
-  The engine extractor only accepts the hex form. Stamp with `PdfSignal.stamped`
-  after generating the PDF. Do not trust Apple's Info dictionary for the
-  round-trip.
+- **`NSTextView.init(frame:textContainer:)` copies the frame into `maxSize`.**
+  Height 0 means `sizeToFit` cannot grow the view. The layout manager still
+  has the glyphs; the view displays one point of them. `NSScrollView` hid
+  this by sizing its document view. A page card does not. Set `minSize` /
+  `maxSize` before asking the view how tall it is. See M1 in the execution
+  doc — the third time a text view's height was not what layout produced.
+- **A flipped canvas with an unflipped page card puts the script at the
+  foot of the sheet.** The window shows the top. Blank. `pageView` must
+  be flipped too. `testTheFirstLineSitsAtTheTopOfTheCard`.
+- **`kCGPDFContextKeywords` writes `/Keywords (hex)` as a PDF literal.**
+  The extractor reads both `(hex)` and `<hex>`. Do not append after `%%EOF`:
+  Preview's re-save drops trailing junk. Measured: 500_000 hex characters
+  survive a `PDFDocument` rewrite.
 - **`NSTextView.textContainerInset` width is applied on both sides.** The
   108pt left / 72pt right print margins are a text view framed inside the
   page card, not an inset.
