@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: M0 all but complete · M1 answered · **M2 types, ghosts, and finds** · Last updated 2026-09-05*
+*Status: M0 all but complete · M1 answered · **M2 closed** · Last updated 2026-09-05*
 
 This is the working document. New here? Read [HANDOFF.md](HANDOFF.md) first —
 it carries the state, the rules and the traps in one page.
@@ -14,16 +14,16 @@ product. **Start here, then read those.**
 ## 0. Where we are today
 
 The Mac app builds, opens a `.draft` / Fountain file, scrolls, reveals,
-types, ghosts, and **finds**. Export/print and the inspector are still ahead.
+types, ghosts, finds, **exports and prints**. The inspector (M3) is next.
 
 **Green baseline** (re-run these before and after every step):
 
 ```bash
 npm test                                              # 413 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
-swift test --package-path ios/EDraftCore              #  58 core        (macOS)
+swift test --package-path ios/EDraftCore              #  84 core        (macOS)
 swift test --package-path ios/EDraftUI                #  16 document/filter (macOS)
-swift test --package-path ios/EDraftMacSurface        #  49 layout/page/typing/ghost/find (macOS)
+swift test --package-path ios/EDraftMacSurface        #  56 layout/page/typing/ghost/find/export (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -235,11 +235,39 @@ and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
         dimming the page hides the match.
       - `CommandGroupPlacement.textFinding` does not exist in this SDK.
         Find commands sit in Edit after Paste.
-- [ ] Export PDF · FDX · Fountain · Text; native print. **Next.**
-- [ ] The rest of the menu bar: File, Edit, View per MACOS-DESIGN §3.4.
+- [x] Export PDF · FDX · Fountain · Text; native print.
+      *Done 2026-09-05.* The page on screen is the page that prints:
+      Courier 12, 612pt card, 108pt left margin, paginator indents,
+      centred on `underPageBackgroundColor`. File → Export offers the
+      four formats; Print is the exported PDF.
+      **Measured, not assumed:**
+      - `kCGPDFContextKeywords` writes `/Keywords (…)` as a PDF string.
+        The engine extractor only accepts `/Keywords <hex>` (UTF-8
+        bytes). CG lost; we stamp the hex after `%%EOF`, which the
+        scanner finds and PDFKit still opens.
+      - `NSPrintOperation` over a custom view would paginate again
+        against `NSPrintInfo`'s paper. Print is `PDFDocument.printOperation`
+        over the bytes we already export, so print cannot drift from PDF.
+      - `NSTextView.textContainerInset` width is symmetric, so the
+        108/72 margins are a text view framed at x=108, width=432
+        inside the card, not an inset.
+      - Layer `cgColor`s are snapshots. `applyAppearance` takes them
+        inside `effectiveAppearance.performAsCurrentDrawingAppearance`
+        or a dark page on a dark canvas has no edge.
+      - Subsequent pages are marked with a hairline every letter-page
+        of height. A live `NSTextView` cannot insert the PDF's per-page
+        top margin mid-element (a split action, a (MORE) break), so
+        stacked cards with gaps were refused rather than faked.
+- [ ] The rest of the menu bar: View modes, inspector toggle, per
+      MACOS-DESIGN §3.4. Format → Element and Format → Scene Numbers
+      moved with this box.
 
-*Proof, when it closes:* a script written entirely on the Mac, exported to PDF,
-opens on iPhone unchanged.
+*Proof, executed:* a script written entirely on the Mac, exported to PDF
+via `ScreenplayPageRenderer.pdfData`, extracts through `PdfSignal` — the
+same function iOS `ScreenplayImport` now calls before OCR — identical,
+including curly quotes, an em dash, and Japanese.
+`MacPdfRoundTripTests.testTheExportedPdfComesBackIdenticalIncludingUnicode`.
+The iPhone UI was not driven to Open that file; the import path is.
 
 ### M3 — The desk
 
@@ -307,6 +335,8 @@ None blocking. Two worth a decision when convenient:
 | 2026-09-05 | No Catalyst, no Electron | Catalyst would ship iOS compromises to a desktop whose whole point is not having them. |
 | 2026-09-05 | Packages sit at `ios/EDraftCore` and `ios/EDraftUI` for now | The `apple/` move (M0.6) is still worth doing, but not while three other steps were in flight. |
 | 2026-09-05 | Core and UI packages are main-actor-by-default; their **test** targets are not | Matches the app targets exactly, and XCTestCase cannot inherit main-actor isolation. |
+| 2026-09-05 | PDF via `CGPDFContext` + hex stamp; print is that PDF | `kCGPDFContextKeywords` writes a PDF string the extractor will not read. `NSPrintOperation` over a view would paginate twice. |
+| 2026-09-05 | Page placement in `EDraftCore.ScreenplayPageLayout`, not two renderers | Two 233-line renderers would be two answers to where a line sits. iOS substitution only. |
 
 ---
 
@@ -335,8 +365,8 @@ neither a screenshot nor the accessibility API can see a window in that state.
   or AppKit. It is plain Node, so it runs on the Linux box that runs CI, and it
   is wired into `npm run quality`. Verified by planting a violation and
   watching it fail.
-- **A macOS CI job** now runs `swift test` over all four packages — 218 tests
-  (95 + 58 + 16 + 49).
+- **A macOS CI job** now runs `swift test` over all four packages — 251 tests
+  (95 + 84 + 16 + 56).
   It has not run on a GitHub runner yet: the packages require macOS 26, so the
   first run needs watching in case `macos-latest` is still older than that.
 
@@ -362,16 +392,13 @@ neither a screenshot nor the accessibility API can see a window in that state.
   `editor.revision`. The storage changed, the model did not, and nothing will
   reconcile them. Identical shape on iOS (`ScriptTextView.swift:559-578`).
   Both-surfaces fix; own box.
-- **The page has no left margin.** `textContainerInset` is
-  `NSSize(width: 0, height: 24)`, so a scene heading sits flush against the
-  sidebar divider. Cosmetic; belongs with whatever draws the page card.
-- **Format → Element is in the Edit menu.** `CommandGroup(after: .textEditing)`
-  is an Edit-menu anchor; `.textFormatting` is the Format one. The running
-  app has Apple, eDraft, File, Edit, View, Window, Help — no Format menu —
-  and the nine element commands sit in Edit between Select All and AutoFill.
-  `MACOS-DESIGN.md` §3.4 specifies Format. The M2 box was ticked against a
-  menu that is not where the design puts it. Separate correction; do not
-  fold it into typing or the ghost. Accept Suggestion is correctly in Edit.
+- ~~**The page has no left margin.**~~ **Done** — the page is a 612pt card
+  with the PDF's 108pt left margin (`testThePageIsACardAtPrintMetrics`).
+- ~~**Format → Element is in the Edit menu.**~~ **Done** — `CommandGroup(after:
+  .textFormatting)` (`MACOS-DESIGN.md` §3.4). Accept Suggestion stays in Edit.
+- ~~**`Scene Numbers` sits in the sidebar.**~~ **Done** — the sidebar is
+  destinations (`§1.1`); numbering is Format → Scene Numbers. The phone's
+  Navigator sheet still has the row.
 
 ## 7. Recent iOS work this plan assumes
 
