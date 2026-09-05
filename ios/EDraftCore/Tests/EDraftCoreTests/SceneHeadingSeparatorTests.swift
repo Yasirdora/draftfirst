@@ -1,7 +1,7 @@
 import EDraftCore
 import Foundation
 import XCTest
-@testable import eDraft
+@testable import EDraftCore
 
 /// The dash key in a scene heading writes a separator, and the engine only
 /// reads a separator that is spaced on both sides. These pin the one shape it

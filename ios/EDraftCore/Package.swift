@@ -42,10 +42,14 @@ let package = Package(
             dependencies: [.product(name: "EDraftEngine", package: "eDraftEngine")],
             swiftSettings: coreSettings
         ),
+        // Not main-actor by default: XCTestCase's inherited initialisers are
+        // nonisolated, and a test class that defaults to the main actor cannot
+        // override them. Tests that touch main-actor state say @MainActor on
+        // the method, which is also how the app target's tests read.
         .testTarget(
             name: "EDraftCoreTests",
             dependencies: ["EDraftCore"],
-            swiftSettings: coreSettings
+            swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
 )

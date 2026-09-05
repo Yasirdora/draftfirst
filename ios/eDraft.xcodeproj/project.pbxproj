@@ -26,11 +26,9 @@
 		DF2600000000000000000111 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000011 /* Assets.xcassets */; };
 		DF2600000000000000000112 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000012 /* PrivacyInfo.xcprivacy */; };
 		DF2700000000000000000101 /* ScreenplayEditPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */; };
-		DF26000000000000000001F5 /* ReturnKeyStabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF26000000000000000000F5 /* ReturnKeyStabilityTests.swift */; };
 		DF26000000000000000001F9 /* NavigatorJumpTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF26000000000000000000F9 /* NavigatorJumpTests.swift */; };
-		DF26000000000000000001F3 /* SceneHeadingSeparatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF26000000000000000000F3 /* SceneHeadingSeparatorTests.swift */; };
+		DF26000000000000000001FB /* AppearancePreferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF26000000000000000000FB /* AppearancePreferenceTests.swift */; };
 		DF2700000000000000000103 /* EDraftDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2700000000000000000003 /* EDraftDocumentTests.swift */; };
-		DF2700000000000000000104 /* ElementCaseMemoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2700000000000000000004 /* ElementCaseMemoryTests.swift */; };
 		DF2800000000000000000101 /* EDraftEngine in Frameworks */ = {isa = PBXBuildFile; productRef = DF2800000000000000000900 /* EDraftEngine */; };
 		DF2800000000000000000102 /* EDraftCore in Frameworks */ = {isa = PBXBuildFile; productRef = DF2800000000000000000901 /* EDraftCore */; };
 /* End PBXBuildFile section */
@@ -67,12 +65,10 @@
 		DF2600000000000000000012 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		DF2600000000000000000013 /* TitlePageSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TitlePageSheet.swift; sourceTree = "<group>"; };
 		DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenplayEditPlannerTests.swift; sourceTree = "<group>"; };
-		DF26000000000000000000F5 /* ReturnKeyStabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReturnKeyStabilityTests.swift; sourceTree = "<group>"; };
 		DF26000000000000000000F9 /* NavigatorJumpTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigatorJumpTests.swift; sourceTree = "<group>"; };
-		DF26000000000000000000F3 /* SceneHeadingSeparatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneHeadingSeparatorTests.swift; sourceTree = "<group>"; };
+		DF26000000000000000000FB /* AppearancePreferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearancePreferenceTests.swift; sourceTree = "<group>"; };
 		DF2700000000000000000002 /* eDraftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = eDraftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF2700000000000000000003 /* EDraftDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EDraftDocumentTests.swift; sourceTree = "<group>"; };
-		DF2700000000000000000004 /* ElementCaseMemoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElementCaseMemoryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -191,11 +187,9 @@
 			isa = PBXGroup;
 			children = (
 				DF2700000000000000000001 /* ScreenplayEditPlannerTests.swift */,
-				DF26000000000000000000F5 /* ReturnKeyStabilityTests.swift */,
 				DF26000000000000000000F9 /* NavigatorJumpTests.swift */,
-				DF26000000000000000000F3 /* SceneHeadingSeparatorTests.swift */,
+				DF26000000000000000000FB /* AppearancePreferenceTests.swift */,
 				DF2700000000000000000003 /* EDraftDocumentTests.swift */,
-				DF2700000000000000000004 /* ElementCaseMemoryTests.swift */,
 			);
 			path = eDraftTests;
 			sourceTree = "<group>";
@@ -324,11 +318,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				DF2700000000000000000101 /* ScreenplayEditPlannerTests.swift in Sources */,
-				DF26000000000000000001F5 /* ReturnKeyStabilityTests.swift in Sources */,
 				DF26000000000000000001F9 /* NavigatorJumpTests.swift in Sources */,
-				DF26000000000000000001F3 /* SceneHeadingSeparatorTests.swift in Sources */,
+				DF26000000000000000001FB /* AppearancePreferenceTests.swift in Sources */,
 				DF2700000000000000000103 /* EDraftDocumentTests.swift in Sources */,
-				DF2700000000000000000104 /* ElementCaseMemoryTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

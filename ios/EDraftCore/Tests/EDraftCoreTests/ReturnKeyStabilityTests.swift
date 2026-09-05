@@ -1,8 +1,7 @@
 import EDraftCore
 import Foundation
-import UIKit
 import XCTest
-@testable import eDraft
+@testable import EDraftCore
 
 /// Pressing Return must leave the caret on the line it made, wherever in the
 /// script it is pressed. A plan that cannot be made, or that names an element
