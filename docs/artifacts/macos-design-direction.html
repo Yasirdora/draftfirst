@@ -422,7 +422,7 @@
     <div class="facts">
       <span>Read from <b>Finder</b>, <b>Messages</b>, <b>Find My</b></span>
       <span>Engine already <b>macOS 26</b></span>
-      <span><b>2,155</b> lines freed tonight</span>
+      <span><b>3,781</b> lines now shared</span>
     </div>
   </header>
 
@@ -602,28 +602,32 @@
         <p class="lede">No Mac app yet, on purpose — but the code it will be built from now exists and compiles for macOS.</p>
 
         <div class="ledger">
-          <div class="cell"><span class="n">2,155</span><span class="k">lines freed</span></div>
-          <div class="cell"><span class="n">35</span><span class="k">tests on macOS</span></div>
-          <div class="cell"><span class="n">89</span><span class="k">app tests</span></div>
+          <div class="cell"><span class="n">3,781</span><span class="k">lines shared</span></div>
+          <div class="cell"><span class="n">54</span><span class="k">tests on macOS</span></div>
+          <div class="cell"><span class="n">82</span><span class="k">app tests</span></div>
           <div class="cell"><span class="n">406</span><span class="k">engine tests (TS)</span></div>
         </div>
-        <p class="caption" style="margin-bottom:26px">The portable code was trapped inside an iOS app target no Mac target can link. <span class="mono-cell">EDraftCore</span> and <span class="mono-cell">EDraftUI</span> are packages now; the Navigator, character thread, title page and settings build for macOS today.</p>
+        <p class="caption" style="margin-bottom:26px">The portable code was trapped inside an iOS app target no Mac target can link. <span class="mono-cell">EDraftCore</span> (2,572), <span class="mono-cell">EDraftUI</span> (1,209) and <span class="mono-cell">EDraftMacSurface</span> are packages now, the boundaries between them enforced by <span class="mono-cell">npm run check:boundaries</span> and a macOS CI job.</p>
+
+        <h3 style="margin-top:8px">The unknown, answered</h3>
+        <p>Every scroll and every reveal rests on one question — can the text system say where an element is? On iPhone that means reading <span class="mono-cell">NSLayoutManager</span> rectangles directly. <strong>The Mac can do the same</strong>, on both TextKit 1 and TextKit 2, and TextKit 1 wins because the arithmetic ports rather than being rewritten.</p>
+        <p>It was answered as a test, not a demo — which is why it also found a live bug on iPhone. A line with nothing on it encloses no glyphs and so measures <em>no width</em>, and a rectangle counts as empty when either dimension is zero: the mark was being thrown away for exactly the blank lines a writer is about to type into. The last line of a script was worse — no fragment of its own at all. Both fixed, on both platforms, with the test that holds them.</p>
 
         <div class="milestones">
           <div class="ms">
             <span class="tag"><span class="chip" style="background:#FFFFFF"></span>M0</span>
-            <span class="what">Modularise<em>Moves, not rewrites — three of six steps done</em></span>
-            <span class="state done">In progress</span>
+            <span class="what">Modularise<em>Moves, not rewrites — five of six steps done</em></span>
+            <span class="state done">Nearly done</span>
           </div>
           <div class="ms">
             <span class="tag"><span class="chip" style="background:#BFD4E8"></span>M1</span>
-            <span class="what">The spike<em>NSTextView, element metrics, ghost, reveal — one day, throwaway allowed</em></span>
-            <span class="state">Next</span>
+            <span class="what">The spike<em>Layout and reveal measured on both text stacks; ghost and window still to come</em></span>
+            <span class="state done">Answered</span>
           </div>
           <div class="ms">
             <span class="tag"><span class="chip" style="background:#F2C4D2"></span>M2</span>
             <span class="what">The window<em>Documents, three panes, menu bar, ⌘1–9, export, print</em></span>
-            <span class="state">Planned</span>
+            <span class="state">Next</span>
           </div>
           <div class="ms">
             <span class="tag"><span class="chip" style="background:#F5E6A8"></span>M3</span>
