@@ -50,6 +50,11 @@ public struct ScriptWindow: View {
                 .background(Color(nsColor: .underPageBackgroundColor))
                 .navigationTitle(editor.screenplay.title)
                 .navigationSubtitle(subtitle)
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        ElementModeControl(editor: editor)
+                    }
+                }
         }
         .onAppear {
             editor.onFindScene = { findScene() }
