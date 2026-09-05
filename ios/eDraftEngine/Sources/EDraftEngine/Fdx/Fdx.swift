@@ -110,6 +110,24 @@ public enum Fdx {
 
     /// TypeScript `positiveInteger`: a present, positive safe integer wins;
     /// anything else falls back to the default.
+    /// Whether a Text run carries Final Draft's AllCaps style
+    /// (TypeScript `runIsAllCaps`).
+    ///
+    /// This is how Final Draft shouts: it stores what the writer typed and
+    /// marks the run, so `<Text Style="AllCaps">cHroNo-aGEnT vAL</Text>` has
+    /// been displayed as CHRONO-AGENT VAL for the life of the document. Read
+    /// the text without the style and a script that looked immaculate for years
+    /// opens as though it were typed with a broken shift key.
+    ///
+    /// Styles are a '+'-separated list — `Bold+Underline+AllCaps` — so this
+    /// matches a whole entry rather than a substring.
+    static func runIsAllCaps(_ style: String?) -> Bool {
+        guard let style else { return false }
+        return style.split(separator: "+").contains {
+            $0.trimmingCharacters(in: .whitespaces).lowercased() == "allcaps"
+        }
+    }
+
     private static func positiveInteger(_ value: Int?, fallback: Int) -> Int {
         guard let value, value > 0 else { return fallback }
         return value
@@ -228,6 +246,8 @@ public enum Fdx {
         var titleDepth = 0
         var contentDepth = 0
         var textDepth = 0
+        /// Whether the Text run being read is styled AllCaps by Final Draft.
+        var runUppercases = false
         var paragraphCount = 0
         var textRunCount = 0
         var limitReached = false
@@ -243,6 +263,7 @@ public enum Fdx {
             if paragraph.inTitlePage { title.append(paragraph) } else { body.append(paragraph) }
             current = nil
             textDepth = 0
+            runUppercases = false
         }
 
         func start(_ tag: FdxXmlScanner.Tag, offset: Int) -> Bool {
@@ -280,12 +301,18 @@ public enum Fdx {
                 }
                 textRunCount += 1
                 textDepth += 1
+                runUppercases = Fdx.runIsAllCaps(
+                    tag.attributes.first { $0.name == "style" }?.value
+                )
             }
             return true
         }
 
         func end(_ name: String) -> Bool {
-            if name == "text" && textDepth > 0 { textDepth -= 1 }
+            if name == "text" && textDepth > 0 {
+                textDepth -= 1
+                runUppercases = false
+            }
             if name == "paragraph" { finishParagraph() }
             if name == "content" && contentDepth > 0 { contentDepth -= 1 }
             if name == "titlepage" && titleDepth > 0 { titleDepth -= 1 }
@@ -294,7 +321,8 @@ public enum Fdx {
 
         func text(_ value: String, cdata: Bool) -> Bool {
             if current != nil && textDepth > 0 {
-                current?.text += cdata ? value : Fdx.decodeXmlEntities(value)
+                let decoded = cdata ? value : Fdx.decodeXmlEntities(value)
+                current?.text += runUppercases ? decoded.uppercased() : decoded
             }
             return true
         }

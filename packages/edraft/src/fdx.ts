@@ -460,6 +460,25 @@ function scanXml(
 	}
 }
 
+/**
+ * Whether a Text run carries Final Draft's AllCaps style.
+ *
+ * This is how Final Draft shouts: it stores what the writer typed and marks the
+ * run, so `<Text Style="AllCaps">cHroNo-aGEnT vAL</Text>` is displayed as
+ * CHRONO-AGENT VAL and has been for the life of the document. Read the text
+ * without the style and a script that looked immaculate for years opens as
+ * though it were typed with a broken shift key.
+ *
+ * Styles are a '+'-separated list — 'Bold+Underline+AllCaps' — so this matches
+ * a whole entry rather than a substring.
+ */
+function runIsAllCaps(style: string | undefined): boolean {
+	if (!style) return false;
+	return style
+		.split('+')
+		.some((part) => part.trim().toLowerCase() === 'allcaps');
+}
+
 interface FdxParagraph {
 	attributes: Map<string, string>;
 	text: string;
@@ -485,6 +504,8 @@ function paragraphsOf(
 	let titleDepth = 0;
 	let contentDepth = 0;
 	let textDepth = 0;
+	/// Whether the Text run being read is styled AllCaps by Final Draft.
+	let runUppercases = false;
 	let paragraphCount = 0;
 	let textRunCount = 0;
 	let limitReached = false;
@@ -536,18 +557,25 @@ function paragraphsOf(
 					}
 					textRunCount++;
 					textDepth++;
+					runUppercases = runIsAllCaps(tag.attributes.get('style'));
 				}
 				return true;
 			},
 			end(name): boolean {
-				if (name === 'text' && textDepth > 0) textDepth--;
+				if (name === 'text' && textDepth > 0) {
+					textDepth--;
+					runUppercases = false;
+				}
 				if (name === 'paragraph') finishParagraph();
 				if (name === 'content' && contentDepth > 0) contentDepth--;
 				if (name === 'titlepage' && titleDepth > 0) titleDepth--;
 				return true;
 			},
 			text(value, cdata): boolean {
-				if (current && textDepth > 0) current.text += cdata ? value : decodeXmlEntities(value);
+				if (current && textDepth > 0) {
+					const decoded = cdata ? value : decodeXmlEntities(value);
+					current.text += runUppercases ? decoded.toLocaleUpperCase() : decoded;
+				}
 				return true;
 			}
 		},

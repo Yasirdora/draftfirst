@@ -287,3 +287,50 @@ describe('pre-rename FDX files', () => {
 		expect(xml).not.toContain('DraftFirst:');
 	});
 });
+
+/**
+ * How Final Draft shouts.
+ *
+ * It stores what the writer typed and marks the run `Style="AllCaps"`, so a
+ * file can hold `cHroNo-aGEnT vAL` and have displayed CHRONO-AGENT VAL for the
+ * life of the document. Every string here is lifted verbatim from a writer's
+ * own .fdx.
+ */
+describe('FDX AllCaps runs', () => {
+	const fdx = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<FinalDraft DocumentType="Script" Template="No" Version="6">
+  <Content>
+    <Paragraph Type="Scene Heading"><Text Style="AllCaps">iNt. eARThLInG cAFe - MoRNiNg</Text></Paragraph>
+    <Paragraph Type="Action"><Text>The espresso machine hisses violently.</Text></Paragraph>
+    <Paragraph Type="Character"><Text Style="AllCaps">cHroNo-aGEnT vAL</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>Greetings, carbon-based ancestors!</Text></Paragraph>
+    <Paragraph Type="Transition"><Text Style="AllCaps">mATcH cUt tO:</Text></Paragraph>
+    <Paragraph Type="Action"><Text Style="Bold+Underline+AllCaps">a shouted stage direction</Text></Paragraph>
+  </Content>
+</FinalDraft>`;
+
+	it('shouts every run the file marks AllCaps', () => {
+		const { script } = parseFdx(fdx);
+		expect(script.elements.map((e) => e.text)).toEqual([
+			'INT. EARTHLING CAFE - MORNING',
+			'The espresso machine hisses violently.',
+			'CHRONO-AGENT VAL',
+			'Greetings, carbon-based ancestors!',
+			'MATCH CUT TO:',
+			'A SHOUTED STAGE DIRECTION'
+		]);
+	});
+
+	it('leaves unmarked runs exactly as the writer typed them', () => {
+		const { script } = parseFdx(fdx);
+		expect(script.elements[1].text).toBe('The espresso machine hisses violently.');
+		expect(script.elements[3].text).toBe('Greetings, carbon-based ancestors!');
+	});
+
+	it('reads AllCaps as one entry in the style list, never as a substring', () => {
+		const notCaps = `<?xml version="1.0"?><FinalDraft DocumentType="Script"><Content>
+<Paragraph Type="Action"><Text Style="AllCapsish">left alone</Text></Paragraph>
+</Content></FinalDraft>`;
+		expect(parseFdx(notCaps).script.elements[0].text).toBe('left alone');
+	});
+});
