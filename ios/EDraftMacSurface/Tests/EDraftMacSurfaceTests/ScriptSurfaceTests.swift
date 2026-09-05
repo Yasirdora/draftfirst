@@ -27,9 +27,10 @@ final class ScriptSurfaceTests: XCTestCase {
     private func surface(_ elements: [ScriptElement]) -> ScriptSurface {
         let surface = ScriptSurface(measure: 500)
         surface.scrollView.frame = NSRect(x: 0, y: 0, width: 500, height: 400)
+        // Deliberately no sizeToFit or layout pass here: bringing its own
+        // geometry up to date is the surface's job, and a harness that does it
+        // for the code hides exactly the bug the phone shipped.
         surface.render(elements)
-        surface.textView.sizeToFit()
-        surface.scrollView.layoutSubtreeIfNeeded()
         return surface
     }
 
@@ -134,7 +135,6 @@ final class ScriptSurfaceTests: XCTestCase {
         )
 
         surface.remeasure(to: 900, elements: elements)
-        surface.textView.sizeToFit()
         let wide = try XCTUnwrap(
             ScriptLayout.boundingRect(of: NSRange(location: 0, length: 16), in: surface.textView)
         )
@@ -142,6 +142,25 @@ final class ScriptSurfaceTests: XCTestCase {
         XCTAssertGreaterThan(
             wide.minX, narrow.minX,
             "dialogue's indent is a fraction of the measure, so a wider page indents further"
+        )
+    }
+
+    /// The phone's bug, in its Mac form: a reveal that arrives in the same turn
+    /// as a render must still move the page. A text view's height is a result
+    /// of laying out, so measuring before the layout catches up says the page
+    /// is one screen tall and cannot move — and the row does nothing.
+    func testARevealInTheSameTurnAsARenderStillMovesThePage() throws {
+        let elements = script()
+        let surface = surface(elements)
+        let last = try XCTUnwrap(elements.last { $0.type == .scene })
+        let before = surface.scrollView.contentView.bounds.origin.y
+
+        surface.render(elements)          // no layout pass in between
+        XCTAssertTrue(surface.reveal(last.id))
+
+        XCTAssertGreaterThan(
+            surface.scrollView.contentView.bounds.origin.y, before,
+            "a reveal in the same turn as a render measured a page that did not exist yet"
         )
     }
 }

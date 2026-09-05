@@ -151,6 +151,15 @@ order of value:
 
 **Code**
 
+- **Geometry read from a text view is a *result* of laying out.** `contentSize`
+  on iOS, and the text view's own height on macOS, are not recomputed when the
+  storage is replaced — they wait for the next layout pass. Measure in between
+  and the page appears one screen tall, the scroll arithmetic decides there is
+  nowhere to go, and a reveal silently does nothing. This is what made a
+  Navigator row work on the second tap and not the first: the tap arrived in the
+  same turn as a render. Both surfaces now ask for the layout before measuring
+  (`scrollableRange` on iOS, `layOut()` on the Mac) and both have a test for a
+  reveal landing in that gap.
 - **`CGRect.isEmpty` is true when *either* dimension is zero.** A blank line
   encloses no glyphs and so has no width, but it has a height and a place. This
   silently broke the reveal mark on iOS for exactly the lines a writer is about

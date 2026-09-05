@@ -381,6 +381,9 @@ struct ScriptTextView: UIViewRepresentable {
             guard let position = textView.selectedTextRange?.end, let window = textView.window else {
                 return nil
             }
+            // Same rule as `scrollableRange`: a caret rectangle is a result of
+            // laying out, so ask for the layout before reading one.
+            textView.layoutIfNeeded()
             let caret = textView.caretRect(for: position)
             guard !caret.isNull, !caret.isInfinite else { return nil }
             return textView.convert(caret, to: window).midY
@@ -448,8 +451,24 @@ struct ScriptTextView: UIViewRepresentable {
         /// one-line caret move, UIKit's reveal scroll) is left alone.
         /// The offsets this page may rest at: the top is minus the bar's
         /// clearance, not zero, because the content begins below the bar.
+        /// The offsets the page may rest at, measured against a layout that is
+        /// current.
+        ///
+        /// `contentSize` is a *result* of laying out, not a property of the
+        /// text: replacing the storage invalidates it, and UIKit does not
+        /// recompute it until its next layout pass. Measure in between and the
+        /// page appears to be a single screen tall — so the arithmetic decides
+        /// there is nowhere to scroll and quietly does nothing.
+        ///
+        /// That is exactly how a Navigator row came to work on the second tap
+        /// and not the first: the tap arrived in the same turn as a render, the
+        /// reveal measured a page that did not exist yet, and by the second tap
+        /// the layout had caught up. Asking for the layout first costs nothing
+        /// when it is already current, and is the difference between a row that
+        /// works and a row that works sometimes.
         private func scrollableRange(in textView: UITextView) -> ClosedRange<CGFloat> {
-            PageScroll.range(
+            textView.layoutIfNeeded()
+            return PageScroll.range(
                 contentHeight: textView.contentSize.height,
                 viewportHeight: textView.bounds.height,
                 topInset: textView.adjustedContentInset.top,

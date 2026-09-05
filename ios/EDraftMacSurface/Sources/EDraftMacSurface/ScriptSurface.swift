@@ -76,9 +76,24 @@ public final class ScriptSurface {
         let script = ScriptLayout.attributedScript(elements, measure: measure)
         ranges = script.ranges
         textView.textStorage?.setAttributedString(script.text)
+        layOut()
+    }
+
+    /// Brings the view's own geometry up to date with the text in it.
+    ///
+    /// Laying the glyphs out is not enough: a text view's height — and so the
+    /// distance the page can travel — is a *result* of that layout, and is not
+    /// recomputed until the view is asked. Measure in between and the page
+    /// looks a single screen tall, the arithmetic concludes there is nowhere to
+    /// scroll, and a reveal quietly does nothing. That is precisely the bug the
+    /// phone shipped: a Navigator row that worked on the second tap, because by
+    /// then the layout had caught up on its own.
+    private func layOut() {
         if let layoutManager = textView.layoutManager, let container = textView.textContainer {
             layoutManager.ensureLayout(for: container)
         }
+        textView.sizeToFit()
+        scrollView.layoutSubtreeIfNeeded()
     }
 
     /// Re-sets the page for a new width. A resized window is a re-measured
@@ -112,9 +127,11 @@ public final class ScriptSurface {
         return true
     }
 
-    /// Where the page rests, in the scroll view's own terms.
+    /// Where the page rests, in the scroll view's own terms — measured against
+    /// a layout that is current. See `layOut()`.
     public var scrollableRange: ClosedRange<CGFloat> {
-        PageScroll.range(
+        layOut()
+        return PageScroll.range(
             contentHeight: textView.frame.height,
             viewportHeight: scrollView.contentView.bounds.height,
             topInset: scrollView.contentInsets.top,

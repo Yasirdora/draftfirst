@@ -267,4 +267,30 @@ final class NavigatorJumpTests: XCTestCase {
             "a jump after a re-render did nothing"
         )
     }
+
+    /// A reveal that arrives *between* a render and the deferred pass that
+    /// render scheduled.
+    ///
+    /// Every render schedules a correction one runloop turn later, to counter
+    /// the text view re-pinning its offset. That correction was captured before
+    /// the reveal existed and knows nothing about it — so if a reveal lands in
+    /// the gap, the page is dragged back to where the render wanted it and the
+    /// row looks dead.
+    func testAJumpLandingBetweenARenderAndItsDeferredPassSurvives() throws {
+        let (editor, textView, coordinator) = surface()
+        withExtendedLifetime(coordinator) {}
+        let scene = try XCTUnwrap(editor.scenes.last)
+
+        // No settle here: the deferred pass is still in flight.
+        coordinator.renderModel(selecting: nil, offset: nil)
+        editor.jump(to: scene.id)
+        let landed = textView.contentOffset.y
+        settle()
+
+        XCTAssertEqual(
+            textView.contentOffset.y, landed, accuracy: 1,
+            "a render's deferred pass dragged the page off the element the row named"
+        )
+        XCTAssertGreaterThan(landed, 0, "the reveal should have moved the page at all")
+    }
 }
