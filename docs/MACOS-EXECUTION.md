@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: M0 in progress — three of six steps done · Last updated 2026-09-05*
+*Status: M0 all but complete — five of six steps done · Last updated 2026-09-05*
 
 This is the working document. [MACOS-PLAN.md](MACOS-PLAN.md) says why we are
 building it, [MACOS-DESIGN.md](MACOS-DESIGN.md) says what it is, and
@@ -20,10 +20,11 @@ app's tests run on the Mac under `swift test`.
 ```bash
 npm test                                    # 406 TypeScript engine tests
 cd ios/eDraftEngine && swift test           #  89 Swift engine tests
-cd ios/EDraftCore   && swift test           #  35 core tests — runs on macOS
-cd ios/EDraftUI     && swift build          #  shared panels build for macOS
+cd ios/EDraftCore   && swift test           #  39 core tests — runs on macOS
+cd ios/EDraftUI     && swift test           #   8 document tests — runs on macOS
+npm run check:boundaries                    #  the layers stay separate
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'   #  89 app tests
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'   #  81 app tests
 ```
 
 The packages live at `ios/EDraftCore` and `ios/EDraftUI`, beside
@@ -57,9 +58,9 @@ moves it, and changes nothing else. Detail and file-by-file inventory in
       on iOS **and** macOS.
       *Done 2026-09-05 (`0e8485e`).* 89 app + 35 core = the same 124, and the
       35 now run on macOS.
-- [ ] **M0.3** Split `EDraftDocument` — **next up**, and the fiddliest of the
-      six, because one `enum ScreenplayExporter` interleaves pure and
-      platform-bound code. The split, member by member:
+- [x] **M0.3** Split `EDraftDocument`. *Done 2026-09-05 (`86eb324`).* The split
+      as executed — and it was the fiddliest of the six, because one
+      `enum ScreenplayExporter` interleaved pure and platform-bound code:
 
       | To `EDraftCore` | Stays on the surface |
       |---|---|
@@ -71,11 +72,11 @@ moves it, and changes nothing else. Detail and file-by-file inventory in
       | `paginate`, `leadingSpaces`, `renderedText` | |
       | `temporaryFile` | |
 
-      The `FileDocument` conformance itself is cross-platform SwiftUI and
-      belongs in `EDraftUI`, which is what gives the Mac app open/save for
-      free. Name the platform half `ScreenplayPageRenderer` and update its
-      three call sites in `EditorChrome` (`pdfData` ×2, `rtfData` ×1).
-      *Proof:* document round-trip tests green; `EDraftUI` still builds for macOS.
+      `EDraftDocument` went to `EDraftUI` as a thin wrapper over
+      `ScreenplayFile`; the drawn half is `ScreenplayPageRenderer` on the
+      surface. The document's own tests went with it — `EDraftUI` has a test
+      target now, so the round-trip, the UTF-8 refusal and the arrival rules
+      run on macOS.
 - [x] **M0.4** `EDraftUI` package; move `StoryPanel`, `CharacterThreadView`,
       `TitlePageSheet`, `SettingsPanel`; replace `navigationBarTitleDisplayMode`
       with a platform shim.
@@ -83,8 +84,17 @@ moves it, and changes nothing else. Detail and file-by-file inventory in
       green. **Owed:** the screenshot comparison — the Mac's screen locked
       before it could be taken. Take it first thing: open a document, open the
       Navigator, compare against `docs/images` or a fresh baseline.
-- [ ] **M0.5** Lift the reveal rule into core; keep `RevealHighlightView` per-platform.
-      *Proof:* `NavigatorJumpTests` pass unchanged.
+- [x] **M0.5** Share the reveal's *timing*, not its plumbing. *Done 2026-09-05.*
+      The step as written would have added an indirection that only forwarded
+      to `ScreenplayEditPlanner.ranges(for:)`, which is already core — hollow,
+      and against the rule that a move must earn itself. What genuinely cannot
+      be allowed to drift is when the mark appears and how long it is held: a
+      mark that behaves differently on a desk than in a hand is one feature
+      pretending to be two, and no compiler would notice. `RevealMark` in the
+      core now holds the timing and the padding, with four tests; the iOS view
+      reads them. It gained reduce-motion support in the process — the mark
+      appears and goes without fading, because less motion must never mean no
+      answer.
 - [ ] **M0.6** *(optional, recommended)* adopt the `apple/` directory layout.
       *Proof:* clean checkout builds both schemes.
 
@@ -187,13 +197,27 @@ None blocking. Two worth a decision when convenient:
 
 ---
 
+## 5a. Enforcement added
+
+- **`npm run check:boundaries`** walks the three package sources and fails on a
+  forbidden import: the engine may not reach for a UI framework or for the
+  layers above it, the core may not draw, and a shared panel may not name UIKit
+  or AppKit. It is plain Node, so it runs on the Linux box that runs CI, and it
+  is wired into `npm run quality`. Verified by planting a violation and
+  watching it fail.
+- **A macOS CI job** now runs `swift test` over all three packages — 132 tests.
+  It has not run on a GitHub runner yet: the packages require macOS 26, so the
+  first run needs watching in case `macos-latest` is still older than that.
+
 ## 6. Known issues, carried forward
 
 - **`Screenplay` names two different types** — the engine's and the app's. Nine
   call sites now say `EDraftCore.Screenplay` explicitly. Qualifying is a label,
   not a fix; renaming one of them (the app's, most likely, to
   `ScreenplayDocumentModel`) is worth a focused pass.
-- **The iOS Navigator screenshot comparison for M0.4 is owed** (see above).
+- ~~The iOS Navigator screenshot comparison for M0.4 is owed.~~ **Done** —
+  captured after the extraction and identical to the pre-extraction shot: same
+  rows, same numbers, same two-line footnote.
 - **The FDX rename-compatibility contract was lost and restored** during the
   rename: `LEGACY_ATTRIBUTE_PREFIXES` had been emptied in both engines and the
   TypeScript suite guarding it deleted, which would have silently dropped

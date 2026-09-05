@@ -1,3 +1,4 @@
+import EDraftCore
 import UIKit
 
 /// The brief mark that says *here* when the Navigator sends a reader
@@ -23,18 +24,17 @@ import UIKit
 /// them.
 final class RevealHighlightView: UIView {
 
-    /// The Navigator is still sliding away when the mark is asked for, so it
-    /// waits for the page to be uncovered before appearing — a mark that
-    /// fades in behind a dismissing sheet is a mark the reader never sees.
-    private static let wait: TimeInterval = 0.25
-    private static let fadeIn: TimeInterval = 0.15
-    private static let hold: TimeInterval = 1.0
-    private static let fadeOut: TimeInterval = 0.5
+    /// The timing is shared with every other surface — see `RevealMark`,
+    /// which explains why a reveal is a mark at all.
+    private static var timing: (wait: TimeInterval, fadeIn: TimeInterval,
+                                hold: TimeInterval, fadeOut: TimeInterval) {
+        RevealMark.timing(reduceMotion: UIAccessibility.isReduceMotionEnabled)
+    }
 
     init() {
         super.init(frame: .zero)
         isUserInteractionEnabled = false
-        layer.cornerRadius = 6
+        layer.cornerRadius = RevealMark.cornerRadius
         layer.cornerCurve = .continuous
         // Light enough to read straight through — this marks the line, it
         // does not select it.
@@ -53,16 +53,17 @@ final class RevealHighlightView: UIView {
         guard !rect.isNull, !rect.isEmpty else { return }
         if superview !== textView { textView.addSubview(self) }
         layer.removeAllAnimations()
-        frame = rect.insetBy(dx: -6, dy: -2)
+        frame = rect.insetBy(dx: -RevealMark.horizontalPadding, dy: -RevealMark.verticalPadding)
         alpha = 0
 
-        UIView.animate(withDuration: Self.fadeIn, delay: Self.wait) {
+        let timing = Self.timing
+        UIView.animate(withDuration: timing.fadeIn, delay: timing.wait) {
             self.alpha = 1
         } completion: { finished in
             guard finished else { return }
             UIView.animate(
-                withDuration: Self.fadeOut,
-                delay: Self.hold,
+                withDuration: timing.fadeOut,
+                delay: timing.hold,
                 options: [.beginFromCurrentState]
             ) {
                 self.alpha = 0

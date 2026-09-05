@@ -43,3 +43,20 @@ jobs:
       - run: npm ci
       - run: npm run package:verify
       - run: npm run package:smoke
+
+  swift-packages:
+    name: Swift packages / macOS
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      # The engine is pinned to the TypeScript conformance corpus; the core and
+      # the shared panels are what the Mac app will be built from. Running them
+      # here is what stops the two apps from drifting: a rule that behaves
+      # differently on the desktop fails in CI rather than in a writer's hands.
+      - name: Engine
+        run: swift test --package-path ios/eDraftEngine
+      - name: Core
+        run: swift test --package-path ios/EDraftCore
+      - name: Shared panels
+        run: swift test --package-path ios/EDraftUI

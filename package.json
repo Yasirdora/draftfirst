@@ -2,7 +2,7 @@
   "name": "edraft-web",
   "private": true,
   "version": "0.1.0",
-  "description": "eDraft — a private, local-first screenplay editor and document engine",
+  "description": "eDraft \u2014 a private, local-first screenplay editor and document engine",
   "type": "module",
   "packageManager": "npm@11.16.0",
   "workspaces": [
@@ -22,10 +22,11 @@
     "package:build": "npm run build --workspace=@edraft/core",
     "package:verify": "npm run verify --workspace=@edraft/core && npm run pack:check --workspace=@edraft/core",
     "package:smoke": "node scripts/package-smoke.mjs",
-    "quality": "npm run check && npm test && npm run build && npm run package:verify && npm run package:smoke",
+    "quality": "npm run check && npm run check:boundaries && npm test && npm run build && npm run package:verify && npm run package:smoke",
     "deploy": "npm run build && npx wrangler@latest pages deploy build",
     "ios:engine": "node scripts/ios-engine-sync.mjs",
-    "engine:conformance": "node scripts/engine-conformance-export.mjs"
+    "engine:conformance": "node scripts/engine-conformance-export.mjs",
+    "check:boundaries": "node scripts/check-swift-boundaries.mjs"
   },
   "dependencies": {
     "@edraft/core": "0.1.0"
