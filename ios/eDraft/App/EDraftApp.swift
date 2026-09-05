@@ -67,10 +67,14 @@ struct EDraftApp: App {
         // returns the browser's scroll view, so the buttons look right and do
         // nothing. `DocumentLaunchGeometryProxy`, which would have placed
         // them honestly, reports both of its rectangles as zero.
-        DocumentGroupLaunchScene("eDraft") {
+        // The title and the ground are ours to draw — see LaunchIdentity for
+        // why that matters and what it is drawn from.
+        DocumentGroupLaunchScene(LaunchIdentity.title) {
             NewDocumentButton("New Screenplay")
             ScreenplayLaunchActions.scan()
             ScreenplayLaunchActions.importExisting()
+        } background: {
+            LaunchIdentity.Background()
         }
         DocumentGroup(newDocument: EDraftDocument()) { file in
             // A script opens at its first page, because opening one now means
