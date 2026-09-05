@@ -105,6 +105,7 @@ The stated bar is "iPhone **and** iPad." Today the app runs on iPad; it is not y
 
 ## 7. Non-goals confirmed for this phase
 
-No collaboration/server, no pricing surface — a file leaves the device when
-the writer exports it ([VISION.md](VISION.md)). Voice drafting is deferred to
-a later release by owner decision.
+No model-backed AI, no collaboration/server, no pricing surface — prediction is
+SmartType over the document's own vocabulary, on-device and deterministic
+(`packages/edraft/src/predict.ts`, `smarttype.ts`; [VISION.md](VISION.md)).
+Voice drafting is deferred to a later release by owner decision.
