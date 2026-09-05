@@ -16,7 +16,21 @@ import UniformTypeIdentifiers
 /// bar, and the bridge between a document's text and the editor's model.
 @main
 struct EDraftMacApp: App {
+    @NSApplicationDelegateAdaptor(MacAppDelegate.self) private var appDelegate
+
     var body: some Scene {
+        // Declared before the DocumentGroup so a launch with nothing open
+        // greets the writer instead of presenting a file dialog. The phone
+        // uses `DocumentGroupLaunchScene` for this; that API is
+        // `@available(macOS, unavailable)`, so the Mac draws its own window
+        // on the same ground. See `LaunchIdentity`.
+        Window("eDraft", id: MacAppDelegate.launchWindowID) {
+            LaunchWindowHost()
+        }
+        .defaultSize(width: 660, height: 500)
+        .defaultPosition(.center)
+        .windowResizability(.contentMinSize)
+
         DocumentGroup(newDocument: EDraftDocument()) { file in
             ScriptDocumentWindow(document: file.$document)
         }
@@ -276,5 +290,112 @@ extension FocusedValues {
     var editor: EditorState? {
         get { self[EditorFocusKey.self] }
         set { self[EditorFocusKey.self] = newValue }
+    }
+}
+
+/// What only the application object can answer.
+///
+/// A document app launches into one of two things: a file dialog, or a new
+/// untitled document. Neither is a greeting, and neither says what this app is.
+/// Refusing the untitled file leaves the launch window as the thing a writer
+/// meets — the same choice the phone makes with `DocumentGroupLaunchScene`.
+final class MacAppDelegate: NSObject, NSApplicationDelegate {
+    static let launchWindowID = "launch"
+
+    /// No untitled document at launch. A writer who wants one presses ⌘N,
+    /// which the launch window puts in front of them.
+    func applicationShouldOpenUntitledFile(_ sender: NSApplication) -> Bool { false }
+
+    /// Reopening from the Dock with nothing on screen means the same thing as
+    /// launching: show the window that says what this is.
+    ///
+    /// Returning `flag` here was a bug — with no visible windows it answers
+    /// "I handled it" and then handles nothing, leaving a running app with no
+    /// window and no way back except the Window menu.
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication, hasVisibleWindows flag: Bool
+    ) -> Bool {
+        if flag { return true }
+        LaunchWindowOpener.shared.open?()
+        return false
+    }
+}
+
+/// The one thing a `Window` scene cannot do for itself: come back.
+///
+/// `openWindow` is a SwiftUI environment action, readable only from inside a
+/// view, and the application delegate is not one. So the action is captured
+/// while a view exists and held here for the moment there are no views left —
+/// which is exactly the moment it is needed.
+@MainActor
+final class LaunchWindowOpener {
+    static let shared = LaunchWindowOpener()
+    var open: (() -> Void)?
+    private init() {}
+}
+
+/// The launch window's contents, with the app's own doors wired to it.
+///
+/// `LaunchWindow` is in `EDraftMacSurface` and knows nothing about documents;
+/// opening one is the app's job, and `newDocument`/`openDocument` are the
+/// SwiftUI actions for it. Recents come from `NSDocumentController`, which has
+/// kept that list correctly for thirty years — there is no reason to keep a
+/// second one.
+struct LaunchWindowHost: View {
+    @Environment(\.newDocument) private var newDocument
+    @Environment(\.openDocument) private var openDocument
+    @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.openWindow) private var openWindow
+
+    @State private var recents: [RecentScript] = []
+
+    var body: some View {
+        LaunchWindow(
+            recents: recents,
+            onNew: {
+                newDocument(EDraftDocument())
+                close()
+            },
+            onOpen: { openViaPanel() },
+            onPick: { url in open(url) }
+        )
+        .onAppear {
+            refresh()
+            LaunchWindowOpener.shared.open = { openWindow(id: MacAppDelegate.launchWindowID) }
+        }
+        // The list is stale the moment a document is saved under a new name,
+        // so it is re-read whenever this window comes back to the front.
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+        ) { _ in refresh() }
+    }
+
+    private func refresh() {
+        recents = LaunchModel.rows(from: NSDocumentController.shared.recentDocumentURLs)
+    }
+
+    private func close() {
+        dismissWindow(id: MacAppDelegate.launchWindowID)
+    }
+
+    private func open(_ url: URL) {
+        Task {
+            // A recent that has gone since the list was read is the writer's
+            // answer, not a crash: leave the window up and drop the row.
+            do {
+                try await openDocument(at: url)
+                close()
+            } catch {
+                refresh()
+            }
+        }
+    }
+
+    private func openViaPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.edraftScreenplay, .plainText, .finalDraftScreenplay]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        open(url)
     }
 }
