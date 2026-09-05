@@ -22,6 +22,8 @@ public struct ScriptWindow: View {
     @State private var sceneQuery = ""
     @State private var focusSceneFilter = 0
     @State private var showingTitlePage = false
+    /// Whose thread is open beside the cast, if anyone's.
+    @State private var selectedCharacter: String?
 
     public init(editor: EditorState) {
         self.editor = editor
@@ -29,39 +31,67 @@ public struct ScriptWindow: View {
 
     public var body: some View {
         NavigationSplitView(columnVisibility: $columns) {
-            NavigationStack {
-                StoryList(
-                    editor: editor,
-                    tab: $tab,
-                    showsSceneFilter: true,
-                    showsSceneNumbering: false,
-                    sceneQuery: $sceneQuery,
-                    focusSceneFilter: focusSceneFilter,
-                    onFilterSubmit: { id in
-                        editor.jump(to: id)
-                        editor.beginEditing()
-                    }
-                ) { element in
-                    // The sidebar stays where it is: a Mac reader keeps their
-                    // place in the list while the page moves beside it, which is
-                    // exactly what a sidebar is for. The character thread uses
-                    // this same `open` — a speech reveals the line, the thread
-                    // remains.
-                    editor.jump(to: element)
-                }
+            StoryList(
+                editor: editor,
+                tab: $tab,
+                showsSceneFilter: true,
+                showsSceneNumbering: false,
+                sceneQuery: $sceneQuery,
+                focusSceneFilter: focusSceneFilter,
+                onFilterSubmit: { id in
+                    editor.jump(to: id)
+                    editor.beginEditing()
+                },
+                onSelectCharacter: { name in
+                    // Choosing the open one closes it. A column that appeared
+                    // by being chosen should leave the same way, rather than
+                    // growing a dismiss control of its own.
+                    selectedCharacter = selectedCharacter == name ? nil : name
+                },
+                selectedCharacter: selectedCharacter
+            ) { element in
+                // The sidebar stays where it is: a Mac reader keeps their
+                // place in the list while the page moves beside it, which is
+                // exactly what a sidebar is for. The thread uses this same
+                // `open` — a speech reveals the line, the thread remains.
+                editor.jump(to: element)
             }
             .navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 360)
         } detail: {
-            ScriptPageView(editor: editor)
-                .replaceDisabled()
-                .background(Color(nsColor: .underPageBackgroundColor))
-                .navigationTitle(editor.screenplay.title)
-                .navigationSubtitle(subtitle)
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        ElementModeControl(editor: editor)
+            HStack(spacing: 0) {
+                // Sidebar, list, content — Notes' arrangement, and the Mac's.
+                // Pushing the thread *inside* the sidebar hid the cast to show
+                // one of them, which is losing your place to see your place.
+                if let selectedCharacter {
+                    CharacterThreadView(
+                        editor: editor,
+                        name: selectedCharacter,
+                        chrome: .panel
+                    ) { element in
+                        editor.jump(to: element)
                     }
+                    // The thread holds its own name so a rename performed
+                    // inside it does not pull the view out from under itself.
+                    // That means a different character needs a different view,
+                    // not the same one asked to change its mind.
+                    .id(selectedCharacter)
+                    .frame(width: 260)
+                    Divider()
                 }
+                ScriptPageView(editor: editor)
+                    .replaceDisabled()
+                    .background(Color(nsColor: .underPageBackgroundColor))
+            }
+            .navigationTitle(editor.screenplay.title)
+            .navigationSubtitle(subtitle)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    ElementModeControl(editor: editor)
+                }
+            }
+        }
+        .onChange(of: tab) { _, tab in
+            if tab != .cast { selectedCharacter = nil }
         }
         .sheet(isPresented: $showingTitlePage) {
             TitlePageSheet(editor: editor)

@@ -89,6 +89,13 @@ public struct StoryList: View {
     @Binding var sceneQuery: String
     var focusSceneFilter: Int
     var onFilterSubmit: ((UUID) -> Void)?
+    /// A surface that shows the thread beside the cast rather than in place of
+    /// it. The phone pushes — one column, no choice. The Mac hands the name
+    /// outward so a column can open next to the list, the way Notes opens a
+    /// note list beside its folders, and the writer keeps the cast in view.
+    var onSelectCharacter: ((String) -> Void)?
+    /// Which name that column is showing, so the row can read as chosen.
+    var selectedCharacter: String?
 
     @FocusState private var filterFocused: Bool
 
@@ -100,6 +107,8 @@ public struct StoryList: View {
         sceneQuery: Binding<String> = .constant(""),
         focusSceneFilter: Int = 0,
         onFilterSubmit: ((UUID) -> Void)? = nil,
+        onSelectCharacter: ((String) -> Void)? = nil,
+        selectedCharacter: String? = nil,
         open: @escaping (UUID) -> Void
     ) {
         self.editor = editor
@@ -110,6 +119,8 @@ public struct StoryList: View {
         _sceneQuery = sceneQuery
         self.focusSceneFilter = focusSceneFilter
         self.onFilterSubmit = onFilterSubmit
+        self.onSelectCharacter = onSelectCharacter
+        self.selectedCharacter = selectedCharacter
     }
 
     public var body: some View {
@@ -244,7 +255,18 @@ public struct StoryList: View {
                 )
             } else {
                 ForEach(editor.cast) { person in
-                    CastListRow(person: person)
+                    if let onSelectCharacter {
+                        Button { onSelectCharacter(person.name) } label: {
+                            CastRowLabel(person: person)
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(
+                            person.name == selectedCharacter
+                                ? Color.accentColor.opacity(0.18) : Color.clear
+                        )
+                    } else {
+                        CastListRow(person: person)
+                    }
                 }
             }
         }
@@ -348,25 +370,34 @@ private struct SceneListRow: View {
 /// One row, one meaning. A chevron and a menu side by side ask the writer to
 /// choose between two doors before they know what is behind either; renaming
 /// moves inside, onto the page that can show the cues it would rewrite.
+/// One cast row, drawn once. Whether choosing it pushes a thread or opens a
+/// column beside the list is the surface's business, not the row's.
+private struct CastRowLabel: View {
+    let person: CastRow
+
+    var body: some View {
+        HStack {
+            // Stated, not inherited. The list's tint reaches the rows
+            // present when it is applied; rows realized later — the ones
+            // a writer scrolls into view — came up in the accent colour
+            // instead, so a cast list read half black and half blue.
+            Label(person.name, systemImage: "person.crop.circle.fill")
+                .font(.body.weight(.medium))
+                .foregroundStyle(.primary)
+            Spacer()
+            Text("\(person.cues) \(person.cues == 1 ? "cue" : "cues")")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+        }
+        .contentShape(Rectangle())
+    }
+}
+
 private struct CastListRow: View {
     let person: CastRow
 
     public var body: some View {
-        NavigationLink(value: person.name) {
-            HStack {
-                // Stated, not inherited. The list's tint reaches the rows
-                // present when it is applied; rows realized later — the ones
-                // a writer scrolls into view — came up in the accent colour
-                // instead, so a cast list read half black and half blue.
-                Label(person.name, systemImage: "person.crop.circle.fill")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(.primary)
-                Spacer()
-                Text("\(person.cues) \(person.cues == 1 ? "cue" : "cues")")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-        }
+        NavigationLink(value: person.name) { CastRowLabel(person: person) }
     }
 }
 

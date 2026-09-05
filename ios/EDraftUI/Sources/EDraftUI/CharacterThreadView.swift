@@ -24,6 +24,7 @@ public struct CharacterThreadView: View {
     /// Moves the caret to an element and closes the Navigator behind it.
     /// Passed in because dismissing a pushed view would only pop the push.
     let open: (UUID) -> Void
+    private let chrome: Chrome
 
     /// Who this page is about — held in state rather than read back from the
     /// cast list, because renaming from here has to leave the page standing.
@@ -36,24 +37,68 @@ public struct CharacterThreadView: View {
     /// rename opens so the writer sees the blast radius before choosing.
     @State private var mentionCount = 0
 
-    public init(editor: EditorState, name: String, open: @escaping (UUID) -> Void) {
+    public init(
+        editor: EditorState,
+        name: String,
+        chrome: Chrome = .pushed,
+        open: @escaping (UUID) -> Void
+    ) {
         self.editor = editor
         self.open = open
+        self.chrome = chrome
         _name = State(initialValue: name)
     }
+
+    /// How the thread is framed, which is the only thing that differs between
+    /// the two surfaces.
+    ///
+    /// The phone pushes it, so the name is a navigation title and Rename is a
+    /// row in the list. The Mac shows it as a column beside the cast, so the
+    /// name is a header and Rename lives under the `…` at its end — where
+    /// Notes and Mail put the actions for the thing a column is showing.
+    /// Same thread either way; a second copy of it would be two threads.
+    public enum Chrome: Sendable { case pushed, panel }
 
     private var appearances: [CharacterAppearance] { editor.appearances(of: name) }
     private var cues: Int { editor.cast.first { $0.name == name }?.cues ?? 0 }
 
     public var body: some View {
+        VStack(spacing: 0) {
+            if chrome == .panel { panelHeader }
+            thread
+        }
+    }
+
+    /// The column's own head: who this is, and the actions for them.
+    private var panelHeader: some View {
+        HStack(spacing: 8) {
+            Text(name)
+                .font(.headline)
+            Spacer(minLength: 8)
+            Menu {
+                Button("Rename Character…", action: beginRename)
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .accessibilityLabel("Character actions")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    private var thread: some View {
         List {
             Section {
                 Text(summary)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
-                Button(action: beginRename) {
-                    Label("Rename Character", systemImage: "pencil")
+                if chrome == .pushed {
+                    Button(action: beginRename) {
+                        Label("Rename Character", systemImage: "pencil")
+                    }
                 }
             }
 
@@ -84,7 +129,7 @@ public struct CharacterThreadView: View {
             }
         }
         .tint(.primary)
-        .navigationTitle(name)
+        .navigationTitle(chrome == .pushed ? name : "")
         .compactTitle()
         .alert("Rename Character", isPresented: $isRenaming) {
             // Typed as prose, not shouted: cues uppercase themselves, and
