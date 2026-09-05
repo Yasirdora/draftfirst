@@ -91,6 +91,10 @@ public struct StoryList: View {
     /// scope switch — Messages puts search in that same position. Off on
     /// the phone, which still opens this list as a sheet.
     var showsSceneFilter: Bool
+    /// The Mac sidebar is destinations, never verbs (`MACOS-DESIGN` §1.1).
+    /// Scene numbering is a Format-menu action there. The phone still
+    /// carries the row — its Navigator is a sheet, not a sidebar.
+    var showsSceneNumbering: Bool
     @Binding var sceneQuery: String
     var focusSceneFilter: Int
     var onFilterSubmit: ((UUID) -> Void)?
@@ -101,6 +105,7 @@ public struct StoryList: View {
         editor: EditorState,
         tab: Binding<StoryPanel.Tab>,
         showsSceneFilter: Bool = false,
+        showsSceneNumbering: Bool = true,
         sceneQuery: Binding<String> = .constant(""),
         focusSceneFilter: Int = 0,
         onFilterSubmit: ((UUID) -> Void)? = nil,
@@ -110,6 +115,7 @@ public struct StoryList: View {
         _tab = tab
         self.open = open
         self.showsSceneFilter = showsSceneFilter
+        self.showsSceneNumbering = showsSceneNumbering
         _sceneQuery = sceneQuery
         self.focusSceneFilter = focusSceneFilter
         self.onFilterSubmit = onFilterSubmit
@@ -167,7 +173,7 @@ public struct StoryList: View {
 
     private var list: some View {
         List {
-            if tab == .scenes {
+            if tab == .scenes, showsSceneNumbering {
                 // Numbering drills down rather than hiding behind a toolbar
                 // glyph: the row names the state the script is in, and the
                 // page it opens has room to say what each operation costs.

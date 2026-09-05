@@ -30,6 +30,7 @@ public struct ScriptWindow: View {
                 editor: editor,
                 tab: $tab,
                 showsSceneFilter: true,
+                showsSceneNumbering: false,
                 sceneQuery: $sceneQuery,
                 focusSceneFilter: focusSceneFilter,
                 onFilterSubmit: { id in

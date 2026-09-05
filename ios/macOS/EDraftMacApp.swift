@@ -31,6 +31,8 @@ struct EDraftMacApp: App {
             }
             CommandGroup(after: .textFormatting) {
                 ElementCommands()
+                Divider()
+                SceneNumbersCommands()
             }
             CommandGroup(after: .saveItem) {
                 ExportCommands()
@@ -186,6 +188,57 @@ struct PrintCommand: View {
         }
         .keyboardShortcut("p", modifiers: .command)
         .disabled(editor == nil)
+    }
+}
+
+/// Format → Scene Numbers. A verb, so it does not live in the sidebar
+/// (`MACOS-DESIGN` §1.1). The same three operations the phone's numbering
+/// page offers; Number All and Remove confirm, because they change
+/// addresses a schedule may already cite.
+struct SceneNumbersCommands: View {
+    @FocusedValue(\.editor) private var editor
+
+    var body: some View {
+        Menu("Scene Numbers") {
+            Button("Number New Scenes") {
+                _ = editor?.applySceneNumbering(.newScenesOnly)
+            }
+            .disabled(editor == nil)
+
+            Button("Number All Scenes") {
+                confirm(
+                    title: "Renumber Every Scene?",
+                    body: "Every scene is numbered again from 1. Any number already in use changes, including ones a schedule or call sheet may already cite.",
+                    action: "Renumber"
+                ) {
+                    _ = editor?.applySceneNumbering(.all)
+                }
+            }
+            .disabled(editor == nil)
+
+            Button("Remove Scene Numbers") {
+                confirm(
+                    title: "Remove Every Scene Number?",
+                    body: "The script keeps its scenes; it loses the numbers people cite them by.",
+                    action: "Remove"
+                ) {
+                    _ = editor?.applySceneNumbering(.clear)
+                }
+            }
+            .disabled(!(editor?.isSceneNumbered ?? false))
+        }
+    }
+
+    private func confirm(title: String, body: String, action: String, run: @escaping () -> Void) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = body
+        alert.addButton(withTitle: action)
+        alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .warning
+        if alert.runModal() == .alertFirstButtonReturn {
+            run()
+        }
     }
 }
 
