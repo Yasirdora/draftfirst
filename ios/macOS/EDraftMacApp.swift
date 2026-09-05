@@ -27,9 +27,13 @@ struct EDraftMacApp: App {
         Window("eDraft", id: MacAppDelegate.launchWindowID) {
             LaunchWindowHost()
         }
-        .defaultSize(width: 660, height: 500)
+        .defaultSize(width: 660, height: 460)
         .defaultPosition(.center)
         .windowResizability(.contentMinSize)
+        // No title bar. The window's name is the first thing written on it,
+        // and a chrome strip repeating it above the word "eDraft" is a second
+        // title. Xcode's welcome window and Pages' chooser do the same.
+        .windowStyle(.hiddenTitleBar)
 
         DocumentGroup(newDocument: EDraftDocument()) { file in
             ScriptDocumentWindow(document: file.$document)
@@ -391,11 +395,25 @@ struct LaunchWindowHost: View {
         }
     }
 
+    /// A sheet on the launch window rather than an application-modal panel.
+    ///
+    /// `runModal()` blocks the main run loop and floats the panel free of any
+    /// window; `beginSheetModal(for:)` attaches it to the window the writer
+    /// clicked, which is what every document app on the platform does.
     private func openViaPanel() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.edraftScreenplay, .plainText, .finalDraftScreenplay]
         panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        open(url)
+        panel.prompt = "Open"
+
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow else {
+            // No window to hang it on is not a reason to refuse the writer.
+            if panel.runModal() == .OK, let url = panel.url { open(url) }
+            return
+        }
+        panel.beginSheetModal(for: window) { response in
+            guard response == .OK, let url = panel.url else { return }
+            open(url)
+        }
     }
 }

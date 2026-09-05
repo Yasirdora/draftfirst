@@ -116,7 +116,7 @@ public enum LaunchIdentity {
         Color(red: 0.94, green: 0.90, blue: 0.79)
     ]
 
-    /// The ground the launch experience sits on.
+    /// The phone's ground: a **frame**, not a canvas.
     ///
     /// Measured, not assumed: on the phone the launch card covers most of the
     /// screen, so this reads only where it meets the card's edge. A ground the
@@ -124,6 +124,13 @@ public enum LaunchIdentity {
     /// page floats on it, the margin rule runs down where a script's text
     /// begins, and the revision colours lie along the foot the way a stack of
     /// reprints does.
+    ///
+    /// **It is composed for a frame and does not survive being a whole
+    /// window.** The Mac tried it: the rule cut through the title and the
+    /// button at 17.6% of a window that is not a page, and the revision run
+    /// read as a colour test pattern. The Mac draws `desk` alone and composes
+    /// its own. Share the palette, not the composition — the same rule as
+    /// every other thing in this project that lives in two places.
     public struct Background: View {
         @Environment(\.colorScheme) private var scheme
 
