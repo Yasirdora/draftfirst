@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+	EMPTY_LINE_ESCAPE,
 	emptyLineEscape,
 	nextElement,
 	tabNext,
@@ -30,17 +31,27 @@ describe('choreography · Enter, the forward flow', () => {
 		expect(nextElement('transition', 'enter')).toBe('scene');
 	});
 
-	it('Enter on an empty line changes what the line is, and action reaches a cue', () => {
-		// The way out of a speech block, from anywhere inside it.
-		expect(nextElement('character', 'enter', '')).toBe('scene');
-		expect(nextElement('dialogue', 'enter', '')).toBe('action');
-		expect(nextElement('parenthetical', 'enter', '')).toBe('action');
-		expect(nextElement('scene', 'enter', '   ')).toBe('action');
+	it('Enter on an empty line changes what the line is: action ⇄ character', () => {
+		// The oldest reflex in the craft — Return twice after a speech — lands on
+		// action, as it does in every screenwriting app a writer arrives from.
+		expect(nextElement('dialogue', 'enter')).toBe('character');
+		expect(nextElement('character', 'enter', '')).toBe('action');
 		// And out of action: a second Return on the blank line it just made
 		// reaches for the person who speaks next.
 		expect(nextElement('action', 'enter', '')).toBe('character');
-		// So a blank line is a cycle rather than a dead end.
-		expect(nextElement(emptyLineEscape('action'), 'enter', '')).toBe('scene');
+		// Two stops, so the ring is escapable: one more tap is where you began.
+		expect(nextElement(emptyLineEscape('action'), 'enter', '')).toBe('action');
+		// Everything else leaves by the same door.
+		expect(nextElement('dialogue', 'enter', '')).toBe('action');
+		expect(nextElement('parenthetical', 'enter', '')).toBe('action');
+		expect(nextElement('scene', 'enter', '   ')).toBe('action');
+	});
+
+	it('a scene heading is not in the ring — it is reached by typing it', () => {
+		// Fountain defines a line beginning INT./EXT. as a slug, and the editor
+		// promotes it as it is typed. Putting it here as well would cost a third
+		// tap for the two kinds a writer cannot type their way into.
+		expect(Object.values(EMPTY_LINE_ESCAPE)).not.toContain('scene');
 	});
 });
 

@@ -292,4 +292,9 @@ neither a screenshot nor the accessibility API can see a window in that state.
 - **Reading-mode chrome.** `[(<)(Edit) … (Navigator)(…)]`; the slot beside the
   menu morphs into Undo when writing begins.
 - **Empty-line escape** lives in `Choreography.emptyLineEscape` — engine, not
-  view: `action → character`, `character → scene`, everything else `→ action`.
+  view — and is a **two-stop ring**: `action ⇄ character`, everything else
+  `→ action`. A scene heading is deliberately not in it: Fountain defines a line
+  beginning INT./EXT./EST./I/E. as a slug, and `ScenePromotion` now promotes it
+  as it is typed. Three stops cost a third tap for the two kinds a writer cannot
+  type their way into, and landed the oldest reflex in the craft — Return twice
+  after a speech — on a heading instead of action.

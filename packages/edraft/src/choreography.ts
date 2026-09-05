@@ -28,16 +28,23 @@ export const ENTER_FLOW: Readonly<Record<string, AnyElementType>> = {
  * Where a line that has nothing on it goes when Return is pressed on it.
  *
  * An empty line is a writer saying they are done with this kind, so Return
- * changes what the line is rather than making another one below it. From
- * anywhere in a speech that means action — the way out of the block. From
- * action it means a character cue, because the thing a writer reaches for
- * after describing something is usually someone speaking, and it makes the
- * blank line a cycle instead of a dead end: press again and it is action
- * once more.
+ * changes what the line is rather than making another one below it. Two stops,
+ * not three: action and a character cue are the only kinds a writer cannot
+ * reach by typing, so they are the only ones the Return key has to offer.
+ *
+ * A scene heading is deliberately absent. Fountain already defines a line
+ * beginning INT./EXT./EST./I/E. as a slug, and the editor promotes it as it is
+ * typed — putting it in this ring as well would cost every writer a third tap
+ * to reach the two kinds they actually need, and would land the oldest reflex
+ * in the craft, Return twice after a speech, on a scene heading instead of
+ * action.
+ *
+ * Two stops also make the ring escapable, which is the whole answer to "how do
+ * I stop cycling": tap once more and you are back where you were.
  */
 export const EMPTY_LINE_ESCAPE: Readonly<Record<string, AnyElementType>> = {
 	action: 'character',
-	character: 'scene'
+	character: 'action'
 };
 
 /** What an empty line becomes on Return. */

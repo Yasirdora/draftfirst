@@ -452,11 +452,12 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
 
     /// Return on a line with nothing on it changes what the line *is*, and
     /// what it becomes is the engine's to say — `Choreography.emptyLineEscape`,
-    /// pinned by the conformance corpus. A cue nobody spoke under escapes to a
-    /// scene heading. This asserts the surface asks rather than deciding for
-    /// itself, so the two can never drift apart in silence.
+    /// pinned by the conformance corpus. A cue nobody spoke under escapes to
+    /// action: the oldest reflex in the craft, Return twice after a speech.
+    /// This asserts the surface asks rather than deciding for itself, so the
+    /// two can never drift apart in silence.
     @MainActor
-    func testReturnOnWhitespaceOnlyCueEscapesToAnEmptyScene() throws {
+    func testReturnOnWhitespaceOnlyCueEscapesToEmptyAction() throws {
         let characterID = UUID()
         let whitespace = " \t "
         let editor = EditorState(source: "An opening image.")
@@ -482,7 +483,7 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
         XCTAssertFalse(shouldApplyNatively)
         XCTAssertEqual(editor.screenplay.elements.count, 1)
         XCTAssertEqual(editor.screenplay.elements[0].id, characterID)
-        XCTAssertEqual(editor.screenplay.elements[0].type, .scene)
+        XCTAssertEqual(editor.screenplay.elements[0].type, .action)
         XCTAssertEqual(editor.screenplay.elements[0].text, "")
         XCTAssertEqual(editor.activeElementID, characterID)
         XCTAssertEqual(editor.selectionOffset, 0)

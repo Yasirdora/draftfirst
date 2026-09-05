@@ -29,19 +29,21 @@ public enum Choreography {
         .lyrics: .lyrics,
     ]
 
-    /// Where a line that has nothing on it goes when Return is pressed on it
+    /// Where a line with nothing on it goes when Return is pressed on it
     /// (TypeScript `EMPTY_LINE_ESCAPE`).
     ///
-    /// An empty line is a writer saying they are done with this kind, so
-    /// Return changes what the line is rather than making another one below
-    /// it. From anywhere in a speech that means action — the way out of the
-    /// block. From action it means a character cue, because the thing a
-    /// writer reaches for after describing something is usually someone
-    /// speaking, and it makes the blank line a cycle rather than a dead end:
-    /// press again and it is action once more.
+    /// Two stops, not three: action and a character cue are the only kinds a
+    /// writer cannot reach by typing, so they are the only ones Return has to
+    /// offer. A scene heading is deliberately absent — Fountain already defines
+    /// a line beginning INT./EXT./EST./I/E. as a slug and the editor promotes
+    /// it as it is typed, so putting it here as well would cost a third tap for
+    /// the two kinds that need one, and would land the oldest reflex in the
+    /// craft — Return twice after a speech — on a heading instead of action.
+    ///
+    /// Two stops also make the ring escapable: one more tap is where you began.
     private static let emptyLineEscapes: [ElementKind: ElementKind] = [
         .action: .character,
-        .character: .scene
+        .character: .action
     ]
 
     /// Ring order used for free cycling (TypeScript `TAB_RING`).

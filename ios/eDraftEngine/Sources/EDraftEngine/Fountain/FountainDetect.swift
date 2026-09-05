@@ -5,7 +5,7 @@ import Foundation
 /// and `serialise.ts`. Every check here is deliberately ASCII-exact where the
 /// JS regexes are (`[A-Z]`, `[a-z]`, explicit character classes) — Unicode
 /// case folding must not change classification.
-enum FountainDetect {
+public enum FountainDetect {
 
     // MARK: - Scene headings
 
@@ -32,7 +32,13 @@ enum FountainDetect {
         return result
     }
 
-    static func isSceneHeading(_ line: String) -> Bool {
+    /// Whether Fountain calls this line a scene heading.
+    ///
+    /// Public because the editor promotes a line to a slug as it is typed, and
+    /// that decision must be the parser's rather than a second opinion kept in
+    /// the app — otherwise a line could look like a heading on the page and
+    /// read as action when the file is opened again.
+    public static func isSceneHeading(_ line: String) -> Bool {
         let up = asciiUppercased(line)
         for prefix in scenePrefixes where up.hasPrefix(prefix) {
             let rest = up.dropFirst(prefix.count)

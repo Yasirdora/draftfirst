@@ -2901,19 +2901,19 @@
       "current": "character",
       "key": "enter",
       "text": "",
-      "result": "scene"
+      "result": "action"
     },
     {
       "current": "character",
       "key": "enter",
       "text": "   ",
-      "result": "scene"
+      "result": "action"
     },
     {
       "current": "character",
       "key": "enter",
       "text": " ",
-      "result": "scene"
+      "result": "action"
     },
     {
       "current": "character",

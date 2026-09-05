@@ -550,6 +550,7 @@ struct ScriptTextView: UIViewRepresentable {
                 self.pendingEdit = nil
                 synchronizeModelFromNativeText()
             }
+            promoteToSceneHeadingIfTyped()
             renderedRevision = editor.revision
             updateTypingTraits()
             updateGhost()
@@ -1397,6 +1398,27 @@ struct ScriptTextView: UIViewRepresentable {
             renderModel(selecting: state.activeElementID, offset: state.selectionOffset)
             restoreSelection(state.selection)
             reportNativeUndoAvailability(afterUIKitSettles: true)
+        }
+
+        /// Makes a line a scene heading the moment it says it is one.
+        ///
+        /// Fountain defines a line beginning INT./EXT./EST./I/E. as a slug, and
+        /// until this the editor disagreed with its own parser: you could type
+        /// `INT. KITCHEN - DAY`, watch it stay action, save, reopen, and find it
+        /// had been a heading all along. It also switches on the help that is
+        /// scoped to headings — the time-of-day ghost, and the dash that writes
+        /// a spaced separator — which previously waited for the writer to say
+        /// what they were already writing.
+        ///
+        /// Through `changeKind`, not by setting the type, so the conversion
+        /// carries what every other conversion carries: the caps a heading
+        /// wears, the casing memory that makes it reversible, and one undo step.
+        private func promoteToSceneHeadingIfTyped() {
+            guard let editor, let index = editor.activeElementIndex else { return }
+            let element = editor.screenplay.elements[index]
+            guard let promoted = ScenePromotion.kind(for: element.text, currently: element.type)
+            else { return }
+            changeKind(to: promoted)
         }
 
         private func changeKind(to kind: ScreenplayKind) {
