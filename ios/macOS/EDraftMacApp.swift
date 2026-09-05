@@ -24,6 +24,8 @@ struct EDraftMacApp: App {
             // a writer already reaches for on the phone (⌘→).
             CommandGroup(after: .pasteboard) {
                 AcceptSuggestionCommand()
+                Divider()
+                FindCommands()
             }
             // The nine element commands currently land in Edit too, because
             // `.textEditing` is an Edit-menu anchor. The design puts them in
@@ -83,6 +85,43 @@ struct AcceptSuggestionCommand: View {
               let suffix = editor.currentSuggestionSuffix,
               !suffix.isEmpty else { return false }
         return true
+    }
+}
+
+/// Edit → Find, Find Next/Previous, Find Scene.
+///
+/// Find is the system bar, Replace omitted: `NSTextView.replaceCharacters`
+/// does not go through the planner (see `TextFinderMeasurementTests`).
+/// Find Scene is go-to-scene, not a second text search.
+struct FindCommands: View {
+    @FocusedValue(\.editor) private var editor
+
+    var body: some View {
+        Button("Find…") {
+            editor?.onShowFind?()
+        }
+        .keyboardShortcut("f", modifiers: .command)
+        .disabled(editor == nil)
+
+        Button("Find Next") {
+            editor?.onFindNext?()
+        }
+        .keyboardShortcut("g", modifiers: .command)
+        .disabled(editor == nil)
+
+        Button("Find Previous") {
+            editor?.onFindPrevious?()
+        }
+        .keyboardShortcut("g", modifiers: [.command, .shift])
+        .disabled(editor == nil)
+
+        Divider()
+
+        Button("Find Scene") {
+            editor?.onFindScene?()
+        }
+        .keyboardShortcut("l", modifiers: .command)
+        .disabled(editor == nil)
     }
 }
 

@@ -55,6 +55,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// undo. Vend this instead, through `undoManager(for:)`.
     private let editingUndo = UndoManager()
 
+    /// System find bar, Replace disabled. See `FindBarClient`.
+    private let textFinder = NSTextFinder()
+    private let findClient: FindBarClient
+
     public init(measure: CGFloat = 640) {
         self.measure = measure
 
@@ -92,10 +96,20 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         scrollView.documentView = textView
         self.scrollView = scrollView
 
+        let findClient = FindBarClient(textView: textView)
+        self.findClient = findClient
+
         super.init()
         textView.delegate = self
         ghost.onAccept = { [weak self] in self?.acceptPrediction() }
         textView.addSubview(ghost, positioned: .above, relativeTo: nil)
+
+        // Own the finder so we can refuse Replace. `usesFindBar` on the
+        // text view would use the view as client, and an editable view
+        // offers Replace — which writes storage without the planner.
+        textFinder.client = findClient
+        textFinder.findBarContainer = scrollView
+        textFinder.incrementalSearchingShouldDimContentView = false
     }
 
     // MARK: - Binding
@@ -119,6 +133,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         editor.onChangeElementKind = { [weak self] kind in self?.changeKind(to: kind) }
         editor.onPredictionChange = { [weak self] in self?.updateGhost() }
         editor.onAcceptPrediction = { [weak self] in self?.acceptPrediction() }
+        editor.onShowFind = { [weak self] in self?.showFind() }
+        editor.onFindNext = { [weak self] in self?.find(next: true) }
+        editor.onFindPrevious = { [weak self] in self?.find(next: false) }
         editor.onInsertElements = { [weak self] pages in self?.insertElements(pages) }
         editor.onApplyElements = { [weak self] elements, name in
             self?.applyElements(elements, actionName: name)
@@ -692,6 +709,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         let focused = textView.window == nil
             || textView.window?.firstResponder === textView
         guard focused,
+              !scrollView.isFindBarVisible,
               !textView.hasMarkedText(),
               let suffix = editor.currentSuggestionSuffix,
               !suffix.isEmpty,
@@ -728,6 +746,22 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     private func hideGhost() {
         ghost.hide()
         ghost.acceptsClicks = false
+    }
+
+    /// Edit → Find. The system bar, with Replace disabled.
+    public func showFind() {
+        textFinder.performAction(.showFindInterface)
+        updateGhost()
+    }
+
+    public func find(next: Bool) {
+        textFinder.performAction(next ? .nextMatch : .previousMatch)
+    }
+
+    /// Whether the system find bar is currently up — what a test asks, and
+    /// what hides the ghost.
+    public var isFindBarVisible: Bool {
+        scrollView.isFindBarVisible
     }
 
     private func shouldAcceptPredictionWithSpace(

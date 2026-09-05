@@ -59,6 +59,21 @@ public struct StoryPanel: View {
     }
 }
 
+/// Which navigator rows a query leaves visible.
+///
+/// This is matching against titles the model already classified as scenes —
+/// it does not decide what a scene is. Empty query means every row.
+public enum SceneListFilter {
+    public static func included(_ scenes: [SceneRow], query: String) -> [SceneRow] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !needle.isEmpty else { return scenes }
+        return scenes.filter { scene in
+            scene.title.localizedCaseInsensitiveContains(needle)
+                || scene.label.localizedCaseInsensitiveContains(needle)
+        }
+    }
+}
+
 /// The Navigator itself: the scope switch, the rows, and the footnote — with
 /// no chrome of its own.
 ///
@@ -72,21 +87,66 @@ public struct StoryList: View {
     /// What a row that names a place does when it is chosen. The sheet closes
     /// itself afterwards; the sidebar stays where it is.
     let open: (UUID) -> Void
+    /// Mac Find Scene (⌘L): a filter on the Scenes tab, sitting with the
+    /// scope switch — Messages puts search in that same position. Off on
+    /// the phone, which still opens this list as a sheet.
+    var showsSceneFilter: Bool
+    @Binding var sceneQuery: String
+    var focusSceneFilter: Int
+    var onFilterSubmit: ((UUID) -> Void)?
+
+    @FocusState private var filterFocused: Bool
 
     public init(
         editor: EditorState,
         tab: Binding<StoryPanel.Tab>,
+        showsSceneFilter: Bool = false,
+        sceneQuery: Binding<String> = .constant(""),
+        focusSceneFilter: Int = 0,
+        onFilterSubmit: ((UUID) -> Void)? = nil,
         open: @escaping (UUID) -> Void
     ) {
         self.editor = editor
         _tab = tab
         self.open = open
+        self.showsSceneFilter = showsSceneFilter
+        _sceneQuery = sceneQuery
+        self.focusSceneFilter = focusSceneFilter
+        self.onFilterSubmit = onFilterSubmit
     }
 
     public var body: some View {
         VStack(spacing: 0) {
             tabPicker
+            if showsSceneFilter, tab == .scenes {
+                sceneFilterField
+            }
             list
+        }
+        .onChange(of: focusSceneFilter) { _, _ in
+            filterFocused = true
+        }
+    }
+
+    /// Narrows the scene list. Return jumps to the first remaining row and
+    /// hands the page back — the field is a destination filter, not a verb.
+    private var sceneFilterField: some View {
+        TextField("Scene", text: $sceneQuery)
+            .textFieldStyle(.roundedBorder)
+            .focused($filterFocused)
+            .onSubmit { submitFilter() }
+            .accessibilityLabel("Find Scene")
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+    }
+
+    private func submitFilter() {
+        guard let first = SceneListFilter.included(editor.scenes, query: sceneQuery).first
+        else { return }
+        if let onFilterSubmit {
+            onFilterSubmit(first.id)
+        } else {
+            open(first.id)
         }
     }
 
@@ -152,14 +212,21 @@ public struct StoryList: View {
     private var rows: some View {
         switch tab {
         case .scenes:
+            let visible = SceneListFilter.included(editor.scenes, query: sceneQuery)
             if editor.scenes.isEmpty {
                 EmptyListRow(
                     title: "No Scenes Yet",
                     detail: "Start a line with INT. or EXT. to build the navigator.",
                     symbol: "film.stack"
                 )
+            } else if visible.isEmpty {
+                EmptyListRow(
+                    title: "No Matching Scenes",
+                    detail: "Nothing in the navigator matches that search.",
+                    symbol: "magnifyingglass"
+                )
             } else {
-                ForEach(editor.scenes) { scene in
+                ForEach(visible) { scene in
                     SceneListRow(scene: scene) { open(scene.id) }
                 }
             }

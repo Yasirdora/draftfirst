@@ -36,6 +36,13 @@ public final class EditorState {
     /// surface owns first-responder status, so asking is the only honest way
     /// to change it: see `isEditing`.
     @ObservationIgnored public var onSetEditing: ((Bool) -> Void)?
+    /// Shows the system find bar. The surface owns the `NSTextFinder`.
+    @ObservationIgnored public var onShowFind: (() -> Void)?
+    @ObservationIgnored public var onFindNext: (() -> Void)?
+    @ObservationIgnored public var onFindPrevious: (() -> Void)?
+    /// Find Scene (⌘L): the window reveals the Navigator's Scenes tab and
+    /// focuses the filter. Not a second text search.
+    @ObservationIgnored public var onFindScene: (() -> Void)?
 
     /// Whether the writer is editing the script or reading it.
     ///

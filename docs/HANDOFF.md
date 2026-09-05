@@ -38,7 +38,7 @@ reading a number, not by reasoning about what ought to happen.
 |---|---|
 | Branch | `rename/edraft` |
 | iOS app | Feature-complete for its own plan; ships |
-| macOS app | Builds, launches, opens a screenplay, types, **ghosts**. Find is next |
+| macOS app | Builds, launches, opens a screenplay, types, ghosts, **finds**. Export is next |
 | Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface` |
 | Xcode targets | `eDraft`, `eDraftTests`, `eDraft (macOS)` |
 
@@ -49,8 +49,8 @@ a number drops, you broke something.
 npm test                                              # 413 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
 swift test --package-path ios/EDraftCore              #  58 core        (macOS)
-swift test --package-path ios/EDraftUI                #  12 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  43 Mac surface (macOS)
+swift test --package-path ios/EDraftUI                #  16 document    (macOS)
+swift test --package-path ios/EDraftMacSurface        #  49 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -103,15 +103,14 @@ prevent.**
 
 The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
 
-1. **Find (⌘F), Find Scene (⌘L).** Next M2 box as the execution doc lists it.
-2. **Export and print on the Mac.** `ScreenplayExporter` (core) already gives
+1. **Export and print on the Mac.** `ScreenplayExporter` (core) already gives
    Fountain, FDX and text. What is missing is the drawn half: copy
    `ios/eDraft/Document/ScreenplayPageRenderer.swift` to AppKit names. Its
    header comment says exactly this.
-3. **The rest of the menu bar**, including moving Element ⌘1–⌘9 from Edit to
+2. **The rest of the menu bar**, including moving Element ⌘1–⌘9 from Edit to
    Format (see known issues).
-4. **The inspector** (third pane) — M3.
-5. **M0.6**, optional: move to an `apple/` directory layout. The `ios/` name is
+3. **The inspector** (third pane) — M3.
+4. **M0.6**, optional: move to an `apple/` directory layout. The `ios/` name is
    now wrong for a tree with a Mac app in it.
 
 ---
@@ -187,6 +186,13 @@ The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
 - **`osascript` is not allowed assistive access** in this environment.
   System Events cannot read the menu bar or type. `CGWindowListCopyWindowInfo`
   still sees windows. Do not report a UI confirmation you could not drive.
+- **`NSTextView.replaceCharacters(in:with:)` does not go through
+  `shouldChangeTextIn`.** Find's Replace would desync the model. The Mac
+  find bar is the system one with Replace disabled (`FindBarClient.isEditable
+  == false`). Do not turn Replace on without a new measurement.
+- **`CommandGroupPlacement.textFinding` is not in this SDK.** Find commands
+  go in Edit after Paste. The system find bar itself does not appear from
+  `performFindPanelAction(nil)` in a windowed XCTest — hand-pass ⌘F.
 - **`Screenplay` names two different types** — `EDraftEngine.Screenplay` and
   `EDraftCore.Screenplay`. Nine call sites qualify it explicitly. Qualifying is
   a label, not a fix; renaming one of them is worth a focused pass and should

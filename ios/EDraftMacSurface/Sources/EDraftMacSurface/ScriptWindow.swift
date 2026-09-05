@@ -17,6 +17,8 @@ public struct ScriptWindow: View {
 
     @State private var tab: StoryPanel.Tab = .scenes
     @State private var columns: NavigationSplitViewVisibility = .all
+    @State private var sceneQuery = ""
+    @State private var focusSceneFilter = 0
 
     public init(editor: EditorState) {
         self.editor = editor
@@ -24,7 +26,17 @@ public struct ScriptWindow: View {
 
     public var body: some View {
         NavigationSplitView(columnVisibility: $columns) {
-            StoryList(editor: editor, tab: $tab) { element in
+            StoryList(
+                editor: editor,
+                tab: $tab,
+                showsSceneFilter: true,
+                sceneQuery: $sceneQuery,
+                focusSceneFilter: focusSceneFilter,
+                onFilterSubmit: { id in
+                    editor.jump(to: id)
+                    editor.beginEditing()
+                }
+            ) { element in
                 // The sidebar stays where it is: a Mac reader keeps their
                 // place in the list while the page moves beside it, which is
                 // exactly what a sidebar is for.
@@ -33,10 +45,22 @@ public struct ScriptWindow: View {
             .navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 360)
         } detail: {
             ScriptPageView(editor: editor)
+                .replaceDisabled()
                 .background(Color(nsColor: .underPageBackgroundColor))
                 .navigationTitle(editor.screenplay.title)
                 .navigationSubtitle(subtitle)
         }
+        .onAppear {
+            editor.onFindScene = { findScene() }
+        }
+    }
+
+    /// ⌘L: the sidebar is the destination list. Reveal it, show Scenes,
+    /// focus the filter. Not a Spotlight overlay — those are forbidden.
+    private func findScene() {
+        columns = .all
+        tab = .scenes
+        focusSceneFilter += 1
     }
 
     /// What the window's title bar says under the name: the two numbers a

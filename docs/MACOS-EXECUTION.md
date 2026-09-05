@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: M0 all but complete · M1 answered · **M2 types and ghosts** · Last updated 2026-09-05*
+*Status: M0 all but complete · M1 answered · **M2 types, ghosts, and finds** · Last updated 2026-09-05*
 
 This is the working document. New here? Read [HANDOFF.md](HANDOFF.md) first —
 it carries the state, the rules and the traps in one page.
@@ -14,7 +14,7 @@ product. **Start here, then read those.**
 ## 0. Where we are today
 
 The Mac app builds, opens a `.draft` / Fountain file, scrolls, reveals,
-types, and **ghosts**. Find, export/print and the inspector are still ahead.
+types, ghosts, and **finds**. Export/print and the inspector are still ahead.
 
 **Green baseline** (re-run these before and after every step):
 
@@ -22,8 +22,8 @@ types, and **ghosts**. Find, export/print and the inspector are still ahead.
 npm test                                              # 413 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
 swift test --package-path ios/EDraftCore              #  58 core        (macOS)
-swift test --package-path ios/EDraftUI                #  12 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  43 layout/page/typing/ghost (macOS)
+swift test --package-path ios/EDraftUI                #  16 document/filter (macOS)
+swift test --package-path ios/EDraftMacSurface        #  49 layout/page/typing/ghost/find (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -214,8 +214,28 @@ and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
       - `NSTextView.insertText("int. kitchen")` promotes to a scene heading
         without throwing. That is the AppKit path the phone's UIKit
         `textDidChange` → `render` was suspected of breaking.
-- [ ] Find (⌘F), Find Scene (⌘L). **Next.**
-- [ ] Export PDF · FDX · Fountain · Text; native print.
+- [x] Find (⌘F), Find Scene (⌘L).
+      *Done 2026-09-05.* System find bar, not a custom one. Find Scene is
+      the Navigator filter (⌘L), not a Spotlight overlay.
+      **Measured, not assumed:**
+      - `insertText` *does* call `shouldChangeTextIn` (harness check).
+      - `NSTextView.replaceCharacters(in:with:)` does **not** call
+        `shouldChangeTextIn` and does not fire `textDidChange`. Replace
+        would write the storage behind the planner. **Find ships without
+        Replace:** the find client reports `isEditable = false` so the
+        bar does not offer it; the text view itself stays editable for
+        typing. `replaceDisabled()` is also set on the page.
+      - `performFindPanelAction(nil)` in a windowed XCTest did **not**
+        show a find bar. The bar needs a hand pass. A full storage
+        replace did not crash.
+      - Incremental search: we do not set `NSTextView.usesFindBar` (that
+        client is editable and would offer Replace). The `NSTextFinder`
+        we own uses the system bar; content is not dimmed
+        (`incrementalSearchingShouldDimContentView = false`) because
+        dimming the page hides the match.
+      - `CommandGroupPlacement.textFinding` does not exist in this SDK.
+        Find commands sit in Edit after Paste.
+- [ ] Export PDF · FDX · Fountain · Text; native print. **Next.**
 - [ ] The rest of the menu bar: File, Edit, View per MACOS-DESIGN §3.4.
 
 *Proof, when it closes:* a script written entirely on the Mac, exported to PDF,
@@ -315,8 +335,8 @@ neither a screenshot nor the accessibility API can see a window in that state.
   or AppKit. It is plain Node, so it runs on the Linux box that runs CI, and it
   is wired into `npm run quality`. Verified by planting a violation and
   watching it fail.
-- **A macOS CI job** now runs `swift test` over all four packages — 208 tests
-  (95 + 58 + 12 + 43).
+- **A macOS CI job** now runs `swift test` over all four packages — 218 tests
+  (95 + 58 + 16 + 49).
   It has not run on a GitHub runner yet: the packages require macOS 26, so the
   first run needs watching in case `macos-latest` is still older than that.
 
