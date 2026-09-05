@@ -48,10 +48,10 @@ fully tested. Nothing here gets thrown away by the storage decision.
 
 | Piece | Location | Tests |
 |---|---|---|
-| Colour run + `.next`, double/triple passes | `DraftFirstEngine/…/Editor/Revisions.swift` | `RevisionsTests` (10) |
+| Colour run + `.next`, double/triple passes | `EDraftEngine/…/Editor/Revisions.swift` | `RevisionsTests` (10) |
 | Change detection (which lines get an asterisk) | same file, `RevisionDiff` | same |
 | Scene numbering, locked lettering (`12A`) | `…/Editor/SceneNumbering.swift` | `SceneNumberingTests` (8) |
-| Margin drawing on the printed page | `DraftFirst/Document/DraftFirstDocument.swift` | `SceneNumberRenderingTests` (4) |
+| Margin drawing on the printed page | `eDraft/Document/EDraftDocument.swift` | `SceneNumberRenderingTests` (4) |
 
 Notes on the diff: it trims the common head and tail first, then runs an exact LCS on
 what remains. A revision touches a small part of a long script, so the middle is

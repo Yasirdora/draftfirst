@@ -1,6 +1,6 @@
 # eDraft on macOS — Plan
 
-*Status: planning · Owner: Ysr · Engine readiness: DraftFirstEngine already declares `.macOS(.v26)`; `EditorState` and `ElementCaseMemory` are platform-agnostic (Foundation + Observation only).*
+*Status: planning · Owner: Ysr · Engine readiness: EDraftEngine already declares `.macOS(.v26)`; `EditorState` and `ElementCaseMemory` are platform-agnostic (Foundation + Observation only).*
 
 ---
 
@@ -31,7 +31,7 @@ later breakdowns are consequences, not features.
 
 ## 2. Our unfair advantages
 
-1. **The engine is already macOS-ready.** `DraftFirstEngine` declares
+1. **The engine is already macOS-ready.** `EDraftEngine` declares
    `.macOS(.v26)`; the conformance corpus runs on macOS via `swift test`
    today. Parsing, pagination, prediction, choreography, normalization —
    51 pinned test suites before a single UI line exists.
@@ -78,10 +78,10 @@ in M1, not as a retrofit.
 ## 4. Architecture
 
 ```
-DraftFirstEngine (Swift package — unchanged, already macOS 26)
+EDraftEngine (Swift package — unchanged, already macOS 26)
         ▲
         │ shared as-is
-DraftFirst app logic: EditorState · ElementCaseMemory · models ·
+eDraft app logic: EditorState · ElementCaseMemory · models ·
 ScreenplayExporter · document store (Foundation-only)
         ▲
         │ per-platform surface

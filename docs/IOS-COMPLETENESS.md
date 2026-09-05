@@ -1,7 +1,7 @@
 # iOS Completeness Assessment
 
 **Date:** 2026-08-24
-**Scope:** Full audit of the iOS app (`ios/DraftFirst/`, `ios/DraftFirstEngine/`) against one question: *what stands between today's build and a truly complete professional screenwriting app for iPhone and iPad?*
+**Scope:** Full audit of the iOS app (`ios/eDraft/`, `ios/eDraftEngine/`) against one question: *what stands between today's build and a truly complete professional screenwriting app for iPhone and iPad?*
 **Method:** line-level review of the app surface, engine modules, document types, keyboard handling, and test coverage. Every claim below was verified in code, not assumed.
 
 ---
@@ -39,9 +39,9 @@ This is already past every free competitor's *writing* experience. The gaps belo
 Things a working writer hits in week one. Ordered by severity.
 
 ### 2.1 FDX interchange — the trust feature
-- **State:** The TS engine has conformance-tested `fdx.ts` (read + write). The Swift engine has **no FDX module** (sources: Choreography, Normalize, CRC32, FountainDetect, Parse, Serialise, JSWhitespace, TitleCredits, Types, Paginate, Predict, SmartType). iOS document types are `.draftFirstScreenplay` + `.plainText` only.
+- **State:** The TS engine has conformance-tested `fdx.ts` (read + write). The Swift engine has **no FDX module** (sources: Choreography, Normalize, CRC32, FountainDetect, Parse, Serialise, JSWhitespace, TitleCredits, Types, Paginate, Predict, SmartType). iOS document types are `.edraftScreenplay` + `.plainText` only.
 - **Why it blocks:** Professionals' existing work is `.fdx`; delivery to production is `.fdx`. If a real script imports wrong once, nothing else matters. This is also the moat-crossing feature: Final Draft's lock-in is a file format, not a toolbar.
-- **Work:** Port `fdx.ts` → `DraftFirstEngine/Fdx/` (reader first, writer second), regenerate conformance fixtures via `npm run engine:conformance`, register an FDX UTType, add import (open-in-place) and export (share sheet).
+- **Work:** Port `fdx.ts` → `EDraftEngine/Fdx/` (reader first, writer second), regenerate conformance fixtures via `npm run engine:conformance`, register an FDX UTType, add import (open-in-place) and export (share sheet).
 
 ### 2.2 Scene numbers — stored, never rendered
 - **State:** `sceneNumber` exists in `Model/Types.swift` and round-trips through Fountain Parse/Serialise losslessly. **Paginate.swift contains zero `sceneNumber` references** — numbers are never laid out, and there is no UI to assign/lock/renumber them.
