@@ -72,6 +72,14 @@ enum ScreenplayImport {
     // MARK: - PDF
 
     private static func fountain(fromPDFAt url: URL) async throws -> String {
+        let data = try Data(contentsOf: url)
+        // A PDF we exported carries its Fountain source as a hex payload in
+        // /Keywords. That round-trip is exact — curly quotes, em dashes,
+        // non-Latin script — and must win over OCR, which can only guess.
+        if let fountain = PdfSignal.extract(from: data) {
+            return fountain
+        }
+
         guard let pdf = PDFDocument(url: url) else { throw CocoaError(.fileReadCorruptFile) }
 
         let embedded = textLayerLines(of: pdf)

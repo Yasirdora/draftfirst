@@ -1,0 +1,91 @@
+import XCTest
+@testable import EDraftCore
+
+/// The PDF round-trip signal: a file we exported must come back whole,
+/// including the punctuation and scripts that hex-encoding UTF-16 would
+/// mangle. Named for the failure: if this breaks, the PDF no longer
+/// carries its source home.
+final class PdfSignalTests: XCTestCase {
+
+    /// Curly quotes, an em dash, and Japanese — the exact reason the
+    /// payload encodes UTF-8 bytes rather than UTF-16 code units.
+    private let fountain = "Title: The Long Way Home\n\nINT. CAFÉ - DAY\n\nMolly’s kettle screams — “loudly.” 日本語も。\n"
+
+    func testTheSignalRoundTripsUnicodeByteForByte() {
+        let pdf = fakePdf(keywordsHex: PdfSignal.encode(fountain))
+        XCTAssertEqual(PdfSignal.extract(from: pdf), fountain)
+    }
+
+    func testAPdfWithNoSignalIsRefused() {
+        let pdf = fakePdf(keywordsHex: nil)
+        XCTAssertNil(PdfSignal.extract(from: pdf))
+    }
+
+    func testAForeignKeywordsPayloadIsRefused() {
+        XCTAssertNil(PdfSignal.extract(from: fakePdf(keywordsHex: hex("SOMEONE_ELSE:1\n{}"))))
+    }
+
+    func testAnUnknownVersionIsRefused() {
+        XCTAssertNil(PdfSignal.extract(from: fakePdf(
+            keywordsHex: hex("\(PdfSignal.markerPrefix):99\nfuture")
+        )))
+    }
+
+    func testMalformedHexIsIgnored() {
+        XCTAssertNil(PdfSignal.extract(from: fakePdf(keywordsHex: "abc")))
+        XCTAssertNil(PdfSignal.extract(from: fakePdf(keywordsHex: "zz")))
+    }
+
+    func testALaterValidSignalIsFoundAfterAForeignOne() {
+        var bytes = Data("%PDF-1.4\n1 0 obj\n<< /Keywords <\(hex("foreign"))> >>\nendobj\n".utf8)
+        bytes.append(fakePdf(keywordsHex: PdfSignal.encode(fountain)))
+        XCTAssertEqual(PdfSignal.extract(from: bytes), fountain)
+    }
+
+    func testADictionaryIsNotMistakenForHex() {
+        let pdf = Data("%PDF-1.4\n<< /Keywords << /Nested true >> >>\n%%EOF".utf8)
+        XCTAssertNil(PdfSignal.extract(from: pdf))
+    }
+
+    func testStampingMakesABarePdfExtractable() {
+        let bare = Data("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n".utf8)
+        XCTAssertNil(PdfSignal.extract(from: bare))
+        let stamped = PdfSignal.stamped(bare, fountain: fountain)
+        XCTAssertEqual(PdfSignal.extract(from: stamped), fountain)
+    }
+
+    func testStampingIsIdempotentWhenTheSignalAlreadyMatches() {
+        let stamped = PdfSignal.stamped(Data("%PDF-1.4\n%%EOF".utf8), fountain: fountain)
+        let again = PdfSignal.stamped(stamped, fountain: fountain)
+        XCTAssertEqual(again, stamped)
+    }
+
+    /// The rename compatibility contract, on the Swift side of the same
+    /// prefix the TypeScript engine still reads.
+    func testAPreRenamePrefixStillRecoversTheSource() {
+        let payload = hex("EDRAFT_FOUNTAIN:1\nINT. KITCHEN - DAY\n")
+        XCTAssertEqual(
+            PdfSignal.extract(from: fakePdf(keywordsHex: payload)),
+            "INT. KITCHEN - DAY\n"
+        )
+    }
+
+    func testEncodeWritesTheCurrentPrefixAndLowercaseHex() {
+        let encoded = PdfSignal.encode("INT. A - DAY\n")
+        XCTAssertEqual(encoded, hex("\(PdfSignal.markerPrefix):\(PdfSignal.markerVersion)\nINT. A - DAY\n"))
+        XCTAssertEqual(encoded, encoded.lowercased())
+        XCTAssertEqual(PdfSignal.markerPrefix, "EDRAFT_FOUNTAIN")
+    }
+
+    // MARK: - Fixtures
+
+    private func fakePdf(keywordsHex: String?) -> Data {
+        let info = keywordsHex.map { "<< /Producer (eDraft) /Keywords <\($0)> >>" }
+            ?? "<< /Producer (Someone Else) >>"
+        return Data("%PDF-1.4\n3 0 obj\n\(info)\nendobj\ntrailer\n<< /Root 1 0 R /Info 3 0 R >>\n%%EOF".utf8)
+    }
+
+    private func hex(_ text: String) -> String {
+        Array(text.utf8).map { String(format: "%02x", $0) }.joined()
+    }
+}
