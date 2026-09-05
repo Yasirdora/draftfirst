@@ -323,8 +323,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
 
+        // A real Tab is consumed in `doCommandBy`. A pasted lone `\t` is not
+        // a kind cycle — cycling here used to fire on paste and change the
+        // line the writer did not ask to change. Refuse the character; a
+        // screenplay has no tabs. A larger paste that happens to contain one
+        // still goes through the planner.
         if text == "\t" {
-            editor.cycleActiveKind(backwards: false)
             return false
         }
 
