@@ -35,71 +35,25 @@ final class ScriptSurfaceTypingTests: XCTestCase {
     private func bound(
         _ elements: [ScriptElement], active: Int = 0
     ) -> (EditorState, ScriptSurface) {
-        let editor = EditorState(source: "An opening image.")
-        editor.screenplay = Screenplay(titlePage: [], elements: elements)
-        editor.activeElementID = elements[active].id
-        editor.selectionOffset = 0
-
-        let surface = ScriptSurface(measure: 500)
-        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 500, height: 400)
-        surface.bind(to: editor)
-        surface.renderIfNeeded(editor)
-        return (editor, surface)
+        ScriptSurfaceHarness.bound(elements, active: active)
     }
 
-    /// Types the way a keyboard does: the delegate first, then the storage
-    /// only when that returns true, then the change the surface listens to.
     @discardableResult
     private func type(
         _ replacement: String,
         into surface: ScriptSurface,
         at range: NSRange? = nil
     ) -> Bool {
-        let textView = surface.textView
-        let range = range ?? textView.selectedRange()
-        let allowed = surface.textView(
-            textView, shouldChangeTextIn: range, replacementString: replacement
-        )
-        if allowed {
-            textView.textStorage?.replaceCharacters(in: range, with: replacement)
-            textView.setSelectedRange(
-                NSRange(
-                    location: range.location + (replacement as NSString).length,
-                    length: 0
-                )
-            )
-            surface.textDidChange(
-                Notification(name: NSText.didChangeNotification, object: textView)
-            )
-            surface.textViewDidChangeSelection(
-                Notification(name: NSTextView.didChangeSelectionNotification, object: textView)
-            )
-        }
-        return allowed
+        ScriptSurfaceHarness.type(replacement, into: surface, at: range)
     }
 
-    /// Puts the caret in an element by setting the selection, then telling
-    /// the surface — the same two calls a click in the page produces. Does
-    /// not go through `reveal`, so a test of Tab or a kind change cannot
-    /// accidentally inherit the model's jump.
     private func placeCaret(
         _ editor: EditorState,
         _ surface: ScriptSurface,
         on element: ScriptElement,
         atEnd: Bool = true
     ) {
-        let mapped = ScreenplayEditPlanner.ranges(for: editor.screenplay.elements)
-            .first { $0.id == element.id }
-        let location: Int
-        if let mapped {
-            location = atEnd ? NSMaxRange(mapped.range) : mapped.range.location
-        } else {
-            location = 0
-        }
-        surface.textView.setSelectedRange(NSRange(location: location, length: 0))
-        surface.textViewDidChangeSelection(
-            Notification(name: NSTextView.didChangeSelectionNotification, object: surface.textView)
-        )
+        ScriptSurfaceHarness.placeCaret(editor, surface, on: element, atEnd: atEnd)
     }
 
     // MARK: - The caret does not visit the top

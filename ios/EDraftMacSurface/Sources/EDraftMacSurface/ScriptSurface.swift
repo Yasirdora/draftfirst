@@ -32,6 +32,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
     private var ranges: [ScriptLayout.ElementRange] = []
     private let highlight = RevealHighlightViewMac()
+    private let ghost = GhostTextOverlay()
 
     /// The measure the script is set to. A Mac window is resizable, so this
     /// changes; the indents are fractions of it, which is why they are
@@ -93,6 +94,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
         super.init()
         textView.delegate = self
+        ghost.onAccept = { [weak self] in self?.acceptPrediction() }
+        textView.addSubview(ghost, positioned: .above, relativeTo: nil)
     }
 
     // MARK: - Binding
@@ -114,6 +117,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             )
         }
         editor.onChangeElementKind = { [weak self] kind in self?.changeKind(to: kind) }
+        editor.onPredictionChange = { [weak self] in self?.updateGhost() }
+        editor.onAcceptPrediction = { [weak self] in self?.acceptPrediction() }
         editor.onInsertElements = { [weak self] pages in self?.insertElements(pages) }
         editor.onApplyElements = { [weak self] elements, name in
             self?.applyElements(elements, actionName: name)
@@ -142,6 +147,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
         renderedRevision = editor.revision
         updateTypingAttributes()
+        updateGhost()
     }
 
     // MARK: - Setting the script
@@ -166,6 +172,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         if shouldHoldPage {
             restoreViewport(caretWas: caretBefore, preserved: preserved)
         }
+        updateGhost()
     }
 
     /// Brings the view's own geometry up to date with the text in it.
@@ -198,6 +205,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
             updateTypingAttributes()
         }
+        updateGhost()
     }
 
     // MARK: - Going to an element
@@ -307,6 +315,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
         if textView.hasMarkedText() {
             pendingEdit = nil
+            hideGhost()
             return true
         }
 
@@ -322,6 +331,18 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         let mapped = elementRange(at: range.location)
         let index = mapped.flatMap { mapped in
             editor.screenplay.elements.firstIndex(where: { $0.id == mapped.id })
+        }
+
+        if let mapped, let index,
+           shouldAcceptPredictionWithSpace(
+            editor: editor,
+            mapped: mapped,
+            elementIndex: index,
+            range: range,
+            replacement: text
+           ) {
+            acceptPrediction(appendingSpace: true)
+            return false
         }
 
         if let mapped, let index {
@@ -425,11 +446,13 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         renderedRevision = editor.revision
         updateTypingAttributes()
         reportNativeUndoAvailability()
+        updateGhost()
     }
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         guard !applyingModel else { return }
         updateSelection()
+        updateGhost()
     }
 
     // MARK: - Incremental edits
@@ -605,6 +628,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         renderedRevision = editor.revision
         updateTypingAttributes()
         reportNativeUndoAvailability()
+        updateGhost()
     }
 
     private func registerModelUndo(_ state: ModelUndoState, actionName: String) {
@@ -637,6 +661,131 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         renderedRevision = editor.revision
         updateTypingAttributes()
         reportNativeUndoAvailability()
+        updateGhost()
+    }
+
+    // MARK: - Ghost
+
+    /// Whether a completion is currently drawn on the page — what a test
+    /// asks, rather than trusting the surface's bookkeeping alone.
+    var isShowingGhost: Bool {
+        !ghost.isHidden && ghost.frame.width > 0 && ghost.frame.height > 0
+    }
+
+    var presentedGhostSuffix: String? { ghost.presentedSuffix }
+    var ghostFrame: NSRect { ghost.frame }
+    var ghostHostLineRect: NSRect { ghost.hostLineRectForTests }
+    var ghostForegroundColor: NSColor? { ghost.foregroundColorForTests }
+
+    func updateGhost() {
+        guard let editor else {
+            hideGhost()
+            return
+        }
+        // A surface with no window is the test harness, and is allowed to
+        // draw. A real window without focus is not: the ghost is for the
+        // writer who is typing, not for a page sitting in the background.
+        let focused = textView.window == nil
+            || textView.window?.firstResponder === textView
+        guard focused,
+              !textView.hasMarkedText(),
+              let suffix = editor.currentSuggestionSuffix,
+              !suffix.isEmpty,
+              textView.selectedRange().length == 0,
+              let mapped = elementRange(at: textView.selectedRange().location),
+              textView.selectedRange().location == NSMaxRange(mapped.range),
+              editor.activeKind != .transition,
+              editor.activeKind != .centered,
+              let storage = textView.textStorage else {
+            hideGhost()
+            return
+        }
+
+        var suggestionAttributes = textView.typingAttributes
+        suggestionAttributes[.foregroundColor] = editor.currentPrediction?.hint == true
+            ? NSColor.tertiaryLabelColor
+            : NSColor.secondaryLabelColor
+
+        let isPresented = ghost.present(
+            in: textView,
+            base: NSAttributedString(attributedString: storage),
+            suffix: suffix,
+            insertionLocation: textView.selectedRange().location,
+            paragraphRange: mapped.range,
+            attributes: suggestionAttributes,
+            revision: editor.revision
+        )
+        ghost.acceptsClicks = isPresented && editor.currentPrediction?.hint != true
+        if isPresented, ghost.superview !== textView {
+            textView.addSubview(ghost, positioned: .above, relativeTo: nil)
+        }
+    }
+
+    private func hideGhost() {
+        ghost.hide()
+        ghost.acceptsClicks = false
+    }
+
+    private func shouldAcceptPredictionWithSpace(
+        editor: EditorState,
+        mapped: ScriptLayout.ElementRange,
+        elementIndex: Int,
+        range: NSRange,
+        replacement: String
+    ) -> Bool {
+        let selected = textView.selectedRange()
+        guard replacement == " ",
+              range.length == 0,
+              selected.length == 0,
+              range.location == selected.location,
+              range.location == NSMaxRange(mapped.range),
+              mapped.id == editor.activeElementID,
+              editor.activeElementIndex == elementIndex,
+              editor.screenplay.elements[elementIndex].text
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .isEmpty == false,
+              let prediction = editor.currentPrediction,
+              prediction.hint != true,
+              let suffix = editor.currentSuggestionSuffix,
+              !suffix.isEmpty,
+              // When the ghost itself begins with a space (e.g. " DAY"
+              // after a scene-heading dash), the space the user is typing
+              // is that leading space — not an accept. Insert it literally
+              // so they can still type EVENING/NIGHT; a second space accepts.
+              !suffix.hasPrefix(" "),
+              ghost.isPresenting(
+                suffix: suffix,
+                insertionLocation: range.location,
+                revision: editor.revision
+              ) else { return false }
+        return true
+    }
+
+    private func acceptPrediction(appendingSpace: Bool = false) {
+        guard let editor,
+              let prediction = editor.currentPrediction,
+              prediction.hint != true,
+              let index = editor.activeElementIndex,
+              let suggestion = editor.currentSuggestionText else { return }
+
+        hideGhost()
+        var elements = editor.screenplay.elements
+        if let becomes = prediction.becomes { elements[index].type = becomes }
+        var completed = elements[index].type.uppercasesInput ? suggestion.uppercased() : suggestion
+        if appendingSpace, !completed.hasSuffix(" ") {
+            completed.append(" ")
+        }
+        elements[index].text = completed
+        let id = elements[index].id
+        let offset = (elements[index].text as NSString).length
+        let location = ranges.first(where: { $0.id == id })?.range.location ?? 0
+        applyModelEdit(
+            elements,
+            activeID: id,
+            offset: offset,
+            selection: NSRange(location: location + offset, length: 0),
+            actionName: "Accept Suggestion"
+        )
     }
 
     // MARK: - Kind, insert, apply

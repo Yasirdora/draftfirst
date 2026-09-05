@@ -19,10 +19,16 @@ struct EDraftMacApp: App {
             ScriptDocumentWindow(document: file.$document)
         }
         .commands {
-            // The Mac's own idiom: what a writer reaches for lives in the menu
-            // bar with a key equivalent, not in a toolbar that would crowd the
-            // page. Format → Element is the first of them; the rest arrive with
-            // the milestones that earn them.
+            // Accepting a completion is an editing action, not a formatting
+            // one — it belongs in Edit, after Paste, with the key equivalent
+            // a writer already reaches for on the phone (⌘→).
+            CommandGroup(after: .pasteboard) {
+                AcceptSuggestionCommand()
+            }
+            // The nine element commands currently land in Edit too, because
+            // `.textEditing` is an Edit-menu anchor. The design puts them in
+            // Format (MACOS-DESIGN §3.4). That is a separate correction —
+            // do not fold it into the ghost.
             CommandGroup(after: .textEditing) {
                 Divider()
                 ElementCommands()
@@ -52,6 +58,31 @@ struct ScriptDocumentWindow: View {
             .onAppear {
                 editor.onSourceChange = { source in document.source = source }
             }
+    }
+}
+
+/// Edit → Accept Suggestion, with ⌘→.
+///
+/// Routed through the model's own `acceptPrediction()` so the surface that
+/// is bound to the frontmost window does the apply — casing, `becomes`,
+/// and undo grouping all come along. A hint is not acceptable.
+struct AcceptSuggestionCommand: View {
+    @FocusedValue(\.editor) private var editor
+
+    var body: some View {
+        Button("Accept Suggestion") {
+            editor?.acceptPrediction()
+        }
+        .keyboardShortcut(.rightArrow, modifiers: .command)
+        .disabled(!canAccept)
+    }
+
+    private var canAccept: Bool {
+        guard let editor,
+              editor.currentPrediction?.hint != true,
+              let suffix = editor.currentSuggestionSuffix,
+              !suffix.isEmpty else { return false }
+        return true
     }
 }
 

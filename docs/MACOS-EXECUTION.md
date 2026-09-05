@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: M0 all but complete · M1 answered · **M2 types** · Last updated 2026-09-05*
+*Status: M0 all but complete · M1 answered · **M2 types and ghosts** · Last updated 2026-09-05*
 
 This is the working document. New here? Read [HANDOFF.md](HANDOFF.md) first —
 it carries the state, the rules and the traps in one page.
@@ -13,9 +13,8 @@ product. **Start here, then read those.**
 
 ## 0. Where we are today
 
-The Mac app builds, opens a `.draft` / Fountain file, scrolls, reveals, and
-**types**. Ghost prediction, Find, export/print and the inspector are still
-ahead.
+The Mac app builds, opens a `.draft` / Fountain file, scrolls, reveals,
+types, and **ghosts**. Find, export/print and the inspector are still ahead.
 
 **Green baseline** (re-run these before and after every step):
 
@@ -24,7 +23,7 @@ npm test                                              # 413 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
 swift test --package-path ios/EDraftCore              #  58 core        (macOS)
 swift test --package-path ios/EDraftUI                #  12 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  31 layout/page/typing (macOS)
+swift test --package-path ios/EDraftMacSurface        #  43 layout/page/typing/ghost (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -127,7 +126,7 @@ second with no window ever shown.
       rewritten. **Decision: TextKit 1 for the Mac surface**, with TextKit 2
       kept behind `ScriptLayout.TextStack` and under the same tests, so the
       choice can be revisited with evidence rather than argued.
-- [ ] Ghost prediction drawn as inline secondary text — tracked under M2.
+- [x] Ghost prediction drawn as inline secondary text — tracked under M2.
 - [x] The text view inside an `NSViewRepresentable`, in a window.
       *Done with the M2 window (`ScriptPageView`).*
 
@@ -192,8 +191,30 @@ and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
         send the caret to the top.
 - [x] Tab / ⇧Tab choreography. *Shipped with typing.* Ghost prediction is
       still open — that is drawing, not the key.
-- [ ] Ghost prediction drawn as inline secondary text. **Next.**
-- [ ] Find (⌘F), Find Scene (⌘L).
+- [x] Ghost prediction drawn as inline secondary text.
+      *Done 2026-09-05.* `GhostTextOverlay` is its own TextKit stack, never
+      inserted into the document. Space accepts; a suffix that begins with a
+      space inserts literally (so EVENING is still typeable); ⌘→ is Edit →
+      Accept Suggestion, routed through `editor.acceptPrediction()`. 12 tests,
+      the first real net the ghost has had on either platform.
+      **Measured, not assumed:**
+      - Predictions are async (65ms + detached engine). Tests that asserted
+        immediately flaked. Wait for the suffix, then call `updateGhost()`.
+      - `RunLoop.run(mode:before:)` returns immediately when idle and starves
+        the MainActor `Task.sleep`. `run(until:)` actually waits.
+      - `firstRect(forCharacterRange:)` is screen-space and junk without a
+        window. The caret-alignment hide is skipped when there is no window;
+        the layout-manager checks still run.
+      - A surface with no window is allowed to draw (the test harness); a
+        real window without focus is not.
+      - Overlay `isFlipped` matches the text view. A test asserts a non-zero
+        frame sitting on the host line, not just a stored suffix string.
+      - Hint colour is `NSColor.tertiaryLabelColor`, live colour is
+        `secondaryLabelColor` — read back off the overlay, not a bool.
+      - `NSTextView.insertText("int. kitchen")` promotes to a scene heading
+        without throwing. That is the AppKit path the phone's UIKit
+        `textDidChange` → `render` was suspected of breaking.
+- [ ] Find (⌘F), Find Scene (⌘L). **Next.**
 - [ ] Export PDF · FDX · Fountain · Text; native print.
 - [ ] The rest of the menu bar: File, Edit, View per MACOS-DESIGN §3.4.
 
@@ -294,8 +315,8 @@ neither a screenshot nor the accessibility API can see a window in that state.
   or AppKit. It is plain Node, so it runs on the Linux box that runs CI, and it
   is wired into `npm run quality`. Verified by planting a violation and
   watching it fail.
-- **A macOS CI job** now runs `swift test` over all four packages — 196 tests
-  (95 + 58 + 12 + 31).
+- **A macOS CI job** now runs `swift test` over all four packages — 208 tests
+  (95 + 58 + 12 + 43).
   It has not run on a GitHub runner yet: the packages require macOS 26, so the
   first run needs watching in case `macos-latest` is still older than that.
 
@@ -315,6 +336,22 @@ neither a screenshot nor the accessibility API can see a window in that state.
   file exported under the old name. Both engines now carry the prefix and both
   have tests. If any other back-compat was swept up in that rename, this is the
   shape it would take.
+- **`textDidChange` can mark a revision as rendered when the model did not
+  take the edit.** If `applyIncrementalEdit` returns false *and*
+  `synchronizeModelFromNativeText` bails, `renderedRevision` is still set to
+  `editor.revision`. The storage changed, the model did not, and nothing will
+  reconcile them. Identical shape on iOS (`ScriptTextView.swift:559-578`).
+  Both-surfaces fix; own box.
+- **The page has no left margin.** `textContainerInset` is
+  `NSSize(width: 0, height: 24)`, so a scene heading sits flush against the
+  sidebar divider. Cosmetic; belongs with whatever draws the page card.
+- **Format → Element is in the Edit menu.** `CommandGroup(after: .textEditing)`
+  is an Edit-menu anchor; `.textFormatting` is the Format one. The running
+  app has Apple, eDraft, File, Edit, View, Window, Help — no Format menu —
+  and the nine element commands sit in Edit between Select All and AutoFill.
+  `MACOS-DESIGN.md` §3.4 specifies Format. The M2 box was ticked against a
+  menu that is not where the design puts it. Separate correction; do not
+  fold it into typing or the ghost. Accept Suggestion is correctly in Edit.
 
 ## 7. Recent iOS work this plan assumes
 

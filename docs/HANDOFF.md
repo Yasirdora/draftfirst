@@ -38,7 +38,7 @@ reading a number, not by reasoning about what ought to happen.
 |---|---|
 | Branch | `rename/edraft` |
 | iOS app | Feature-complete for its own plan; ships |
-| macOS app | Builds, launches, opens a screenplay, **types**. No ghost yet |
+| macOS app | Builds, launches, opens a screenplay, types, **ghosts**. Find is next |
 | Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface` |
 | Xcode targets | `eDraft`, `eDraftTests`, `eDraft (macOS)` |
 
@@ -50,7 +50,7 @@ npm test                                              # 413 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
 swift test --package-path ios/EDraftCore              #  58 core        (macOS)
 swift test --package-path ios/EDraftUI                #  12 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  31 Mac surface (macOS)
+swift test --package-path ios/EDraftMacSurface        #  43 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -103,15 +103,13 @@ prevent.**
 
 The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
 
-1. **Ghost prediction on the Mac.** `PredictionEngine` is in the engine already;
-   Tab / ⇧Tab already cycle the kind. What is missing is drawing the suffix as
-   inline secondary text, Space-to-accept, and ⌘→. The phone's ghost overlay
-   in `ScriptTextView` is the reference — port the drawing, not the rule.
+1. **Find (⌘F), Find Scene (⌘L).** Next M2 box as the execution doc lists it.
 2. **Export and print on the Mac.** `ScreenplayExporter` (core) already gives
    Fountain, FDX and text. What is missing is the drawn half: copy
    `ios/eDraft/Document/ScreenplayPageRenderer.swift` to AppKit names. Its
    header comment says exactly this.
-3. **Find (⌘F), Find Scene (⌘L).**
+3. **The rest of the menu bar**, including moving Element ⌘1–⌘9 from Edit to
+   Format (see known issues).
 4. **The inspector** (third pane) — M3.
 5. **M0.6**, optional: move to an `apple/` directory layout. The `ios/` name is
    now wrong for a tree with a Mac app in it.
@@ -182,6 +180,13 @@ The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
   Return stays in `shouldChangeTextIn` only — one path per key. Tests of Tab
   and ⌘1–9 must set the selection directly; `reveal` also jumps the model and
   will hide a missing `textViewDidChangeSelection`.
+- **Predictions are async.** `refreshPredictions` sleeps 65ms then runs off
+  the main actor. Tests that assert a ghost immediately flake. Wait for the
+  suffix, then call `updateGhost()`. `RunLoop.run(mode:before:)` returns
+  immediately when idle; `run(until:)` actually waits.
+- **`osascript` is not allowed assistive access** in this environment.
+  System Events cannot read the menu bar or type. `CGWindowListCopyWindowInfo`
+  still sees windows. Do not report a UI confirmation you could not drive.
 - **`Screenplay` names two different types** — `EDraftEngine.Screenplay` and
   `EDraftCore.Screenplay`. Nine call sites qualify it explicitly. Qualifying is
   a label, not a fix; renaming one of them is worth a focused pass and should
