@@ -29,12 +29,7 @@ struct EDraftMacApp: App {
                 Divider()
                 FindCommands()
             }
-            // The nine element commands currently land in Edit too, because
-            // `.textEditing` is an Edit-menu anchor. The design puts them in
-            // Format (MACOS-DESIGN §3.4). That is a separate correction —
-            // do not fold it into export.
-            CommandGroup(after: .textEditing) {
-                Divider()
+            CommandGroup(after: .textFormatting) {
                 ElementCommands()
             }
             CommandGroup(after: .saveItem) {
