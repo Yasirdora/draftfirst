@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: M0 all but complete · M1 answered · **M2 closed** (reopened: blank page, then closed) · Last updated 2026-09-05*
+*Status: M0 all but complete · M1 answered · M2 closed · **M3 inspector** · Last updated 2026-09-06*
 
 This is the working document. New here? Read [HANDOFF.md](HANDOFF.md) first —
 it carries the state, the rules and the traps in one page.
@@ -14,16 +14,17 @@ product. **Start here, then read those.**
 ## 0. Where we are today
 
 The Mac app builds, opens a `.draft` / Fountain file, scrolls, reveals,
-types, ghosts, finds, **exports and prints**. The inspector (M3) is next.
+types, ghosts, finds, exports, prints, and inspects (⌥⌘I). View modes
+and statistics are still ahead.
 
 **Green baseline** (re-run these before and after every step):
 
 ```bash
 npm test                                              # 414 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
-swift test --package-path ios/EDraftCore              #  84 core        (macOS)
-swift test --package-path ios/EDraftUI                #  16 document/filter (macOS)
-swift test --package-path ios/EDraftMacSurface        #  61 layout/page/typing/ghost/find/export (macOS)
+swift test --package-path ios/EDraftCore              #  97 core        (macOS)
+swift test --package-path ios/EDraftUI                #  18 document/filter (macOS)
+swift test --package-path ios/EDraftMacSurface        #  73 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
@@ -290,9 +291,8 @@ and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
         of height. A live `NSTextView` cannot insert the PDF's per-page
         top margin mid-element (a split action, a (MORE) break), so
         stacked cards with gaps were refused rather than faked.
-- [ ] The rest of the menu bar: View modes, inspector toggle, per
-      MACOS-DESIGN §3.4. Format → Element and Format → Scene Numbers
-      moved with this box.
+- [ ] The rest of the menu bar: View modes (Page · Typewriter · Focus).
+      Inspector toggle is done. Format → Element and Scene Numbers are done.
 
 *Proof, executed:* a script written entirely on the Mac, exported to PDF
 via `ScreenplayPageRenderer.pdfData`, opened with `PDFDocument` and
@@ -322,7 +322,16 @@ driven to Open that file; the import path calls the same extract.
       - `NSDocumentController.shared.recentDocumentURLs` is populated by launch;
         the app's `NSRecentDocumentRecords` default is not the place to look for
         it. `File → Open Recent` is the honest probe.
-- [ ] Inspector: title page · scene · character.
+- [x] Inspector: title page · scene · character.
+      *Done 2026-09-06.* Hidden until View → Inspector (⌥⌘I). Segment
+      Title · Scene · Character; caret proposes, writer can still open
+      Title without a sheet. Scene reports number, page, characters,
+      length — **no numbering buttons** (Format already has the verb;
+      M4 owns locked numbers). Character rename uses `CharacterRename.warning`,
+      the same sentence as the phone. Revision is absent.
+      **Measured:** `InspectorFocus.proposed(for: .character)` first
+      failed `("title") is not equal to ("character")` on a stub that
+      always returned Title. Then the taxonomy was applied.
 - [ ] Statistics in the window's status area.
 - [ ] Writing-assistance settings, shared with iOS.
 - [ ] Typewriter and Focus view modes.
@@ -417,8 +426,8 @@ neither a screenshot nor the accessibility API can see a window in that state.
   or AppKit. It is plain Node, so it runs on the Linux box that runs CI, and it
   is wired into `npm run quality`. Verified by planting a violation and
   watching it fail.
-- **A macOS CI job** now runs `swift test` over all four packages — 256 tests
-  (95 + 84 + 16 + 61).
+- **A macOS CI job** now runs `swift test` over all four packages — 283 tests
+  (95 + 97 + 18 + 73).
   It has not run on a GitHub runner yet: the packages require macOS 26, so the
   first run needs watching in case `macos-latest` is still older than that.
 

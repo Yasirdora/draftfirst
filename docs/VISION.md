@@ -70,8 +70,9 @@ A desk is not a bigger phone. It is simultaneous surfaces — a page you
 are in *and* a list you can see, later an inspector, later a second
 window. A hand sequences those (a sheet, a modal). A desk shows them.
 `MACOS-DESIGN.md` already drew that window. Two of the three panes are
-built; Find, export and print closed M2; the inspector is M3. None of
-that is a new screenplay rule. It is the same script, visible at once.
+built; Find, export and print closed M2; the inspector (⌥⌘I) is the
+third. None of that is a new screenplay rule. It is the same script,
+visible at once.
 
 What would have to be true before "the desk" is a behaviour rather than
 a layout: something a writer cannot do in one hand, not merely something
