@@ -218,4 +218,53 @@ final class NavigatorJumpTests: XCTestCase {
         XCTAssertGreaterThan(highlight.frame.height, 0)
         XCTAssertGreaterThan(highlight.frame.width, 1, "marked across the line, not as a sliver")
     }
+
+    // MARK: - One jump after another
+
+    /// The reported bug: a scene row works, then a cast line does nothing on
+    /// the first tap and works on the second — and the same in reverse. What
+    /// the two have in common is not which list they came from: it is that a
+    /// jump had already happened.
+    func testASecondJumpMovesThePageOnTheFirstTry() throws {
+        let (editor, textView, coordinator) = surface()
+        withExtendedLifetime(coordinator) {}
+        let scene = try XCTUnwrap(editor.scenes.last)
+        let line = try XCTUnwrap(editor.appearances(of: "TANGLE").first?.lines.first)
+
+        editor.jump(to: scene.id)
+        settle()
+        let afterFirst = textView.contentOffset.y
+
+        // A line near the top: the page must come back up for it.
+        editor.jump(to: line.id)
+        settle()
+
+        XCTAssertNotEqual(
+            textView.contentOffset.y, afterFirst, accuracy: 1,
+            "the second jump left the page where the first one put it"
+        )
+    }
+
+    /// The same, with the render the sheet's dismissal provokes in between —
+    /// which is what actually happens when the Navigator closes behind a tap.
+    func testAJumpAfterARenderBetweenTwoJumpsStillMoves() throws {
+        let (editor, textView, coordinator) = surface()
+        withExtendedLifetime(coordinator) {}
+        let scene = try XCTUnwrap(editor.scenes.last)
+        let line = try XCTUnwrap(editor.appearances(of: "TANGLE").first?.lines.first)
+
+        editor.jump(to: scene.id)
+        settle()
+        coordinator.renderModel(selecting: nil, offset: nil)
+        settle()
+        let afterFirst = textView.contentOffset.y
+
+        editor.jump(to: line.id)
+        settle()
+
+        XCTAssertNotEqual(
+            textView.contentOffset.y, afterFirst, accuracy: 1,
+            "a jump after a re-render did nothing"
+        )
+    }
 }
