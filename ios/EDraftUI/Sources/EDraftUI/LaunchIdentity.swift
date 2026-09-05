@@ -29,14 +29,6 @@ public enum LaunchIdentity {
     /// sits on.
     public static var title: Text { Text("eDraft") }
 
-    /// Where a screenplay's text block begins: 1.5 inches of an 8.5 inch page.
-    ///
-    /// The phone drew this at a literal `0.17`, which is that fraction rounded.
-    /// Naming it exactly is worth the two and a half points it moves on a
-    /// handset, because the whole point of the rule is that it is *the* margin
-    /// rather than a line near it.
-    public nonisolated static let marginRuleFraction: CGFloat = 1.5 / 8.5
-
     /// One colour, kept as components so a test can weigh it rather than
     /// only compare it. Asserting that two colours differ says nothing about
     /// whether one can be read on the other.
@@ -95,70 +87,31 @@ public enum LaunchIdentity {
     /// appearances and so its lettering is light in both.
     public nonisolated static let deskInk = Tone(0.914, 0.902, 0.878)
 
-    public nonisolated static let rule = Ink(
-        light: Tone(0.239, 0.227, 0.290),
-        dark: Tone(0.180, 0.173, 0.208)
-    )
-
-    /// The production revision colours, in the order a script reprints in —
-    /// white, blue, pink, yellow, green, goldenrod, salmon, cherry, buff.
-    /// A sequence that means something, rather than a gradient that means
-    /// nothing.
-    public nonisolated static let revisionRun: [Color] = [
-        Color(red: 1.00, green: 1.00, blue: 1.00),
-        Color(red: 0.75, green: 0.83, blue: 0.91),
-        Color(red: 0.95, green: 0.77, blue: 0.82),
-        Color(red: 0.96, green: 0.90, blue: 0.66),
-        Color(red: 0.78, green: 0.89, blue: 0.76),
-        Color(red: 0.91, green: 0.78, blue: 0.56),
-        Color(red: 0.98, green: 0.80, blue: 0.71),
-        Color(red: 0.90, green: 0.62, blue: 0.65),
-        Color(red: 0.94, green: 0.90, blue: 0.79)
-    ]
-
-    /// The phone's ground: a **frame**, not a canvas.
+    /// The ground itself. A colour, and nothing drawn on it.
     ///
-    /// Measured, not assumed: on the phone the launch card covers most of the
-    /// screen, so this reads only where it meets the card's edge. A ground the
-    /// colour of paper would therefore say nothing at all. A desk does — the
-    /// page floats on it, the margin rule runs down where a script's text
-    /// begins, and the revision colours lie along the foot the way a stack of
-    /// reprints does.
+    /// It used to carry a margin rule at the inch and a half where a
+    /// screenplay's text begins, and the run of colours a production reprints
+    /// its revisions on. The argument for them was that this ground is a
+    /// *frame* around a system card, so they would read at its edges as
+    /// texture. What they read as, on a phone, is a hairline that runs for two
+    /// hundred points and then disappears behind the card, and a sliver of
+    /// colour under the file browser. On a Mac window they were worse: the rule
+    /// sliced the title at 17.6% of something that is not a page.
     ///
-    /// **It is composed for a frame and does not survive being a whole
-    /// window.** The Mac tried it: the rule cut through the title and the
-    /// button at 17.6% of a window that is not a page, and the revision run
-    /// read as a colour test pattern. The Mac draws `desk` alone and composes
-    /// its own. Share the palette, not the composition — the same rule as
-    /// every other thing in this project that lives in two places.
+    /// A page metaphor on a rectangle that is not a page is decoration wearing
+    /// the costume of meaning, and it lasted this long because it was inherited
+    /// rather than looked at.
+    ///
+    /// The production revision colours are a real thing and will be needed —
+    /// beside `RevisionDiff` when M4 draws coloured pages, not in a launch
+    /// screen's palette.
     public struct Background: View {
         @Environment(\.colorScheme) private var scheme
 
         public init() {}
 
         public var body: some View {
-            ZStack(alignment: .topLeading) {
-                LaunchIdentity.desk.color(scheme)
-
-                // Drawn once, at a weight you notice only if you look for it.
-                GeometryReader { geometry in
-                    Rectangle()
-                        .fill(LaunchIdentity.rule.color(scheme))
-                        .frame(width: 1)
-                        .offset(x: geometry.size.width * LaunchIdentity.marginRuleFraction)
-                }
-
-                VStack {
-                    Spacer()
-                    HStack(spacing: 0) {
-                        ForEach(LaunchIdentity.revisionRun.indices, id: \.self) { index in
-                            LaunchIdentity.revisionRun[index]
-                        }
-                    }
-                    .frame(height: 3)
-                }
-            }
-            .ignoresSafeArea()
+            LaunchIdentity.desk.color(scheme).ignoresSafeArea()
         }
     }
 }
