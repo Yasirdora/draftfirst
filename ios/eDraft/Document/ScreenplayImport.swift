@@ -1,6 +1,7 @@
 import CoreGraphics
 import EDraftCore
 import EDraftEngine
+import EDraftUI
 import ImageIO
 import PDFKit
 import SwiftUI
@@ -54,7 +55,7 @@ enum ScreenplayImport {
         }
         // Fountain, plain text and .draft are already source; FDX converts on
         // the way in through the same boundary the browser uses.
-        return try EDraftDocument.decode(try Data(contentsOf: url), as: type)
+        return try ScreenplayFile.decode(try Data(contentsOf: url), as: type)
     }
 
     /// A photograph of a page — the picture a writer already took, rather than

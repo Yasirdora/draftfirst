@@ -2,6 +2,7 @@ import CoreGraphics
 import CoreText
 import EDraftCore
 import EDraftEngine
+import EDraftUI
 import SwiftUI
 import UniformTypeIdentifiers
 import Vision

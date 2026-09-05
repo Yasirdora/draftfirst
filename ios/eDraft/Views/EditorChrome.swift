@@ -1,4 +1,5 @@
 import EDraftCore
+import EDraftUI
 import SwiftUI
 import EDraftEngine
 import UIKit
@@ -384,7 +385,7 @@ final class ChromeCoordinator {
                     Data(ScreenplayExporter.fountainSource($0).utf8)
                 },
                 exportAction("PDF", ext: "pdf") {
-                    ScreenplayExporter.pdfData($0)
+                    ScreenplayPageRenderer.pdfData($0)
                 },
                 exportAction("Final Draft (FDX)", ext: "fdx") {
                     Data(ScreenplayExporter.fdxSource($0).utf8)
@@ -393,7 +394,7 @@ final class ChromeCoordinator {
                     Data(ScreenplayExporter.fountainSource($0).utf8)
                 },
                 exportAction("Rich Text (RTF)", ext: "rtf") {
-                    ScreenplayExporter.rtfData($0)
+                    ScreenplayPageRenderer.rtfData($0)
                 },
                 exportAction("Plain Text", ext: "txt") {
                     Data(ScreenplayExporter.plainText($0).utf8)
@@ -593,7 +594,7 @@ final class ChromeCoordinator {
         info.jobName = editor.screenplay.title
         info.outputType = .general
         controller.printInfo = info
-        controller.printingItem = ScreenplayExporter.pdfData(editor.screenplay)
+        controller.printingItem = ScreenplayPageRenderer.pdfData(editor.screenplay)
         // present(animated:) is iPhone-only; on iPad it raises an
         // exception — the print sheet must anchor to the source item.
         if UIDevice.current.userInterfaceIdiom == .pad {

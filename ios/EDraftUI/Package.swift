@@ -38,6 +38,13 @@ let package = Package(
                 .product(name: "EDraftCore", package: "EDraftCore")
             ],
             swiftSettings: uiSettings
+        ),
+        // Not main-actor by default: XCTestCase's inherited initialisers are
+        // nonisolated and a main-actor class cannot override them.
+        .testTarget(
+            name: "EDraftUITests",
+            dependencies: ["EDraftUI"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
 )

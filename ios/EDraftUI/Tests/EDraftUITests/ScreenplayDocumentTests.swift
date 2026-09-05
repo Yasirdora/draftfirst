@@ -1,9 +1,8 @@
 import EDraftCore
 import EDraftEngine
-import PDFKit
 import XCTest
 import UniformTypeIdentifiers
-@testable import eDraft
+@testable import EDraftUI
 
 /// The document layer's data-loss guards: every type the app opens must be
 /// savable, and the byte-level encode/decode path must round-trip exactly.
@@ -34,13 +33,13 @@ final class EDraftDocumentTests: XCTestCase {
         We made it.
 
         """
-        let decoded = try EDraftDocument.decode(try EDraftDocument.encode(source))
+        let decoded = try ScreenplayFile.decode(try ScreenplayFile.encode(source))
         XCTAssertEqual(decoded, source)
     }
 
     func testDecodeRejectsNonUTF8() {
         let latin1 = Data([0xE9, 0x20, 0x62, 0x79, 0x74, 0x65, 0x73]) // "é" in Latin-1
-        XCTAssertThrowsError(try EDraftDocument.decode(latin1))
+        XCTAssertThrowsError(try ScreenplayFile.decode(latin1))
     }
 
     /// A brand-new document opens as a title page and one empty Action —
@@ -48,7 +47,7 @@ final class EDraftDocumentTests: XCTestCase {
     /// page for the document browser.
     @MainActor
     func testBlankDocumentParsesToOpeningState() throws {
-        let editor = EditorState(source: try EDraftDocument.decode(
+        let editor = EditorState(source: try ScreenplayFile.decode(
             EDraftDocument().source.data(using: .utf8)
         ))
         XCTAssertEqual(editor.screenplay.elements.count, 1)
