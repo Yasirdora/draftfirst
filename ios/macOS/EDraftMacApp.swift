@@ -1,7 +1,9 @@
+import AppKit
 import EDraftCore
 import EDraftMacSurface
 import EDraftUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// eDraft on the Mac.
 ///
@@ -30,10 +32,16 @@ struct EDraftMacApp: App {
             // The nine element commands currently land in Edit too, because
             // `.textEditing` is an Edit-menu anchor. The design puts them in
             // Format (MACOS-DESIGN §3.4). That is a separate correction —
-            // do not fold it into the ghost.
+            // do not fold it into export.
             CommandGroup(after: .textEditing) {
                 Divider()
                 ElementCommands()
+            }
+            CommandGroup(after: .saveItem) {
+                ExportCommands()
+            }
+            CommandGroup(replacing: .printItem) {
+                PrintCommand()
             }
         }
     }
@@ -121,6 +129,67 @@ struct FindCommands: View {
             editor?.onFindScene?()
         }
         .keyboardShortcut("l", modifiers: .command)
+        .disabled(editor == nil)
+    }
+}
+
+/// File → Export: PDF · FDX · Fountain · Text. Print is the exported PDF.
+struct ExportCommands: View {
+    @FocusedValue(\.editor) private var editor
+
+    var body: some View {
+        Menu("Export") {
+            Button("PDF…") { export(ext: "pdf", type: .pdf, contents: pdf()) }
+            Button("Final Draft…") { export(ext: "fdx", type: .finalDraftScreenplay, contents: fdx()) }
+            Button("Fountain…") { export(ext: "fountain", type: .plainText, contents: fountain()) }
+            Button("Text…") { export(ext: "txt", type: .plainText, contents: text()) }
+        }
+        .disabled(editor == nil)
+    }
+
+    private func pdf() -> Data {
+        ScreenplayPageRenderer.pdfData(screenplay)
+    }
+
+    private func fdx() -> Data {
+        Data(ScreenplayExporter.fdxSource(screenplay).utf8)
+    }
+
+    private func fountain() -> Data {
+        Data(ScreenplayExporter.fountainSource(screenplay).utf8)
+    }
+
+    private func text() -> Data {
+        Data(ScreenplayExporter.plainText(screenplay).utf8)
+    }
+
+    private var screenplay: EDraftCore.Screenplay {
+        editor?.screenplay ?? EDraftCore.Screenplay()
+    }
+
+    private func export(ext: String, type: UTType, contents: Data) {
+        guard editor != nil else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [type]
+        panel.canCreateDirectories = true
+        let base = screenplay.title.isEmpty ? "Screenplay" : screenplay.title
+        panel.nameFieldStringValue = "\(base).\(ext)"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            try? contents.write(to: url, options: .atomic)
+        }
+    }
+}
+
+struct PrintCommand: View {
+    @FocusedValue(\.editor) private var editor
+
+    var body: some View {
+        Button("Print…") {
+            guard let editor else { return }
+            ScreenplayPageRenderer.runPrint(editor.screenplay)
+        }
+        .keyboardShortcut("p", modifiers: .command)
         .disabled(editor == nil)
     }
 }
