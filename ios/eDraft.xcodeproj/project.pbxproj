@@ -10,7 +10,6 @@
 		DF2600000000000000000117 /* ScanCreation.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000017 /* ScanCreation.swift */; };
 		DF2600000000000000000119 /* ScreenplayImport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000019 /* ScreenplayImport.swift */; };
 		DF2600000000000000000118 /* ScreenplayLaunchActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000018 /* ScreenplayLaunchActions.swift */; };
-		DF26000000000000000001FE /* LaunchIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF26000000000000000000FE /* LaunchIdentity.swift */; };
 		DF2600000000000000000115 /* ScanDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000015 /* ScanDocument.swift */; };
 		DF2600000000000000000116 /* ScanReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000016 /* ScanReaderView.swift */; };
 		DF2600000000000000000101 /* EDraftApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000001 /* EDraftApp.swift */; };
@@ -54,7 +53,6 @@
 		DF2600000000000000000017 /* ScanCreation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanCreation.swift; sourceTree = "<group>"; };
 		DF2600000000000000000019 /* ScreenplayImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenplayImport.swift; sourceTree = "<group>"; };
 		DF2600000000000000000018 /* ScreenplayLaunchActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenplayLaunchActions.swift; sourceTree = "<group>"; };
-		DF26000000000000000000FE /* LaunchIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchIdentity.swift; sourceTree = "<group>"; };
 		DF2600000000000000000016 /* ScanReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanReaderView.swift; sourceTree = "<group>"; };
 		DF2600000000000000000006 /* ScriptTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptTextView.swift; sourceTree = "<group>"; };
 		DF2600000000000000000007 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
@@ -183,7 +181,6 @@
 				DF2600000000000000000008 /* ElementModeControl.swift */,
 				DF2600000000000000000016 /* ScanReaderView.swift */,
 				DF2600000000000000000018 /* ScreenplayLaunchActions.swift */,
-				DF26000000000000000000FE /* LaunchIdentity.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -359,7 +356,6 @@
 				DF2600000000000000000117 /* ScanCreation.swift in Sources */,
 				DF2600000000000000000119 /* ScreenplayImport.swift in Sources */,
 				DF2600000000000000000118 /* ScreenplayLaunchActions.swift in Sources */,
-				DF26000000000000000001FE /* LaunchIdentity.swift in Sources */,
 				DF26000000000000000001FA /* RevealHighlight.swift in Sources */,
 				DF2600000000000000000106 /* ScriptTextView.swift in Sources */,
 				DF2600000000000000000107 /* EditorView.swift in Sources */,
