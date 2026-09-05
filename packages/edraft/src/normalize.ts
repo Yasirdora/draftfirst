@@ -139,3 +139,42 @@ export function normalizeElementText(type: ElementType, text: string): string {
 	if (type === 'character') return normalizeCue(text);
 	return text;
 }
+
+/**
+ * The kinds a screenplay writes in capitals.
+ *
+ * A slug, a cue, a transition and a shot are shouted; action and dialogue keep
+ * whatever casing the writer chose. This is the one place that list lives, so
+ * the editor's conversion rule and the importer cannot disagree about what a
+ * cue looks like.
+ */
+export const UPPERCASE_TYPES: readonly ElementType[] = Object.freeze([
+	'scene',
+	'character',
+	'transition',
+	'shot'
+]);
+
+/**
+ * A line in the casing its kind is written in, for text arriving from
+ * elsewhere.
+ *
+ * Final Draft stores what the writer typed and shouts it in the *view*: an
+ * .fdx can hold `cUT TO:` and `UnCLE` and look immaculate on screen. Opened
+ * anywhere else — including here — the file shows what it really says, which
+ * is how a script that looked right for years suddenly reads as though it were
+ * typed with a broken shift key.
+ *
+ * It matters beyond appearances. Fountain detects a transition by its capitals
+ * (`TRANSITION_DETECT` has no `/i`), so `cUT TO:` is not a transition to any
+ * Fountain tool, and the only way to keep it one is to write it with a forcing
+ * marker — a clean script exported into a thicket of `>` and `@`.
+ *
+ * Deliberately *not* applied on every commit: while a writer is typing, casing
+ * is theirs, and the editor's conversion rule keeps their original so that
+ * converting a line back restores what they wrote. This is for the moment a
+ * document arrives from somewhere else.
+ */
+export function canonicalCasing(type: ElementType, text: string): string {
+	return UPPERCASE_TYPES.includes(type) ? text.toLocaleUpperCase() : text;
+}

@@ -4,7 +4,8 @@ import {
 	normalizeCue,
 	normalizeElementText,
 	normalizeParenthetical,
-	unwrapParenthetical
+	unwrapParenthetical,
+	canonicalCasing
 } from './normalize.js';
 
 describe('normalizeParenthetical', () => {
@@ -170,5 +171,26 @@ describe('normalizeElementText', () => {
 		expect(normalizeElementText('dialogue', 'wait...')).toBe('wait...');
 		expect(normalizeElementText('scene', 'INT. LAB - DAY')).toBe('INT. LAB - DAY');
 		expect(normalizeElementText('transition', 'CUT TO:')).toBe('CUT TO:');
+	});
+});
+
+describe('canonicalCasing — text arriving from elsewhere', () => {
+	it('shouts the kinds a screenplay shouts', () => {
+		expect(canonicalCasing('character', 'UnCLE')).toBe('UNCLE');
+		expect(canonicalCasing('character', 'yOUNG GIRL (tRANSLATED)')).toBe('YOUNG GIRL (TRANSLATED)');
+		expect(canonicalCasing('transition', 'cUT TO:')).toBe('CUT TO:');
+		expect(canonicalCasing('scene', 'iNT. WASHROOM - DAY')).toBe('INT. WASHROOM - DAY');
+		expect(canonicalCasing('shot', 'aNGLE ON')).toBe('ANGLE ON');
+	});
+
+	it('leaves the writer their own casing everywhere else', () => {
+		expect(canonicalCasing('action', 'She waits.')).toBe('She waits.');
+		expect(canonicalCasing('dialogue', 'Take the key.')).toBe('Take the key.');
+		expect(canonicalCasing('parenthetical', '(beat)')).toBe('(beat)');
+	});
+
+	it('is idempotent, so an import can be repeated safely', () => {
+		const once = canonicalCasing('character', 'UnCLE');
+		expect(canonicalCasing('character', once)).toBe(once);
 	});
 });

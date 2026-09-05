@@ -91,11 +91,13 @@ public enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendabl
         }
     }
 
+    /// Whether this kind is written in capitals.
+    ///
+    /// Asked of the engine rather than answered here, so the editor's live
+    /// casing, the conversion rule and the importer that repairs a Final Draft
+    /// file cannot come to different conclusions about what a cue looks like.
     public var uppercasesInput: Bool {
-        switch self {
-        case .scene, .character, .transition, .shot: true
-        default: false
-        }
+        Normalize.uppercaseKinds.contains(engineKind)
     }
 
     public static let editorKinds: [ScreenplayKind] = [

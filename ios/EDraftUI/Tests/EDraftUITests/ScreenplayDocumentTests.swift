@@ -102,3 +102,64 @@ final class EDraftDocumentTests: XCTestCase {
         return url
     }
 }
+
+/// What a Final Draft file really says, and what eDraft does about it.
+///
+/// Final Draft applies its capitals in the view and stores what was typed, so a
+/// script that looked immaculate for years can hold `cUT TO:` and `UnCLE`.
+/// Every string here is one a writer actually found in their own imported file.
+@MainActor
+final class ImportedCasingTests: XCTestCase {
+
+    private let finalDraftFile = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <FinalDraft DocumentType="Script" Version="3">
+    <Content>
+    <Paragraph Type="Scene Heading"><Text>iNT. WASHROOM - DAY</Text></Paragraph>
+    <Paragraph Type="Character"><Text>UnCLE</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>Take the key.</Text></Paragraph>
+    <Paragraph Type="Character"><Text>yOUNG GIRL (tRANSLATED)</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>What door will it open?</Text></Paragraph>
+    <Paragraph Type="Transition"><Text>cUT TO:</Text></Paragraph>
+    </Content>
+    </FinalDraft>
+    """
+
+    private func imported() throws -> String {
+        try ScreenplayFile.decode(
+            Data(finalDraftFile.utf8), as: .finalDraftScreenplay
+        )
+    }
+
+    func testTheKindsAScreenplayShoutsArriveShouted() throws {
+        let source = try imported()
+        XCTAssertTrue(source.contains("UNCLE"), source)
+        XCTAssertTrue(source.contains("YOUNG GIRL (TRANSLATED)"), source)
+        XCTAssertTrue(source.contains("CUT TO:"), source)
+        XCTAssertTrue(source.contains("INT. WASHROOM - DAY"), source)
+    }
+
+    /// Dialogue is the writer's, and stays exactly as they wrote it.
+    func testDialogueKeepsItsOwnCasing() throws {
+        XCTAssertTrue(try imported().contains("Take the key."))
+    }
+
+    /// The point of fixing it on the way in: Fountain detects a transition by
+    /// its capitals, so a lower-cased one can only be carried across with a
+    /// forcing marker. Corrected, the file needs none and reads as a writer
+    /// would have written it.
+    func testTheImportedScriptNeedsNoForcingMarkers() throws {
+        let source = try imported()
+        XCTAssertFalse(source.contains("> "), "a forced transition survived: \(source)")
+        XCTAssertFalse(source.contains("@"), "a forced cue survived: \(source)")
+    }
+
+    /// And it is still the same screenplay: every element keeps its kind.
+    func testTheStructureSurvives() throws {
+        let editor = EditorState(source: try imported())
+        XCTAssertEqual(
+            editor.screenplay.elements.map(\.type),
+            [.scene, .character, .dialogue, .character, .dialogue, .transition]
+        )
+    }
+}

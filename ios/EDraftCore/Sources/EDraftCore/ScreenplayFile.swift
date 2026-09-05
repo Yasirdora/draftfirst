@@ -49,7 +49,33 @@ public nonisolated enum ScreenplayFile {
     public static func decode(_ data: Data?, as type: UTType) throws -> String {
         let text = try decode(data)
         guard type.conforms(to: .finalDraftScreenplay) else { return text }
-        return Fountain.serialise(Fdx.parse(text).script)
+        return Fountain.serialise(shouted(Fdx.parse(text).script))
+    }
+
+    /// The kinds a screenplay shouts, shouted — for a document arriving from
+    /// Final Draft.
+    ///
+    /// Final Draft stores what the writer typed and applies the capitals in the
+    /// *view*, so a perfectly ordinary .fdx can hold `cUT TO:`, `UnCLE` and
+    /// `yOUNG GIRL (tRANSLATED)` while looking immaculate on screen for years.
+    /// Opened anywhere else the file says what it really says.
+    ///
+    /// Fixing it on the way in is not cosmetic. Fountain detects a transition
+    /// by its capitals, so `cUT TO:` is not a transition to any Fountain tool;
+    /// the only way to carry it across as one is a forcing marker, and a clean
+    /// script would arrive — and later export — as a thicket of `>` and `@`.
+    /// This is also the one moment it is safe to do: while a writer is typing,
+    /// their casing is their own, and the editor's conversion rule keeps the
+    /// original so that converting a line back restores what they wrote.
+    private static func shouted(_ screenplay: EDraftEngine.Screenplay)
+    -> EDraftEngine.Screenplay {
+        var corrected = screenplay
+        corrected.elements = screenplay.elements.map { element in
+            var element = element
+            element.text = Normalize.canonicalCasing(kind: element.type, text: element.text)
+            return element
+        }
+        return corrected
     }
 
     /// The typed write boundary: an .fdx opened in place writes back as

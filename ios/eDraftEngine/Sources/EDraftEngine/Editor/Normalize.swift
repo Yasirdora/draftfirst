@@ -134,4 +134,39 @@ public enum Normalize {
         default: return text
         }
     }
+
+    // MARK: - Casing of text arriving from elsewhere
+
+    /// The kinds a screenplay writes in capitals (TypeScript
+    /// `UPPERCASE_TYPES`).
+    ///
+    /// A slug, a cue, a transition and a shot are shouted; action and dialogue
+    /// keep whatever casing the writer chose. One list, so the editor's
+    /// conversion rule and the importer cannot disagree about what a cue looks
+    /// like.
+    public static let uppercaseKinds: Set<ElementKind> = [
+        .scene, .character, .transition, .shot
+    ]
+
+    /// A line in the casing its kind is written in, for text arriving from
+    /// elsewhere (TypeScript `canonicalCasing`).
+    ///
+    /// Final Draft stores what the writer typed and shouts it in the *view*: an
+    /// .fdx can hold `cUT TO:` and `UnCLE` and look immaculate on screen.
+    /// Opened anywhere else — including here — the file shows what it really
+    /// says, which is how a script that looked right for years suddenly reads
+    /// as though it were typed with a broken shift key.
+    ///
+    /// It matters beyond appearances. Fountain detects a transition by its
+    /// capitals, so `cUT TO:` is not a transition to any Fountain tool, and the
+    /// only way to keep it one is a forcing marker — a clean script exported
+    /// into a thicket of `>` and `@`.
+    ///
+    /// Deliberately *not* applied on every commit: while a writer is typing,
+    /// casing is theirs, and the editor's conversion rule keeps the original so
+    /// converting a line back restores what they wrote. This is for the moment
+    /// a document arrives from somewhere else.
+    public static func canonicalCasing(kind: ElementKind, text: String) -> String {
+        uppercaseKinds.contains(kind) ? text.uppercased() : text
+    }
 }
