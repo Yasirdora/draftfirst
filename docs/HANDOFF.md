@@ -1,7 +1,7 @@
 # Handoff
 
-*Written 2026-09-05 at commit `348259e`, branch `rename/edraft`, working tree
-clean. For whoever picks this up next — human or otherwise.*
+*Written 2026-09-05, last updated at commit `aa885b3`, branch `rename/edraft`,
+working tree clean. For whoever picks this up next — human or otherwise.*
 
 Read this file first, then [MACOS-EXECUTION.md](MACOS-EXECUTION.md), which is
 the live working document with the milestone checkboxes. Everything below is
@@ -36,7 +36,7 @@ reading a number, not by reasoning about what ought to happen.
 
 | | |
 |---|---|
-| Branch | `rename/edraft`, clean, `348259e` |
+| Branch | `rename/edraft`, clean, `aa885b3` |
 | iOS app | Feature-complete for its own plan; ships |
 | macOS app | Builds, launches, opens a screenplay in a window. No typing yet |
 | Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface` |
@@ -46,14 +46,14 @@ reading a number, not by reasoning about what ought to happen.
 a number drops, you broke something.
 
 ```bash
-npm test                                              # 406 TypeScript
-swift test --package-path ios/eDraftEngine            #  89 engine
-swift test --package-path ios/EDraftCore              #  52 core        (macOS)
-swift test --package-path ios/EDraftUI                #   8 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  15 Mac surface (macOS)
+npm test                                              # 413 TypeScript
+swift test --package-path ios/eDraftEngine            #  95 engine
+swift test --package-path ios/EDraftCore              #  58 core        (macOS)
+swift test --package-path ios/EDraftUI                #  12 document    (macOS)
+swift test --package-path ios/EDraftMacSurface        #  16 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 82 app
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
 xcodebuild build -project ios/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   -configuration Debug CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
   DEVELOPMENT_TEAM=""                                        # the Mac app
