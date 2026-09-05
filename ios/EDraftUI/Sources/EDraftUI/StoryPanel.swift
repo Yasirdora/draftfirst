@@ -29,11 +29,15 @@ public struct StoryPanel: View {
 
     // MARK: - Body
 
+    /// The phone presents the Navigator as a sheet, so it brings its own
+    /// navigation and its own way out. The Mac puts the same list in a
+    /// sidebar, where a "Done" button would be nonsense — so the list itself
+    /// is `StoryList`, and this is only the sheet around it.
     public var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                tabPicker
-                list
+            StoryList(editor: editor, tab: $tab) { element in
+                editor.jump(to: element)
+                dismiss()
             }
             .navigationTitle("Navigator")
             .compactTitle()
@@ -53,13 +57,45 @@ public struct StoryPanel: View {
             }
         }
     }
+}
+
+/// The Navigator itself: the scope switch, the rows, and the footnote — with
+/// no chrome of its own.
+///
+/// This is what both platforms actually share. A phone wraps it in a sheet
+/// with a Done button; a Mac drops it into a sidebar where it simply lives.
+/// Neither arrangement is in here, which is the point: the list is the same
+/// list, and only its surroundings differ.
+public struct StoryList: View {
+    let editor: EditorState
+    @Binding var tab: StoryPanel.Tab
+    /// What a row that names a place does when it is chosen. The sheet closes
+    /// itself afterwards; the sidebar stays where it is.
+    let open: (UUID) -> Void
+
+    public init(
+        editor: EditorState,
+        tab: Binding<StoryPanel.Tab>,
+        open: @escaping (UUID) -> Void
+    ) {
+        self.editor = editor
+        _tab = tab
+        self.open = open
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            tabPicker
+            list
+        }
+    }
 
     /// The Scenes/Cast switch is a full-width row of its own, pinned between
     /// the bar and the list — the App Store idiom. Never a list row (the
     /// grouped style wraps it in a card), never squeezed between bar buttons.
     private var tabPicker: some View {
         Picker("Story", selection: $tab) {
-            ForEach(Tab.allCases) { tab in
+            ForEach(StoryPanel.Tab.allCases) { tab in
                 Text(tab.rawValue).tag(tab)
             }
         }
@@ -124,10 +160,7 @@ public struct StoryPanel: View {
                 )
             } else {
                 ForEach(editor.scenes) { scene in
-                    SceneListRow(scene: scene) {
-                        editor.jump(to: scene.id)
-                        dismiss()
-                    }
+                    SceneListRow(scene: scene) { open(scene.id) }
                 }
             }
 
