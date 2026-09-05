@@ -5,8 +5,8 @@ import SwiftUI
 /// One screenplay, in one window.
 ///
 /// The arrangement the design settled on: the structure on the left, the page
-/// in the middle, and — when it exists — the details on the right. Two of the
-/// three are here; the inspector is M3.
+/// in the middle, and the details on the right when asked. The inspector is
+/// hidden until ⌥⌘I — a third pane that is always open is a narrower page.
 ///
 /// The sidebar is `StoryList`, the same Navigator the phone shows in a sheet.
 /// It is visible by default, because on a Mac the sidebar *is* the organisation
@@ -19,12 +19,14 @@ public struct ScriptWindow: View {
     @State private var columns: NavigationSplitViewVisibility = .all
     @State private var sceneQuery = ""
     @State private var focusSceneFilter = 0
+    @State private var inspector = InspectorChrome()
 
     public init(editor: EditorState) {
         self.editor = editor
     }
 
     public var body: some View {
+        @Bindable var inspector = inspector
         NavigationSplitView(columnVisibility: $columns) {
             StoryList(
                 editor: editor,
@@ -55,9 +57,18 @@ public struct ScriptWindow: View {
                         ElementModeControl(editor: editor)
                     }
                 }
+                .inspector(isPresented: $inspector.isPresented) {
+                    InspectorPane(editor: editor, chrome: inspector)
+                        .inspectorColumnWidth(min: 260, ideal: 260, max: 260)
+                }
         }
+        .focusedSceneValue(\.inspectorPresented, $inspector.isPresented)
         .onAppear {
             editor.onFindScene = { findScene() }
+            inspector.follow(kind: editor.activeKind)
+        }
+        .onChange(of: editor.activeElementID) { _, _ in
+            inspector.follow(kind: editor.activeKind)
         }
     }
 

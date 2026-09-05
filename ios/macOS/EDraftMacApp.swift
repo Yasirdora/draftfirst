@@ -58,6 +58,9 @@ struct EDraftMacApp: App {
             CommandGroup(replacing: .printItem) {
                 PrintCommand()
             }
+            CommandGroup(after: .sidebar) {
+                InspectorCommand()
+            }
         }
     }
 }
@@ -257,6 +260,19 @@ struct SceneNumbersCommands: View {
         if alert.runModal() == .alertFirstButtonReturn {
             run()
         }
+    }
+}
+
+/// View → Inspector, ⌥⌘I. Hidden until summoned.
+struct InspectorCommand: View {
+    @FocusedValue(\.inspectorPresented) private var presented
+
+    var body: some View {
+        Button("Inspector") {
+            presented?.wrappedValue.toggle()
+        }
+        .keyboardShortcut("i", modifiers: [.option, .command])
+        .disabled(presented == nil)
     }
 }
 
