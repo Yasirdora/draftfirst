@@ -180,8 +180,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// cannot replace the storage and send the caret to the top.
     public func renderIfNeeded(_ editor: EditorState) {
         guard editor.revision != renderedRevision else { return }
-        render(editor.screenplay.elements)
-        restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
+        render(editor.screenplay.elements) { [self] in
+            restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
+        }
         renderedRevision = editor.revision
         updateTypingAttributes()
         updateGhost()
@@ -194,10 +195,24 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// The whole string at once, as on the phone: the elements are the
     /// document, and rebuilding from them is what keeps the text and the model
     /// from ever disagreeing about what is on the page.
-    public func render(_ elements: [ScriptElement]) {
+    /// Replaces the page with the model's current text, puts the caret back,
+    /// and settles the viewport — in that order, which is the whole point of
+    /// `restoringCaret` being a parameter rather than something the caller does
+    /// afterwards.
+    ///
+    /// The viewport is settled by following the caret: the page moves by
+    /// however far the insertion point moved, so a reflow above it does not
+    /// drag the writer's line around. That only works if the caret is where it
+    /// is going to be. Callers used to `render(...)` and *then* restore the
+    /// selection, so the page was settled against whatever position replacing
+    /// the storage happened to leave behind — and a dash typed into a heading
+    /// scrolled that heading off the top of the window. See `PageStillnessTests`.
+    public func render(
+        _ elements: [ScriptElement],
+        restoringCaret restore: (() -> Void)? = nil
+    ) {
         let shouldHoldPage = editor != nil && renderedRevision >= 0
         let preserved = scrollView.contentView.bounds.origin
-        let caretBefore = shouldHoldPage ? caretContentY() : nil
 
         applyingModel = true
         let script = ScriptLayout.attributedScript(elements, measure: measure)
@@ -206,8 +221,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         layOut()
         applyingModel = false
 
+        restore?()
+
         if shouldHoldPage {
-            restoreViewport(caretWas: caretBefore, preserved: preserved)
+            restoreViewport(preserved: preserved)
         }
         updateGhost()
     }
@@ -494,6 +511,30 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             return true
         }
 
+        // Shout at the door, not after the fact.
+        //
+        // The page uppercases headings, cues, transitions and shots. Letting
+        // the lowercase letter into the storage and rewriting the element
+        // afterwards cannot work: replacing a range of an `NSTextView`'s
+        // storage moves the insertion point to the end of what was replaced
+        // (`ShoutedTypingTests.testReplacingAStorageRangeMovesTheInsertionPoint`),
+        // so every letter typed anywhere but the end of the line threw the
+        // caret to the end and the next letter landed there. `int` at the head
+        // of LOCATION gave ILOCATIONNT.
+        //
+        // Inserting the shouted text instead means the wrong characters are
+        // never in the document, AppKit places the caret itself, and undo sees
+        // one insertion of what the writer meant. `insertText` re-enters this
+        // method with text that already equals its own uppercase, so the
+        // branch is not taken twice.
+        if let index, editor.screenplay.elements[index].type.uppercasesInput {
+            let shouted = text.uppercased()
+            if shouted != text {
+                textView.insertText(shouted, replacementRange: range)
+                return false
+            }
+        }
+
         editor.prepareForNativeEdit()
         if !text.contains("\n"),
            range.location >= mapped.range.location,
@@ -537,8 +578,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             reportNativeUndoAvailability()
             updateGhost()
         } else {
-            render(editor.screenplay.elements)
-            restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
+            render(editor.screenplay.elements) { [self] in
+                restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
+            }
             updateGhost()
         }
     }
@@ -566,24 +608,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         let updatedRange = ranges[rangeIndex].range
         let storage = textView.textStorage
         guard let storage, NSMaxRange(updatedRange) <= storage.length else { return false }
-        var text = storage.attributedSubstring(from: updatedRange).string
-        if let elementIndex = editor.screenplay.elements.firstIndex(where: {
-            $0.id == edit.elementID
-        }), editor.screenplay.elements[elementIndex].type.uppercasesInput {
-            let uppercased = text.uppercased()
-            // Preserve AppKit's native undo range. The screenplay kinds that
-            // uppercase normal Latin text keep the same UTF-16 length; for
-            // rare expanding case mappings, leave the native text untouched.
-            // On the Mac this is the primary capitalisation path: there is
-            // no software-keyboard trait to type the caps for us.
-            if uppercased != text,
-               (uppercased as NSString).length == (text as NSString).length {
-                applyingModel = true
-                storage.replaceCharacters(in: updatedRange, with: uppercased)
-                applyingModel = false
-                text = uppercased
-            }
-        }
+        // The text is already shouted if its kind shouts: that happens at the
+        // input boundary in `shouldChangeTextIn`, before the characters reach
+        // the storage. Nothing to repair here — and the old repair also had to
+        // refuse expanding case mappings (ß → SS) to keep its range arithmetic,
+        // which left the view lowercase while the model normalised to caps.
+        let text = storage.attributedSubstring(from: updatedRange).string
         let selected = textView.selectedRange()
         let offset = max(
             0,
@@ -636,8 +666,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             structural: false,
             recordsUndo: false
         )
-        render(plan.elements)
-        restoreSelection(nativeSelection)
+        render(plan.elements) { [self] in restoreSelection(nativeSelection) }
         renderedRevision = editor.revision
     }
 
@@ -717,8 +746,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             recordsUndo: false
         )
         registerModelUndo(previousState, actionName: actionName)
-        render(elements)
-        restoreSelection(selection)
+        render(elements) { [self] in restoreSelection(selection) }
         renderedRevision = editor.revision
         updateTypingAttributes()
         reportNativeUndoAvailability()
@@ -750,8 +778,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             structural: true,
             recordsUndo: false
         )
-        render(state.elements)
-        restoreSelection(state.selection)
+        render(state.elements) { [self] in restoreSelection(state.selection) }
         renderedRevision = editor.revision
         updateTypingAttributes()
         reportNativeUndoAvailability()
@@ -1126,30 +1153,59 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
     // MARK: - Viewport
 
-    private func caretContentY() -> CGFloat? {
+    /// The caret's line, top to bottom, in the canvas's coordinates.
+    private func caretContentLine() -> ClosedRange<CGFloat>? {
         let location = textView.selectedRange().location
         let probe = NSRange(location: location, length: 0)
-        if let rect = ScriptLayout.boundingRect(of: probe, in: textView), rect.height > 0 {
-            return canvasY(ofTextRect: rect)
+        var caret = ScriptLayout.boundingRect(of: probe, in: textView)
+        if caret == nil || caret?.height == 0 {
+            let fallback = max(0, min(location, max(0, (textView.string as NSString).length - 1)))
+            caret = ScriptLayout.boundingRect(
+                of: NSRange(location: fallback, length: 0), in: textView
+            )
         }
-        let fallbackLocation = max(0, min(location, max(0, (textView.string as NSString).length - 1)))
-        guard let rect = ScriptLayout.boundingRect(
-            of: NSRange(location: fallbackLocation, length: 0), in: textView
-        ) else { return nil }
-        return canvasY(ofTextRect: rect)
+        guard let rect = caret else { return nil }
+        let top = canvasY(ofTextRect: rect)
+        return top...(top + max(rect.height, 1))
     }
 
-    private func restoreViewport(caretWas: CGFloat?, preserved: NSPoint) {
+    /// Where the page rests after the storage has been replaced.
+    private func restoreViewport(preserved: NSPoint) {
         let range = scrollableRange
-        let y = PageScroll.settled(
-            caretWas: caretWas,
-            caretIs: caretContentY(),
-            preserved: preserved.y,
-            offset: scrollView.contentView.bounds.origin.y,
-            in: range
+        let offset = scrollView.contentView.bounds.origin.y
+
+        // Hold the page where the writer left it. `settled` with no caret is
+        // exactly that, clamped to what the document allows.
+        let held = PageScroll.settled(
+            caretWas: nil, caretIs: nil,
+            preserved: preserved.y, offset: offset, in: range
         )
-        if abs(scrollView.contentView.bounds.origin.y - y) > 0.5 {
-            scrollView.contentView.scroll(to: NSPoint(x: preserved.x, y: y))
+
+        // Then move only if the line being written has gone out of sight.
+        //
+        // Following the caret unconditionally — which is what `settled` does
+        // when it is given one — keeps the insertion point at a fixed height on
+        // screen, and that is a typewriter, not a page. On a script that
+        // already fits, every Return and every scene-heading dash slid the
+        // whole page by a line. `correction` is the rule this path always
+        // wanted; its own comment says so.
+        var target = held
+        if let caret = caretContentLine() {
+            let viewport = scrollView.contentView.bounds.height
+            let margin = caret.upperBound - caret.lowerBound
+            if let corrected = PageScroll.correction(
+                revealing: caret,
+                within: held...(held + viewport),
+                margin: margin,
+                from: held,
+                in: range
+            ) {
+                target = corrected
+            }
+        }
+
+        if abs(offset - target) > 0.5 {
+            scrollView.contentView.scroll(to: NSPoint(x: preserved.x, y: target))
             scrollView.reflectScrolledClipView(scrollView.contentView)
         }
     }

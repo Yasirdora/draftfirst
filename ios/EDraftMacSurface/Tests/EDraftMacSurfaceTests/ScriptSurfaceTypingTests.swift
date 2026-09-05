@@ -204,8 +204,12 @@ final class ScriptSurfaceTypingTests: XCTestCase {
         let (editor, surface) = bound([cue])
         placeCaret(editor, surface, on: cue)
 
+        // The delegate answers `false` for a shouted kind: the surface inserts
+        // the capital itself rather than letting the lowercase letter into the
+        // storage and repairing it afterwards. Which path the letter took is
+        // not what this test is about — see `ShoutedTypingTests`.
         for character in "uncle" {
-            XCTAssertTrue(type(String(character), into: surface))
+            type(String(character), into: surface)
         }
 
         XCTAssertEqual(editor.screenplay.elements[0].text, "UNCLE", "the document")
