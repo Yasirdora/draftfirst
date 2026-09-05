@@ -1,6 +1,6 @@
 # eDraft on macOS — Execution
 
-*Status: M0 all but complete — five of six steps done · Last updated 2026-09-05*
+*Status: M0 all but complete; **M1's unknown is answered** · Last updated 2026-09-05*
 
 This is the working document. [MACOS-PLAN.md](MACOS-PLAN.md) says why we are
 building it, [MACOS-DESIGN.md](MACOS-DESIGN.md) says what it is, and
@@ -22,9 +22,10 @@ npm test                                    # 406 TypeScript engine tests
 cd ios/eDraftEngine && swift test           #  89 Swift engine tests
 cd ios/EDraftCore   && swift test           #  39 core tests — runs on macOS
 cd ios/EDraftUI     && swift test           #   8 document tests — runs on macOS
+cd ios/EDraftMacSurface && swift test       #   7 layout measurements — macOS
 npm run check:boundaries                    #  the layers stay separate
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'   #  81 app tests
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'   #  82 app tests
 ```
 
 The packages live at `ios/EDraftCore` and `ios/EDraftUI`, beside
@@ -98,22 +99,40 @@ moves it, and changes nothing else. Detail and file-by-file inventory in
 - [ ] **M0.6** *(optional, recommended)* adopt the `apple/` directory layout.
       *Proof:* clean checkout builds both schemes.
 
-### M1 — The spike · *one day, throwaway allowed*
+### M1 — The spike · *the unknown is answered*
 
-The only genuine unknown is the text surface. Prove it before committing.
+The question was whether the Mac's text system can tell us where an element is,
+since every scroll and every reveal is built on that. **It can — on both text
+systems.** Measured, not assumed: `EDraftMacSurface` is a package rather than
+app-target code precisely so the answer is a test rather than a demo, and
+`swift test --package-path ios/EDraftMacSurface` runs it in a fraction of a
+second with no window ever shown.
 
-- [ ] `NSTextView` in an `NSViewRepresentable`, one window, no document.
-- [ ] Element paragraph styles at engine metrics (Courier Prime 12, real margins).
-- [ ] `ScreenplayEditPlanner` driving edits through the same coordinator shape as iOS.
-- [ ] Ghost prediction drawn as inline secondary text.
-- [ ] Reveal + mark, using whichever text stack survives the next line.
-- [ ] **Decide: TextKit 2 or TextKit 1.** iOS uses TextKit 1 deliberately; its
-      scroll and reveal maths read `NSLayoutManager` rectangles. Either re-derive
-      them via `NSTextLayoutManager` or match iOS exactly. Write the decision and
-      the measurements into this file before proceeding.
+- [x] `ScriptLayout` sets the script for an `NSTextView` on either stack.
+- [x] Element paragraph styles come from `ScriptTypography` in the core — the
+      same fractions the iPhone uses, so the two platforms cannot disagree
+      about the shape of a page. The iOS surface was changed to read them too;
+      it had its own copy.
+- [x] **TextKit 1 and TextKit 2 both place a late element.** TextKit 1's
+      arithmetic is identical to the iPhone's, which is the deciding
+      consideration: the reveal and scroll code ports rather than being
+      rewritten. **Decision: TextKit 1 for the Mac surface**, with TextKit 2
+      kept behind `ScriptLayout.TextStack` and under the same tests, so the
+      choice can be revisited with evidence rather than argued.
+- [ ] Ghost prediction drawn as inline secondary text — still to do.
+- [ ] The text view inside an `NSViewRepresentable`, in a window.
 
-*Proof:* type a scene, a cue and dialogue; Tab cycles by engine choreography;
-prediction appears and accepts; a reveal marks the right line.
+**What the measurements found.** A line with nothing on it encloses no glyphs
+and therefore measures **no width** — and `CGRect.isEmpty` is true when *either*
+dimension is zero. Testing emptiness there silently discards a real line. The
+blank line at the very end of a script is worse still: it has no line fragment
+of its own at all and lives in the text system's *extra* fragment, which only
+exists once the whole container has been laid out.
+
+**This was a live bug on iOS**, found by writing the Mac's version as a
+measurement: revealing a blank line drew no mark, and a reveal of the last line
+of a script would have marked the wrong one. Both are fixed, in both surfaces,
+and `NavigatorJumpTests.testABlankLineIsStillMarked` holds the line.
 
 ### M2 — The window
 
@@ -205,7 +224,7 @@ None blocking. Two worth a decision when convenient:
   or AppKit. It is plain Node, so it runs on the Linux box that runs CI, and it
   is wired into `npm run quality`. Verified by planting a violation and
   watching it fail.
-- **A macOS CI job** now runs `swift test` over all three packages — 132 tests.
+- **A macOS CI job** now runs `swift test` over all four packages — 143 tests.
   It has not run on a GitHub runner yet: the packages require macOS 26, so the
   first run needs watching in case `macos-latest` is still older than that.
 

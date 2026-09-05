@@ -1519,20 +1519,33 @@ struct ScriptTextView: UIViewRepresentable {
         /// Draws the mark over an element's own lines.
         private func markRevealed(_ range: NSRange, in textView: UITextView) {
             let layout = textView.layoutManager
+            let container = textView.textContainer
+            // The whole container, not just this range's glyphs: the extra line
+            // fragment an empty last line lives in does not exist until the text
+            // system has finished laying out.
+            layout.ensureLayout(for: container)
             let glyphs = layout.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
-            layout.ensureLayout(forGlyphRange: glyphs)
 
-            // An element with no text encloses no glyphs and so has no
-            // rectangle of its own; its line is still a place, so mark the
-            // line it sits on.
-            var rect = glyphs.length == 0
-                ? layout.lineFragmentUsedRect(
-                    forGlyphAt: min(glyphs.location, max(0, layout.numberOfGlyphs - 1)),
-                    effectiveRange: nil
-                )
-                : layout.boundingRect(forGlyphRange: glyphs, in: textView.textContainer)
-            guard !rect.isNull, !rect.isEmpty else { return }
+            // An element with no text encloses no glyphs, so it measures no
+            // *width* — but it has a height and a place, and it is still
+            // somewhere a reader can be sent: the blank line they are about to
+            // type into. Testing `isEmpty` here would discard it, because a
+            // rectangle is empty when either dimension is zero. A blank line in
+            // the body borrows the fragment it sits in; a blank line at the very
+            // end has none of its own and lives in the extra fragment.
+            var rect = layout.boundingRect(forGlyphRange: glyphs, in: container)
+            if rect.height <= 0 {
+                let length = layout.numberOfGlyphs
+                rect = glyphs.location >= length
+                    ? layout.extraLineFragmentUsedRect
+                    : layout.lineFragmentUsedRect(
+                        forGlyphAt: min(glyphs.location, max(0, length - 1)), effectiveRange: nil
+                    )
+            }
+            guard !rect.isNull, rect.height > 0 else { return }
 
+            // Marked across the measure rather than as an invisible sliver.
+            if rect.width < 1 { rect.size.width = container.size.width }
             rect.origin.x += textView.textContainerInset.left
             rect.origin.y += textView.textContainerInset.top
             revealHighlight.mark(rect, in: textView)
@@ -1780,7 +1793,9 @@ struct ScriptTextView: UIViewRepresentable {
             spacingAfter: CGFloat
         ) -> [NSAttributedString.Key: Any] {
             let resolvedFont = font(for: kind, traits: traitCollection)
-            let resolvedLineHeight = max(22, ceil(resolvedFont.lineHeight * 1.1))
+            let resolvedLineHeight = ScriptTypography.lineHeight(
+                forFontLineHeight: resolvedFont.lineHeight
+            )
             let paragraph = NSMutableParagraphStyle()
             paragraph.minimumLineHeight = resolvedLineHeight
             paragraph.maximumLineHeight = resolvedLineHeight
@@ -1792,25 +1807,17 @@ struct ScriptTextView: UIViewRepresentable {
                 compatibleWith: traitCollection
             )
 
-            switch kind {
-            case .character:
-                paragraph.firstLineHeadIndent = width * 0.38
-                paragraph.headIndent = width * 0.38
-                paragraph.tailIndent = -(width * 0.14)
-            case .parenthetical:
-                paragraph.firstLineHeadIndent = width * 0.27
-                paragraph.headIndent = width * 0.27
-                paragraph.tailIndent = -(width * 0.30)
-            case .dialogue:
-                paragraph.firstLineHeadIndent = width * 0.17
-                paragraph.headIndent = width * 0.17
-                paragraph.tailIndent = -(width * 0.17)
-            case .transition:
-                paragraph.alignment = .right
-            case .centered:
-                paragraph.alignment = .center
-            default:
-                break
+            // The shape of the page is the same on every surface, so the
+            // measurements come from one place: ScriptTypography.
+            if let indents = ScriptTypography.indents(for: kind) {
+                paragraph.firstLineHeadIndent = width * indents.head
+                paragraph.headIndent = width * indents.head
+                paragraph.tailIndent = -(width * indents.tail)
+            }
+            switch ScriptTypography.alignment(for: kind) {
+            case .natural: break
+            case .right: paragraph.alignment = .right
+            case .centred: paragraph.alignment = .center
             }
 
             return [
@@ -1821,18 +1828,13 @@ struct ScriptTextView: UIViewRepresentable {
         }
 
         private func font(for kind: ScreenplayKind, traits: UITraitCollection) -> UIFont {
-            let weight: UIFont.Weight = (kind == .scene || kind == .shot) ? .semibold : .regular
+            let weight: UIFont.Weight = ScriptTypography.isEmphasised(kind) ? .semibold : .regular
             let base = UIFont.monospacedSystemFont(ofSize: 16, weight: weight)
             return UIFontMetrics(forTextStyle: .body).scaledFont(for: base, compatibleWith: traits)
         }
 
         private func spacing(before kind: ScreenplayKind) -> CGFloat {
-            switch kind {
-            case .scene: 24
-            case .action, .character, .transition, .shot, .general, .centered: 14
-            case .dialogue, .parenthetical: 0
-            default: 10
-            }
+            ScriptTypography.spacing(before: kind)
         }
 
         private func contentWidth(for textView: UITextView) -> CGFloat {

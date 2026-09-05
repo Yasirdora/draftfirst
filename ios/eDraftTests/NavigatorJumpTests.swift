@@ -187,4 +187,35 @@ final class NavigatorJumpTests: XCTestCase {
 
         XCTAssertNotNil(mark(in: textView), "a target the page cannot reach was left unmarked")
     }
+
+    /// The bug the Mac's measurements found in this surface: a line with
+    /// nothing on it measures no *width*, and a rectangle counts as empty when
+    /// either dimension is zero — so the mark was being discarded for exactly
+    /// the lines a writer is about to type into. The blank line at the very end
+    /// of a script is the worst case: it has no line fragment of its own at all.
+    func testABlankLineIsStillMarked() throws {
+        let editor = EditorState(source: "INT. ROOM - DAY")
+        for _ in 0..<4 { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+        // A blank line is what Return leaves behind, not something a parse
+        // produces — the writer is standing on it, about to type.
+        let blank = ScriptElement(type: .action, text: "")
+        editor.screenplay = Screenplay(
+            titlePage: [],
+            elements: [ScriptElement(type: .scene, text: "INT. ROOM - DAY"), blank]
+        )
+        let textView = ScreenplayTextView(usingTextLayoutManager: false)
+        textView.frame = CGRect(x: 0, y: 0, width: 390, height: 700)
+        let coordinator = ScriptTextView.Coordinator(editor: editor)
+        coordinator.attach(to: textView)
+        coordinator.renderModel(selecting: nil, offset: nil)
+        textView.layoutIfNeeded()
+        withExtendedLifetime(coordinator) {}
+
+        editor.jump(to: blank.id)
+        settle()
+
+        let highlight = try XCTUnwrap(mark(in: textView), "a blank line was left unmarked")
+        XCTAssertGreaterThan(highlight.frame.height, 0)
+        XCTAssertGreaterThan(highlight.frame.width, 1, "marked across the line, not as a sliver")
+    }
 }

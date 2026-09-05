@@ -1,0 +1,211 @@
+import AppKit
+import EDraftCore
+import Foundation
+
+/// The screenplay, set for a Mac text view.
+///
+/// This is the Mac's half of what `ScriptTextView` does on the phone: turn a
+/// list of elements into one attributed string, remember which character range
+/// each element occupies, and answer where a given element sits on the page.
+/// Every measurement it sets comes from `ScriptTypography`, so the two
+/// platforms cannot disagree about the shape of a page.
+///
+/// It exists as a package rather than inside an app target for one reason: the
+/// question that decides the whole Mac port — whether the text system can tell
+/// us where an element is — is answerable by a test, and only if the code
+/// under test can be linked by a test.
+public enum ScriptLayout {
+
+    /// Which characters belong to which element, in the flattened text.
+    public struct ElementRange: Equatable, Sendable {
+        public let id: UUID
+        public let range: NSRange
+    }
+
+    /// The two text systems AppKit offers, and the reason this package exists.
+    ///
+    /// The iPhone's surface runs TextKit 1 deliberately: its scroll and reveal
+    /// arithmetic reads `NSLayoutManager` rectangles directly, and TextKit 2
+    /// answers a different question in a different shape. Rather than assume
+    /// either way for the Mac, both are built here and measured by the same
+    /// tests — see `ScriptLayoutTests`.
+    public enum TextStack: Sendable {
+        case textKit1
+        case textKit2
+    }
+
+    // MARK: - Setting the page
+
+    /// The flattened script, styled, with the map of element ranges.
+    ///
+    /// Elements are joined by newlines exactly as `ScreenplayEditPlanner`
+    /// flattens them, so a range computed here means the same characters the
+    /// planner means.
+    public static func attributedScript(
+        _ elements: [ScriptElement], measure: CGFloat
+    ) -> (text: NSAttributedString, ranges: [ElementRange]) {
+        let result = NSMutableAttributedString()
+        var ranges: [ElementRange] = []
+
+        for (index, element) in elements.enumerated() {
+            let location = result.length
+            let spacingAfter = index + 1 < elements.count
+                ? ScriptTypography.spacing(before: elements[index + 1].type)
+                : 0
+            let style = attributes(
+                for: element.type, measure: measure, spacingAfter: spacingAfter
+            )
+            result.append(NSAttributedString(string: element.text, attributes: style))
+            ranges.append(
+                ElementRange(
+                    id: element.id,
+                    range: NSRange(location: location, length: (element.text as NSString).length)
+                )
+            )
+            if index < elements.count - 1 {
+                result.append(NSAttributedString(string: "\n", attributes: style))
+            }
+        }
+        return (result, ranges)
+    }
+
+    /// One element's attributes, built from the shared measurements.
+    public static func attributes(
+        for kind: ScreenplayKind, measure: CGFloat, spacingAfter: Double
+    ) -> [NSAttributedString.Key: Any] {
+        let font = font(for: kind)
+        let paragraph = NSMutableParagraphStyle()
+        let lineHeight = ScriptTypography.lineHeight(
+            forFontLineHeight: Double(font.ascender - font.descender + font.leading)
+        )
+        paragraph.minimumLineHeight = lineHeight
+        paragraph.maximumLineHeight = lineHeight
+        // Space belongs to the paragraph before, so the caret is drawn at the
+        // next baseline rather than stretched through screenplay whitespace.
+        paragraph.paragraphSpacing = spacingAfter
+
+        if let indents = ScriptTypography.indents(for: kind) {
+            paragraph.firstLineHeadIndent = measure * indents.head
+            paragraph.headIndent = measure * indents.head
+            paragraph.tailIndent = -(measure * indents.tail)
+        }
+        switch ScriptTypography.alignment(for: kind) {
+        case .natural: break
+        case .right: paragraph.alignment = .right
+        case .centred: paragraph.alignment = .center
+        }
+
+        return [
+            .font: font,
+            .foregroundColor: NSColor.labelColor,
+            .paragraphStyle: paragraph
+        ]
+    }
+
+    public static func font(for kind: ScreenplayKind) -> NSFont {
+        let weight: NSFont.Weight = ScriptTypography.isEmphasised(kind) ? .semibold : .regular
+        return .monospacedSystemFont(ofSize: 13, weight: weight)
+    }
+
+    // MARK: - Asking where an element is
+
+    /// A text view with the script in it, on the chosen text system.
+    ///
+    /// TextKit 2 is what `NSTextView` gives you by default; TextKit 1 has to
+    /// be assembled, which is itself part of the answer this package exists to
+    /// find out.
+    public static func textView(
+        _ elements: [ScriptElement], measure: CGFloat, using stack: TextStack
+    ) -> (view: NSTextView, ranges: [ElementRange]) {
+        let script = attributedScript(elements, measure: measure)
+        let frame = NSRect(x: 0, y: 0, width: measure, height: 600)
+        let view: NSTextView
+
+        switch stack {
+        case .textKit2:
+            view = NSTextView(frame: frame)
+        case .textKit1:
+            let storage = NSTextStorage()
+            let layout = NSLayoutManager()
+            let container = NSTextContainer(size: CGSize(width: measure, height: .greatestFiniteMagnitude))
+            container.widthTracksTextView = true
+            storage.addLayoutManager(layout)
+            layout.addTextContainer(container)
+            view = NSTextView(frame: frame, textContainer: container)
+        }
+
+        view.textContainerInset = .zero
+        view.textContainer?.lineFragmentPadding = 0
+        view.textStorage?.setAttributedString(script.text)
+        return (view, script.ranges)
+    }
+
+    /// A blank line encloses no glyphs and so measures no width. Left as it
+    /// comes, a mark drawn on it would be an invisible sliver, so an empty line
+    /// is given the measure it occupies — which is what a reader means by "that
+    /// line" anyway.
+    private static func widened(_ rect: CGRect, toAtLeast container: NSTextContainer) -> CGRect {
+        guard rect.width < 1 else { return rect }
+        return CGRect(x: rect.minX, y: rect.minY, width: container.size.width, height: rect.height)
+    }
+
+    /// Where an element sits, in the text view's own coordinates.
+    ///
+    /// This is the whole question. A Navigator row scrolls to a rectangle and
+    /// marks it; if the text system will not say where a range is, neither is
+    /// possible, and the iPhone's answer — read `NSLayoutManager` directly —
+    /// does not exist on TextKit 2.
+    public static func boundingRect(of range: NSRange, in view: NSTextView) -> CGRect? {
+        if let layoutManager = view.layoutManager, let container = view.textContainer {
+            // TextKit 1: the same arithmetic the iPhone's surface uses.
+            // Lay the whole container out first. Laying out only the glyphs of
+            // the range asked for is enough for a line that has glyphs, and
+            // silently is not for one that does not: the extra line fragment an
+            // empty last line lives in only exists once the text system has
+            // finished the container.
+            layoutManager.ensureLayout(for: container)
+            let glyphs = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            let measured = layoutManager.boundingRect(forGlyphRange: glyphs, in: container)
+            if measured.height > 0 {
+                return widened(measured, toAtLeast: container)
+            }
+
+            // A line with nothing on it still has a height and a place — it is
+            // the blank line a writer is about to type into, and a reader can
+            // be sent to it. An empty line in the body borrows the fragment it
+            // sits in; an empty line at the very end has none, and lives in the
+            // extra fragment the text system keeps for exactly that case.
+            let length = layoutManager.numberOfGlyphs
+            let fallback = glyphs.location >= length
+                ? layoutManager.extraLineFragmentUsedRect
+                : layoutManager.lineFragmentUsedRect(
+                    forGlyphAt: min(glyphs.location, max(0, length - 1)), effectiveRange: nil
+                )
+            return fallback.height > 0 ? widened(fallback, toAtLeast: container) : nil
+        }
+
+        guard let layoutManager = view.textLayoutManager,
+              let contentManager = layoutManager.textContentManager,
+              let start = contentManager.location(
+                  contentManager.documentRange.location, offsetBy: range.location
+              ),
+              let end = contentManager.location(start, offsetBy: range.length),
+              let textRange = NSTextRange(location: start, end: end)
+        else { return nil }
+
+        // TextKit 2: the same answer, assembled from the fragments the range
+        // touches. `ensureLayout` first, or a fragment that has never been
+        // displayed reports nothing at all.
+        layoutManager.ensureLayout(for: textRange)
+        var union: CGRect?
+        layoutManager.enumerateTextLayoutFragments(
+            from: textRange.location, options: [.ensuresLayout]
+        ) { fragment in
+            guard fragment.rangeInElement.location.compare(textRange.endLocation) == .orderedAscending
+            else { return false }
+            union = union.map { $0.union(fragment.layoutFragmentFrame) } ?? fragment.layoutFragmentFrame
+            return true
+        }
+        return union
+    }
+}

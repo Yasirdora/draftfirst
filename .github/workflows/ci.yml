@@ -60,3 +60,5 @@ jobs:
         run: swift test --package-path ios/EDraftCore
       - name: Shared panels
         run: swift test --package-path ios/EDraftUI
+      - name: Mac surface
+        run: swift test --package-path ios/EDraftMacSurface

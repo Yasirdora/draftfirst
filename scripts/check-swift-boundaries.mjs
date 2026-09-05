@@ -34,6 +34,12 @@ const LAYERS = [
 		root: 'ios/EDraftUI/Sources',
 		banned: ['UIKit', 'AppKit'],
 		because: 'a shared panel that reaches for one platform’s views is no longer shared'
+	},
+	{
+		name: 'EDraftMacSurface',
+		root: 'ios/EDraftMacSurface/Sources',
+		banned: ['UIKit'],
+		because: 'the Mac surface is the one place AppKit belongs, and UIKit never does'
 	}
 ];
 

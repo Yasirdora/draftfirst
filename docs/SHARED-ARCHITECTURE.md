@@ -79,11 +79,17 @@ which are per-platform by definition.
 └─────────────────────────────────────────────────────────────┘
               ▲                                   ▲
 ┌──────────────────────────┐      ┌──────────────────────────┐
-│ eDraft (iOS)             │      │ eDraft (macOS)           │
-│ UITextView surface ·     │      │ NSTextView surface ·     │
-│ nav-bar chrome · scan ·  │      │ menu bar · inspector ·   │
-│ keyboard bar             │      │ windows · pointer        │
+│ eDraft (iOS)             │      │ EDraftMacSurface         │
+│ UITextView surface ·     │      │ NSTextView layout,       │
+│ nav-bar chrome · scan ·  │      │ measured by tests ·      │
+│ keyboard bar             │      │ then the app around it   │
 └──────────────────────────┘      └──────────────────────────┘
+
+The Mac's surface is a *package*, not app-target code, so the arithmetic every
+scroll and reveal depends on can be measured by `swift test` rather than only by
+eye. That is not symmetry for its own sake — it is how a live bug in the iPhone's
+mark was found (see MACOS-EXECUTION, M1). The phone's surface should move the
+same way when there is reason to touch it.
 ```
 
 **Rules that keep the boundary honest**
@@ -152,7 +158,9 @@ wrong.
 | One document format | `EDraftDocumentTests` round-trip on both platforms |
 
 Today's baseline, for comparison after every step: **406** TypeScript · **89**
-engine · **35** core (macOS) · **89** app tests green.
+engine · **39** core · **8** UI · **7** Mac surface · **82** app — the middle
+four all running on macOS, and all of it enforced by
+`npm run check:boundaries` plus a macOS CI job.
 
 **A name worth fixing.** The boundary immediately exposed that `Screenplay`
 names two different types — the engine's and the app's — and that nine call
