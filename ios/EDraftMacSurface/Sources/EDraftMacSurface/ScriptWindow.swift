@@ -96,53 +96,6 @@ public struct ScriptWindow: View {
                     // toolbar while its background fills the frame, which is
                     // how TextEdit, Pages and Xcode all put a document under
                     // the chrome and still start the first line in the clear.
-                    // A tiny bit of blur at the very top, fading to
-                    // nothing.
-                    //
-                    // The page runs to the top of the window with the
-                    // controls floating on it, which is Pages' arrangement,
-                    // and `NSScrollEdgeEffectStyle.soft` is asked for on the
-                    // column the documented way — see
-                    // `SoftScrollEdgeAccessory`. It installs, verified, and
-                    // draws nothing here: measured flat, 250 from the top of
-                    // the window down. So the softening is this.
-                    //
-                    // The system's own material rather than a colour, masked
-                    // to fade out, so what happens to the script is a blur
-                    // going progressively to nothing rather than type tinted
-                    // toward grey. It is *inside* `ignoresSafeArea` so that
-                    // it starts at the window's edge and not below the
-                    // chrome, which is where an overlay applied afterwards
-                    // lands.
-                    .overlay(alignment: .top) {
-                        Rectangle()
-                            .fill(.ultraThinMaterial)
-                            // Tinted toward the chrome it belongs to. The
-                            // material alone takes its value from what is
-                            // behind it, which is the page — so over paper it
-                            // came out lighter than the toolbar above it and
-                            // read as a haze rather than as the header. This
-                            // is the toolbar's own ground, so the band is
-                            // dark under dark chrome and light under light,
-                            // without either being stated.
-                            .overlay(Color(nsColor: .windowBackgroundColor).opacity(0.62))
-                            .mask {
-                                LinearGradient(
-                                    stops: [
-                                        .init(color: .black.opacity(0.9), location: 0),
-                                        .init(color: .black.opacity(0.55), location: 0.45),
-                                        .init(color: .black.opacity(0.2), location: 0.75),
-                                        .init(color: .clear, location: 1)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            }
-                            .frame(height: 38)
-                            // Decoration: the writer must still be able to
-                            // click the line it is drawn over.
-                            .allowsHitTesting(false)
-                    }
                     .ignoresSafeArea(edges: .top)
                     // Over the canvas, never over the page — §1.6. The corner
                     // furthest from the first line of dialogue.
@@ -197,6 +150,49 @@ public struct ScriptWindow: View {
                     ElementModeControl(editor: editor)
                 }
             }
+        }
+        // A tiny bit of blur along the top of the *window*, fading to
+        // nothing.
+        //
+        // Edge to edge, which is the point: attached to the page it stopped
+        // at the sidebar, and the seam that left down the Navigator's
+        // trailing edge is the thing it was drawn to avoid. One band across
+        // the whole width, over both columns, and there is nothing for the
+        // two halves to disagree about.
+        //
+        // The page runs to the top of the window with the controls floating
+        // on it, which is Pages' and Finder's arrangement, and
+        // `NSScrollEdgeEffectStyle.soft` is asked for on the column the
+        // documented way — see `SoftScrollEdgeAccessory`. It installs,
+        // verified, and draws nothing here: measured flat from the top of the
+        // window down. So the softening is this.
+        //
+        // The system's own material rather than a colour, masked to fade out,
+        // so what happens to the script is a blur going progressively to
+        // nothing rather than type tinted toward grey. Tinted with
+        // `windowBackgroundColor` — the toolbar's own ground — so it is dark
+        // under dark chrome and light under light without either being said.
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(Color(nsColor: .windowBackgroundColor).opacity(0.62))
+                .mask {
+                    LinearGradient(
+                        stops: [
+                            .init(color: .black.opacity(0.9), location: 0),
+                            .init(color: .black.opacity(0.55), location: 0.45),
+                            .init(color: .black.opacity(0.2), location: 0.75),
+                            .init(color: .clear, location: 1)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                }
+                .frame(height: 38)
+                // Decoration: the writer must still be able to click the line
+                // it is drawn over, and the Navigator row under it.
+                .allowsHitTesting(false)
+                .ignoresSafeArea(edges: .top)
         }
         .onChange(of: tab) { _, tab in
             if tab != .cast { selectedCharacter = nil }
