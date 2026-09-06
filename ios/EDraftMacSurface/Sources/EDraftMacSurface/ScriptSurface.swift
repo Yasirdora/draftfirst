@@ -119,18 +119,20 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         scrollView.maxMagnification = PageZoom.maximum
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
-        // The scroll view paints the desk, and it is the only thing that does.
-        // The canvas is exactly the pages now, so anything it painted itself
-        // would end at its edge and read as a border around the page. An
-        // `NSColor` here rather than a layer's `cgColor` also means it follows
-        // light and dark on its own.
-        scrollView.drawsBackground = true
-        scrollView.backgroundColor = .underPageBackgroundColor
         // The clip view centres a page smaller than the window, so the canvas
         // never has to be grown to the viewport and a pinch needs no
         // re-measure to stay centred.
+        //
+        // It is installed *before* the desk is coloured, and the order is not
+        // arbitrary: a scroll view's background is its clip view's, so
+        // replacing the clip view afterwards throws the colour away.
         scrollView.contentView = CentringClipView()
         scrollView.documentView = canvas
+        // The scroll view paints the desk, and it is the only thing that does.
+        // The canvas is exactly the pages, so anything it painted itself would
+        // end at its edge and read as a border around them.
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = .screenplayDesk
         self.scrollView = scrollView
 
         let findClient = FindBarClient(textView: textView)
@@ -1619,4 +1621,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         let selectionOffset: Int
         let selection: NSRange
     }
+
+
 }

@@ -57,6 +57,11 @@ public struct ScriptWindow: View {
                 editor.jump(to: element)
             }
             .navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 360)
+            // Nothing sets the Navigator's background. A sidebar on this
+            // system is glass, the system draws it, and the one thing that
+            // has to be true of the desk beside it is that it is a neutral
+            // grey rather than a colour that fights the glass — which is what
+            // `screenplayDesk` is for.
         } detail: {
             HStack(spacing: 0) {
                 // Sidebar, list, content — Notes' arrangement, and the Mac's.
@@ -80,7 +85,18 @@ public struct ScriptWindow: View {
                 }
                 ScriptPageView(editor: editor)
                     .replaceDisabled()
-                    .background(Color(nsColor: .underPageBackgroundColor))
+                    // The desk runs under the toolbar, and the page scrolls
+                    // beneath it.
+                    //
+                    // A toolbar on this system is glass, and glass has to have
+                    // something behind it or there is nothing to soften: stop
+                    // the scroll view at the toolbar's lower edge and the
+                    // header becomes a flat slab with a hard line under it.
+                    // `NSScrollView` insets its own *content* below the
+                    // toolbar while its background fills the frame, which is
+                    // how TextEdit, Pages and Xcode all put a document under
+                    // the chrome and still start the first line in the clear.
+                    .ignoresSafeArea(edges: .top)
                     // Over the canvas, never over the page — §1.6. The corner
                     // furthest from the first line of dialogue.
                     .overlay(alignment: .bottomTrailing) {
@@ -97,6 +113,10 @@ public struct ScriptWindow: View {
             // writer than a filename they chose, and it goes to the element
             // under the caret, which is the one thing they change while
             // writing.
+            // The page fades under the chrome rather than meeting it at a
+            // line. This is the system's own edge treatment and the reason
+            // the desk was given to it above.
+            .scrollEdgeEffectStyle(.soft, for: .top)
             .toolbar(removing: .title)
             .toolbar {
                 ToolbarItem(placement: .navigation) {

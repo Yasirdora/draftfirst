@@ -49,6 +49,16 @@ struct EDraftMacApp: App {
         // and the page scrolls rather than shrinking when they do.
         .defaultSize(width: 1280, height: 860)
         .defaultPosition(.center)
+        // One row of chrome, not two.
+        //
+        // A `DocumentGroup` defaults to the expanded toolbar style, which is
+        // the old Mac document window: a title row, and a separate toolbar
+        // row beneath it. Two rows is 30 points of header before the page
+        // starts, and this window puts nothing in the title row — the name
+        // is `.toolbar(removing: .title)`'d away, because the leading edge
+        // belongs to the element under the caret. So the first row was
+        // empty height. Pages, Numbers and Keynote are all unified.
+        .windowToolbarStyle(.unified)
         .commands {
             // Accepting a completion is an editing action, not a formatting
             // one — it belongs in Edit, after Paste, with the key equivalent

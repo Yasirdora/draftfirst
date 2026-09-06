@@ -280,12 +280,29 @@ Shared with iOS wherever the platform allows, so the two apps are one product.
 | Title | 13pt semibold | §1.7 |
 | Subtitle / metric | 11pt secondary / tertiary | |
 | Section header | 11pt semibold, secondary | |
-| Canvas | `NSColor.underPageBackgroundColor` | system, adapts to dark |
+| Canvas | `NSColor.screenplayDesk` — #969696 light, #2A2A2B dark | see below |
 | Page | `textBackgroundColor`, 1pt shadow | |
 | Script face | Courier Prime 12pt, engine metrics | identical to iOS and to print |
 
-Materials: sidebar `.sidebar`, toolbar unified.
-Semantic colours only — accent colour is the user's, never ours.
+Materials: sidebar `.sidebar`, toolbar unified (`.windowToolbarStyle(.unified)`
+— a `DocumentGroup` otherwise gets the two-row expanded style, and the first
+row is empty here because the title is removed from it).
+
+Semantic colours only — accent colour is the user's, never ours — with **one
+stated exception, the canvas**. It was `underPageBackgroundColor`, which is
+AppKit's own behind-the-page grey and resolves to a neutral #282828 in dark.
+In a real window it does not: a semantic colour is resolved against the
+window, whose ground answers to the writer's desktop picture, and on a blue
+desktop it came out #181925 — blue, and *darker* than the page at #1E1E1E. The
+sheet sank into the desk. The page never moved with it, because a layer's
+`cgColor` is a snapshot and is not re-resolved, so the two surfaces drifted
+apart until they crossed.
+
+The desk is therefore the one fixed value in the app: two literals, stated in
+`ScreenplayDesk.swift`, pinned by `ScreenplayDeskTests`. Note that the
+relationship tests there pass with the old colour and only the exact-value
+test fails — outside a window the semantic colour looks correct, which is why
+this survived as long as it did.
 
 ---
 
