@@ -40,6 +40,12 @@ const LAYERS = [
 		root: 'ios/EDraftMacSurface/Sources',
 		banned: ['UIKit'],
 		because: 'the Mac surface is the one place AppKit belongs, and UIKit never does'
+	},
+	{
+		name: 'EDraftUIKitSurface',
+		root: 'ios/EDraftUIKitSurface/Sources',
+		banned: ['AppKit'],
+		because: 'the touch surface serves an iPhone and an iPad, and AppKit compiles for neither'
 	}
 ];
 
