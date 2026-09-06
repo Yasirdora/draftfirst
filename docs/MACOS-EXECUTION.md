@@ -438,6 +438,19 @@ Edit, View, Window) and opens a `.fountain` script into a document window —
 confirmed through `CGWindowListCopyWindowInfo`, since the screen was locked and
 neither a screenshot nor the accessibility API can see a window in that state.
 
+Two amendments, 2026-09-06. `CGWindowListCreateImage` is now unavailable on
+macOS — ScreenCaptureKit replaces it — so `CGWindowListCopyWindowInfo` still
+*enumerates* windows with a sleeping display, and `screencapture -l<id>`
+answers "could not create image from window". Enumeration is the whole of what
+is left: an eye pass genuinely cannot be done without waking the display, and
+waking someone's display to take a screenshot is not a decision to make on
+their behalf.
+
+The iOS Simulator is the exception worth knowing, because it renders to its own
+framebuffer rather than the Mac's screen. `xcrun simctl io <device> screenshot`
+returns real pixels with the display asleep, which makes the phone's surface
+inspectable at any hour — and the QA fixtures drivable with it.
+
 ## 5a. Enforcement added
 
 - **`npm run check:boundaries`** walks the three package sources and fails on a
@@ -446,8 +459,11 @@ neither a screenshot nor the accessibility API can see a window in that state.
   or AppKit. It is plain Node, so it runs on the Linux box that runs CI, and it
   is wired into `npm run quality`. Verified by planting a violation and
   watching it fail.
-- **A macOS CI job** now runs `swift test` over all four packages — 277 tests
-  (95 + 88 + 18 + 76).
+- **A macOS CI job** now runs `swift test` over the four packages that can be
+  built on a Mac host — 284 tests (99 + 88 + 18 + 79). `EDraftUIKitSurface` is
+  the fifth package and is not among them: it imports UIKit and cannot compile
+  for the desk at all. Its behaviour is covered by the 103 in the iOS app
+  target, under the simulator.
   It has not run on a GitHub runner yet: the packages require macOS 26, so the
   first run needs watching in case `macos-latest` is still older than that.
 

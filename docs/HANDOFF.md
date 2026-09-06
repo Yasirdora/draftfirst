@@ -50,7 +50,7 @@ npm test                                              # 414 TypeScript
 swift test --package-path ios/eDraftEngine            #  99 engine
 swift test --package-path ios/EDraftCore              #  88 core        (macOS)
 swift test --package-path ios/EDraftUI                #  18 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  78 Mac surface (macOS)
+swift test --package-path ios/EDraftMacSurface        #  79 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 103 app
@@ -65,10 +65,13 @@ all; its behaviour is covered by the 102 in the iOS app target, which runs under
 the simulator where the document plumbing those tests drive already lives. A
 test target there would be a path nobody could run.
 
-**If a Mac build stops dead at `CodeSign`**, look for a keychain prompt: macOS
-is asking for the signing key and `xcodebuild` will wait for it indefinitely.
-`CODE_SIGNING_ALLOWED=NO` verifies that the target compiles and links without
-touching the key, which is what a build check actually needs.
+**If a Mac build stops dead at `CodeSign`**, it is a keychain prompt: macOS is
+asking for the signing key and `xcodebuild` waits for it indefinitely. The
+ad-hoc flags in the command above avoid it; `CODE_SIGNING_ALLOWED=NO` verifies
+compiling and linking alone. MACOS-EXECUTION §4a has the full note, including
+what can and cannot be seen when the display is asleep — read it before
+debugging a Mac build that appears to hang, which would have saved forty
+minutes on 2026-09-06.
 
 ---
 

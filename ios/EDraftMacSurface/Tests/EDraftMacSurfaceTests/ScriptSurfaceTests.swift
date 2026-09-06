@@ -268,6 +268,36 @@ final class ScriptSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.pageFrame.width, PageFormat.letter.pageRect.width, accuracy: 0.5)
     }
 
+    /// A canvas narrower than the paper must scroll the page, never shrink it.
+    ///
+    /// This is the width the character-thread column leaves behind: a 900pt
+    /// window less a 240pt Navigator, a 260pt thread and the divider is about
+    /// 400pt of canvas — two thirds of a page. The card has to keep its
+    /// 612 points regardless, because the page edge is the ruler a screenwriter
+    /// reads length by, and a page that quietly narrows to fit the furniture is
+    /// lying about how long the script is.
+    ///
+    /// The scroll view carries a horizontal scroller for exactly this, which is
+    /// what makes the third column survivable where a properties pane was not.
+    /// It is still a reason to give the window a sensible minimum width, and
+    /// that is a judgement to make with the window in front of you.
+    func testACanvasNarrowerThanThePaperScrollsRatherThanShrinkingIt() throws {
+        let elements = [ScriptElement(type: .dialogue, text: "A line she says.")]
+        let surface = surface(elements)
+
+        surface.scrollView.frame.size.width = 400
+        surface.remeasure(to: 400, elements: elements)
+
+        XCTAssertEqual(
+            surface.pageFrame.width, PageFormat.letter.pageRect.width, accuracy: 0.5,
+            "the page card shrank to fit the window; the page is no longer a page"
+        )
+        XCTAssertTrue(
+            surface.scrollView.hasHorizontalScroller,
+            "a page wider than its canvas needs somewhere to go"
+        )
+    }
+
     /// The phone's bug, in its Mac form: a reveal that arrives in the same turn
     /// as a render must still move the page. A text view's height is a result
     /// of laying out, so measuring before the layout catches up says the page
