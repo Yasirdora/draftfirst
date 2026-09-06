@@ -43,6 +43,10 @@ public final class EditorState {
 
     /// Shows the system find bar. The surface owns the `NSTextFinder`.
     @ObservationIgnored public var onShowFind: (() -> Void)?
+    /// Writing a file is the app's business and the format list is the
+    /// core's, so the surface can offer the choice without knowing what a
+    /// save panel is.
+    @ObservationIgnored public var onExport: ((ScreenplayExportFormat) -> Void)?
     @ObservationIgnored public var onFindNext: (() -> Void)?
     @ObservationIgnored public var onFindPrevious: (() -> Void)?
     /// Find Scene (⌘L): the window reveals the Navigator's Scenes tab and

@@ -150,6 +150,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // The canvas is the scroll view's document view, so it joins the
         // window at the same moment the surface does — and that moment, not a
         // SwiftUI update pass, is when the page can take the caret.
+        // Clicking the line between two pages opens or closes that break.
+        // Both the sheets and the text have to move, and only one thing
+        // owns that: `layOut` re-runs the exclusion paths from the canvas's
+        // own offsets, so the two cannot drift.
+        canvas.onToggleBreak = { [weak self] index in
+            guard let self else { return }
+            self.canvas.toggleBreak(after: index)
+            self.layOut()
+            self.updateGhost()
+        }
         canvas.onMoveToWindow = { [weak self] in
             self?.openTheWindowToItsFullHeight()
             self?.takeInitialFocus()
@@ -382,8 +392,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         let locations = ScreenplayPageLayout.pageStartLocations(
             elements: elements, pages: pages
         )
-        let format = PageFormat.current
-        let stride = format.pageRect.height + canvas.canvasPadding
         let length = (textView.string as NSString).length
         var ungapped: [CGFloat] = []
         ungapped.reserveCapacity(locations.count)
@@ -400,7 +408,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         var paths: [NSBezierPath] = []
         var placed: CGFloat = 0
         for index in 0..<(pages.count - 1) {
-            let target = CGFloat(index + 1) * stride
+            // The canvas owns where each page starts, because the writer can
+            // open a break and move everything below it. Deriving it twice is
+            // how the type and the sheets come to disagree.
+            let target = canvas.textTopOffset(ofPage: index + 1)
             let ungappedY = index + 1 < ungapped.count ? ungapped[index + 1] : 0
             let gap = target - ungappedY - placed
             guard gap > 0.5 else { continue }
@@ -681,6 +692,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
     /// Every sheet. Empty only before the first layout.
     public var pageFrames: [CGRect] { canvas.pageViews.map(\.frame) }
+
+    /// Where the lines between the sheets are, for a test that has to know
+    /// there is something to press.
+    public var breakHandleFrames: [CGRect] { canvas.breakHandleFrames }
 
     /// Six lines to the inch without cropping a tall glyph. Held here because
     /// `NSLayoutManager.delegate` is weak.

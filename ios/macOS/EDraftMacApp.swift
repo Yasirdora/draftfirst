@@ -109,6 +109,12 @@ struct ScriptDocumentWindow: View {
             .focusedSceneValue(\.editor, editor)
             .onAppear {
                 editor.onSourceChange = { source in document.source = source }
+                // The surface offers the formats; writing the file is the
+                // app's, because a save panel is not something a page knows
+                // about. Both the toolbar menu and File → Export come here.
+                editor.onExport = { format in
+                    ScreenplayExportWriter.write(format, editor.screenplay)
+                }
             }
     }
 }
@@ -250,44 +256,56 @@ struct ExportCommands: View {
 
     var body: some View {
         Menu("Export") {
-            Button("PDF…") { export(ext: "pdf", type: .pdf, contents: pdf()) }
-            Button("Final Draft…") { export(ext: "fdx", type: .finalDraftScreenplay, contents: fdx()) }
-            Button("Fountain…") { export(ext: "fountain", type: .plainText, contents: fountain()) }
-            Button("Text…") { export(ext: "txt", type: .plainText, contents: text()) }
+            ForEach(ScreenplayExportFormat.allCases, id: \.self) { format in
+                Button("\(format.title)…") {
+                    guard let editor else { return }
+                    ScreenplayExportWriter.write(format, editor.screenplay)
+                }
+            }
         }
         .disabled(editor == nil)
     }
 
-    private func pdf() -> Data {
-        ScreenplayPageRenderer.pdfData(screenplay)
-    }
+}
 
-    private func fdx() -> Data {
-        Data(ScreenplayExporter.fdxSource(screenplay).utf8)
-    }
+/// Writes a screenplay to a file the writer chooses.
+///
+/// The formats are `ScreenplayExportFormat`, so the toolbar menu and File →
+/// Export cannot drift apart; this is only the part that knows what a save
+/// panel is, which is why it lives in the app and not in the surface.
+enum ScreenplayExportWriter {
 
-    private func fountain() -> Data {
-        Data(ScreenplayExporter.fountainSource(screenplay).utf8)
-    }
-
-    private func text() -> Data {
-        Data(ScreenplayExporter.plainText(screenplay).utf8)
-    }
-
-    private var screenplay: EDraftCore.Screenplay {
-        editor?.screenplay ?? EDraftCore.Screenplay()
-    }
-
-    private func export(ext: String, type: UTType, contents: Data) {
-        guard editor != nil else { return }
+    @MainActor
+    static func write(_ format: ScreenplayExportFormat, _ screenplay: EDraftCore.Screenplay) {
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [type]
+        panel.allowedContentTypes = [contentType(for: format)]
         panel.canCreateDirectories = true
         let base = screenplay.title.isEmpty ? "Screenplay" : screenplay.title
-        panel.nameFieldStringValue = "\(base).\(ext)"
+        panel.nameFieldStringValue = "\(base).\(format.fileExtension)"
+        let contents = data(for: format, screenplay)
         panel.begin { response in
             guard response == .OK, let url = panel.url else { return }
             try? contents.write(to: url, options: .atomic)
+        }
+    }
+
+    @MainActor
+    private static func data(
+        for format: ScreenplayExportFormat, _ screenplay: EDraftCore.Screenplay
+    ) -> Data {
+        switch format {
+        case .pdf: ScreenplayPageRenderer.pdfData(screenplay)
+        case .finalDraft: Data(ScreenplayExporter.fdxSource(screenplay).utf8)
+        case .fountain: Data(ScreenplayExporter.fountainSource(screenplay).utf8)
+        case .text: Data(ScreenplayExporter.plainText(screenplay).utf8)
+        }
+    }
+
+    private static func contentType(for format: ScreenplayExportFormat) -> UTType {
+        switch format {
+        case .pdf: .pdf
+        case .finalDraft: .finalDraftScreenplay
+        case .fountain, .text: .plainText
         }
     }
 }

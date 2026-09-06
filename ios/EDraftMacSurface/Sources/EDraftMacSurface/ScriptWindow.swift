@@ -149,6 +149,32 @@ public struct ScriptWindow: View {
                 ToolbarItem(placement: .navigation) {
                     ElementModeControl(editor: editor)
                 }
+                // The writer's side of the bar: what is done *to* the script
+                // they can see. One capsule, because the system groups a
+                // `ToolbarItemGroup` into one piece of glass, and these three
+                // belong together — they change how the page looks or what
+                // leaves the app with it.
+                // Pushes them to the trailing edge, where the system puts
+                // what acts on the document. Without it they crowd up against
+                // the element selector on the left.
+                ToolbarSpacer(.flexible, placement: .primaryAction)
+                ToolbarItemGroup(placement: .primaryAction) {
+                    PagePaperToggle()
+                    Button {
+                        showingTitlePage = true
+                    } label: {
+                        Label("Title Page", systemImage: "text.document")
+                    }
+                    .help("Title page")
+                    ExportMenu(editor: editor)
+                }
+                // A spacer breaks the glass, so the overflow menu stands on
+                // its own — the icons act, this one opens a list, and the two
+                // are not the same kind of thing.
+                ToolbarSpacer(.fixed, placement: .primaryAction)
+                ToolbarItem(placement: .primaryAction) {
+                    ScriptOverflowMenu(editor: editor)
+                }
             }
         }
         // A tiny bit of blur along the top of the *window*, fading to
