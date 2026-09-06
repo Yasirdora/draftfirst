@@ -117,6 +117,15 @@ public struct ScriptWindow: View {
                     .overlay(alignment: .top) {
                         Rectangle()
                             .fill(.ultraThinMaterial)
+                            // Tinted toward the chrome it belongs to. The
+                            // material alone takes its value from what is
+                            // behind it, which is the page — so over paper it
+                            // came out lighter than the toolbar above it and
+                            // read as a haze rather than as the header. This
+                            // is the toolbar's own ground, so the band is
+                            // dark under dark chrome and light under light,
+                            // without either being stated.
+                            .overlay(Color(nsColor: .windowBackgroundColor).opacity(0.62))
                             .mask {
                                 LinearGradient(
                                     stops: [
