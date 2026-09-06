@@ -98,7 +98,11 @@ final class ScriptSurfaceTests: XCTestCase {
         let surface = surface([ScriptElement(type: .scene, text: "INT. ROOM - DAY")])
         XCTAssertEqual(surface.pageFrame.width, PageFormat.letter.pageRect.width, accuracy: 0.5)
         XCTAssertGreaterThanOrEqual(surface.pageFrame.height, PageFormat.letter.pageRect.height)
-        XCTAssertEqual(surface.textView.frame.minX, ScreenplayPageLayout.textLeft, accuracy: 0.5)
+        XCTAssertEqual(
+            surface.textView.frame.minX - surface.pageFrame.minX,
+            ScreenplayPageLayout.textLeft,
+            accuracy: 0.5
+        )
         XCTAssertEqual(
             surface.textView.frame.width,
             ScreenplayPageLayout.textBlockWidth(.letter),
@@ -129,11 +133,11 @@ final class ScriptSurfaceTests: XCTestCase {
             """
         )
 
-        let inPage = lastRect.offsetBy(dx: view.frame.minX, dy: view.frame.minY)
-        let pageBounds = CGRect(origin: .zero, size: surface.pageFrame.size)
+        let inCanvas = surface.canvas.convert(lastRect, from: view)
+        let lastCard = try XCTUnwrap(surface.pageFrames.last, "a script has no sheets")
         XCTAssertTrue(
-            pageBounds.insetBy(dx: -1, dy: -1).contains(inPage),
-            "the last line \(inPage) is not inside the page card \(pageBounds)"
+            lastCard.insetBy(dx: -1, dy: -1).contains(inCanvas),
+            "the last line \(inCanvas) is not inside the last sheet \(lastCard)"
         )
     }
 
@@ -280,28 +284,28 @@ final class ScriptSurfaceTests: XCTestCase {
         let format = PageFormat.current
         XCTAssertEqual(
             surface.textView.frame.height,
-            format.pageRect.height - format.textTop * 2,
+            ScreenplayPageLayout.textBlockHeight(format),
             accuracy: 0.5,
-            "an almost empty page left nowhere to click"
+            "an almost empty page left nowhere to click — the block is the paginator's \(format.linesPerPage) lines, not two equal 1″ margins"
         )
     }
 
     /// And past a page the block is the text, so nothing is invented below it.
-    func testALongScriptsTextBlockIsStillItsOwnHeight() {
+    func testALongScriptsTextBlockIsStillItsOwnHeight() throws {
         let elements = (1...120).map {
             ScriptElement(type: .action, text: "A line of action, number \($0).")
         }
         let surface = surface(elements)
 
+        let pages = try XCTUnwrap(ScreenplayExporter.paginate(Screenplay(elements: elements)))
+        XCTAssertGreaterThan(pages.count, 1, "this fixture must actually paginate")
+        XCTAssertEqual(surface.pageFrames.count, pages.count)
+        for frame in surface.pageFrames {
+            XCTAssertEqual(frame.height, PageFormat.current.pageRect.height, accuracy: 0.5)
+        }
         XCTAssertGreaterThan(
             surface.textView.frame.height, PageFormat.current.pageRect.height,
             "a script longer than a page should have a text block longer than one"
-        )
-        XCTAssertEqual(
-            surface.textView.frame.height,
-            surface.pageFrame.height - PageFormat.current.textTop * 2,
-            accuracy: 0.5,
-            "the block and the card must agree; the card is derived from it"
         )
     }
 

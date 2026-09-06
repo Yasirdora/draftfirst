@@ -115,10 +115,21 @@ public enum Paginator {
 
     // MARK: - Text wrapping
 
+    /// One wrapped line and where it begins in the original UTF-16.
+    ///
+    /// The editor's text view is the original string, not the paginator's
+    /// printed lines. A page break mid-element has to name a character in
+    /// that string, which is this offset — not a search for the printed
+    /// text, which can appear twice.
+    public struct WrappedLine: Equatable, Sendable {
+        public let text: String
+        public let utf16Start: Int
+    }
+
     /// Greedy word wrap at `width` characters, hard-splitting tokens that
     /// cannot fit. Measured in UTF-16 code units to match the JS engine's
     /// `String.length` semantics exactly.
-    static func wrapText(_ text: String, width: Int) -> [String] {
+    public static func wrapLines(_ text: String, width: Int) -> [WrappedLine] {
         precondition(
             width >= 1 && width <= pageWidthChars,
             "width must be an integer between 1 and \(pageWidthChars)."
@@ -129,8 +140,12 @@ public enum Paginator {
            drift) or drops the whole cluster (the combining mark is lost). JS
            breaks on the space and keeps the mark as the next word's first unit.
            Empty runs are skipped, matching the TS `.filter((w) => w !== '')`. */
+        struct Word {
+            let text: String
+            let utf16Start: Int
+        }
         let units = Array(text.utf16)
-        var words: [String] = []
+        var words: [Word] = []
         var index = 0
         while index < units.count {
             while index < units.count, JSWhitespace.matches(unit: units[index]) {
@@ -142,7 +157,10 @@ public enum Paginator {
                 index += 1
             }
             if index - start <= width {
-                words.append(String(decoding: units[start..<index], as: UTF16.self))
+                words.append(Word(
+                    text: String(decoding: units[start..<index], as: UTF16.self),
+                    utf16Start: start
+                ))
             } else {
                 /* Hard split. NOTE: a boundary landing between a surrogate pair
                    (dialogue's width of 35 is odd, so this is reachable) yields
@@ -155,29 +173,38 @@ public enum Paginator {
                 var offset = start
                 while offset < index {
                     let end = Swift.min(offset + width, index)
-                    words.append(String(decoding: units[offset..<end], as: UTF16.self))
+                    words.append(Word(
+                        text: String(decoding: units[offset..<end], as: UTF16.self),
+                        utf16Start: offset
+                    ))
                     offset = end
                 }
             }
         }
-        guard !words.isEmpty else { return [""] }
+        guard !words.isEmpty else { return [WrappedLine(text: "", utf16Start: 0)] }
 
-        var lines: [String] = []
-        var current = words[0]
+        var lines: [WrappedLine] = []
+        var current = words[0].text
+        var currentStart = words[0].utf16Start
         var currentLength = current.utf16.count
         for word in words.dropFirst() {
-            let wordLength = word.utf16.count
+            let wordLength = word.text.utf16.count
             if currentLength + 1 + wordLength <= width {
-                current += " " + word
+                current += " " + word.text
                 currentLength += 1 + wordLength
             } else {
-                lines.append(current)
-                current = word
+                lines.append(WrappedLine(text: current, utf16Start: currentStart))
+                current = word.text
+                currentStart = word.utf16Start
                 currentLength = wordLength
             }
         }
-        lines.append(current)
+        lines.append(WrappedLine(text: current, utf16Start: currentStart))
         return lines
+    }
+
+    static func wrapText(_ text: String, width: Int) -> [String] {
+        wrapLines(text, width: width).map(\.text)
     }
 
     private static func alignedIndent(text: String, right: Bool) -> Int {

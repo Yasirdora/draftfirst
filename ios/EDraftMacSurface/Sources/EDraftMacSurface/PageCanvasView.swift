@@ -3,17 +3,28 @@ import EDraftCore
 
 /// The paper, sitting on the canvas.
 ///
-/// The text view writes; this is the page the text sits on — 612pt wide,
+/// The text view writes; this is the pages the text sits on — 612pt wide,
 /// centred on `underPageBackgroundColor`, with the 1.5″ left margin the
 /// PDF prints. The edge is the ruler a screenwriter reads length by.
+/// Discrete sheets with desk between them, not one tall card with rules.
 ///
 /// Appearance colours are applied in `viewDidChangeEffectiveAppearance`
 /// because a layer's `cgColor` does not track dark/light on its own, and
 /// a page card that only looks right in one of them has no edge in the other.
 final class PageCanvasView: NSView {
-    let pageView = FlippedView()
+    private(set) var pageViews: [FlippedView] = []
     private weak var textView: NSTextView?
     var canvasPadding: CGFloat = 36
+
+    /// The first sheet — what callers mean by "the page" when they ask
+    /// about width, the left margin, or the edge colour.
+    var pageView: FlippedView {
+        if let first = pageViews.first { return first }
+        let page = makePageView()
+        pageViews = [page]
+        addSubview(page, positioned: .below, relativeTo: textView)
+        return page
+    }
 
     override var isFlipped: Bool { true }
 
@@ -27,24 +38,16 @@ final class PageCanvasView: NSView {
     func attach(_ textView: NSTextView) {
         self.textView = textView
         wantsLayer = true
-        pageView.wantsLayer = true
-        pageView.layer?.cornerRadius = 2
-        pageView.layer?.shadowRadius = 8
-        pageView.layer?.shadowOffset = CGSize(width: 0, height: -1)
-        pageView.layer?.shadowOpacity = 0.22
-        addSubview(pageView)
-        pageView.addSubview(textView)
+        let first = makePageView()
+        pageViews = [first]
+        addSubview(first)
+        addSubview(textView, positioned: .above, relativeTo: first)
         applyAppearance()
     }
 
-    /// Places the card in the viewport and the text view inside the card
-    /// at the print margins. `textHeight` is the laid-out script; the card
-    /// is never shorter than one letter page.
-    /// Called the moment this view joins a window, which is the first moment
-    /// a caret has anywhere to go. `ScriptSurface` uses it to put the writer
-    /// in the page; SwiftUI's own update passes are not a reliable signal,
-    /// because the first one runs before the view is in a window and there is
-    /// no guarantee of a second.
+    /// Places the cards in the viewport and the text view inside the
+    /// first card's text block. Called the moment this view joins a
+    /// window, which is the first moment a caret has anywhere to go.
     var onMoveToWindow: (() -> Void)?
 
     override func viewDidMoveToWindow() {
@@ -53,60 +56,53 @@ final class PageCanvasView: NSView {
         onMoveToWindow?()
     }
 
-    func layoutPage(textHeight: CGFloat, viewport: CGSize) {
+    /// N letter-sized sheets with desk between them. `textHeight` is the
+    /// laid-out script including exclusion gaps, so the text view fills
+    /// through the last sheet's text block.
+    func layoutPages(pageCount: Int, textHeight: CGFloat, viewport: CGSize) {
         let format = PageFormat.current
         let pageSize = format.pageRect.size
-        let textWidth = ScreenplayPageLayout.textBlockWidth(format)
-        let pageHeight = max(
-            pageSize.height,
-            format.textTop + max(textHeight, 1) + format.textTop
-        )
-        let canvasWidth = max(viewport.width, pageSize.width + canvasPadding * 2)
-        let canvasHeight = max(viewport.height, pageHeight + canvasPadding * 2)
+        let pages = max(1, pageCount)
+        let desk = canvasPadding
+        let stackHeight = CGFloat(pages) * pageSize.height + CGFloat(max(0, pages - 1)) * desk
+        let canvasWidth = max(viewport.width, pageSize.width + desk * 2)
+        let canvasHeight = max(viewport.height, stackHeight + desk * 2)
         setFrameSize(CGSize(width: canvasWidth, height: canvasHeight))
 
-        pageView.frame = CGRect(
-            x: ((canvasWidth - pageSize.width) / 2).rounded(.down),
-            y: canvasPadding,
-            width: pageSize.width,
-            height: pageHeight
-        )
-        // The text view fills the page's text block, not merely the lines
-        // written so far. Sized to its glyphs it was a sliver at the top of an
-        // otherwise empty sheet, and a sliver is the only place an I-beam
-        // appears or a click lands — so the writer had to find one specific
-        // strip of a full page to start typing.
-        //
-        // Where the text is longer than a page this is exactly the glyph
-        // height, because `pageHeight` was derived from it two lines up; where
-        // it is shorter, it is the whole block down to the bottom margin, and
-        // clicking under the last line puts the caret at the end, which is
-        // what every other editor does.
+        let x = ((canvasWidth - pageSize.width) / 2).rounded(.down)
+        while pageViews.count < pages {
+            let page = makePageView()
+            pageViews.append(page)
+            addSubview(page, positioned: .below, relativeTo: textView)
+        }
+        while pageViews.count > pages {
+            pageViews.removeLast().removeFromSuperview()
+        }
+        for index in 0..<pages {
+            pageViews[index].frame = CGRect(
+                x: x,
+                y: desk + CGFloat(index) * (pageSize.height + desk),
+                width: pageSize.width,
+                height: pageSize.height
+            )
+        }
+
+        let textWidth = ScreenplayPageLayout.textBlockWidth(format)
+        let textBlock = ScreenplayPageLayout.textBlockHeight(format)
+        let lastTextBottom = CGFloat(pages - 1) * (pageSize.height + desk) + textBlock
         textView?.frame = CGRect(
-            x: ScreenplayPageLayout.textLeft,
-            y: format.textTop,
+            x: x + ScreenplayPageLayout.textLeft,
+            y: desk + format.textTop,
             width: textWidth,
-            height: max(pageHeight - format.textTop * 2, 1)
+            height: max(textHeight, lastTextBottom, 1)
         )
+        applyAppearance()
         needsDisplay = true
     }
 
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        // Subsequent page edges, so length is readable after page one.
-        // The first page's bottom is the card's own edge when the script
-        // still fits on one sheet; past that, a hairline every pageHeight.
-        let pageHeight = PageFormat.current.pageRect.height
-        NSColor.separatorColor.setStroke()
-        var y = pageView.frame.minY + pageHeight
-        while y < pageView.frame.maxY - 0.5 {
-            let path = NSBezierPath()
-            path.move(to: NSPoint(x: pageView.frame.minX, y: y))
-            path.line(to: NSPoint(x: pageView.frame.maxX, y: y))
-            path.lineWidth = 1
-            path.stroke()
-            y += pageHeight
-        }
+    /// Back-compat for the one-card layout callers. Prefer `layoutPages`.
+    func layoutPage(textHeight: CGFloat, viewport: CGSize) {
+        layoutPages(pageCount: 1, textHeight: textHeight, viewport: viewport)
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -120,10 +116,22 @@ final class PageCanvasView: NSView {
         // the reverse) and the edge would vanish in one of the two looks.
         effectiveAppearance.performAsCurrentDrawingAppearance {
             layer?.backgroundColor = NSColor.underPageBackgroundColor.cgColor
-            pageView.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
-            pageView.layer?.borderColor = NSColor.separatorColor.cgColor
-            pageView.layer?.borderWidth = 1
-            pageView.layer?.shadowColor = NSColor.black.cgColor
+            for page in pageViews {
+                page.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+                page.layer?.borderColor = NSColor.separatorColor.cgColor
+                page.layer?.borderWidth = 1
+                page.layer?.shadowColor = NSColor.black.cgColor
+            }
         }
+    }
+
+    private func makePageView() -> FlippedView {
+        let page = FlippedView()
+        page.wantsLayer = true
+        page.layer?.cornerRadius = 2
+        page.layer?.shadowRadius = 8
+        page.layer?.shadowOffset = CGSize(width: 0, height: -1)
+        page.layer?.shadowOpacity = 0.22
+        return page
     }
 }

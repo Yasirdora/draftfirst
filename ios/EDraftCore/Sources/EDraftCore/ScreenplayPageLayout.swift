@@ -41,6 +41,45 @@ public enum ScreenplayPageLayout {
         format.textRight - textLeft
     }
 
+    /// The paginator's line budget as a height. Letter is 55 × 12 = 660,
+    /// not `pageRect.height - 2 * textTop` (648) — the bottom margin is
+    /// 60pt, not a second inch.
+    public static func textBlockHeight(_ format: PageFormat) -> CGFloat {
+        CGFloat(format.linesPerPage) * lineHeight
+    }
+
+    public static func textBottom(_ format: PageFormat) -> CGFloat {
+        format.pageRect.height - format.textTop - textBlockHeight(format)
+    }
+
+    /// UTF-16 locations in flattened editor text of the first real
+    /// character of each page. The surface uses these to place exclusion
+    /// paths; it must not paginate again.
+    public static func pageStartLocations(
+        elements: [ScriptElement],
+        pages: [EDraftEngine.ScriptPage]
+    ) -> [Int] {
+        let ranges = ScreenplayEditPlanner.ranges(for: elements)
+        return pages.enumerated().map { pageIndex, page in
+            guard let line = page.lines.first(where: { $0.element >= 0 }),
+                  elements.indices.contains(line.element),
+                  ranges.indices.contains(line.element)
+            else { return 0 }
+            let element = elements[line.element]
+            let width = Paginator.geometry[element.type.engineKind]?.width
+                ?? Paginator.pageWidthChars
+            let wrapped = Paginator.wrapLines(element.text, width: width)
+            let consumed = pages[0..<pageIndex]
+                .flatMap(\.lines)
+                .filter { $0.element == line.element && $0.isPrintedElement }
+                .count
+            let startInElement = wrapped.indices.contains(consumed)
+                ? wrapped[consumed].utf16Start
+                : 0
+            return ranges[line.element].range.location + startInElement
+        }
+    }
+
     /// Blank lines the paginator puts before this kind, as points of
     /// paragraph spacing — so the Mac page and the PDF keep the same
     /// vertical rhythm.
@@ -221,5 +260,15 @@ public enum ScreenplayPageLayout {
             rightAligned(number, rightEdge: textLeft - gap, y: y, widthOf: widthOf),
             Run(text: number, origin: CGPoint(x: format.textRight + gap, y: y))
         ]
+    }
+}
+
+private extension EDraftEngine.PageLine {
+    /// A line the editor actually has. `(MORE)` and `CONT'D` are print-only
+    /// (`element == -1`); blanks are spacing, not a character in the storage.
+    var isPrintedElement: Bool {
+        guard element >= 0 else { return false }
+        if case .element = type { return true }
+        return false
     }
 }

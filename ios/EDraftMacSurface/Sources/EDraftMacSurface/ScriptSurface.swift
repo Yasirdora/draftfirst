@@ -45,6 +45,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// number must not rebuild the page, or the caret visits the top of the
     /// document on every keystroke. See `CaretTransitTests` on the phone.
     private var renderedRevision = -1
+    /// Elements last laid into the text view. Pagination for the sheets
+    /// reads this, not `editor.stats` (debounced, estimated at open).
+    private var lastLaidElements: [ScriptElement] = []
     private var applyingModel = false
     private var pendingEdit: PendingEdit?
     private var pendingSeparatorEscape: SeparatorEscape?
@@ -242,6 +245,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         applyingModel = true
         let script = ScriptLayout.attributedScript(elements, measure: measure)
         ranges = script.ranges
+        lastLaidElements = elements
         textView.textStorage?.setAttributedString(script.text)
         layOut()
         applyingModel = false
@@ -271,6 +275,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     private func layOut() {
         if let layoutManager = textView.layoutManager, let container = textView.textContainer {
             container.size = CGSize(width: measure, height: .greatestFiniteMagnitude)
+            applyPageBreaks(
+                in: layoutManager, container: container, elements: lastLaidElements
+            )
             layoutManager.ensureLayout(for: container)
             // sizeToFit uses usedRect, which is shorter than the glyph
             // bounding boxes (Courier's descent sits a couple of points
@@ -295,14 +302,66 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         }
         let viewport = scrollView.contentView.bounds.size
         let size = viewport.width > 1 ? viewport : scrollView.frame.size
-        canvas.layoutPage(textHeight: max(textView.frame.height, 1), viewport: size)
+        let pages = ScreenplayExporter.paginate(Screenplay(elements: lastLaidElements))
+        canvas.layoutPages(
+            pageCount: max(1, pages?.count ?? 1),
+            textHeight: max(textView.frame.height, 1),
+            viewport: size
+        )
         scrollView.layoutSubtreeIfNeeded()
+    }
+
+    /// Exclusion paths for the desk between sheets, placed from the
+    /// paginator's page-start locations — not from a second line count.
+    private func applyPageBreaks(
+        in layoutManager: NSLayoutManager,
+        container: NSTextContainer,
+        elements: [ScriptElement]
+    ) {
+        container.exclusionPaths = []
+        layoutManager.ensureLayout(for: container)
+        guard let pages = ScreenplayExporter.paginate(Screenplay(elements: elements)),
+              pages.count > 1
+        else { return }
+
+        let locations = ScreenplayPageLayout.pageStartLocations(
+            elements: elements, pages: pages
+        )
+        let format = PageFormat.current
+        let stride = format.pageRect.height + canvas.canvasPadding
+        let length = (textView.string as NSString).length
+        var ungapped: [CGFloat] = []
+        ungapped.reserveCapacity(locations.count)
+        for location in locations {
+            let loc = min(max(0, location), length)
+            let probe = loc < length
+                ? NSRange(location: loc, length: min(1, length - loc))
+                : NSRange(location: max(0, length - 1), length: 0)
+            let rect = ScriptLayout.boundingRect(of: probe, in: textView)
+                ?? layoutManager.extraLineFragmentUsedRect
+            ungapped.append(rect.minY)
+        }
+
+        var paths: [NSBezierPath] = []
+        var placed: CGFloat = 0
+        for index in 0..<(pages.count - 1) {
+            let target = CGFloat(index + 1) * stride
+            let ungappedY = index + 1 < ungapped.count ? ungapped[index + 1] : 0
+            let gap = target - ungappedY - placed
+            guard gap > 0.5 else { continue }
+            paths.append(NSBezierPath(rect: CGRect(
+                x: 0, y: ungappedY + placed, width: container.size.width, height: gap
+            )))
+            placed += gap
+        }
+        container.exclusionPaths = paths
     }
 
     /// Recentres the page card in a resized window. The script's measure is
     /// the printed text block, so a wider window does not stretch a line.
     public func remeasure(to width: CGFloat, elements: [ScriptElement]) {
         guard width > 0 else { return }
+        lastLaidElements = elements
         // Lay out before magnifying. `NSScrollView` clamps a magnification set
         // while its document view is still the wrong size, so fitting first and
         // laying out second let a keystroke knock the page back to its own
@@ -463,9 +522,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
-    /// The page card, in the canvas's coordinates — what a test asks when
+    /// The first sheet, in the canvas's coordinates — what a test asks when
     /// it wants to know the paper is actually there.
     public var pageFrame: CGRect { canvas.pageView.frame }
+
+    /// Every sheet. Empty only before the first layout.
+    public var pageFrames: [CGRect] { canvas.pageViews.map(\.frame) }
 
     private var hasTakenInitialFocus = false
     private var hasPinnedOpeningViewport = false
@@ -529,7 +591,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     private func canvasY(ofTextRect rect: CGRect) -> CGFloat {
         rect.minY
             + textView.frame.minY
-            + canvas.pageView.frame.minY
             + textView.textContainerInset.height
     }
 
@@ -769,8 +830,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         if editor.revision != previousRevision {
             promoteToSceneHeadingIfTyped()
             renderedRevision = editor.revision
+            lastLaidElements = editor.screenplay.elements
             updateTypingAttributes()
             reportNativeUndoAvailability()
+            layOut()
             updateGhost()
         } else {
             render(editor.screenplay.elements) { [self] in
