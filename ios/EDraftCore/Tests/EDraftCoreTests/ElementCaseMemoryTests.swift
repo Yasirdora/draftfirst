@@ -79,12 +79,21 @@ final class ElementCaseMemoryTests: XCTestCase {
         XCTAssertEqual(restored, "Marcus")
     }
 
-    func testExpandingCaseMappingIsLeftUntouched() {
+    /// ß uppercases to SS, and German sets caps that way — one UTF-16 unit
+    /// becoming two.
+    ///
+    /// The model used to refuse this, so that a surface could repair text in
+    /// place without its range arithmetic coming apart. It no longer does:
+    /// the engine capitalises unconditionally, and a rule that holds on one
+    /// surface and not the other is not a rule. What makes the conversion
+    /// safe is not refusing it but remembering the verbatim text, which is
+    /// this type's whole purpose — so the round trip still returns the
+    /// writer's own letters.
+    func testExpandingCaseMappingConvertsAndStillComesBack() {
         var memory = ElementCaseMemory()
         let id = UUID()
-        // ß → SS changes the UTF-16 length; the model must stay verbatim.
         let converted = memory.text(for: element("straße", id: id), convertedTo: .scene)
-        XCTAssertEqual(converted, "straße")
+        XCTAssertEqual(converted, "STRASSE")
         let restored = memory.text(
             for: element(converted, type: .scene, id: id),
             convertedTo: .action

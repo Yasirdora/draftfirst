@@ -915,10 +915,23 @@ public final class EditorState {
     /// back can restore it. Case mappings that change the UTF-16 length
     /// (ß→SS) are left untouched so the model can never drift out of sync
     /// with the text storage that delivered the edit.
+    /// What an element of `kind` says, once the convention has had its way.
+    ///
+    /// This used to decline case mappings that change the UTF-16 length — ß
+    /// becoming SS — so that a surface repairing text in place could keep its
+    /// range arithmetic. That was a text view's problem wearing a model's
+    /// clothes, and it cost more than it saved: the TypeScript engine, which
+    /// this file is pinned to, capitalises unconditionally, and once the Mac
+    /// began shouting at the input boundary the two surfaces stored different
+    /// files for the same keystroke.
+    ///
+    /// The rule is the craft's, so it is stated plainly here, and the surfaces
+    /// deal with the consequences of a length change where such consequences
+    /// belong. Conversions remain reversible: `ElementCaseMemory` keeps the
+    /// writer's verbatim text, not a re-derived guess at it.
     public static func normalizedText(_ text: String, for kind: ScreenplayKind) -> String {
         guard kind.uppercasesInput else { return text }
-        let uppercased = text.uppercased()
-        return uppercased.utf16.count == text.utf16.count ? uppercased : text
+        return text.uppercased()
     }
 
     private static func looksLikeSceneHeading(_ text: String) -> Bool {

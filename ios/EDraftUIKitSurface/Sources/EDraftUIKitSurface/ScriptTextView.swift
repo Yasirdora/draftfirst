@@ -1203,15 +1203,23 @@ struct ScriptTextView: UIViewRepresentable {
             }
 
             let updatedRange = ranges[rangeIndex].range
-            guard NSMaxRange(updatedRange) <= textView.textStorage.length else { return false }
+            guard NSMaxRange(updatedRange) <= textView.textStorage.length,
+                  let elementIndex = editor.screenplay.elements.firstIndex(where: {
+                      $0.id == edit.elementID
+                  })
+            else { return false }
+
+            let kind = editor.screenplay.elements[elementIndex].type
             var text = textView.textStorage.attributedSubstring(from: updatedRange).string
-            if let elementIndex = editor.screenplay.elements.firstIndex(where: {
-                $0.id == edit.elementID
-            }), editor.screenplay.elements[elementIndex].type.uppercasesInput {
+
+            if kind.uppercasesInput {
                 let uppercased = text.uppercased()
-                // Preserve UIKit's native undo range. The screenplay kinds that
-                // uppercase normal Latin text keep the same UTF-16 length; for
-                // rare expanding case mappings, leave the native text untouched.
+                // Caps that keep their length are repaired in place, which
+                // leaves UIKit's native undo range intact. This is the
+                // ordinary road, and usually it does nothing at all: the
+                // keyboard is asked for .allCharacters, so the letters arrive
+                // shouting already. It earns its keep on the roads the
+                // keyboard does not pave — a hardware keyboard, a paste.
                 if uppercased != text,
                    (uppercased as NSString).length == (text as NSString).length {
                     applyingModel = true
@@ -1220,11 +1228,30 @@ struct ScriptTextView: UIViewRepresentable {
                     text = uppercased
                 }
             }
+
+            // Where the caret lands is decided by the same rule as the text.
+            // A case mapping that grows — ß to SS — carries the caret with it,
+            // so the offset is measured on the shouted prefix rather than the
+            // typed one. For kinds that do not shout, and for every mapping
+            // that keeps its length, this is exactly the offset typed.
+            let typed = text as NSString
             let offset = max(
                 0,
                 min(updatedRange.length, textView.selectedRange.location - updatedRange.location)
             )
-            editor.applyLiveText(id: edit.elementID, text: text, selectionOffset: offset)
+            let prefix = typed.substring(to: min(offset, typed.length))
+            let caret = (EditorState.normalizedText(prefix, for: kind) as NSString).length
+
+            editor.applyLiveText(id: edit.elementID, text: text, selectionOffset: caret)
+
+            // The core has the last word on what an element says, and its
+            // answer can be a different length than what is on the page. No
+            // in-place repair can express that without its range arithmetic
+            // coming apart, so the page is redrawn from the model — the
+            // authority this whole surface is built to defer to.
+            if editor.screenplay.elements[elementIndex].text != text {
+                renderModel(selecting: edit.elementID, offset: caret)
+            }
             return true
         }
 

@@ -752,9 +752,14 @@ final class EditorStateEditingTests: XCTestCase {
     }
 
     @MainActor
-    func testLiveTypingKeepsExpandingCaseMappingsInSyncWithStorage() {
-        // ß→SS would change the UTF-16 length; the text storage intentionally
-        // leaves such text untouched, so the model must too.
+    func testLiveTypingShoutsExpandingCaseMappings() {
+        // This used to assert the opposite, and said why: the text storage
+        // left ß alone because SS is a different UTF-16 length, "so the model
+        // must too". That had the authority backwards — a text view's range
+        // arithmetic deciding what a screenplay says — and it made the two
+        // surfaces store different files for one keystroke once the Mac began
+        // capitalising at the input boundary. The model states the rule now,
+        // and the surface redraws when the answer is not the length it typed.
         let editor = EditorState(source: "An opening image.")
         let characterID = UUID()
         editor.screenplay = Screenplay(
@@ -763,7 +768,7 @@ final class EditorStateEditingTests: XCTestCase {
         )
 
         editor.applyLiveText(id: characterID, text: "straße", selectionOffset: 6)
-        XCTAssertEqual(editor.screenplay.elements[0].text, "straße")
+        XCTAssertEqual(editor.screenplay.elements[0].text, "STRASSE")
     }
 
     @MainActor

@@ -137,3 +137,43 @@ final class PageStillnessTests: XCTestCase {
         )
     }
 }
+
+/// The two surfaces must reach the same answer, because shouting is a rule of
+/// the craft and not a property of a keyboard.
+///
+/// `ß` uppercases to `SS` — one UTF-16 unit becoming two. `EditorState`
+/// declines expanding case mappings and stores the letter verbatim, and
+/// `ElementCaseMemoryTests.testExpandingCaseMappingIsLeftUntouched` blesses
+/// that. But the Mac now shouts at the input boundary, before the model is
+/// consulted at all, so it can produce a length change the model would have
+/// refused.
+///
+/// This test does not argue for either answer. It pins which one the Mac
+/// gives, so that the day the question is settled, the divergence is a line
+/// in a diff rather than a surprise.
+@MainActor
+final class ExpandingCaseMappingTests: XCTestCase {
+
+    func testWhatTheMacDoesWithASharpSInACue() {
+        let cue = ScriptElement(type: .character, text: "")
+        let (editor, surface) = ScriptSurfaceHarness.bound([cue])
+        surface.textView.setSelectedRange(NSRange(location: 0, length: 0))
+        surface.textViewDidChangeSelection(
+            Notification(name: NSTextView.didChangeSelectionNotification, object: surface.textView)
+        )
+
+        ScriptSurfaceHarness.type("ß", into: surface)
+
+        XCTAssertEqual(
+            editor.screenplay.elements[0].text, surface.textView.string,
+            "whatever the Mac decides ß becomes, the page and the file must agree"
+        )
+        XCTAssertEqual(
+            editor.screenplay.elements[0].text, "SS",
+            "the Mac shouts at the input boundary, so it capitalises before the "
+                + "model can decline the length change — the phone stores ß. If "
+                + "this fails, the two surfaces have been brought into agreement "
+                + "and docs/SHARED-ARCHITECTURE.md should say which answer won."
+        )
+    }
+}
