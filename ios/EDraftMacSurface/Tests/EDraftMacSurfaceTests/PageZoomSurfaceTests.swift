@@ -174,3 +174,68 @@ final class PageZoomSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.scrollView.magnification, before, accuracy: 0.01)
     }
 }
+
+/// A trackpad pinch is a way of choosing a size, and everything has to hear it.
+///
+/// `NSScrollView` handles the gesture itself and changes its own magnification.
+/// Nothing was watching, so the control in the corner went on reading the last
+/// number the app had set — the page said one thing and the readout another —
+/// and because the *preference* had not heard either, the next window resize
+/// took the writer's size away again.
+@MainActor
+final class PinchToZoomTests: XCTestCase {
+
+    private func windowed(_ width: CGFloat) -> (EditorState, ScriptSurface) {
+        let (editor, surface) = ScriptSurfaceHarness.bound([
+            ScriptElement(type: .scene, text: "INT. KITCHEN - DAY")
+        ])
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: width, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.remeasure(to: width, elements: editor.screenplay.elements)
+        return (editor, surface)
+    }
+
+    /// What the gesture does: it sets the scroll view's magnification directly.
+    private func pinch(_ surface: ScriptSurface, to value: CGFloat) {
+        surface.scrollView.magnification = value
+    }
+
+    func testTheReadoutFollowsAPinch() {
+        let (editor, surface) = windowed(1200)
+        XCTAssertEqual(editor.zoom, PageZoom.opening, accuracy: 0.01)
+
+        pinch(surface, to: 1.75)
+
+        XCTAssertEqual(
+            editor.zoom, 1.75, accuracy: 0.01,
+            "the page was magnified but the control still reads the old number"
+        )
+    }
+
+    /// And the size the writer pinched to is theirs to keep.
+    func testAPinchedSizeSurvivesAResize() {
+        let (editor, surface) = windowed(1200)
+        pinch(surface, to: 1.75)
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.remeasure(to: 700, elements: editor.screenplay.elements)
+
+        XCTAssertEqual(
+            surface.scrollView.magnification, 1.75, accuracy: 0.01,
+            "resizing the window undid a size the writer pinched to"
+        )
+    }
+
+    /// The percentage button still knows where to go back to afterwards.
+    func testTheButtonReturnsToAPinchedSize() {
+        let (_, surface) = windowed(1200)
+        pinch(surface, to: 1.6)
+
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
+
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(surface.scrollView.magnification, 1.6, accuracy: 0.01)
+    }
+}

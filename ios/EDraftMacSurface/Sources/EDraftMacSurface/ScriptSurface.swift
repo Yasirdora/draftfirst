@@ -140,6 +140,17 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // it is the wrong signal and can miss the first layout entirely: the
         // page then opens at 100% however wide the window is. This is AppKit's
         // own notification for the thing that actually changed.
+        // A trackpad pinch changes this behind our back; without watching it
+        // the control reads a stale number and a resize can undo the writer's
+        // choice.
+        magnificationObserver = scrollView.observe(
+            \.magnification, options: [.new]
+        ) { [weak self] scrollView, _ in
+            MainActor.assumeIsolated {
+                guard let self, !self.isSettingMagnification else { return }
+                self.magnificationChanged(to: scrollView.magnification, fromGesture: true)
+            }
+        }
         scrollView.contentView.postsFrameChangedNotifications = true
         frameObserver = NotificationCenter.default.addObserver(
             forName: NSView.frameDidChangeNotification,
@@ -478,11 +489,35 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     }
 
     @discardableResult
+    /// The scroll view's magnification is the only truth about how large the
+    /// page is drawn, because it is what draws it. Everything else follows it
+    /// from one place — `magnificationChanged` — rather than each writer of the
+    /// size also remembering to announce it. A trackpad pinch goes straight to
+    /// the scroll view and told nobody, which is how the control came to show a
+    /// number the page did not have.
     private func magnify(to value: CGFloat) -> Bool {
-        editor?.reportZoom(value)
-        guard abs(scrollView.magnification - value) > 0.001 else { return false }
+        guard abs(scrollView.magnification - value) > 0.001 else {
+            editor?.reportZoom(value)
+            return false
+        }
+        isSettingMagnification = true
         scrollView.magnification = value
+        isSettingMagnification = false
+        magnificationChanged(to: value, fromGesture: false)
         return true
+    }
+
+    /// One place where a new size becomes known, however it was chosen.
+    ///
+    /// A pinch is the writer choosing a size, exactly as ⌘+ is, so it becomes
+    /// the preference — otherwise the next window resize would take it away
+    /// again while the page was "fitting".
+    private func magnificationChanged(to value: CGFloat, fromGesture: Bool) {
+        if fromGesture {
+            preference = .fixed(value)
+            atActualSize = false
+        }
+        editor?.reportZoom(value)
     }
 
     /// Puts the caret in the page the first time there is a window to put it
@@ -533,6 +568,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// Six lines to the inch without cropping a tall glyph. Held here because
     /// `NSLayoutManager.delegate` is weak.
     private let fixedLeading = FixedLeading()
+    /// True while this class is the one changing the magnification, so the
+    /// observer can tell the writer's pinch from our own setting.
+    private var isSettingMagnification = false
+    private var magnificationObserver: NSKeyValueObservation?
     private var hasTakenInitialFocus = false
     private var hasPinnedOpeningViewport = false
     /// Tests that isolate the opening zoom set this false; the SwiftUI
