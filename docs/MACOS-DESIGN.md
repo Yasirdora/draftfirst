@@ -231,14 +231,21 @@ in the menu bar, where Mac users look for it:
 | File | New, Open, Save, Revert, Title Page, Export (PDF · FDX · Fountain · Text), Print | all present |
 | Edit | Undo/Redo, Find (⌘F), Find Scene (⌘L), Accept Suggestion | all present |
 | Format | Element ⌘1–⌘9, Scene Numbers, Revision | elements and numbers present; Revision is M4 |
-| View | Sidebar, Page/Typewriter/Focus, Zoom | **none present** — see below |
+| View | Sidebar, Page/Typewriter/Focus, Zoom | Zoom present (⌘+ ⌘− ⌘0 ⌘9); sidebar and view modes still missing |
 | Window, Help | Standard | standard |
 
 The third column is not decoration. Read against the running app on
-2026-09-06, the View menu holds only what macOS puts there itself — Show Tab
-Bar, Show All Tabs, Enter Full Screen. The view modes are M3 and not yet built,
-which is expected; the sidebar command is neither built nor scheduled, and
-§3.1 leans on it: *"Distraction-free writing is a mode (⌥⌘S, or full-screen
+2026-09-06, the View menu held only what macOS puts there itself. It now also
+holds Zoom In, Zoom Out, Actual Size and Zoom to Fit, for a reason worth
+recording: a screenplay's measurements are absolute — 612 points is 8½ inches —
+but a screen point is not. On a 13.6-inch laptop one measures 0.0067 inches, so
+a page drawn at its own metrics comes out 4.1 inches wide, 48% of life size,
+with 12-point Courier reading as under six. §3.2's claim that the page prints
+what it shows is about metrics, and holds; the *scale* is a display question,
+and the page now fits the window by default rather than pretending otherwise.
+
+The view modes are M3 and not yet built, which is expected; the sidebar command
+is neither built nor scheduled, and §3.1 leans on it: *"Distraction-free writing is a mode (⌥⌘S, or full-screen
 Focus), not a default"* is the argument for the sidebar being visible by
 default, and half of it does not exist.
 

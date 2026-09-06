@@ -36,6 +36,11 @@ public final class EditorState {
     /// surface owns first-responder status, so asking is the only honest way
     /// to change it: see `isEditing`.
     @ObservationIgnored public var onSetEditing: ((Bool) -> Void)?
+    /// How large the page is drawn, and the way to change it. The surface owns
+    /// the magnification — asking is the only honest way to change it, the same
+    /// arrangement as `onSetEditing`.
+    @ObservationIgnored public var onZoom: ((PageZoom.Command) -> Void)?
+
     /// Shows the system find bar. The surface owns the `NSTextFinder`.
     @ObservationIgnored public var onShowFind: (() -> Void)?
     @ObservationIgnored public var onFindNext: (() -> Void)?
@@ -53,6 +58,17 @@ public final class EditorState {
     /// the page, dismissing it by swipe, presenting a sheet over it — every
     /// one of those already moves focus, and the chrome simply follows.
     public private(set) var isEditing = false
+
+    /// What the page is currently drawn at, reported by the surface so a menu
+    /// can grey out a command that would do nothing. Not a stored preference:
+    /// the default follows the window, and this follows the default.
+    public private(set) var zoom: CGFloat = PageZoom.actualSize
+
+    /// The surface reporting the size it settled on.
+    public func reportZoom(_ value: CGFloat) {
+        guard abs(zoom - value) > 0.0001 else { return }
+        zoom = value
+    }
 
     /// The surface reporting what focus did.
     public func reportEditing(_ editing: Bool) {

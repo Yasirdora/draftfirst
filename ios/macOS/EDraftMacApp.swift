@@ -47,6 +47,9 @@ struct EDraftMacApp: App {
                 Divider()
                 FindCommands()
             }
+            CommandGroup(after: .sidebar) {
+                ZoomCommands()
+            }
             CommandGroup(after: .textFormatting) {
                 ElementCommands()
                 Divider()
@@ -146,6 +149,46 @@ struct FindCommands: View {
         }
         .keyboardShortcut("l", modifiers: .command)
         .disabled(editor == nil)
+    }
+}
+
+/// View → how large the page is drawn.
+///
+/// A screenplay's measurements are absolute: 612 points is 8½ inches, because
+/// a typographic point is 1/72 of one. A *screen* point is not — on a 13.6-inch
+/// laptop it measures about 0.0067 inches, so a page drawn at its own metrics
+/// comes out under half life size and 12-point Courier reads as under six. The
+/// metrics are right and the page still looks wrong, which is a display
+/// question rather than a document one.
+///
+/// So the page fits the window by default and these are for choosing
+/// otherwise. ⌘0 and ⌘9 are the pair Preview uses, and mean the same here.
+struct ZoomCommands: View {
+    @FocusedValue(\.editor) private var editor
+
+    var body: some View {
+        Button("Zoom In") { editor?.onZoom?(.zoomIn) }
+            .keyboardShortcut("+", modifiers: .command)
+            .disabled(!isAvailable(.zoomIn))
+
+        Button("Zoom Out") { editor?.onZoom?(.zoomOut) }
+            .keyboardShortcut("-", modifiers: .command)
+            .disabled(!isAvailable(.zoomOut))
+
+        Button("Actual Size") { editor?.onZoom?(.actualSize) }
+            .keyboardShortcut("0", modifiers: .command)
+            .disabled(!isAvailable(.actualSize))
+
+        Button("Zoom to Fit") { editor?.onZoom?(.fit) }
+            .keyboardShortcut("9", modifiers: .command)
+            .disabled(editor == nil)
+    }
+
+    /// Grey rather than silent: a command that would change nothing should say
+    /// so before it is chosen.
+    private func isAvailable(_ command: PageZoom.Command) -> Bool {
+        guard let editor else { return false }
+        return PageZoom.isAvailable(command, at: editor.zoom)
     }
 }
 

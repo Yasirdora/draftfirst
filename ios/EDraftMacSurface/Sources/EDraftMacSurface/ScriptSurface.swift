@@ -110,6 +110,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
         let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: measure, height: 480))
         scrollView.hasVerticalScroller = true
+        scrollView.allowsMagnification = true
+        scrollView.minMagnification = PageZoom.actualSize
+        scrollView.maxMagnification = PageZoom.maximum
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
@@ -167,6 +170,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         editor.onNativeUndo = { [weak self] in self?.performNativeUndo() ?? false }
         editor.onNativeRedo = { [weak self] in self?.performNativeRedo() ?? false }
         editor.onClearNativeUndo = { [weak self] in self?.clearNativeUndoHistory() }
+        editor.onZoom = { [weak self] command in self?.applyZoom(command) }
         editor.onSetEditing = { [weak self] editing in
             guard let self else { return }
             if editing {
@@ -282,8 +286,50 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// the printed text block, so a wider window does not stretch a line.
     public func remeasure(to width: CGFloat, elements: [ScriptElement]) {
         guard width > 0 else { return }
+        if isFittingToWindow { fitMagnificationToWindow() }
         layOut()
         updateGhost()
+    }
+
+    // MARK: - How large the page is drawn
+
+    /// Whether the page follows the window's width.
+    ///
+    /// True until the writer chooses a size themselves, because a resize that
+    /// silently undid their choice would be worse than no fitting at all.
+    /// `PageZoom.Command.fit` puts it back.
+    private var isFittingToWindow = true
+
+    func applyZoom(_ command: PageZoom.Command) {
+        switch command {
+        case .fit:
+            isFittingToWindow = true
+            fitMagnificationToWindow()
+        case .zoomIn, .zoomOut, .actualSize:
+            isFittingToWindow = false
+            magnify(to: PageZoom.stepped(from: scrollView.magnification, command))
+        }
+        layOut()
+        updateGhost()
+    }
+
+    /// The clip view's *frame* is the width in screen points; its bounds are
+    /// already divided by the magnification, which is the number being solved
+    /// for here.
+    private func fitMagnificationToWindow() {
+        let available = scrollView.contentView.frame.width
+        guard available > 1 else { return }
+        magnify(to: PageZoom.fitting(
+            canvasWidth: available,
+            pageWidth: PageFormat.current.pageRect.width,
+            padding: canvas.canvasPadding
+        ))
+    }
+
+    private func magnify(to value: CGFloat) {
+        editor?.reportZoom(value)
+        guard abs(scrollView.magnification - value) > 0.001 else { return }
+        scrollView.magnification = value
     }
 
     /// Puts the caret in the page the first time there is a window to put it

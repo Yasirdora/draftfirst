@@ -1,0 +1,96 @@
+import CoreGraphics
+import XCTest
+@testable import EDraftCore
+
+/// How large the page is drawn.
+///
+/// The numbers here are the ones that made this necessary: a Letter page is
+/// 612 points wide, the canvas keeps 36 points either side of it, and a 13.6"
+/// laptop runs 1710 points across.
+final class PageZoomTests: XCTestCase {
+
+    private let page: CGFloat = 612
+    private let padding: CGFloat = 36
+
+    // MARK: - Fitting
+
+    /// A maximised window on the 13.6" laptop this was measured on: 1710
+    /// points across, less a 240-point Navigator. The page would happily grow
+    /// to 2.15x there, so this is the case the cap exists for — and 2x is
+    /// already past life size, which needs about 2.08.
+    func testAMaximisedWindowReachesTheCap() {
+        let zoom = PageZoom.fitting(canvasWidth: 1470, pageWidth: page, padding: padding)
+
+        XCTAssertEqual(zoom, PageZoom.maximum, accuracy: 0.001)
+        XCTAssertGreaterThan(1470 / (page + padding * 2), PageZoom.maximum,
+                             "if this fails the cap is no longer doing anything here")
+    }
+
+    func testTheDefaultWindowIsLeftAboutWhereItWas() {
+        // The 900-point default window, less the Navigator.
+        let zoom = PageZoom.fitting(canvasWidth: 660, pageWidth: page, padding: padding)
+
+        XCTAssertEqual(zoom, 1, accuracy: 0.001, "660 is narrower than 612 plus its margins")
+    }
+
+    func testAWindowNarrowerThanThePageDoesNotShrinkIt() {
+        let zoom = PageZoom.fitting(canvasWidth: 400, pageWidth: page, padding: padding)
+
+        XCTAssertEqual(
+            zoom, 1, accuracy: 0.001,
+            "a page smaller than its own metrics helps nobody; it scrolls instead"
+        )
+    }
+
+    func testItNeverExceedsTwiceActualSize() {
+        let zoom = PageZoom.fitting(canvasWidth: 4000, pageWidth: page, padding: padding)
+
+        XCTAssertEqual(zoom, PageZoom.maximum, accuracy: 0.001)
+    }
+
+    func testAZeroWidthCanvasIsNotADivision() {
+        XCTAssertEqual(PageZoom.fitting(canvasWidth: 0, pageWidth: page, padding: padding), 1)
+        XCTAssertEqual(PageZoom.fitting(canvasWidth: 660, pageWidth: 0, padding: 0), 1)
+    }
+
+    // MARK: - Stepping
+
+    /// From a fitted, unround magnification, ⌘+ and ⌘− land on round numbers
+    /// rather than multiplying what was there.
+    func testSteppingFromAFittedSizeLandsOnAStop() {
+        XCTAssertEqual(PageZoom.stepped(from: 1.83, .zoomIn), 2, accuracy: 0.001)
+        XCTAssertEqual(PageZoom.stepped(from: 1.83, .zoomOut), 1.75, accuracy: 0.001)
+    }
+
+    func testSteppingWalksTheStops() {
+        var zoom = PageZoom.actualSize
+        var walked: [CGFloat] = [zoom]
+        for _ in 0..<8 {
+            zoom = PageZoom.stepped(from: zoom, .zoomIn)
+            walked.append(zoom)
+        }
+        XCTAssertEqual(walked.suffix(4), [2, 2, 2, 2], "zooming in stops at the cap")
+        XCTAssertEqual(Array(walked.prefix(6)), PageZoom.stops)
+    }
+
+    func testSteppingStopsAtActualSizeGoingDown() {
+        XCTAssertEqual(PageZoom.stepped(from: 1, .zoomOut), 1, accuracy: 0.001)
+        XCTAssertEqual(PageZoom.stepped(from: 1.1, .zoomOut), 1, accuracy: 0.001)
+    }
+
+    func testActualSizeIsExactlyOne() {
+        XCTAssertEqual(PageZoom.stepped(from: 1.83, .actualSize), 1, accuracy: 0.001)
+    }
+
+    // MARK: - What the menu can say
+
+    func testAMenuCanTellTheWriterWhenNothingWouldHappen() {
+        XCTAssertFalse(PageZoom.isAvailable(.zoomIn, at: PageZoom.maximum))
+        XCTAssertTrue(PageZoom.isAvailable(.zoomIn, at: 1.5))
+        XCTAssertFalse(PageZoom.isAvailable(.zoomOut, at: PageZoom.actualSize))
+        XCTAssertTrue(PageZoom.isAvailable(.zoomOut, at: 1.1))
+        XCTAssertFalse(PageZoom.isAvailable(.actualSize, at: 1))
+        XCTAssertTrue(PageZoom.isAvailable(.actualSize, at: 1.25))
+        XCTAssertTrue(PageZoom.isAvailable(.fit, at: 1), "fitting is always something to ask for")
+    }
+}
