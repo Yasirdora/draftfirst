@@ -280,8 +280,8 @@ Shared with iOS wherever the platform allows, so the two apps are one product.
 | Title | 13pt semibold | §1.7 |
 | Subtitle / metric | 11pt secondary / tertiary | |
 | Section header | 11pt semibold, secondary | |
-| Canvas | `NSColor.screenplayDesk` — #969696 light, #1E1E1E dark | see below |
-| Page | `NSColor.screenplayPaper` — #FAF8F4, both looks by default; #2C2C2E when the writer picks Dark Page | 1pt shadow |
+| Canvas | `NSColor.screenplayDesk` — Apple's `underPageBackgroundColor`, tinted by the system | see below |
+| Page | `NSColor.screenplayPaper` — #FAF8F4, both looks by default; #3A3A3C when the writer picks Dark Page | 1pt shadow |
 | Page ink | `NSColor.screenplayInk` — paired with the paper, not the appearance | caret and ghost too |
 | Script face | Courier Prime 12pt, engine metrics | identical to iOS and to print |
 
@@ -311,9 +311,32 @@ on grey. Dark mode had it inverted (desk #2A2A2B over paper #1E1E1E), which
 cost two things. The page read as a hole rather than a sheet. And the desk met
 the toolbar — whose own ground is `windowBackgroundColor`, #1E1E1E — at a
 twelve-level step, drawing a line across the top of the window exactly where
-the system was trying to draw a gradient. The dark desk is now that same
-#1E1E1E, so there is nothing to step between, and the paper is lifted to
-#2C2C2E so the scroll edge effect has something to ramp from.
+the system was trying to draw a gradient. The desk is Apple's `underPageBackgroundColor`. It was a stated grey for a
+while and the reason was real then: with the old near-black page the tinted
+value resolved *darker* than the sheet and the page became a hole. The page is
+paper now — two hundred levels above anything the tint can produce — so the
+reason is gone, and a fixed grey only made this the one window on the desktop
+that does not answer to the writer's Appearance settings. The window does not
+override its `containerBackground` either, so the sidebar sits on the system's
+ground the way Finder's does. Measured against Finder, same wallpaper:
+
+| | eDraft | Finder |
+| --- | --- | --- |
+| window edge | #1F202C | #1F1E2C |
+| sidebar | #1E1F27 | #1D1C26 |
+| desk | #1B1C27 | #21202C |
+
+That is also what closes the seam at the sidebar's top corner. It was never a
+missing line: the corner is the system's inset sidebar shape and Finder has
+the same one, but with the desk stated as a fixed grey there was no tonal
+difference along the panel's top edge for the outline to show against, so the
+curve appeared to stop in mid-air.
+
+**One rule orders the two surfaces: the desk is darker than the paper, in
+every combination** — both papers, both looks, checked by
+`ScreenplayDeskTests`. It earns its place: putting the desk back on the system
+colour left the *dark* page four levels above its own desk, and that test is
+what said so.
 
 **The page is paper by default, even in the dark** — `PagePaper`, View → Page.
 Pages, Preview and Word all darken the chrome and leave the document alone,
@@ -323,8 +346,8 @@ distance it travels. Measured down the page through the toolbar's edge:
 
 | | chrome → page | what the fade has to work with |
 | --- | --- | --- |
-| Dark page (#2C2C2E) | #1E1E1E → #2C2C2E | 14 levels — present, invisible |
-| Paper (#FAF8F4) | #1E1E1E → #FAF8F4 | 220 levels — the gradient Pages draws |
+| Dark page (#3A3A3C) | desk → #3A3A3C | ~18 levels — present, barely visible |
+| Paper (#FAF8F4) | desk → #FAF8F4 | ~200 levels — the gradient Pages draws |
 
 The near-black page remains as a choice, because some writers want it. It is
 a real fork rather than a theme tweak: the ink, the caret and the ghost are
