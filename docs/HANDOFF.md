@@ -39,7 +39,7 @@ reading a number, not by reasoning about what ought to happen.
 | Branch | `rename/edraft` |
 | iOS app | Feature-complete for its own plan; ships |
 | macOS app | Greets on launch, page card, types, ghosts, finds, exports, prints. Title page is a sheet; Cast opens the character thread. View modes and statistics still M3 |
-| Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface` |
+| Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface`, `EDraftUIKitSurface` |
 | Xcode targets | `eDraft`, `eDraftTests`, `eDraft (macOS)` |
 
 **The green baseline.** Run all of it before you start and after every step. If
@@ -50,14 +50,25 @@ npm test                                              # 414 TypeScript
 swift test --package-path ios/eDraftEngine            #  95 engine
 swift test --package-path ios/EDraftCore              #  88 core        (macOS)
 swift test --package-path ios/EDraftUI                #  18 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  76 Mac surface (macOS)
+swift test --package-path ios/EDraftMacSurface        #  77 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 102 app
 xcodebuild build -project ios/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   -configuration Debug CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
   DEVELOPMENT_TEAM=""                                        # the Mac app
 ```
+
+The `EDraftUIKitSurface` package has no suite of its own and is not in that
+list. It imports UIKit, so it cannot be built by `swift test` on a Mac host at
+all; its behaviour is covered by the 102 in the iOS app target, which runs under
+the simulator where the document plumbing those tests drive already lives. A
+test target there would be a path nobody could run.
+
+**If a Mac build stops dead at `CodeSign`**, look for a keychain prompt: macOS
+is asking for the signing key and `xcodebuild` will wait for it indefinitely.
+`CODE_SIGNING_ALLOWED=NO` verifies that the target compiles and links without
+touching the key, which is what a build check actually needs.
 
 ---
 
@@ -72,14 +83,23 @@ EDraftCore       the app's mind. Foundation + Observation, never a UI framework.
                  PageScroll, ScriptTypography, RevealMark, ScreenplayFile,
                  ScreenplayExporter, ScreenplayPageLayout, PdfSignal,
                  CharacterRename.
-      ▲
-EDraftUI         shared SwiftUI: Navigator (StoryList/StoryPanel), character
-                 thread, title page, settings, EDraftDocument.
       ▲                                    ▲
-eDraft (iOS)                        EDraftMacSurface → eDraft (macOS)
-UITextView, nav-bar chrome,         NSTextView layout and page, then a
-scanning, keyboard bar              thin app around it
+EDraftUIKitSurface                  EDraftUI         shared SwiftUI: Navigator
+UITextView, reveal mark,                             (StoryList/StoryPanel),
+printed page. Core + Engine                          character thread, title
+only — the page, not the                             page, settings, document.
+panels. Public face is one                ▲
+view, ScriptSurfaceView.            EDraftMacSurface  NSTextView layout and page,
+      ▲                                              and the window that
+eDraft (iOS)                                         arranges the panels
+nav-bar chrome, scanning,                 ▲
+keyboard bar, the panels            eDraft (macOS)   menus, document plumbing
 ```
+
+The two surfaces sit at different heights on purpose: the Mac's holds the
+window, so it is above `EDraftUI`; the phone's holds only the page, because the
+iPad's chrome will not be the iPhone's and inventing a shared one now would
+produce a third that fits neither.
 
 **Four rules. Breaking any of them is the failure mode this structure exists to
 prevent.**
@@ -89,6 +109,16 @@ prevent.**
    `Choreography.emptyLineEscape` is the template: the rule moved out of
    `ScriptTextView` into the engine, and the TypeScript engine got the same
    change in the same commit.
+
+   The rule has a second edge, and it drew blood: a *model* may not decide a
+   rule on a view's behalf either. `EditorState.normalizedText` declined to
+   capitalise ß, because SS is a different UTF-16 length and a text view
+   repairing text in place could not survive that. Three tests wrote the
+   decision down; one of them said outright that "the text storage
+   intentionally leaves such text untouched, so the model must too". The bill
+   came due when the Mac began capitalising at the input boundary and the same
+   keystroke started producing two different files. If a rule's stated reason
+   mentions a view, the rule is in the wrong place.
 2. **TypeScript is the source of truth for engine behaviour.** Change
    `packages/edraft/src/*`, then `npm run package:build && npm run
    engine:conformance` to regenerate `ios/eDraftEngine/Fixtures/`, then make the

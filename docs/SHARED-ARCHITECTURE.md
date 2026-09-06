@@ -70,26 +70,49 @@ which are per-platform by definition.
 │                     case memory · separator · document      │
 │                     model · arrival.                        │
 └─────────────────────────────────────────────────────────────┘
-                              ▲
-┌─────────────────────────────────────────────────────────────┐
-│ EDraftUI            shared SwiftUI. Navigator · character   │
-│                     thread · title page · settings.         │
-│                     Chrome differences behind small         │
-│                     platform shims, never forked views.     │
-└─────────────────────────────────────────────────────────────┘
               ▲                                   ▲
-┌──────────────────────────┐      ┌──────────────────────────┐
-│ eDraft (iOS)             │      │ EDraftMacSurface         │
-│ UITextView surface ·     │      │ NSTextView layout,       │
-│ nav-bar chrome · scan ·  │      │ measured by tests ·      │
-│ keyboard bar             │      │ then the app around it   │
-└──────────────────────────┘      └──────────────────────────┘
+┌──────────────────────────┐      ┌─────────────────────────────┐
+│ EDraftUIKitSurface       │      │ EDraftUI                    │
+│ UITextView surface ·     │      │ shared SwiftUI. Navigator · │
+│ reveal mark · printed    │      │ character thread · title    │
+│ page — iPhone and iPad   │      │ page · settings. Chrome     │
+│                          │      │ differences behind small    │
+│ Core + Engine only: it   │      │ platform shims, never       │
+│ draws the page, not the  │      │ forked views.               │
+│ panels around it.        │      └─────────────────────────────┘
+└──────────────────────────┘                    ▲
+              ▲                   ┌─────────────────────────────┐
+              │                   │ EDraftMacSurface            │
+              │                   │ NSTextView layout, measured │
+              │                   │ by tests · the window and   │
+              │                   │ the panels it arranges      │
+              │                   └─────────────────────────────┘
+              │                                  ▲
+┌──────────────────────────┐      ┌─────────────────────────────┐
+│ eDraft (iOS)             │      │ eDraft (macOS)              │
+│ nav-bar chrome · scan ·  │      │ menus · document plumbing   │
+│ keyboard bar · the       │      │                             │
+│ panels · document        │      │                             │
+└──────────────────────────┘      └─────────────────────────────┘
 
-The Mac's surface is a *package*, not app-target code, so the arithmetic every
+Both surfaces are *packages*, not app-target code, so the arithmetic every
 scroll and reveal depends on can be measured by `swift test` rather than only by
 eye. That is not symmetry for its own sake — it is how a live bug in the iPhone's
-mark was found (see MACOS-EXECUTION, M1). The phone's surface should move the
-same way when there is reason to touch it.
+mark was found (see MACOS-EXECUTION, M1).
+
+They are not, however, at the same height, and the diagram is drawn crooked on
+purpose. `EDraftMacSurface` holds the Mac's *window* as well as its text view,
+so it sits above `EDraftUI` and arranges the shared panels itself.
+`EDraftUIKitSurface` holds only the page — the phone's chrome and panels stay in
+the app, which reaches `EDraftUI` for itself (six files do), because the phone's
+window and the iPad's will not be the same shape, and guessing at that shape now
+is how you get a third one nobody wants.
+
+The phone's surface was the last to move, and iPadOS is what made it due: a
+second app cannot link code that lives inside the first one's target. Its public
+face is deliberately one view, `ScriptSurfaceView` — publishing the
+`UIViewRepresentable` itself would have dragged two dozen delegate methods out
+with it.
 ```
 
 **Rules that keep the boundary honest**
@@ -101,6 +124,14 @@ same way when there is reason to touch it.
    pinned by the corpus. A view may never re-decide a rule — the empty-line
    escape that briefly lived in `ScriptTextView` and now lives in
    `Choreography.emptyLineEscape` is the template.
+
+   The rule runs backwards too, and that is the harder half: a *model* may not
+   re-decide a rule on a view's behalf either. `EditorState.normalizedText`
+   once declined to capitalise ß, because SS is a different UTF-16 length and a
+   text view repairing text in place could not survive that. A view's range
+   arithmetic had become a screenplay rule, and the cost arrived on the day the
+   Mac began capitalising at the input boundary: one keystroke, two files. The
+   model states what the engine states; surfaces deal with the consequences.
 3. A per-platform surface owns only what the platform genuinely differs in:
    text system, chrome, input. Where behaviour is shared but the view is not
    (the reveal mark), the *rule* moves to `EDraftCore` and each platform draws

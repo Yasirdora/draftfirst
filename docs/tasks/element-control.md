@@ -1,5 +1,10 @@
 # The element control, in the Mac toolbar
 
+> **Superseded in part, 2026-09-06.** The toolbar quoted below still carries
+> `[inspector]`. The inspector was retired the same day it was built; see
+> MACOS-DESIGN §3.3 and §3.4 for what the toolbar and the menus actually hold.
+> The rest of this brief stands as written.
+
 Repo `/Users/x/Documents/edraft`, branch `rename/edraft`, HEAD `b8e70ac`.
 Working directory for every command: that path.
 

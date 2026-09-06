@@ -130,6 +130,14 @@ The right column is **reserved**, not cancelled. It returns when there is
 something to read *alongside* the page: comments and notes anchored to
 `ScriptElement.id`. That is a real workflow. Properties of the selection are not.
 
+One column has already earned its way in on those terms, and it is not on the
+right. Selecting a character in the Cast tab opens that character's thread — every
+scene they appear in, every line they speak — in a narrow column *between* the
+Navigator and the page, the way Notes shows a note beside its folder list. It is
+something to read alongside the page rather than something to state about it, it
+appears only while a character is selected, and it takes width from nothing when
+no one is. Deselect, or leave the Cast tab, and the window is two panes again.
+
 ```
 ┌──────────────┬──────────────────────────────────────────┐
 │  NAVIGATOR   │                 PAGE                     │
@@ -144,6 +152,23 @@ something to read *alongside* the page: comments and notes anchored to
 │ 3 scenes ·   │                                          │
 │ 2 locations  │                                          │
 └──────────────┴──────────────────────────────────────────┘
+
+and with a character selected in Cast — the thread takes its width from
+the canvas, never from the page:
+
+┌──────────────┬───────────────┬──────────────────────────┐
+│  NAVIGATOR   │  MARA      ⋯  │           PAGE           │
+│              │               │                          │
+│ ⌜Scenes│Cast⌝│ 12 speeches   │      ┌──────────────┐    │
+│              │ ───────────── │      │              │    │
+│ ◯ MARA    12 │ INT. CAFE     │      │  the page    │    │
+│ ◯ ELENA    8 │ "We are late" │      │              │    │
+│ ◯ DAVID    3 │ "I know"      │      │              │    │
+│              │ EXT. STREET   │      └──────────────┘    │
+│ ──────────── │ "Not here"    │                          │
+│ 3 scenes ·   │               │                          │
+│ 2 locations  │               │                          │
+└──────────────┴───────────────┴──────────────────────────┘
 ```
 
 ### 3.1 Left — the Navigator

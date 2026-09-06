@@ -105,8 +105,19 @@ moves it, and changes nothing else. Detail and file-by-file inventory in
       reads them. It gained reduce-motion support in the process — the mark
       appears and goes without fading, because less motion must never mean no
       answer.
+- [x] **M0.7** `EDraftUIKitSurface` package; move `ScriptTextView`,
+      `RevealHighlight`, `ScreenplayPageRenderer` out of the iOS app target.
+      *Done 2026-09-06.* The last of the modularisation, and iPadOS is what
+      made it due rather than tidy. Three files moved unchanged — git records
+      all three as renames — and the whole delta is twenty-one lines of access
+      control. The app turned out to touch the package in two files and two
+      symbols, fewer than the estimate; the three other files given imports on
+      the way did not need them, which the compiler was asked rather than
+      trusted. 96 iOS tests passed before and after, unchanged in name.
 - [ ] **M0.6** *(optional, recommended)* adopt the `apple/` directory layout.
-      *Proof:* clean checkout builds both schemes.
+      *Proof:* clean checkout builds both schemes. Now the more adjacent of the
+      two — five packages live under `ios/`, and the folder's name has been
+      wrong since the Mac app existed.
 
 ### M1 — The spike · *the unknown is answered*
 
@@ -403,6 +414,10 @@ None blocking. Two worth a decision when convenient:
 | 2026-09-05 | PDF via `CGPDFContext` + hex stamp; print is that PDF | `kCGPDFContextKeywords` writes a PDF string the extractor will not read. `NSPrintOperation` over a view would paginate twice. |
 | 2026-09-05 | **Reversed:** `/Keywords` is a PDF literal in the Info dict, not a `%%EOF` stamp | Measured: `(hex)` survives `PDFDocument` rewrite at 500KB. Trailing junk does not survive a re-save. Extractor widened in both engines. |
 | 2026-09-05 | Page placement in `EDraftCore.ScreenplayPageLayout`, not two renderers | Two 233-line renderers would be two answers to where a line sits. iOS substitution only. |
+| 2026-09-06 | The phone's surface becomes `EDraftUIKitSurface`; its public face is one view | iPadOS forces it — a second app cannot link code inside the first one's target. `ScriptSurfaceView` wraps the representable because publishing `UIViewRepresentable` publishes two dozen delegate methods with it. |
+| 2026-09-06 | The touch surface holds the page only; the Mac surface holds its window too | The iPad's chrome will not be the iPhone's. Inventing a shared one before the iPad exists produces a third that fits neither. |
+| 2026-09-06 | **Reversed:** the model capitalises ß to SS, as the engine always has | The refusal was a text view's UTF-16 arithmetic wearing a model's clothes, and three tests wrote it down — one saying outright that the model must follow the storage. Once the Mac shouted at the input boundary it cost a divergence: one keystroke, two files. |
+| 2026-09-06 | A character's thread is a column between Navigator and page, not a pushed destination | It is something to read *alongside* the page — the test §3 sets for a column — and it costs width only while a character is selected. Notes' shape, not Pages'. |
 
 ---
 
