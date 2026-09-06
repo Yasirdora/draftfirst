@@ -881,6 +881,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             0,
             min(updatedRange.length, selected.location - updatedRange.location)
         )
+        // A glyph taller than the line has to be brought into it, because
+        // TextKit clips drawing to the line fragment — see `fitTallGlyphs`.
+        ScriptLayout.fitTallGlyphs(storage, range: updatedRange)
         editor.applyLiveText(id: edit.elementID, text: text, selectionOffset: offset)
         return true
     }

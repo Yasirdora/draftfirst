@@ -135,12 +135,34 @@ public enum ScreenplayPageRenderer {
         context.endPDFPage()
     }
 
-    /// A glyph taller than the line — an emoji — overflows into the space
-    /// above it, exactly as it does on screen and as it does in every other
-    /// editor. It is not scaled: line height is an advance, not a clipping
-    /// box, and shrinking the picture to fit the box was the screen's old
-    /// `maximumLineHeight` problem wearing a different hat.
+    /// A glyph taller than the line is drawn smaller so that it sits inside
+    /// it, matching the screen. Not a preference: TextKit clips glyph drawing
+    /// to the line fragment, so the editor cannot let a tall glyph overflow
+    /// while holding six lines to the inch — measured, and the PDF follows the
+    /// screen so that one document is one document.
     private static func drawFitted(_ string: String, at origin: CGPoint, in context: CGContext) {
-        (string as NSString).draw(at: origin, withAttributes: textAttributes)
+        var x = origin.x
+        (string as NSString).enumerateSubstrings(
+            in: NSRange(location: 0, length: (string as NSString).length),
+            options: .byComposedCharacterSequences
+        ) { substring, _, _, _ in
+            guard let substring else { return }
+            let size = (substring as NSString).size(withAttributes: textAttributes)
+            let height = ScriptLayout.glyphPathHeight(substring, font: courier)
+            let scale = ScreenplayPageLayout.scaleToFitLine(measuredHeight: height)
+            if scale < 0.999 {
+                context.saveGState()
+                context.translateBy(x: x, y: origin.y)
+                context.scaleBy(x: scale, y: scale)
+                (substring as NSString).draw(at: .zero, withAttributes: textAttributes)
+                context.restoreGState()
+                x += size.width * scale
+            } else {
+                (substring as NSString).draw(
+                    at: CGPoint(x: x, y: origin.y), withAttributes: textAttributes
+                )
+                x += size.width
+            }
+        }
     }
 }

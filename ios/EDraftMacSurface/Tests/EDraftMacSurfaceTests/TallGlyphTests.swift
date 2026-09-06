@@ -62,7 +62,13 @@ final class TallGlyphTests: XCTestCase {
 
     /// Screen and PDF must agree, which is the whole point — the same script
     /// exported from a desk and read on a phone should be one document.
-    func testScreenAndPdfUseTheSameSizeForTheGlyph() throws {
+    ///
+    /// They agree by both asking `scaleToFitLine`, not by carrying the same
+    /// number: the editor bakes the factor into the glyph's font attribute,
+    /// while the PDF applies it to the drawing context at paint time. So the
+    /// thing to assert is that the screen's baked size is exactly what the
+    /// shared rule says, which is the same answer the renderer acts on.
+    func testTheScreenScalesTheGlyphByTheSharedRule() throws {
         let elements = [ScriptElement(type: .action, text: line)]
         let surface = ScriptSurface(measure: 500)
         surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
@@ -70,13 +76,19 @@ final class TallGlyphTests: XCTestCase {
 
         let storage = try XCTUnwrap(surface.textView.textStorage)
         let emoji = (storage.string as NSString).range(of: "🔑")
-        let onScreen = storage.attribute(.font, at: emoji.location, effectiveRange: nil) as? NSFont
-        let inPdf = ScreenplayPageRenderer.textAttributesForTests[.font] as? NSFont
+        let onScreen = try XCTUnwrap(
+            storage.attribute(.font, at: emoji.location, effectiveRange: nil) as? NSFont
+        )
+
+        let ink = ScriptLayout.glyphPathHeight("🔑", font: courier)
+        let expected = ScreenplayPageLayout.fontSize
+            * ScreenplayPageLayout.scaleToFitLine(measuredHeight: ink)
 
         XCTAssertEqual(
-            onScreen?.pointSize ?? 0, inPdf?.pointSize ?? -1, accuracy: 0.01,
-            "the page and the printed page disagree about how big the glyph is"
+            onScreen.pointSize, expected, accuracy: 0.01,
+            "the page is not using the rule the printed page uses"
         )
+        XCTAssertLessThan(expected, ScreenplayPageLayout.fontSize)
     }
 
     func testTheEditorKeepsTheLineBoxAtTwelvePoints() throws {
@@ -95,19 +107,20 @@ final class TallGlyphTests: XCTestCase {
             fragment.height, ScreenplayPageLayout.lineHeight, accuracy: 0.5,
             "the line box grew; six lines per inch is the format"
         )
-        // And the glyph is *not* shrunk to buy that. Line height is an
-        // advance, not a clipping box: a tall glyph overflows into the space
-        // above it, which is what Google Docs and Final Draft do and why their
-        // emoji look right. Scaling it down was treating the symptom, and it
-        // showed — a smaller emoji whose ink still overran its advance, with
-        // the caret drawn through it.
+        // And the glyph is brought into that box rather than left to overflow
+        // it, because TextKit clips glyph drawing to the line fragment.
+        // Measured: pinning a fragment to a twelfth of the glyph's height
+        // paints 25 rows of its ink where an unpinned fragment paints 69. So
+        // "let it overflow", which is what Google Docs and Final Draft do, is
+        // not available here while six lines to the inch is held exactly.
         let storage = try XCTUnwrap(surface.textView.textStorage)
         let emoji = (storage.string as NSString).range(of: "🔑")
         XCTAssertGreaterThan(emoji.length, 0)
         let font = storage.attribute(.font, at: emoji.location, effectiveRange: nil) as? NSFont
-        XCTAssertEqual(
-            font?.pointSize ?? 0, ScreenplayPageLayout.fontSize, accuracy: 0.01,
-            "the emoji was scaled; it should sit at its own size and overflow"
+        XCTAssertLessThan(
+            font?.pointSize ?? ScreenplayPageLayout.fontSize,
+            ScreenplayPageLayout.fontSize,
+            "the emoji is at Courier 12 and the line fragment will clip its top"
         )
     }
 

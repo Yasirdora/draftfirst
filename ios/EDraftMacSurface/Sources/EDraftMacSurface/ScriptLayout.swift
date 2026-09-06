@@ -69,6 +69,7 @@ public enum ScriptLayout {
                 result.append(NSAttributedString(string: "\n", attributes: style))
             }
         }
+        fitTallGlyphs(result)
         return (result, ranges)
     }
 

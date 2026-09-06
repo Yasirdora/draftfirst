@@ -13,11 +13,24 @@ import EDraftCore
 /// down to fit was treating that symptom, and it showed: a shrunken emoji whose
 /// ink still overran its advance, with the caret drawn through it.
 ///
-/// Every other editor — Google Docs, Final Draft, Pages — treats line height as
-/// an *advance*, not a clipping box. A glyph taller than the line overflows
-/// into the space above it and nothing crops it, which is why their emoji look
-/// right. This says the same thing to TextKit: the fragment is exactly one line
-/// tall, the baseline sits where Courier expects it, and drawing is left alone.
+/// Google Docs, Final Draft and Pages do not clip a tall glyph, and the reason
+/// is that their line grows: they are spacing lines "at least" this far apart,
+/// not exactly. Set any of them to *exact* twelve-point leading and they clip
+/// too.
+///
+/// TextKit will not even do that much — it clips glyph drawing to the line
+/// fragment. Measured: a fragment pinned to a twelfth of a glyph's height
+/// paints 25 rows of its ink where an unpinned fragment paints 69. So on this
+/// text system, holding six lines to the inch exactly and letting a tall glyph
+/// overflow are not both available, and a screenplay cannot give up the first
+/// — 55 lines to the page is what pagination, the page count and the PDF all
+/// rest on.
+///
+/// What this class does, then, is own the leading rather than buy it with
+/// `maximumLineHeight`: same exact twelve points, same baseline, but the
+/// paragraph spacing between elements is carried rather than squashed. Fitting
+/// the glyph into that box is `ScriptLayout.fitTallGlyphs`, and the PDF applies
+/// the same factor so the page and the printed page agree.
 final class FixedLeading: NSObject, NSLayoutManagerDelegate {
 
     private let lineHeight = ScreenplayPageLayout.lineHeight
