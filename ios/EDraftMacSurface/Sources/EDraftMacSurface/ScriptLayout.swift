@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import EDraftCore
 import Foundation
 
@@ -68,7 +69,37 @@ public enum ScriptLayout {
                 result.append(NSAttributedString(string: "\n", attributes: style))
             }
         }
+        fitTallGlyphs(result)
         return (result, ranges)
+    }
+
+    /// An emoji's own metrics exceed the 12pt line. Shrink the font on
+    /// those characters so TextKit draws them inside the box rather than
+    /// clipping the top. Courier is left alone.
+    static func fitTallGlyphs(_ text: NSMutableAttributedString, range: NSRange? = nil) {
+        let full = range ?? NSRange(location: 0, length: text.length)
+        guard full.length > 0, NSMaxRange(full) <= text.length else { return }
+        let ns = text.string as NSString
+        ns.enumerateSubstrings(in: full, options: .byComposedCharacterSequences) { substring, subrange, _, _ in
+            guard let substring else { return }
+            let font = (text.attribute(.font, at: subrange.location, effectiveRange: nil) as? NSFont)
+                ?? ScriptLayout.font(for: .action)
+            let height = glyphPathHeight(substring, font: font)
+            let scale = ScreenplayPageLayout.scaleToFitLine(measuredHeight: height)
+            guard scale < 0.999 else { return }
+            let fitted = NSFont(name: font.fontName, size: font.pointSize * scale)
+                ?? font.withSize(font.pointSize * scale)
+            text.addAttribute(.font, value: fitted, range: subrange)
+        }
+    }
+
+    /// Ink height, not the font's line box. Courier 12 reports ~14pt via
+    /// `NSString.size` and would scale every letter; glyph path bounds
+    /// of an "A" sit inside 12pt and an emoji does not.
+    static func glyphPathHeight(_ string: String, font: NSFont) -> CGFloat {
+        let attributed = NSAttributedString(string: string, attributes: [.font: font])
+        let line = CTLineCreateWithAttributedString(attributed)
+        return CTLineGetBoundsWithOptions(line, [.useGlyphPathBounds]).height
     }
 
     /// One element's attributes, built from the print measurements.

@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import CoreText
 import EDraftCore
 import PDFKit
 
@@ -123,10 +124,41 @@ public enum ScreenplayPageRenderer {
         let previous = NSGraphicsContext.current
         NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
         for run in runs {
-            (run.text as NSString).draw(at: run.origin, withAttributes: textAttributes)
+            drawFitted(run.text, at: run.origin, in: context)
         }
         NSGraphicsContext.current = previous
         context.restoreGState()
         context.endPDFPage()
+    }
+
+    /// Walk composed characters so a tall glyph (an emoji) is scaled into
+    /// the 12pt line without shrinking the Courier around it. Unconstrained
+    /// `draw(at:)` overflowed; the editor's `maximumLineHeight` clipped.
+    /// Both now fit.
+    private static func drawFitted(_ string: String, at origin: CGPoint, in context: CGContext) {
+        var x = origin.x
+        let y = origin.y
+        (string as NSString).enumerateSubstrings(
+            in: NSRange(location: 0, length: (string as NSString).length),
+            options: .byComposedCharacterSequences
+        ) { substring, _, _, _ in
+            guard let substring else { return }
+            let size = (substring as NSString).size(withAttributes: textAttributes)
+            let height = ScriptLayout.glyphPathHeight(substring, font: courier)
+            let scale = ScreenplayPageLayout.scaleToFitLine(measuredHeight: height)
+            if scale < 0.999 {
+                context.saveGState()
+                context.translateBy(x: x, y: y)
+                context.scaleBy(x: scale, y: scale)
+                (substring as NSString).draw(at: .zero, withAttributes: textAttributes)
+                context.restoreGState()
+                x += size.width * scale
+            } else {
+                (substring as NSString).draw(
+                    at: CGPoint(x: x, y: y), withAttributes: textAttributes
+                )
+                x += size.width
+            }
+        }
     }
 }

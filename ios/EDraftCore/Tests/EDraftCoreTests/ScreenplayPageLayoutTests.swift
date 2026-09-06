@@ -150,6 +150,16 @@ final class ScreenplayPageLayoutTests: XCTestCase {
         XCTAssertEqual(ScreenplayPageLayout.spacing(before: .dialogue), 0)
     }
 
+    func testATallGlyphScalesIntoTheLineBox() {
+        XCTAssertEqual(ScreenplayPageLayout.scaleToFitLine(measuredHeight: 12), 1, accuracy: 0.001)
+        XCTAssertEqual(ScreenplayPageLayout.scaleToFitLine(measuredHeight: 15), 12.0 / 15.0, accuracy: 0.001)
+        XCTAssertEqual(
+            15 * ScreenplayPageLayout.scaleToFitLine(measuredHeight: 15),
+            ScreenplayPageLayout.lineHeight,
+            accuracy: 0.001
+        )
+    }
+
     // MARK: -
 
     private func oneLinePage(

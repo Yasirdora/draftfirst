@@ -52,6 +52,13 @@ public enum ScreenplayPageLayout {
         format.pageRect.height - format.textTop - textBlockHeight(format)
     }
 
+    /// Draw a glyph this much smaller than its own metrics so it sits
+    /// inside the 12pt line. 1 when it already fits.
+    public static func scaleToFitLine(measuredHeight: CGFloat) -> CGFloat {
+        guard measuredHeight > lineHeight, measuredHeight > 0 else { return 1 }
+        return lineHeight / measuredHeight
+    }
+
     /// UTF-16 locations in flattened editor text of the first real
     /// character of each page. The surface uses these to place exclusion
     /// paths; it must not paginate again.

@@ -878,6 +878,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             min(updatedRange.length, selected.location - updatedRange.location)
         )
         editor.applyLiveText(id: edit.elementID, text: text, selectionOffset: offset)
+        if let storage = textView.textStorage {
+            ScriptLayout.fitTallGlyphs(storage, range: updatedRange)
+        }
         return true
     }
 
