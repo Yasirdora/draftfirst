@@ -132,6 +132,19 @@ public struct ScriptWindow: View {
             // `windowBackgroundColor` and the desk is `screenplayDesk`. It is
             // the smaller of the two faults by a distance, and it is what
             // every Mac document window does.
+            // Glass over the page, not a lid on it.
+            //
+            // The toolbar's default ground is opaque, so nothing shows
+            // through it and the fade can only begin below its lower edge —
+            // which is the cliff: #1E1E1E to #C1C0BD in four pixels, then a
+            // gentle tail. A material lets the page through, so the ramp
+            // starts behind the chrome and arrives already underway.
+            //
+            // This was tried once before and rejected, under the old dark
+            // page, where there was nothing to see through it and it only
+            // added a tinted band. It is the paper that makes it worth
+            // having.
+            .toolbarBackground(.ultraThinMaterial, for: .windowToolbar)
             .toolbar(removing: .title)
             .toolbar {
                 ToolbarItem(placement: .navigation) {
