@@ -51,10 +51,13 @@ final class EDraftDocumentTests: XCTestCase {
             EDraftDocument().source.data(using: .utf8)
         ))
         XCTAssertEqual(editor.screenplay.elements.count, 1)
-        // One empty element, and it is a scene heading: a screenplay opens on
-        // a slug, so the caret starts where the writing starts and the
-        // keyboard comes up in capitals.
-        XCTAssertEqual(editor.screenplay.elements.first?.type, .scene)
+        // One empty element, and it is Action — which `ScenePromotion` reads
+        // as "nobody has said what this is", the truth of a page nobody has
+        // typed on. Opening on Scene instead read as a deliberate choice, and
+        // promotion never runs the other way, so prose typed into a new
+        // document came back shouted as a heading. Typing a slug still makes
+        // one, on the keystroke.
+        XCTAssertEqual(editor.screenplay.elements.first?.type, .action)
         XCTAssertEqual(editor.screenplay.elements.first?.text, "")
         XCTAssertEqual(editor.screenplay.title, "Untitled Screenplay")
     }

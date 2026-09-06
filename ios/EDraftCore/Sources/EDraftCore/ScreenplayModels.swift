@@ -173,14 +173,25 @@ public struct Screenplay: Codable, Equatable, Sendable {
             TitlePageEntry(key: "Credit", values: ["written by"])
         ],
         elements: [
-            // A truly blank page — no FADE IN:, no ritual — but a page that
-            // knows what a screenplay opens with. The first line of a script
-            // is a slug, so the caret starts on an empty Scene: the keyboard
-            // comes up in capitals and the first thing typed is a heading,
-            // which is what the writer was going to type anyway. The kind is
-            // not invisible while it does this — the bar names it, and one
-            // swipe leaves it for Action.
-            ScriptElement(type: .scene, text: "")
+            // A truly blank page — no FADE IN:, no ritual — and Action,
+            // because Action is what `ScenePromotion` calls "nobody has said
+            // what this is yet", which is the honest state of a page nobody
+            // has typed on.
+            //
+            // It used to open on an empty Scene, reasoning that a script
+            // begins with a slug and the phone's keyboard would come up in
+            // capitals for it. The cost was hidden in an asymmetry: promotion
+            // only ever runs *towards* Scene, and deliberately, so that a
+            // writer's own choice is never second-guessed. A blank document
+            // starting on Scene looked exactly like such a choice — so a
+            // writer who opened a new script and typed a line of prose got
+            // it shouted back as a scene heading, with nothing to undo it but
+            // finding the element menu.
+            //
+            // Starting on Action loses nothing: type a slug and promotion
+            // makes it one, on the keystroke, which is the rule the rest of
+            // the app already trusts.
+            ScriptElement(type: .action, text: "")
         ]
     )
 
