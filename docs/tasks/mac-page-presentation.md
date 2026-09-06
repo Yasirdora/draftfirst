@@ -157,3 +157,39 @@ commit messages in the voice of `git log`.
 3. What the PDF does with the emoji, before and after.
 4. What a human should look at, in order, and what would count as wrong.
 5. What in this brief the tree contradicts.
+
+---
+
+## Follow-up found in review, 2026-09-06: the surfaces disagree about a tall glyph
+
+The Mac now scales an emoji into the 12pt line, on screen and in its PDF, and
+those two agree. The phone does neither. One document, four renderings, three
+behaviours:
+
+| | |
+|---|---|
+| Mac screen | scaled — `ScriptLayout.fitTallGlyphs` → `scaleToFitLine` |
+| Mac PDF | scaled — `EDraftMacSurface/ScreenplayPageRenderer` |
+| iOS screen | clipped — `ScriptTextView` sets `maximumLineHeight`, never scales |
+| iOS PDF | overflows — `EDraftUIKitSurface/ScreenplayPageRenderer` |
+
+This is the shape of the ß divergence that `41adc7e` fixed: a rule stated on one
+surface and not the other, so the same script exports differently depending on
+which device the writer used. It was reported honestly and left, which was the
+right call for a Mac-scoped box; it should not stay.
+
+**The rule is already shared.** `ScreenplayPageLayout.scaleToFitLine` is in the
+core and tested there. What is not shared is the *measurement*: `glyphPathHeight`
+lives in `ScriptLayout` and takes an `NSFont`. Ink height, not the font's line
+box — Courier 12 reports about 14pt via `NSString.size` and would shrink every
+letter, which is the subtlety that makes this worth doing once rather than twice.
+
+So the shape of the fix is: move the measurement into the core on `CTFont`,
+which both platforms have, and have each surface apply the scale with its own
+font type. Two call sites on the phone — the storage attributes in
+`ScriptTextView`, and the PDF renderer's draw loop, which currently draws a run
+at a time with one paragraph style and would need an attributed string.
+
+**The phone's text machinery is the most delicate code in the project.** Do the
+PDF first, prove it against the Mac's output for the same file, and only then
+touch the editor's attributes.

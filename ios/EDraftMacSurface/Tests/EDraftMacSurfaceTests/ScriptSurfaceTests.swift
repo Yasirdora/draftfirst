@@ -74,15 +74,20 @@ final class ScriptSurfaceTests: XCTestCase {
 
     /// A script that fits in the window has nowhere to scroll. The reveal must
     /// still answer — with the mark, which is the whole reason it exists.
-    /// The page card is one letter sheet (792pt) plus padding; the viewport
-    /// has to be taller than that or the paper itself is what scrolls.
+    ///
+    /// The window has to be measured at the size the page is *drawn*, not at
+    /// its own metrics: a document opens at `PageZoom.opening`, so one letter
+    /// sheet plus its desk padding needs 864 × 1.5 points of height before it
+    /// fits. Sizing this at 1000 was right until the opening zoom landed and
+    /// wrong the moment it did.
     func testAScriptThatFitsIsStillAnswered() throws {
         let elements = [
             ScriptElement(type: .scene, text: "INT. ROOM - DAY"),
             ScriptElement(type: .action, text: "She waits.")
         ]
+        let fits = (PageFormat.letter.pageRect.height + 72) * PageZoom.opening + 40
         let surface = ScriptSurface(measure: 700)
-        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 1000)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: fits)
         surface.render(elements)
         XCTAssertFalse(
             PageScroll.canScroll(surface.scrollableRange),
