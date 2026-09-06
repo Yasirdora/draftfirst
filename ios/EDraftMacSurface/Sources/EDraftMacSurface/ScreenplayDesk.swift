@@ -18,18 +18,29 @@ extension NSColor {
     ///
     /// The dark desk is the chrome's own `windowBackgroundColor`, so there is
     /// nothing left to step between; `ScreenplayDeskTests` ties the two.
-    /// Behind the page: AppKit's own, and tinted by the system exactly as
-    /// Finder's surfaces are.
+    /// Behind the page.
     ///
-    /// This was a fixed grey for a while, because with the old near-black
-    /// page the tinted colour resolved *darker* than the sheet and the page
-    /// became a hole. The page is paper now — two hundred levels lighter than
-    /// anything the tint can produce — so the reason is gone, and a stated
-    /// grey only made this window the one thing on the desktop that does not
-    /// answer to the writer's Appearance settings. Measured against Finder in
-    /// the same session: its window edge #1F1E2C, its sidebar #1D1C26, its
-    /// content #21202C — three surfaces, all tinted, a few levels apart.
-    static var screenplayDesk: NSColor { .underPageBackgroundColor }
+    /// Dark is AppKit's own `underPageBackgroundColor`, tinted by the system
+    /// exactly as Finder's surfaces are — measured against Finder, its window
+    /// edge #1F1E2C, its sidebar #1D1C26, its content #21202C, and this
+    /// window within two of each. In the dark it happens to sit right beside
+    /// the Navigator, which is what makes the window read as one surface.
+    ///
+    /// In light it does not, and that is the whole reason this is not simply
+    /// the semantic colour. `underPageBackgroundColor` is #969696 there: a
+    /// photographic mid-grey, correct for a white page floating alone in
+    /// Preview, and beside a near-white sidebar it is an eighty-nine level
+    /// step that reads as a second panel bolted on. Measured: window edge
+    /// #F6F6F6, sidebar #FAF9F9, desk #A1A1A1, page #FAF8F4.
+    ///
+    /// So light is stated, and stated close to the chrome — far enough under
+    /// the paper for the sheet to read with its own edge and shadow, near
+    /// enough to the Navigator that the divider is a divider and not a seam.
+    static let screenplayDesk = NSColor(name: "screenplayDesk") { appearance in
+        appearance.isDark
+            ? .underPageBackgroundColor
+            : NSColor(srgbRed: 0.922, green: 0.922, blue: 0.922, alpha: 1)   // #EBEBEB
+    }
 
     /// The page. Light unless the writer has asked for a dark one — see
     /// `PagePaper`, and note that the choice only means anything in dark

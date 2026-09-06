@@ -42,14 +42,31 @@ final class ScreenplayDeskTests: XCTestCase {
     /// the same session: its window edge #1F1E2C, sidebar #1D1C26, content
     /// #21202C, all tinted, all within a few levels of each other. This
     /// window now lands within two of each.
-    func testTheDeskIsApplesOwnBehindThePageColour() {
-        for name in [NSAppearance.Name.aqua, .darkAqua] {
-            XCTAssertEqual(
-                rgb(.screenplayDesk, in: name).r,
-                rgb(.underPageBackgroundColor, in: name).r,
-                "the desk stopped being the system's, and will stop tinting with it"
-            )
-        }
+    func testTheDarkDeskIsApplesOwnAndKeepsTinting() {
+        XCTAssertEqual(
+            rgb(.screenplayDesk, in: .darkAqua).r,
+            rgb(.underPageBackgroundColor, in: .darkAqua).r,
+            "the dark desk stopped being the system's, and will stop tinting with it"
+        )
+    }
+
+    /// Light is stated, and the reason is the Navigator beside it.
+    ///
+    /// `underPageBackgroundColor` is #969696 in light — a photographic
+    /// mid-grey, correct for a page floating alone in Preview, and an
+    /// eighty-nine level step from a near-white sidebar. Measured in the app:
+    /// sidebar #FAF9F9 against a #A1A1A1 desk, which reads as two panels.
+    /// This keeps the desk within reach of the chrome while staying under the
+    /// paper, and it fails if anyone puts the semantic colour back.
+    func testTheLightDeskStaysWithinReachOfTheChrome() {
+        let desk = rgb(.screenplayDesk, in: .aqua)
+        let chrome = rgb(.windowBackgroundColor, in: .aqua)
+
+        XCTAssertLessThanOrEqual(
+            chrome.r - desk.r, 40,
+            "the desk is \(chrome.r - desk.r) below the chrome; the Navigator "
+                + "will read as a panel bolted to the page"
+        )
     }
 
     /// One rule, every combination: a sheet is the lit thing and the desk is
