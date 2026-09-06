@@ -268,6 +268,43 @@ final class ScriptSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.pageFrame.width, PageFormat.letter.pageRect.width, accuracy: 0.5)
     }
 
+    /// The writer must be able to click anywhere on the page and get a caret.
+    ///
+    /// The text view used to be sized to the glyphs it held, so a new document
+    /// gave a one-line strip at the top of a full sheet — the only place an
+    /// I-beam appeared or a click landed. Reported from the running Mac app as
+    /// "I should take my cursor to one specific area to get the typing cursor".
+    func testTheTextViewFillsThePagesTextBlockNotJustItsLines() {
+        let surface = surface([ScriptElement(type: .scene, text: "")])
+
+        let format = PageFormat.current
+        XCTAssertEqual(
+            surface.textView.frame.height,
+            format.pageRect.height - format.textTop * 2,
+            accuracy: 0.5,
+            "an almost empty page left nowhere to click"
+        )
+    }
+
+    /// And past a page the block is the text, so nothing is invented below it.
+    func testALongScriptsTextBlockIsStillItsOwnHeight() {
+        let elements = (1...120).map {
+            ScriptElement(type: .action, text: "A line of action, number \($0).")
+        }
+        let surface = surface(elements)
+
+        XCTAssertGreaterThan(
+            surface.textView.frame.height, PageFormat.current.pageRect.height,
+            "a script longer than a page should have a text block longer than one"
+        )
+        XCTAssertEqual(
+            surface.textView.frame.height,
+            surface.pageFrame.height - PageFormat.current.textTop * 2,
+            accuracy: 0.5,
+            "the block and the card must agree; the card is derived from it"
+        )
+    }
+
     /// A canvas narrower than the paper must scroll the page, never shrink it.
     ///
     /// This is the width the character-thread column leaves behind: a 900pt

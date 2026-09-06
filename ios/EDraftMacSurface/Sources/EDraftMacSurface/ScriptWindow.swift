@@ -84,8 +84,17 @@ public struct ScriptWindow: View {
             }
             .navigationTitle(editor.screenplay.title)
             .navigationSubtitle(subtitle)
+            // `navigationTitle` and `navigationSubtitle` still name the
+            // window — "Untitled 3 – 1 page · ~1 minute" is what Mission
+            // Control, the Window menu and a tab show — but the name is not
+            // drawn over the page. A document's identity belongs to its
+            // window; the leading edge of the toolbar is worth more to the
+            // writer than a filename they chose, and it goes to the element
+            // under the caret, which is the one thing they change while
+            // writing.
+            .toolbar(removing: .title)
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItem(placement: .navigation) {
                     ElementModeControl(editor: editor)
                 }
             }

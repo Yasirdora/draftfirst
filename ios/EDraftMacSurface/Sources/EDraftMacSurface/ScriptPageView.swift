@@ -27,6 +27,9 @@ public struct ScriptPageView: NSViewRepresentable {
         context.coordinator.surface.bind(to: editor)
         context.coordinator.surface.renderIfNeeded(editor)
         context.coordinator.remeasureIfNeeded(editor, in: scrollView)
+        // makeNSView runs before the view has a window, so the first update
+        // pass is the earliest moment the caret has somewhere to go.
+        context.coordinator.surface.takeInitialFocus()
     }
 
     public func makeCoordinator() -> Coordinator { Coordinator() }

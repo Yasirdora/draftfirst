@@ -120,6 +120,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         self.findClient = findClient
 
         super.init()
+        // The canvas is the scroll view's document view, so it joins the
+        // window at the same moment the surface does — and that moment, not a
+        // SwiftUI update pass, is when the page can take the caret.
+        canvas.onMoveToWindow = { [weak self] in self?.takeInitialFocus() }
         textView.delegate = self
         ghost.onAccept = { [weak self] in self?.acceptPrediction() }
         textView.addSubview(ghost, positioned: .above, relativeTo: nil)
@@ -282,9 +286,30 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         updateGhost()
     }
 
+    /// Puts the caret in the page the first time there is a window to put it
+    /// in, and never again.
+    ///
+    /// A Mac document window opens ready to be typed into — that is true of
+    /// TextEdit, Pages and Xcode, and a screenplay app that asks first is
+    /// asking for nothing. Until now the only thing that gave the page focus
+    /// was an "Edit" button in the toolbar, which meant ⌘N produced a
+    /// screenplay you could not type in until you found it.
+    ///
+    /// Once only, because focus is the writer's after that: clicking the
+    /// Navigator or the scene filter should not be undone by the page
+    /// snatching it back on the next layout pass.
+    func takeInitialFocus() {
+        guard !hasTakenInitialFocus, let window = scrollView.window else { return }
+        hasTakenInitialFocus = true
+        placeCaretForEditing()
+        window.makeFirstResponder(textView)
+    }
+
     /// The page card, in the canvas's coordinates — what a test asks when
     /// it wants to know the paper is actually there.
     public var pageFrame: CGRect { canvas.pageView.frame }
+
+    private var hasTakenInitialFocus = false
 
     // MARK: - Going to an element
 

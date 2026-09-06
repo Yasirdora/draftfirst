@@ -40,6 +40,19 @@ final class PageCanvasView: NSView {
     /// Places the card in the viewport and the text view inside the card
     /// at the print margins. `textHeight` is the laid-out script; the card
     /// is never shorter than one letter page.
+    /// Called the moment this view joins a window, which is the first moment
+    /// a caret has anywhere to go. `ScriptSurface` uses it to put the writer
+    /// in the page; SwiftUI's own update passes are not a reliable signal,
+    /// because the first one runs before the view is in a window and there is
+    /// no guarantee of a second.
+    var onMoveToWindow: (() -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard window != nil else { return }
+        onMoveToWindow?()
+    }
+
     func layoutPage(textHeight: CGFloat, viewport: CGSize) {
         let format = PageFormat.current
         let pageSize = format.pageRect.size
@@ -58,11 +71,22 @@ final class PageCanvasView: NSView {
             width: pageSize.width,
             height: pageHeight
         )
+        // The text view fills the page's text block, not merely the lines
+        // written so far. Sized to its glyphs it was a sliver at the top of an
+        // otherwise empty sheet, and a sliver is the only place an I-beam
+        // appears or a click lands — so the writer had to find one specific
+        // strip of a full page to start typing.
+        //
+        // Where the text is longer than a page this is exactly the glyph
+        // height, because `pageHeight` was derived from it two lines up; where
+        // it is shorter, it is the whole block down to the bottom margin, and
+        // clicking under the last line puts the caret at the end, which is
+        // what every other editor does.
         textView?.frame = CGRect(
             x: ScreenplayPageLayout.textLeft,
             y: format.textTop,
             width: textWidth,
-            height: max(textHeight, 1)
+            height: max(pageHeight - format.textTop * 2, 1)
         )
         needsDisplay = true
     }
