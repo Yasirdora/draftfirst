@@ -127,7 +127,10 @@ final class PageCanvasView: NSView {
         // own appearance would paint a light page on a dark canvas (or
         // the reverse) and the edge would vanish in one of the two looks.
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            layer?.backgroundColor = NSColor.underPageBackgroundColor.cgColor
+            // Clear: the scroll view paints the desk, all the way to the
+            // window's edges. The canvas is only as large as the pages, so a
+            // colour here would stop at its edge and draw a border round them.
+            layer?.backgroundColor = NSColor.clear.cgColor
             for page in pageViews {
                 page.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
                 page.layer?.borderColor = NSColor.separatorColor.cgColor

@@ -119,7 +119,13 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         scrollView.maxMagnification = PageZoom.maximum
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
-        scrollView.drawsBackground = false
+        // The scroll view paints the desk, and it is the only thing that does.
+        // The canvas is exactly the pages now, so anything it painted itself
+        // would end at its edge and read as a border around the page. An
+        // `NSColor` here rather than a layer's `cgColor` also means it follows
+        // light and dark on its own.
+        scrollView.drawsBackground = true
+        scrollView.backgroundColor = .underPageBackgroundColor
         // The clip view centres a page smaller than the window, so the canvas
         // never has to be grown to the viewport and a pinch needs no
         // re-measure to stay centred.
