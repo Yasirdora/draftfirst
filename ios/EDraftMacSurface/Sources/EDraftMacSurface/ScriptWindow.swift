@@ -96,6 +96,44 @@ public struct ScriptWindow: View {
                     // toolbar while its background fills the frame, which is
                     // how TextEdit, Pages and Xcode all put a document under
                     // the chrome and still start the first line in the clear.
+                    // A tiny bit of blur at the very top, fading to
+                    // nothing.
+                    //
+                    // The page runs to the top of the window with the
+                    // controls floating on it, which is Pages' arrangement,
+                    // and `NSScrollEdgeEffectStyle.soft` is asked for on the
+                    // column the documented way — see
+                    // `SoftScrollEdgeAccessory`. It installs, verified, and
+                    // draws nothing here: measured flat, 250 from the top of
+                    // the window down. So the softening is this.
+                    //
+                    // The system's own material rather than a colour, masked
+                    // to fade out, so what happens to the script is a blur
+                    // going progressively to nothing rather than type tinted
+                    // toward grey. It is *inside* `ignoresSafeArea` so that
+                    // it starts at the window's edge and not below the
+                    // chrome, which is where an overlay applied afterwards
+                    // lands.
+                    .overlay(alignment: .top) {
+                        Rectangle()
+                            .fill(.ultraThinMaterial)
+                            .mask {
+                                LinearGradient(
+                                    stops: [
+                                        .init(color: .black.opacity(0.9), location: 0),
+                                        .init(color: .black.opacity(0.55), location: 0.45),
+                                        .init(color: .black.opacity(0.2), location: 0.75),
+                                        .init(color: .clear, location: 1)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            }
+                            .frame(height: 38)
+                            // Decoration: the writer must still be able to
+                            // click the line it is drawn over.
+                            .allowsHitTesting(false)
+                    }
                     .ignoresSafeArea(edges: .top)
                     // Over the canvas, never over the page — §1.6. The corner
                     // furthest from the first line of dialogue.
@@ -132,6 +170,18 @@ public struct ScriptWindow: View {
             // `windowBackgroundColor` and the desk is `screenplayDesk`. It is
             // the smaller of the two faults by a distance, and it is what
             // every Mac document window does.
+            // No ground behind the chrome at all — the page runs to the top
+            // of the window and AppKit's soft edge darkens and blurs it on
+            // the way up. That is what Pages does: put a colour on its page
+            // and the colour reaches the titlebar, dimmed, with the type
+            // ghosted behind the controls. There is no opaque band anywhere.
+            //
+            // Hiding this was tried once before and was worse than the step
+            // it removed: with no soft edge installed there was nothing left
+            // to fade, so the script ran sharp into the controls. The edge
+            // has to be asked for first — see `SoftScrollEdgeAccessory` —
+            // and then this is what lets it be seen.
+            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
             .toolbar(removing: .title)
             .toolbar {
                 ToolbarItem(placement: .navigation) {
