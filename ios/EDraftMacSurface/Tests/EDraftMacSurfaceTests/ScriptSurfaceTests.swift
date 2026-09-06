@@ -286,12 +286,23 @@ final class ScriptSurfaceTests: XCTestCase {
     func testTheTextViewFillsThePagesTextBlockNotJustItsLines() {
         let surface = surface([ScriptElement(type: .scene, text: "")])
 
+        // The block is the paginator's 55 lines, plus a line of headroom above
+        // and below for a glyph taller than its own line — an emoji rises about
+        // three points over the box, and on the first line the view's own edge
+        // is what would cut it.
         let format = PageFormat.current
+        let slack = ScreenplayPageLayout.glyphOverflow
         XCTAssertEqual(
             surface.textView.frame.height,
-            ScreenplayPageLayout.textBlockHeight(format),
+            ScreenplayPageLayout.textBlockHeight(format) + slack * 2,
             accuracy: 0.5,
-            "an almost empty page left nowhere to click — the block is the paginator's \(format.linesPerPage) lines, not two equal 1″ margins"
+            "an almost empty page left nowhere to click — the block is \(format.linesPerPage) lines plus headroom"
+        )
+        // The type still starts exactly on the 1″ margin: the view is moved up
+        // by the headroom and the text inset back down by the same amount.
+        XCTAssertEqual(
+            surface.textView.textContainerInset.height, slack, accuracy: 0.5,
+            "headroom without a matching inset would move every line up"
         )
     }
 

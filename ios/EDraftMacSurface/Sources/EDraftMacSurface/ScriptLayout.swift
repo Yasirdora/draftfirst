@@ -197,6 +197,16 @@ public enum ScriptLayout {
     /// marks it; if the text system will not say where a range is, neither is
     /// possible, and the iPhone's answer — read `NSLayoutManager` directly —
     /// does not exist on TextKit 2.
+    /// Container coordinates into the view's own, which differ by the text
+    /// container's origin. They were the same while the inset was zero, and
+    /// every caller reads this as a view rectangle — so the conversion belongs
+    /// here rather than in each of them, and it costs nothing when there is no
+    /// inset to speak of.
+    private static func inView(_ rect: CGRect, _ view: NSTextView) -> CGRect {
+        let origin = view.textContainerOrigin
+        return rect.offsetBy(dx: origin.x, dy: origin.y)
+    }
+
     public static func boundingRect(of range: NSRange, in view: NSTextView) -> CGRect? {
         if let layoutManager = view.layoutManager, let container = view.textContainer {
             // TextKit 1: the same arithmetic the iPhone's surface uses.
@@ -209,7 +219,7 @@ public enum ScriptLayout {
             let glyphs = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
             let measured = layoutManager.boundingRect(forGlyphRange: glyphs, in: container)
             if measured.height > 0 {
-                return widened(measured, toAtLeast: container)
+                return inView(widened(measured, toAtLeast: container), view)
             }
 
             // A line with nothing on it still has a height and a place — it is
@@ -223,7 +233,7 @@ public enum ScriptLayout {
                 : layoutManager.lineFragmentUsedRect(
                     forGlyphAt: min(glyphs.location, max(0, length - 1)), effectiveRange: nil
                 )
-            return fallback.height > 0 ? widened(fallback, toAtLeast: container) : nil
+            return fallback.height > 0 ? inView(widened(fallback, toAtLeast: container), view) : nil
         }
 
         guard let layoutManager = view.textLayoutManager,

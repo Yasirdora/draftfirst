@@ -52,6 +52,18 @@ public enum ScreenplayPageLayout {
         format.pageRect.height - format.textTop - textBlockHeight(format)
     }
 
+    /// Room above and below the text block for a glyph that is taller than
+    /// its line.
+    ///
+    /// Line height is an advance, not a clipping box, so an emoji rises about
+    /// three points above its box — measured, not guessed. On any line but the
+    /// first that room is the line above; on the first line there is nothing,
+    /// and the text view's own frame cuts it. One full line of slack is more
+    /// than any glyph needs and costs nothing: the type still starts at
+    /// `textTop`, because the view is moved up and the text inset back down by
+    /// the same amount.
+    public static let glyphOverflow: CGFloat = lineHeight
+
     /// Draw a glyph this much smaller than its own metrics so it sits
     /// inside the 12pt line. 1 when it already fits.
     public static func scaleToFitLine(measuredHeight: CGFloat) -> CGFloat {

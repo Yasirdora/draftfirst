@@ -90,11 +90,19 @@ final class PageCanvasView: NSView {
         let textWidth = ScreenplayPageLayout.textBlockWidth(format)
         let textBlock = ScreenplayPageLayout.textBlockHeight(format)
         let lastTextBottom = CGFloat(pages - 1) * (pageSize.height + desk) + textBlock
+        // Headroom for a glyph taller than its line. The view starts one line
+        // above the text block and insets the text back down by the same
+        // amount, so the first line of type still sits exactly on `textTop`
+        // while an emoji's ascent has somewhere to go instead of being cut off
+        // by the view's own edge. On every other line the room is the line
+        // above; on the first there is none.
+        let slack = ScreenplayPageLayout.glyphOverflow
+        textView?.textContainerInset = NSSize(width: 0, height: slack)
         textView?.frame = CGRect(
             x: x + ScreenplayPageLayout.textLeft,
-            y: desk + format.textTop,
+            y: desk + format.textTop - slack,
             width: textWidth,
-            height: max(textHeight, lastTextBottom, 1)
+            height: max(textHeight, lastTextBottom, 1) + slack * 2
         )
         applyAppearance()
         needsDisplay = true
