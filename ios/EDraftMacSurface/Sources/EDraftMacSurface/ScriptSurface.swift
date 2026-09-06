@@ -151,6 +151,20 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
                 self.magnificationChanged(to: scrollView.magnification, fromGesture: true)
             }
         }
+        for (name, live) in [
+            (NSScrollView.willStartLiveMagnifyNotification, true),
+            (NSScrollView.didEndLiveMagnifyNotification, false)
+        ] {
+            liveMagnifyObservers.append(NotificationCenter.default.addObserver(
+                forName: name, object: scrollView, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.isLiveMagnifying = live
+                    if !live { self.settleAfterGesture() }
+                }
+            })
+        }
         scrollView.contentView.postsFrameChangedNotifications = true
         frameObserver = NotificationCenter.default.addObserver(
             forName: NSView.frameDidChangeNotification,
@@ -390,7 +404,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// much room there is now. Cheap to call often: magnification is a no-op
     /// unless it actually moved. The opening pin still runs, once.
     func applyZoomForCurrentSize() {
-        guard scrollView.contentView.frame.width > 1 else { return }
+        // Never mid-pinch: setting the magnification while AppKit is animating
+        // its own is what made the page shrink and bounce.
+        guard !isLiveMagnifying, scrollView.contentView.frame.width > 1 else { return }
         if applyPreferredMagnification() {
             layOut()
             centreHorizontallyIfNeeded()
@@ -514,9 +530,19 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// again while the page was "fitting".
     private func magnificationChanged(to value: CGFloat, fromGesture: Bool) {
         editor?.reportZoom(value)
-        guard fromGesture else { return }
-        preference = .fixed(value)
+        // While the fingers are still down, the readout above is all that
+        // moves. AppKit is mid-gesture and settling its own rubber-band;
+        // anything else here is two hands on the same wheel.
+        guard fromGesture, !isLiveMagnifying else { return }
+        settleAfterGesture()
+    }
+
+    /// The size the gesture left behind becomes the writer's choice, and the
+    /// canvas is measured for it.
+    private func settleAfterGesture() {
+        preference = .fixed(scrollView.magnification)
         atActualSize = false
+        editor?.reportZoom(scrollView.magnification)
         // The canvas is measured in document coordinates, which a pinch
         // changes: zooming out widens the viewport and the card has to be
         // re-centred in it, or the page sits where it was — against the left
@@ -592,6 +618,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// observer can tell the writer's pinch from our own setting.
     private var isSettingMagnification = false
     private var magnificationObserver: NSKeyValueObservation?
+    /// True between `willStartLiveMagnify` and `didEndLiveMagnify`.
+    ///
+    /// A pinch is not one change of size, it is dozens a second, and AppKit
+    /// rubber-bands past the limits and settles back on its own. Recording a
+    /// preference and re-measuring the canvas on every one of those fights the
+    /// gesture — the page shrinks, snaps and bounces under the fingers. So the
+    /// readout follows live and nothing else moves until the fingers lift.
+    private var isLiveMagnifying = false
+    private var liveMagnifyObservers: [any NSObjectProtocol] = []
     private var hasTakenInitialFocus = false
     private var hasPinnedOpeningViewport = false
     /// Tests that isolate the opening zoom set this false; the SwiftUI

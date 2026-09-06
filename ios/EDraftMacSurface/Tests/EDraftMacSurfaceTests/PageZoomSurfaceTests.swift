@@ -274,3 +274,54 @@ extension PinchToZoomTests {
         withExtendedLifetime(editor) {}
     }
 }
+
+extension PinchToZoomTests {
+
+    /// Nothing must move under the fingers while a pinch is in progress.
+    ///
+    /// A pinch is dozens of magnification changes a second, and AppKit
+    /// rubber-bands past its own limits and settles back. Recording a
+    /// preference and re-measuring the canvas on each one fights that: the page
+    /// shrinks, snaps and bounces. Reported as "it keeps shrinking… it went a
+    /// bit and then smoothly bounced back".
+    func testNothingIsReMeasuredWhileTheFingersAreStillDown() {
+        let (editor, surface) = windowed(1200)
+        let canvasBefore = surface.canvas.frame.width
+
+        NotificationCenter.default.post(
+            name: NSScrollView.willStartLiveMagnifyNotification, object: surface.scrollView
+        )
+        for step in stride(from: 1.5, through: 1.0, by: -0.1) {
+            surface.scrollView.magnification = step
+        }
+        // Give any deferred re-measure a chance to run. Without the guard one
+        // is scheduled on every step and the canvas moves during the pump —
+        // which is the whole complaint.
+        _ = ScriptSurfaceHarness.wait(timeout: 0.4) { false }
+
+        XCTAssertEqual(
+            surface.canvas.frame.width, canvasBefore, accuracy: 0.5,
+            "the canvas was re-measured mid-gesture, which is what fights the pinch"
+        )
+        // The readout still follows, because that costs the gesture nothing.
+        XCTAssertEqual(editor.zoom, 1.0, accuracy: 0.01)
+    }
+
+    /// And when they lift, it settles once.
+    func testItSettlesWhenTheGestureEnds() {
+        let (editor, surface) = windowed(1200)
+
+        NotificationCenter.default.post(
+            name: NSScrollView.willStartLiveMagnifyNotification, object: surface.scrollView
+        )
+        surface.scrollView.magnification = 1.0
+        NotificationCenter.default.post(
+            name: NSScrollView.didEndLiveMagnifyNotification, object: surface.scrollView
+        )
+
+        XCTAssertTrue(ScriptSurfaceHarness.wait {
+            abs(surface.pageFrame.midX - surface.scrollView.contentView.bounds.midX) < 2
+        }, "the page never re-centred after the gesture ended")
+        XCTAssertEqual(editor.zoom, 1.0, accuracy: 0.01)
+    }
+}
