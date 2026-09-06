@@ -81,6 +81,11 @@ public struct ScriptWindow: View {
                 ScriptPageView(editor: editor)
                     .replaceDisabled()
                     .background(Color(nsColor: .underPageBackgroundColor))
+                    // Over the canvas, never over the page — §1.6. The corner
+                    // furthest from the first line of dialogue.
+                    .overlay(alignment: .bottomTrailing) {
+                        PageZoomControl(editor: editor)
+                    }
             }
             .navigationTitle(editor.screenplay.title)
             .navigationSubtitle(subtitle)

@@ -126,7 +126,24 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // The canvas is the scroll view's document view, so it joins the
         // window at the same moment the surface does — and that moment, not a
         // SwiftUI update pass, is when the page can take the caret.
-        canvas.onMoveToWindow = { [weak self] in self?.takeInitialFocus() }
+        canvas.onMoveToWindow = { [weak self] in
+            self?.takeInitialFocus()
+            self?.applyZoomForCurrentSize()
+        }
+        // How large the page is drawn depends on the clip view's *frame* — the
+        // visible width in screen points. `remeasureIfNeeded` watches its
+        // bounds instead, which are already divided by the magnification, so
+        // it is the wrong signal and can miss the first layout entirely: the
+        // page then opens at 100% however wide the window is. This is AppKit's
+        // own notification for the thing that actually changed.
+        scrollView.contentView.postsFrameChangedNotifications = true
+        frameObserver = NotificationCenter.default.addObserver(
+            forName: NSView.frameDidChangeNotification,
+            object: scrollView.contentView,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.applyZoomForCurrentSize() }
+        }
         textView.delegate = self
         ghost.onAccept = { [weak self] in self?.acceptPrediction() }
         textView.addSubview(ghost, positioned: .above, relativeTo: nil)
@@ -286,50 +303,124 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// the printed text block, so a wider window does not stretch a line.
     public func remeasure(to width: CGFloat, elements: [ScriptElement]) {
         guard width > 0 else { return }
-        if isFittingToWindow { fitMagnificationToWindow() }
+        // Lay out before magnifying. `NSScrollView` clamps a magnification set
+        // while its document view is still the wrong size, so fitting first and
+        // laying out second let a keystroke knock the page back to its own
+        // metrics. Laying out again afterwards only costs a pass when the
+        // magnification actually moved, which is when the canvas needs
+        // re-centring anyway.
         layOut()
+        if applyPreferredMagnification() { layOut() }
+        centreHorizontallyIfNeeded()
         updateGhost()
+    }
+
+    /// Draws the page at the size the current preference asks for, given how
+    /// much room there is now. Cheap to call often: it does nothing unless the
+    /// magnification actually moves.
+    func applyZoomForCurrentSize() {
+        guard scrollView.contentView.frame.width > 1 else { return }
+        guard applyPreferredMagnification() else { return }
+        layOut()
+        centreHorizontallyIfNeeded()
+        updateGhost()
+    }
+
+    /// Keeps the page in the middle of a canvas wider than the window.
+    ///
+    /// `NSScrollView` starts at its origin, which puts the page's left edge
+    /// against the frame and its right margin out of sight — the page reads as
+    /// shoved to one side rather than as paper on a desk. Only on a resize or
+    /// a zoom: scrolling sideways after that is the writer's business.
+    private func centreHorizontallyIfNeeded() {
+        let viewport = scrollView.contentView.bounds
+        guard viewport.width > 1, canvas.frame.width > viewport.width + 0.5 else { return }
+        let centred = ((canvas.frame.width - viewport.width) / 2).rounded()
+        guard abs(viewport.origin.x - centred) > 0.5 else { return }
+        scrollView.contentView.scroll(to: NSPoint(x: centred, y: viewport.origin.y))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
     // MARK: - How large the page is drawn
 
-    /// Whether the page follows the window's width.
+    /// The size the writer is working at, as distinct from the size on screen.
     ///
-    /// True until the writer chooses a size themselves, because a resize that
-    /// silently undid their choice would be worse than no fitting at all.
-    /// `PageZoom.Command.fit` puts it back.
-    private var isFittingToWindow = true
+    /// They are the same thing until the percentage button is used: that shows
+    /// actual size *temporarily*, so pressing it twice must give back the size
+    /// that was there before rather than leaving the writer to find it again.
+    private enum SizePreference {
+        /// Follow the window. The default, because it needs no decision and no
+        /// setting to remember.
+        case fit
+        /// A size the writer asked for, which a resize must not undo.
+        case fixed(CGFloat)
+    }
+
+    /// The size the writer is working at — where the percentage button goes
+    /// when it is not showing actual size.
+    ///
+    /// Starts at `PageZoom.opening` rather than at the fit or at 100%: a page
+    /// at its own metrics is under half life size on a laptop, and a page
+    /// fitted to a wide window is larger than anyone writes at. A notch above
+    /// actual size is where word processors have settled, from the same
+    /// arithmetic.
+    private var preference: SizePreference = .fixed(PageZoom.opening)
+
+    /// Whether the percentage button is currently holding the page at 100%.
+    private var atActualSize = false
 
     func applyZoom(_ command: PageZoom.Command) {
         switch command {
         case .fit:
-            isFittingToWindow = true
-            fitMagnificationToWindow()
-        case .zoomIn, .zoomOut, .actualSize:
-            isFittingToWindow = false
-            magnify(to: PageZoom.stepped(from: scrollView.magnification, command))
+            preference = .fit
+            atActualSize = false
+        case .zoomIn, .zoomOut:
+            preference = .fixed(PageZoom.stepped(from: scrollView.magnification, command))
+            atActualSize = false
+        case .actualSize:
+            // Leaves the preference alone, so the percentage button still
+            // knows where to go back to. ⌘0 and that button are the same
+            // gesture reached two ways.
+            atActualSize = true
+        case .toggleActualSize:
+            atActualSize.toggle()
         }
         layOut()
+        if applyPreferredMagnification() { layOut() }
+        centreHorizontallyIfNeeded()
         updateGhost()
     }
 
-    /// The clip view's *frame* is the width in screen points; its bounds are
-    /// already divided by the magnification, which is the number being solved
-    /// for here.
-    private func fitMagnificationToWindow() {
-        let available = scrollView.contentView.frame.width
-        guard available > 1 else { return }
-        magnify(to: PageZoom.fitting(
-            canvasWidth: available,
-            pageWidth: PageFormat.current.pageRect.width,
-            padding: canvas.canvasPadding
-        ))
+    /// Sets the magnification the current preference asks for, and says
+    /// whether it moved — the caller re-centres the canvas when it did.
+    @discardableResult
+    private func applyPreferredMagnification() -> Bool {
+        magnify(to: atActualSize ? PageZoom.actualSize : preferredMagnification())
     }
 
-    private func magnify(to value: CGFloat) {
+    private func preferredMagnification() -> CGFloat {
+        switch preference {
+        case .fixed(let value): value
+        case .fit:
+            // The clip view's *frame* is the width in screen points; its bounds
+            // are already divided by the magnification, which is the number
+            // being solved for here.
+            scrollView.contentView.frame.width > 1
+                ? PageZoom.fitting(
+                    canvasWidth: scrollView.contentView.frame.width,
+                    pageWidth: PageFormat.current.pageRect.width,
+                    padding: canvas.canvasPadding
+                )
+                : scrollView.magnification
+        }
+    }
+
+    @discardableResult
+    private func magnify(to value: CGFloat) -> Bool {
         editor?.reportZoom(value)
-        guard abs(scrollView.magnification - value) > 0.001 else { return }
+        guard abs(scrollView.magnification - value) > 0.001 else { return false }
         scrollView.magnification = value
+        return true
     }
 
     /// Puts the caret in the page the first time there is a window to put it
@@ -356,6 +447,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     public var pageFrame: CGRect { canvas.pageView.frame }
 
     private var hasTakenInitialFocus = false
+    private var frameObserver: (any NSObjectProtocol)?
 
     // MARK: - Going to an element
 

@@ -30,6 +30,7 @@ public struct ScriptPageView: NSViewRepresentable {
         // makeNSView runs before the view has a window, so the first update
         // pass is the earliest moment the caret has somewhere to go.
         context.coordinator.surface.takeInitialFocus()
+        context.coordinator.surface.applyZoomForCurrentSize()
     }
 
     public func makeCoordinator() -> Coordinator { Coordinator() }

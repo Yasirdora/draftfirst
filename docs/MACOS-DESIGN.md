@@ -231,7 +231,7 @@ in the menu bar, where Mac users look for it:
 | File | New, Open, Save, Revert, Title Page, Export (PDF · FDX · Fountain · Text), Print | all present |
 | Edit | Undo/Redo, Find (⌘F), Find Scene (⌘L), Accept Suggestion | all present |
 | Format | Element ⌘1–⌘9, Scene Numbers, Revision | elements and numbers present; Revision is M4 |
-| View | Sidebar, Page/Typewriter/Focus, Zoom | Zoom present (⌘+ ⌘− ⌘0 ⌘9); sidebar and view modes still missing |
+| View | Sidebar, Page/Typewriter/Focus, Zoom | Zoom present (⌘+ ⌘− ⌘0 actual size, ⌘9 fit); sidebar and view modes still missing |
 | Window, Help | Standard | standard |
 
 The third column is not decoration. Read against the running app on

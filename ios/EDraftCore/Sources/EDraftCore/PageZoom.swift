@@ -20,6 +20,16 @@ public nonisolated enum PageZoom {
     /// The page at its own metrics: 612 points drawn as 612 points.
     public static let actualSize: CGFloat = 1
 
+    /// What a document opens at.
+    ///
+    /// Not 100%, for the reason above: a typographic point is 1/72 of an inch
+    /// and a screen point is not, so a page at its own metrics comes out under
+    /// half life size on a laptop. Word processors have landed on the same
+    /// answer from the same arithmetic — a default a notch above actual size,
+    /// around 125% to 150% — and it is a better place to start writing than
+    /// either extreme. The percentage button is one press from the truth.
+    public static let opening: CGFloat = 1.5
+
     /// Twice life size on a typical laptop, and the point past which a reader
     /// sees type rather than a page.
     public static let maximum: CGFloat = 2
@@ -27,6 +37,11 @@ public nonisolated enum PageZoom {
     /// The stops ⌘+ and ⌘− walk between. Coarse on purpose: a writer choosing
     /// a size wants a different size, not a nudge.
     public static let stops: [CGFloat] = [1, 1.1, 1.25, 1.5, 1.75, 2]
+
+    /// How the control says it: 152%, not 1.52.
+    public static func percentage(_ zoom: CGFloat) -> String {
+        "\(Int((zoom * 100).rounded()))%"
+    }
 
     /// What the writer asked for.
     public enum Command: Sendable, Equatable {
@@ -36,6 +51,10 @@ public nonisolated enum PageZoom {
         case actualSize
         /// The default: as large as the window allows, within the bounds.
         case fit
+        /// The percentage button: away to actual size, and back to whatever
+        /// the writer had. One control that answers "how big is this really?"
+        /// without costing them the size they were working at.
+        case toggleActualSize
     }
 
     /// The magnification at which a page of `pageWidth`, with `padding` of
@@ -60,7 +79,7 @@ public nonisolated enum PageZoom {
     public static func stepped(from current: CGFloat, _ command: Command) -> CGFloat {
         switch command {
         case .actualSize: return actualSize
-        case .fit: return current
+        case .fit, .toggleActualSize: return current
         case .zoomIn: return clamped(stops.first(where: { $0 > current + 0.001 }) ?? maximum)
         case .zoomOut: return clamped(stops.last(where: { $0 < current - 0.001 }) ?? actualSize)
         }
@@ -73,7 +92,7 @@ public nonisolated enum PageZoom {
         case .zoomIn: return current < maximum - 0.001
         case .zoomOut: return current > actualSize + 0.001
         case .actualSize: return abs(current - actualSize) > 0.001
-        case .fit: return true
+        case .fit, .toggleActualSize: return true
         }
     }
 

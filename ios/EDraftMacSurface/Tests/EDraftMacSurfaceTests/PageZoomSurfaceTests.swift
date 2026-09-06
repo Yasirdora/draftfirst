@@ -3,17 +3,18 @@ import EDraftCore
 import XCTest
 @testable import EDraftMacSurface
 
-/// How large the page is actually drawn, as opposed to the arithmetic that
-/// decides it — `PageZoomTests` in the core covers the numbers.
+/// How large the page is drawn. The arithmetic is `PageZoomTests` in the core;
+/// this is the behaviour a writer meets.
 ///
-/// A screenplay's measurements are absolute and a screen point is not, so a
-/// page at its own metrics comes out about half life size on a laptop. The
-/// page follows the window by default; these check that it does, and that it
-/// stops the moment the writer says otherwise.
+/// A document opens at `PageZoom.opening` — a notch above its own metrics,
+/// where word processors have settled, because 612 points drawn as 612 is
+/// under half life size on a laptop. The percentage button in the corner of
+/// the canvas toggles to the truth and back, and pressing it twice must give
+/// back the size the writer was working at.
 @MainActor
 final class PageZoomSurfaceTests: XCTestCase {
 
-    private func widened(to width: CGFloat) -> (EditorState, ScriptSurface) {
+    private func windowed(_ width: CGFloat) -> (EditorState, ScriptSurface) {
         let (editor, surface) = ScriptSurfaceHarness.bound([
             ScriptElement(type: .scene, text: "INT. KITCHEN - DAY"),
             ScriptElement(type: .action, text: "She waits.")
@@ -24,18 +25,32 @@ final class PageZoomSurfaceTests: XCTestCase {
         return (editor, surface)
     }
 
-    func testAWideWindowDrawsThePageLarger() {
-        let (editor, surface) = widened(to: 1470)
+    // MARK: - What a document opens at
 
-        XCTAssertEqual(surface.scrollView.magnification, PageZoom.maximum, accuracy: 0.01)
-        XCTAssertEqual(editor.zoom, PageZoom.maximum, accuracy: 0.01,
-                       "the model did not hear what the surface settled on")
+    func testADocumentOpensAtTheOpeningSize() {
+        let (editor, surface) = windowed(1470)
+
+        XCTAssertEqual(
+            surface.scrollView.magnification, PageZoom.opening, accuracy: 0.01,
+            "a wide window must not decide the writer's size for them, and "
+                + "neither should the page's own metrics"
+        )
+        XCTAssertEqual(editor.zoom, PageZoom.opening, accuracy: 0.01)
+    }
+
+    /// The opening size is a starting point, not a fit: a narrow window gets
+    /// the same 125% and scrolls, rather than shrinking to suit itself.
+    func testANarrowWindowStillOpensAtTheOpeningSize() {
+        let (_, surface) = windowed(500)
+
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.opening, accuracy: 0.01)
     }
 
     /// Magnification is a lens, not a re-layout: the page keeps its own
-    /// measurements, which is what makes it still a page.
+    /// measurements, which is what keeps it a page.
     func testThePageKeepsItsMetricsWhateverTheMagnification() {
-        let (_, surface) = widened(to: 1470)
+        let (_, surface) = windowed(1470)
+        surface.applyZoom(.fit)
 
         XCTAssertEqual(
             surface.pageFrame.width, PageFormat.letter.pageRect.width, accuracy: 0.5,
@@ -43,58 +58,119 @@ final class PageZoomSurfaceTests: XCTestCase {
         )
     }
 
-    func testANarrowWindowLeavesThePageAtItsOwnSize() {
-        let (_, surface) = widened(to: 500)
+    // MARK: - The percentage button
 
-        XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
+    func testTheButtonShowsActualSizeAndGivesTheOpeningSizeBack() {
+        let (_, surface) = windowed(1470)
+
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01,
+                       "the first press should show the page at its true size")
+
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.opening, accuracy: 0.01,
+                       "the second press should give back the size being worked at")
     }
 
-    // MARK: - Once the writer chooses, the window stops choosing
+    /// "If a user already selected a zoom, it will be that zoom percentage and
+    /// then 100%."
+    func testTheButtonRemembersASizeTheWriterChose() {
+        let (_, surface) = windowed(1470)
+        surface.applyZoom(.zoomIn)
+        let chosen = surface.scrollView.magnification
+        XCTAssertEqual(chosen, 1.75, accuracy: 0.01, "one step up from the opening 1.5")
 
-    func testChoosingASizeStopsTheWindowOverridingIt() {
-        let (editor, surface) = widened(to: 1470)
-        XCTAssertEqual(surface.scrollView.magnification, PageZoom.maximum, accuracy: 0.01)
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
+
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(
+            surface.scrollView.magnification, chosen, accuracy: 0.01,
+            "the writer's own size was lost behind the percentage button"
+        )
+    }
+
+    /// ⌘0 and the button are the same gesture reached two ways, so the button
+    /// must still know where to go back to afterwards.
+    func testActualSizeFromTheMenuLeavesTheWayBackIntact() {
+        let (_, surface) = windowed(1470)
+        surface.applyZoom(.zoomIn)
+        let chosen = surface.scrollView.magnification
 
         surface.applyZoom(.actualSize)
         XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
 
-        // A resize must not undo it.
-        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1200, height: 700)
-        surface.scrollView.layoutSubtreeIfNeeded()
-        surface.remeasure(to: 1200, elements: editor.screenplay.elements)
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(surface.scrollView.magnification, chosen, accuracy: 0.01)
+    }
 
+    // MARK: - Fitting
+
+    func testFittingFillsAWideWindowUpToTheCap() {
+        let (_, surface) = windowed(1470)
+        surface.applyZoom(.fit)
+
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.maximum, accuracy: 0.01)
+    }
+
+    func testFittingANarrowWindowLeavesThePageAtItsOwnSize() {
+        let (_, surface) = windowed(500)
+        surface.applyZoom(.fit)
+
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01,
+                       "a page smaller than its own metrics helps nobody")
+    }
+
+    func testAResizeFollowsTheWindowOnlyWhileFitting() {
+        let (editor, surface) = windowed(1470)
+        surface.applyZoom(.fit)
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.maximum, accuracy: 0.01)
+
+        // These widths are the canvas, not the window: the harness has no
+        // Navigator beside it. 600 points is less than a page and its margins,
+        // so the fit bottoms out at actual size.
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 600, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.remeasure(to: 600, elements: editor.screenplay.elements)
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01,
+                       "while fitting, a narrower window means a smaller fit")
+
+        surface.applyZoom(.zoomIn)
+        let chosen = surface.scrollView.magnification
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1470, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.remeasure(to: 1470, elements: editor.screenplay.elements)
         XCTAssertEqual(
-            surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01,
+            surface.scrollView.magnification, chosen, accuracy: 0.01,
             "resizing the window overrode a size the writer had chosen"
         )
     }
 
-    func testZoomToFitHandsTheWindowBackTheDecision() {
-        let (editor, surface) = widened(to: 1470)
-        surface.applyZoom(.actualSize)
+    // MARK: - Typing must not cost the writer their size
 
+    /// Reported as "when I type then the page become 100%".
+    func testTypingDoesNotDropTheZoom() {
+        let (editor, surface) = windowed(1470)
         surface.applyZoom(.fit)
+        let before = surface.scrollView.magnification
 
-        XCTAssertEqual(surface.scrollView.magnification, PageZoom.maximum, accuracy: 0.01)
-
-        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 500, height: 700)
-        surface.scrollView.layoutSubtreeIfNeeded()
-        surface.remeasure(to: 500, elements: editor.screenplay.elements)
+        ScriptSurfaceHarness.placeCaret(editor, surface, on: editor.screenplay.elements[1])
+        ScriptSurfaceHarness.type("X", into: surface)
 
         XCTAssertEqual(
-            surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01,
-            "after Zoom to Fit the window should be following again"
+            surface.scrollView.magnification, before, accuracy: 0.01,
+            "the page snapped back to its own metrics on a keystroke"
         )
     }
 
-    func testSteppingWalksFromWhereverTheFitLeftIt() {
-        let (_, surface) = widened(to: 500)
-        XCTAssertEqual(surface.scrollView.magnification, 1, accuracy: 0.01)
+    func testARerenderDoesNotDropTheZoom() {
+        let (editor, surface) = windowed(1470)
+        surface.applyZoom(.fit)
+        let before = surface.scrollView.magnification
 
-        surface.applyZoom(.zoomIn)
-        XCTAssertEqual(surface.scrollView.magnification, 1.1, accuracy: 0.01)
+        surface.renderIfNeeded(editor)
+        surface.remeasure(to: 1470, elements: editor.screenplay.elements)
 
-        surface.applyZoom(.zoomOut)
-        XCTAssertEqual(surface.scrollView.magnification, 1, accuracy: 0.01)
+        XCTAssertEqual(surface.scrollView.magnification, before, accuracy: 0.01)
     }
 }

@@ -38,6 +38,17 @@ struct EDraftMacApp: App {
         DocumentGroup(newDocument: EDraftDocument()) { file in
             ScriptDocumentWindow(document: file.$document)
         }
+        // Wide enough to hold a page at a size a person can read.
+        //
+        // The system default is 900 points, and a 240-point Navigator leaves
+        // 660 for a 612-point page plus its margins — so the page fits at
+        // exactly its own metrics and no larger, which on this class of
+        // display is under half life size. Fitting the page to the window
+        // then has nothing to work with. 1280 leaves 1040, which draws the
+        // page at about 1.5×; the writer can still make the window smaller,
+        // and the page scrolls rather than shrinking when they do.
+        .defaultSize(width: 1280, height: 860)
+        .defaultPosition(.center)
         .commands {
             // Accepting a completion is an editing action, not a formatting
             // one — it belongs in Edit, after Paste, with the key equivalent
@@ -161,8 +172,9 @@ struct FindCommands: View {
 /// metrics are right and the page still looks wrong, which is a display
 /// question rather than a document one.
 ///
-/// So the page fits the window by default and these are for choosing
-/// otherwise. ⌘0 and ⌘9 are the pair Preview uses, and mean the same here.
+/// A document opens at its own metrics and these are how a writer asks for
+/// something else. ⌘0 resets to 100%, which is both the default and what
+/// Preview binds it to.
 struct ZoomCommands: View {
     @FocusedValue(\.editor) private var editor
 
@@ -175,6 +187,8 @@ struct ZoomCommands: View {
             .keyboardShortcut("-", modifiers: .command)
             .disabled(!isAvailable(.zoomOut))
 
+        // ⌘0 is "put it back", and a document opens at its own metrics, so
+        // back is 100% — the same binding Preview uses, for the same reason.
         Button("Actual Size") { editor?.onZoom?(.actualSize) }
             .keyboardShortcut("0", modifiers: .command)
             .disabled(!isAvailable(.actualSize))
