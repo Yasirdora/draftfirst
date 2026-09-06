@@ -175,6 +175,11 @@ enum EditorPreviewConfiguration {
             // "@" forces a character cue in Fountain, deterministically.
             return "INT. LAB - NIGHT\n\nELENA\nWait.\n\n@EL"
         }
+        if arguments.contains("-qa-sharp-s") {
+            // "@" forces a character cue in Fountain, deterministically. The
+            // cue is empty so the typed ß is the whole of it.
+            return "INT. LAB - NIGHT\n\nELENA\nWait.\n\n@"
+        }
         if arguments.contains("-qa-quicktype-scene") {
             // A mid-word scene heading: QuickType would offer "bedroom" here.
             return "INT. BED"

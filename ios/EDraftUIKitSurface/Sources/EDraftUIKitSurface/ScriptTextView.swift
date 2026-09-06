@@ -107,6 +107,7 @@ struct ScriptTextView: UIViewRepresentable {
         let shouldExerciseLowercaseAction = CommandLine.arguments.contains("-qa-action-lowercase")
         let shouldExerciseUppercaseCharacter = CommandLine.arguments.contains("-qa-character-uppercase")
         let shouldExerciseQuickTypeScene = CommandLine.arguments.contains("-qa-quicktype-scene")
+        let shouldExerciseSharpS = CommandLine.arguments.contains("-qa-sharp-s")
         // Visual-QA fixture: scroll content under the header so its blur
         // can be verified from a screenshot, not guessed from a rest state.
         if CommandLine.arguments.contains("-qa-header-scroll") {
@@ -125,7 +126,8 @@ struct ScriptTextView: UIViewRepresentable {
             || shouldExerciseFirstCharacterBackspace
             || shouldExerciseLowercaseAction
             || shouldExerciseUppercaseCharacter
-            || shouldExerciseQuickTypeScene {
+            || shouldExerciseQuickTypeScene
+            || shouldExerciseSharpS {
             let coordinator = context.coordinator
             Task { @MainActor in
                 await Task.yield()
@@ -191,6 +193,8 @@ struct ScriptTextView: UIViewRepresentable {
                     coordinator.exerciseUppercaseCharacterRegression()
                 } else if shouldExerciseQuickTypeScene {
                     await coordinator.exerciseQuickTypeSceneRegression()
+                } else if shouldExerciseSharpS {
+                    coordinator.exerciseSharpSRegression()
                 }
             }
         }
@@ -983,6 +987,42 @@ struct ScriptTextView: UIViewRepresentable {
             precondition(
                 editor.screenplay.elements.last?.text == "ELNA",
                 "The model did not store the uppercased Character text."
+            )
+        }
+
+        /// A cue shouts, and ß shouts as SS — one UTF-16 unit becoming two.
+        ///
+        /// Both the model and this surface used to decline that, so the letter
+        /// stayed lowercase in a line that shouts; and once the Mac began
+        /// capitalising at the input boundary, the same keystroke produced SS
+        /// at a desk and ß on a phone. The rule is the model's now, and what
+        /// this surface owes it is a redraw when the answer is not the length
+        /// that was typed. The page and the file agreeing is the assertion
+        /// that matters — the rest is arithmetic.
+        func exerciseSharpSRegression() {
+            guard let editor,
+                  let textView,
+                  let cue = editor.screenplay.elements.last,
+                  cue.type == .character,
+                  cue.text.isEmpty,
+                  let mapped = ranges.first(where: { $0.id == cue.id }) else {
+                preconditionFailure("Sharp-S fixture expected a trailing empty Character element.")
+            }
+
+            textView.selectedRange = NSRange(location: NSMaxRange(mapped.range), length: 0)
+            textView.insertText("ß")
+
+            precondition(
+                editor.screenplay.elements.last?.text == "SS",
+                "A cue did not shout ß as SS; the model declined an expanding case mapping."
+            )
+            precondition(
+                textView.text.hasSuffix("SS"),
+                "The model shouted SS but the page still shows what was typed."
+            )
+            precondition(
+                textView.selectedRange.location == textView.textStorage.length,
+                "The caret did not follow the expansion; it should sit after SS, not inside it."
             )
         }
 

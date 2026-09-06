@@ -261,10 +261,20 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
     SWIFT_ACTIVE_COMPILATION_CONDITIONS='DEBUG EDITOR_PREVIEW'
   # then install and launch with one of:
   #   -qa-scroll-stability  -qa-action-lowercase
-  #   -qa-character-uppercase  -qa-quicktype-scene
+  #   -qa-character-uppercase  -qa-quicktype-scene  -qa-sharp-s
   # the app staying alive for ~10s is the pass
   ```
   Run it after touching anything about scrolling, typing or layout.
+
+  It is also the net most likely to break silently, because nothing else
+  compiles it. Moving the surface into a package broke it while 102 tests
+  stayed green; it was found by running the fixtures, not by the suite. If
+  you touch `ScriptTextView` or `EDraftApp`, build this configuration too —
+  a green `xcodebuild test` says nothing about it.
+
+  Each fixture should be watched failing once. `-qa-sharp-s` was: putting the
+  UTF-16 length guard back into `EditorState.normalizedText` kills the app on
+  launch, which is what a working net looks like.
 
 ---
 
