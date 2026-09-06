@@ -50,6 +50,31 @@ public enum SceneHeadingSeparator {
         return (lead + separator + rest, (lead as NSString).length + (separator as NSString).length)
     }
 
+    /// Whether a space typed at `caret` would only repeat the one the
+    /// separator already carries.
+    ///
+    /// Typing the dash writes `" - "` and leaves the caret after it, so a
+    /// writer typing a slug straight through — `INT. KITCHEN - DAY`, spaces
+    /// and all, which is how the muscle memory of every other screenwriting
+    /// app produces one — adds a second space against the first and gets
+    /// `INT. KITCHEN -  DAY`. Fountain still reads it, and so does
+    /// `splitSceneHeading`; the damage is that it reaches the page, the PDF
+    /// and the file, where a double space in a slug line is the kind of thing
+    /// a professional notices.
+    ///
+    /// Absorbing it is the same judgement this type already makes twice:
+    /// `spaced(in:replacing:)` trims whatever spacing surrounds the dash on
+    /// the way in, and `collapsed(in:endingAt:)` gives the writer the tight
+    /// hyphen back for one press of delete. A space in that position is noise
+    /// by the same reasoning, and stated as a function of the text rather than
+    /// of the last keystroke, so clicking into an existing heading behaves the
+    /// same as typing one.
+    public nonisolated static func absorbsSpace(in text: NSString, at caret: Int) -> Bool {
+        let width = (separator as NSString).length
+        guard caret >= width, caret <= text.length else { return false }
+        return text.substring(with: NSRange(location: caret - width, length: width)) == separator
+    }
+
     /// The tight hyphen a writer meant when the separator was not what they
     /// wanted — DRIVE-IN — reached by pressing delete once against a
     /// separator this type has just written.

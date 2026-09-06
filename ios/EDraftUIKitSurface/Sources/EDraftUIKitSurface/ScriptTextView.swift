@@ -679,6 +679,10 @@ struct ScriptTextView: UIViewRepresentable {
                 if text == "-", writeSceneSeparator(replacing: range, in: mapped, at: index) {
                     return false
                 }
+                if text == " ", range.length == 0,
+                   absorbsSeparatorSpace(at: range, in: mapped, at: index) {
+                    return false
+                }
                 if text.isEmpty, range.length == 1, let separatorEscape,
                    collapseSceneSeparator(
                     replacing: range, in: mapped, at: index, escape: separatorEscape
@@ -1397,6 +1401,20 @@ struct ScriptTextView: UIViewRepresentable {
 
         /// Takes the separator back, for the heading that meant a hyphen —
         /// DRIVE-IN. Answers whether it took the keystroke.
+        /// A space typed against the one the separator already carries is
+        /// dropped rather than doubled. `SceneHeadingSeparator` owns the
+        /// judgement; this only locates the caret inside the element and
+        /// refuses the keystroke. The Mac does the same, in the same words.
+        private func absorbsSeparatorSpace(
+            at range: NSRange, in mapped: ElementRange, at index: Int
+        ) -> Bool {
+            guard let editor, editor.screenplay.elements[index].type == .scene,
+                  let local = elementRelative(range, in: mapped) else { return false }
+            return SceneHeadingSeparator.absorbsSpace(
+                in: editor.screenplay.elements[index].text as NSString, at: local.location
+            )
+        }
+
         private func collapseSceneSeparator(
             replacing range: NSRange, in mapped: ElementRange, at index: Int, escape: SeparatorEscape
         ) -> Bool {

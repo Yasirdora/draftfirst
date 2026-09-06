@@ -106,4 +106,50 @@ final class SceneHeadingSeparatorTests: XCTestCase {
         )
         XCTAssertEqual(collapsed.text, "INT. DRIVE-")
     }
+
+    // MARK: - The space the separator already carries
+
+    /// Typing a slug straight through is how every other screenwriting app
+    /// teaches a writer to type one, and the dash key has already supplied the
+    /// space that follows it.
+    func testASpaceRightAfterTheSeparatorIsRedundant() throws {
+        let spaced = try XCTUnwrap(spacing("INT. KITCHEN", replacing: NSRange(location: 12, length: 0)))
+        XCTAssertEqual(spaced.text, "INT. KITCHEN - ")
+        XCTAssertTrue(
+            SceneHeadingSeparator.absorbsSpace(in: spaced.text as NSString, at: spaced.caret),
+            "the caret sits against the separator's own space; a second one would "
+                + "reach the page, the PDF and the file"
+        )
+    }
+
+    /// Stated about the text rather than the last keystroke, so returning to a
+    /// heading written earlier behaves the same as writing one now.
+    func testItHoldsForAHeadingTheWriterCameBackTo() {
+        XCTAssertTrue(
+            SceneHeadingSeparator.absorbsSpace(in: "INT. KITCHEN - DAY" as NSString, at: 15)
+        )
+    }
+
+    /// Everywhere else a space is a space.
+    func testASpaceAnywhereElseIsTyped() {
+        XCTAssertFalse(SceneHeadingSeparator.absorbsSpace(in: "INT. KITCHEN - " as NSString, at: 12))
+        XCTAssertFalse(SceneHeadingSeparator.absorbsSpace(in: "INT. KITCHEN" as NSString, at: 12))
+        XCTAssertFalse(SceneHeadingSeparator.absorbsSpace(in: "INT. DRIVE-IN" as NSString, at: 13))
+        XCTAssertFalse(SceneHeadingSeparator.absorbsSpace(in: "INT. LAB" as NSString, at: 0))
+        XCTAssertFalse(SceneHeadingSeparator.absorbsSpace(in: "INT. LAB" as NSString, at: 40))
+    }
+
+    /// The condition is exactly the one `collapsed` uses, and that is not a
+    /// coincidence worth losing: both are asking whether the caret is standing
+    /// against a separator this type wrote.
+    func testItAgreesWithCollapseAboutWhereTheSeparatorIs() {
+        let heading = "INT. KITCHEN - DAY" as NSString
+        for caret in 0...heading.length {
+            XCTAssertEqual(
+                SceneHeadingSeparator.absorbsSpace(in: heading, at: caret),
+                SceneHeadingSeparator.collapsed(in: heading, endingAt: caret) != nil,
+                "the two disagreed about the separator at \(caret)"
+            )
+        }
+    }
 }

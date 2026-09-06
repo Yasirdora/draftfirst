@@ -48,12 +48,12 @@ a number drops, you broke something.
 ```bash
 npm test                                              # 414 TypeScript
 swift test --package-path ios/eDraftEngine            #  99 engine
-swift test --package-path ios/EDraftCore              #  88 core        (macOS)
+swift test --package-path ios/EDraftCore              #  92 core        (macOS)
 swift test --package-path ios/EDraftUI                #  18 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  79 Mac surface (macOS)
+swift test --package-path ios/EDraftMacSurface        #  82 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 103 app
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 105 app
 xcodebuild build -project ios/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   -configuration Debug CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
   DEVELOPMENT_TEAM=""                                        # the Mac app

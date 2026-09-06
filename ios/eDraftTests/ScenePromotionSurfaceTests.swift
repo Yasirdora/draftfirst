@@ -44,6 +44,42 @@ final class ScenePromotionSurfaceTests: XCTestCase {
         }
     }
 
+    /// Typing a slug straight through, the way a writer trained on any other
+    /// screenwriting app types one: spaces and all.
+    ///
+    /// The dash key writes `" - "` and leaves the caret after it, so the space
+    /// typed next lands on one that is already there. Fountain still reads the
+    /// heading, and so does `splitSceneHeading`; the cost is that the double
+    /// space reaches the page, the PDF and the file. Found in the Mac app by
+    /// hand and checked here, because the two surfaces share the rule.
+    func testTheSpaceAfterTheDashIsNotTypedTwice() {
+        let action = ScriptElement(type: .action, text: "")
+        let (editor, textView, coordinator) = surface([action])
+        withExtendedLifetime(coordinator) {}
+
+        for character in "int. kitchen - day" {
+            type(String(character), into: textView, coordinator)
+        }
+
+        XCTAssertEqual(
+            editor.screenplay.elements[0].text, "INT. KITCHEN - DAY",
+            "the separator already carries its space; the writer's landed on top of it"
+        )
+    }
+
+    /// The writer who does not type the space must still get the separator's.
+    func testTheSeparatorStillSuppliesItsOwnSpace() {
+        let action = ScriptElement(type: .action, text: "")
+        let (editor, textView, coordinator) = surface([action])
+        withExtendedLifetime(coordinator) {}
+
+        for character in "int. kitchen -day" {
+            type(String(character), into: textView, coordinator)
+        }
+
+        XCTAssertEqual(editor.screenplay.elements[0].text, "INT. KITCHEN - DAY")
+    }
+
     func testTypingASlugTurnsAnActionLineIntoASceneHeading() {
         let action = ScriptElement(type: .action, text: "")
         let (editor, textView, coordinator) = surface([action])
