@@ -39,19 +39,43 @@ final class TallGlyphTests: XCTestCase {
         )
     }
 
-    func testThePdfDrawsATallGlyphInsideTheLineBox() throws {
+    /// The PDF draws the glyph at its own size and lets it overflow, which is
+    /// what the screen does and what every other editor does. It is emphatically
+    /// not scaled: the earlier version of this test measured a helper in this
+    /// file that did its own scaling, so it asserted its own arithmetic and
+    /// could not fail for the right reason.
+    func testThePdfDrawsATallGlyphAtItsOwnSize() throws {
         let screenplay = EDraftCore.Screenplay(elements: [
             ScriptElement(type: .action, text: line)
         ])
         let pdf = ScreenplayPageRenderer.pdfData(screenplay)
         XCTAssertTrue(pdf.starts(with: Data("%PDF".utf8)))
 
-        // Paint the same run the PDF paints, after the fit, and require
-        // the ink to sit in 12pt.
-        let fitted = fittedHeight(of: line, attributes: pdfAttributes)
-        XCTAssertLessThanOrEqual(
-            fitted, ScreenplayPageLayout.lineHeight + 0.5,
-            "the PDF still draws 🔑 at \(fitted)pt, which overflows the 12pt line"
+        let font = try XCTUnwrap(
+            ScreenplayPageRenderer.textAttributesForTests[.font] as? NSFont
+        )
+        XCTAssertEqual(
+            font.pointSize, ScreenplayPageLayout.fontSize, accuracy: 0.01,
+            "the PDF is drawing at something other than Courier 12"
+        )
+    }
+
+    /// Screen and PDF must agree, which is the whole point — the same script
+    /// exported from a desk and read on a phone should be one document.
+    func testScreenAndPdfUseTheSameSizeForTheGlyph() throws {
+        let elements = [ScriptElement(type: .action, text: line)]
+        let surface = ScriptSurface(measure: 500)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+        surface.render(elements)
+
+        let storage = try XCTUnwrap(surface.textView.textStorage)
+        let emoji = (storage.string as NSString).range(of: "🔑")
+        let onScreen = storage.attribute(.font, at: emoji.location, effectiveRange: nil) as? NSFont
+        let inPdf = ScreenplayPageRenderer.textAttributesForTests[.font] as? NSFont
+
+        XCTAssertEqual(
+            onScreen?.pointSize ?? 0, inPdf?.pointSize ?? -1, accuracy: 0.01,
+            "the page and the printed page disagree about how big the glyph is"
         )
     }
 
@@ -71,15 +95,52 @@ final class TallGlyphTests: XCTestCase {
             fragment.height, ScreenplayPageLayout.lineHeight, accuracy: 0.5,
             "the line box grew; six lines per inch is the format"
         )
+        // And the glyph is *not* shrunk to buy that. Line height is an
+        // advance, not a clipping box: a tall glyph overflows into the space
+        // above it, which is what Google Docs and Final Draft do and why their
+        // emoji look right. Scaling it down was treating the symptom, and it
+        // showed — a smaller emoji whose ink still overran its advance, with
+        // the caret drawn through it.
         let storage = try XCTUnwrap(surface.textView.textStorage)
         let emoji = (storage.string as NSString).range(of: "🔑")
         XCTAssertGreaterThan(emoji.length, 0)
         let font = storage.attribute(.font, at: emoji.location, effectiveRange: nil) as? NSFont
-        XCTAssertLessThan(
-            font?.pointSize ?? ScreenplayPageLayout.fontSize,
-            ScreenplayPageLayout.fontSize,
-            "the emoji is still at Courier 12 and will clip"
+        XCTAssertEqual(
+            font?.pointSize ?? 0, ScreenplayPageLayout.fontSize, accuracy: 0.01,
+            "the emoji was scaled; it should sit at its own size and overflow"
         )
+    }
+
+    /// Every line in the document is one line tall, whatever it contains.
+    /// This is the property pagination rests on, and the one `maximumLineHeight`
+    /// used to buy at the cost of cropping.
+    func testEveryLineIsOneLineTallIncludingTheOneWithTheEmoji() throws {
+        let elements = [
+            ScriptElement(type: .action, text: line),
+            ScriptElement(type: .action, text: "A plain line of action."),
+            ScriptElement(type: .action, text: line)
+        ]
+        let surface = ScriptSurface(measure: 500)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 600)
+        surface.render(elements)
+        let layout = try XCTUnwrap(surface.textView.layoutManager)
+
+        var index = 0
+        var checked = 0
+        while index < layout.numberOfGlyphs {
+            var effective = NSRange(location: 0, length: 0)
+            // The *used* rect: the line of type itself. The fragment rect is
+            // that plus any paragraph spacing below, which is a blank line
+            // between elements and must survive.
+            let rect = layout.lineFragmentUsedRect(forGlyphAt: index, effectiveRange: &effective)
+            XCTAssertEqual(
+                rect.height, ScreenplayPageLayout.lineHeight, accuracy: 0.01,
+                "a line of type was \(rect.height) points, not one line"
+            )
+            checked += 1
+            index = NSMaxRange(effective)
+        }
+        XCTAssertGreaterThan(checked, 2, "expected several lines to check")
     }
 
     func testACourierLineIsNotScaled() {
@@ -122,5 +183,38 @@ final class TallGlyphTests: XCTestCase {
             width += size.width * scale
         }
         return width
+    }
+}
+
+/// Fixing the leading must not cost the blank line between elements.
+///
+/// A screenplay's shape is as much the space between things as the type: a
+/// heading, a blank line, then action. TextKit carries that spacing in the
+/// line fragment rect, the same rectangle the leading fix pins — so pinning
+/// the wrong one squashes the page flat and every element runs together.
+@MainActor
+final class ParagraphSpacingTests: XCTestCase {
+
+    func testAHeadingIsStillSeparatedFromItsAction() throws {
+        let elements = [
+            ScriptElement(type: .scene, text: "INT. LIVING ROOM - DAY"),
+            ScriptElement(type: .action, text: "She waits by the window.")
+        ]
+        let surface = ScriptSurface(measure: 500)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 600)
+        surface.render(elements)
+        let layout = try XCTUnwrap(surface.textView.layoutManager)
+
+        let heading = layout.lineFragmentRect(forGlyphAt: 0, effectiveRange: nil)
+        let headingType = layout.lineFragmentUsedRect(forGlyphAt: 0, effectiveRange: nil)
+
+        XCTAssertEqual(
+            headingType.height, ScreenplayPageLayout.lineHeight, accuracy: 0.01,
+            "the line of type is one line"
+        )
+        XCTAssertGreaterThan(
+            heading.height, headingType.height + 1,
+            "the blank line after a scene heading was squashed out"
+        )
     }
 }

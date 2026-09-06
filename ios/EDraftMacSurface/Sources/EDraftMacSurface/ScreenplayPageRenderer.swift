@@ -14,6 +14,10 @@ public enum ScreenplayPageRenderer {
     private static let courier = NSFont(name: "Courier", size: ScreenplayPageLayout.fontSize)
         ?? .monospacedSystemFont(ofSize: ScreenplayPageLayout.fontSize, weight: .regular)
 
+    /// What the PDF actually paints with, so a test can compare it against the
+    /// screen rather than against its own arithmetic.
+    static var textAttributesForTests: [NSAttributedString.Key: Any] { textAttributes }
+
     private static var textAttributes: [NSAttributedString.Key: Any] {
         [.font: courier, .foregroundColor: NSColor.black]
     }
@@ -131,34 +135,12 @@ public enum ScreenplayPageRenderer {
         context.endPDFPage()
     }
 
-    /// Walk composed characters so a tall glyph (an emoji) is scaled into
-    /// the 12pt line without shrinking the Courier around it. Unconstrained
-    /// `draw(at:)` overflowed; the editor's `maximumLineHeight` clipped.
-    /// Both now fit.
+    /// A glyph taller than the line — an emoji — overflows into the space
+    /// above it, exactly as it does on screen and as it does in every other
+    /// editor. It is not scaled: line height is an advance, not a clipping
+    /// box, and shrinking the picture to fit the box was the screen's old
+    /// `maximumLineHeight` problem wearing a different hat.
     private static func drawFitted(_ string: String, at origin: CGPoint, in context: CGContext) {
-        var x = origin.x
-        let y = origin.y
-        (string as NSString).enumerateSubstrings(
-            in: NSRange(location: 0, length: (string as NSString).length),
-            options: .byComposedCharacterSequences
-        ) { substring, _, _, _ in
-            guard let substring else { return }
-            let size = (substring as NSString).size(withAttributes: textAttributes)
-            let height = ScriptLayout.glyphPathHeight(substring, font: courier)
-            let scale = ScreenplayPageLayout.scaleToFitLine(measuredHeight: height)
-            if scale < 0.999 {
-                context.saveGState()
-                context.translateBy(x: x, y: y)
-                context.scaleBy(x: scale, y: scale)
-                (substring as NSString).draw(at: .zero, withAttributes: textAttributes)
-                context.restoreGState()
-                x += size.width * scale
-            } else {
-                (substring as NSString).draw(
-                    at: CGPoint(x: x, y: y), withAttributes: textAttributes
-                )
-                x += size.width
-            }
-        }
+        (string as NSString).draw(at: origin, withAttributes: textAttributes)
     }
 }

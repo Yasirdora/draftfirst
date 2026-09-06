@@ -193,3 +193,31 @@ at a time with one paragraph style and would need an attributed string.
 **The phone's text machinery is the most delicate code in the project.** Do the
 PDF first, prove it against the Mac's output for the same file, and only then
 touch the editor's attributes.
+
+### Update, 2026-09-06: the Mac stopped scaling, and the phone is now the outlier
+
+Scaling was the wrong answer and has been removed. The owner asked the right
+question — why Google Docs, Final Draft and the rest do not clip — and the
+answer is that they treat line height as a baseline-to-baseline *advance*, not
+as a clipping box. A glyph taller than the line overflows into the space above
+and nothing crops it.
+
+`maximumLineHeight` is the odd one out: it does not merely space the line, it
+compresses the fragment and cuts the ascent. So the Mac now sets no line clamp
+at all and owns its leading through an `NSLayoutManagerDelegate`
+(`FixedLeading`), which pins the *used* rect to 12 points, carries whatever
+paragraph spacing sits below it, and sets the baseline. Six lines to the inch
+is preserved exactly; a tall glyph draws at its own size and overflows. The PDF
+does the same by simply drawing the run.
+
+**The trap, found by looking:** the fragment rect and the used rect are not the
+same thing. Pin the fragment and the blank line between a heading and its
+action is squashed out — the page goes flat and every element runs together.
+Pin the used rect and carry the difference. `ParagraphSpacingTests` covers it.
+
+**For the phone, the same shape, with one extra problem.** `ScriptTextView`'s
+line height is not a constant: `ScriptTypography.lineHeight(forFontLineHeight:)`
+scales with Dynamic Type, so the delegate has to read the resolved height for
+the line it is being asked about rather than hold a fixed 12. Everything else
+transfers — the phone is TextKit 1 (`usingTextLayoutManager: false`), so the
+same delegate method applies.

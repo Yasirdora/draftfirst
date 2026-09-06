@@ -74,6 +74,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         container.widthTracksTextView = false
         let layoutManager = NSLayoutManager()
         let storage = NSTextStorage()
+        layoutManager.delegate = fixedLeading
         storage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(container)
 
@@ -529,6 +530,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// Every sheet. Empty only before the first layout.
     public var pageFrames: [CGRect] { canvas.pageViews.map(\.frame) }
 
+    /// Six lines to the inch without cropping a tall glyph. Held here because
+    /// `NSLayoutManager.delegate` is weak.
+    private let fixedLeading = FixedLeading()
     private var hasTakenInitialFocus = false
     private var hasPinnedOpeningViewport = false
     /// Tests that isolate the opening zoom set this false; the SwiftUI
@@ -878,9 +882,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             min(updatedRange.length, selected.location - updatedRange.location)
         )
         editor.applyLiveText(id: edit.elementID, text: text, selectionOffset: offset)
-        if let storage = textView.textStorage {
-            ScriptLayout.fitTallGlyphs(storage, range: updatedRange)
-        }
         return true
     }
 

@@ -69,7 +69,6 @@ public enum ScriptLayout {
                 result.append(NSAttributedString(string: "\n", attributes: style))
             }
         }
-        fitTallGlyphs(result)
         return (result, ranges)
     }
 
@@ -108,9 +107,11 @@ public enum ScriptLayout {
     ) -> [NSAttributedString.Key: Any] {
         let font = font(for: kind)
         let paragraph = NSMutableParagraphStyle()
-        let lineHeight = ScreenplayPageLayout.lineHeight
-        paragraph.minimumLineHeight = lineHeight
-        paragraph.maximumLineHeight = lineHeight
+        // Leading is `FixedLeading`'s, not the paragraph style's. Clamping it
+        // here compresses the line fragment and crops anything taller than a
+        // line; the delegate sets the same 12pt advance and lets a tall glyph
+        // overflow, which is what every other editor does.
+        _ = ScreenplayPageLayout.lineHeight
         // Space belongs to the paragraph before, so the caret is drawn at the
         // next baseline rather than stretched through screenplay whitespace.
         paragraph.paragraphSpacing = spacingAfter
