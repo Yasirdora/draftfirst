@@ -143,6 +143,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // window at the same moment the surface does — and that moment, not a
         // SwiftUI update pass, is when the page can take the caret.
         canvas.onMoveToWindow = { [weak self] in
+            self?.openTheWindowToItsFullHeight()
             self?.takeInitialFocus()
             self?.applyZoomForCurrentSize()
         }
@@ -552,6 +553,26 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // window — so the page is centred throughout the gesture rather than
         // arriving there in a jump when the fingers lift.
         updateGhost()
+    }
+
+    /// Lets the page run under the toolbar, which is the whole of what the
+    /// header needed.
+    ///
+    /// macOS softens content passing beneath the chrome by itself —
+    /// `NSScrollEdgeEffectStyle`, applied by the titlebar to whatever scrolls
+    /// under it. It never appeared here because nothing scrolled under it: a
+    /// window's content view stops below the titlebar unless it is told
+    /// otherwise, so the toolbar had its own opaque ground beneath it and
+    /// ended in a step. `.fullSizeContentView` is the switch, and it is the
+    /// same one TextEdit and Pages throw.
+    ///
+    /// Nothing needs to move to make room. `NSScrollView` insets its *content*
+    /// below the titlebar on its own — `automaticallyAdjustsContentInsets`,
+    /// left at its default — so the first line still starts in the clear while
+    /// the desk carries on up behind the glass.
+    private func openTheWindowToItsFullHeight() {
+        guard let window = scrollView.window else { return }
+        window.styleMask.insert(.fullSizeContentView)
     }
 
     /// Puts the caret in the page the first time there is a window to put it

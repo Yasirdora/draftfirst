@@ -114,9 +114,24 @@ public struct ScriptWindow: View {
             // under the caret, which is the one thing they change while
             // writing.
             // The page fades under the chrome rather than meeting it at a
-            // line. This is the system's own edge treatment and the reason
-            // the desk was given to it above.
-            .scrollEdgeEffectStyle(.soft, for: .top)
+            // line.
+            //
+            // Nothing here states the toolbar's background, and that is a
+            // decision rather than an omission.
+            //
+            // The system's own background is what carries
+            // `NSScrollEdgeEffectStyle` — the script softening as it passes
+            // under the chrome, which is the whole reason the page was given
+            // the full height of the window. Hiding it removes the effect
+            // along with the ground: measured, the script then runs sharp
+            // into the controls, `INT. ROOM 8 - DAY` clipped against the
+            // toolbar with no fade at all.
+            //
+            // What is left is a tonal step at the very top of a document that
+            // has not been scrolled, because the toolbar's ground is
+            // `windowBackgroundColor` and the desk is `screenplayDesk`. It is
+            // the smaller of the two faults by a distance, and it is what
+            // every Mac document window does.
             .toolbar(removing: .title)
             .toolbar {
                 ToolbarItem(placement: .navigation) {
