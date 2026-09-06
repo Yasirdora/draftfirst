@@ -37,10 +37,20 @@ final class ScreenplayDeskTests: XCTestCase {
     /// It was only wrong in a window. Pinning the numbers is what notices a
     /// semantic colour being put back.
     func testTheDeskIsTheStatedGreyAndNotASemanticColour() {
-        XCTAssertEqual(rgb(.screenplayDesk, in: .darkAqua).r, 42)
-        XCTAssertEqual(rgb(.screenplayDesk, in: .darkAqua).g, 42)
-        XCTAssertEqual(rgb(.screenplayDesk, in: .darkAqua).b, 43)
+        XCTAssertEqual(rgb(.screenplayDesk, in: .darkAqua).r, 30)
         XCTAssertEqual(rgb(.screenplayDesk, in: .aqua).r, 150)
+    }
+
+    /// The desk is the chrome's own value in dark, and that is not a
+    /// coincidence to be tidied away: the toolbar draws
+    /// `windowBackgroundColor` behind itself, and any other desk meets it at
+    /// a step across the top of the window. Change one and this notices.
+    func testTheDarkDeskMeetsTheToolbarWithoutAStep() {
+        XCTAssertEqual(
+            rgb(.screenplayDesk, in: .darkAqua).r,
+            rgb(.windowBackgroundColor, in: .darkAqua).r,
+            "a desk that is not the chrome's value draws a line under the toolbar"
+        )
     }
 
     /// Neutral, in both looks. A desk with a hue in it tints everything drawn
@@ -58,25 +68,20 @@ final class ScreenplayDeskTests: XCTestCase {
         }
     }
 
-    /// A sheet lies *on* a desk, so in dark mode — where eDraft's page is a
-    /// near-black #1E1E1E — the desk has to be the lighter of the two, and by
-    /// enough that the edge survives.
-    func testTheDeskIsLighterThanThePageInDarkMode() {
-        let desk = rgb(.screenplayDesk, in: .darkAqua)
-        let page = rgb(.textBackgroundColor, in: .darkAqua)
+    /// One rule, both looks: a sheet is the lit thing and the desk is
+    /// darker. Dark mode used to invert it — the desk lighter than the page —
+    /// which made the page a hole rather than a sheet, and put a step between
+    /// the desk and the chrome above it.
+    func testTheDeskIsDarkerThanThePaperInBothLooks() {
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            let desk = rgb(.screenplayDesk, in: name)
+            let paper = rgb(.screenplayPaper, in: name)
 
-        XCTAssertGreaterThanOrEqual(
-            desk.r - page.r, 10,
-            "the page stops reading as a sheet once the desk comes level with it"
-        )
-    }
-
-    /// And the other way round in light, where the page is white and the desk
-    /// is the mid grey a page has always been photographed against.
-    func testTheDeskIsDarkerThanThePageInLightMode() {
-        let desk = rgb(.screenplayDesk, in: .aqua)
-        let page = rgb(.textBackgroundColor, in: .aqua)
-
-        XCTAssertGreaterThanOrEqual(page.r - desk.r, 10)
+            XCTAssertGreaterThanOrEqual(
+                paper.r - desk.r, 10,
+                "in \(name.rawValue) the desk is not below the sheet: "
+                    + "desk \(desk.r), paper \(paper.r)"
+            )
+        }
     }
 }

@@ -132,7 +132,7 @@ final class PageCanvasView: NSView {
             // colour here would stop at its edge and draw a border round them.
             layer?.backgroundColor = NSColor.clear.cgColor
             for page in pageViews {
-                page.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+                page.layer?.backgroundColor = NSColor.screenplayPaper.cgColor
                 page.layer?.borderColor = NSColor.separatorColor.cgColor
                 page.layer?.borderWidth = 1
                 page.layer?.shadowColor = NSColor.black.cgColor

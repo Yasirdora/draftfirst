@@ -280,8 +280,8 @@ Shared with iOS wherever the platform allows, so the two apps are one product.
 | Title | 13pt semibold | §1.7 |
 | Subtitle / metric | 11pt secondary / tertiary | |
 | Section header | 11pt semibold, secondary | |
-| Canvas | `NSColor.screenplayDesk` — #969696 light, #2A2A2B dark | see below |
-| Page | `textBackgroundColor`, 1pt shadow | |
+| Canvas | `NSColor.screenplayDesk` — #969696 light, #1E1E1E dark | see below |
+| Page | `NSColor.screenplayPaper` — white light, #2C2C2E dark, 1pt shadow | |
 | Script face | Courier Prime 12pt, engine metrics | identical to iOS and to print |
 
 Materials: sidebar `.sidebar`, toolbar unified (`.windowToolbarStyle(.unified)`
@@ -298,11 +298,21 @@ sheet sank into the desk. The page never moved with it, because a layer's
 `cgColor` is a snapshot and is not re-resolved, so the two surfaces drifted
 apart until they crossed.
 
-The desk is therefore the one fixed value in the app: two literals, stated in
-`ScreenplayDesk.swift`, pinned by `ScreenplayDeskTests`. Note that the
+The desk and the paper are therefore the fixed values in the app, stated in
+`ScreenplayDesk.swift` and pinned by `ScreenplayDeskTests`. Note that the
 relationship tests there pass with the old colour and only the exact-value
 test fails — outside a window the semantic colour looks correct, which is why
 this survived as long as it did.
+
+**One rule orders them: the desk is darker than the paper, in both looks.**
+That is how a sheet has always read, and it is what Pages shows — a white page
+on grey. Dark mode had it inverted (desk #2A2A2B over paper #1E1E1E), which
+cost two things. The page read as a hole rather than a sheet. And the desk met
+the toolbar — whose own ground is `windowBackgroundColor`, #1E1E1E — at a
+twelve-level step, drawing a line across the top of the window exactly where
+the system was trying to draw a gradient. The dark desk is now that same
+#1E1E1E, so there is nothing to step between, and the paper is lifted to
+#2C2C2E so the scroll edge effect has something to ramp from.
 
 ---
 
