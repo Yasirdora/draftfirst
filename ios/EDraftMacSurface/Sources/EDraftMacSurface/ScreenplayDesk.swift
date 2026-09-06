@@ -18,11 +18,18 @@ extension NSColor {
     ///
     /// The dark desk is the chrome's own `windowBackgroundColor`, so there is
     /// nothing left to step between; `ScreenplayDeskTests` ties the two.
-    static let screenplayDesk = NSColor(name: "screenplayDesk") { appearance in
-        appearance.isDark
-            ? NSColor(srgbRed: 0.118, green: 0.118, blue: 0.118, alpha: 1)   // #1E1E1E
-            : NSColor(srgbRed: 0.588, green: 0.588, blue: 0.588, alpha: 1)   // #969696
-    }
+    /// Behind the page: AppKit's own, and tinted by the system exactly as
+    /// Finder's surfaces are.
+    ///
+    /// This was a fixed grey for a while, because with the old near-black
+    /// page the tinted colour resolved *darker* than the sheet and the page
+    /// became a hole. The page is paper now — two hundred levels lighter than
+    /// anything the tint can produce — so the reason is gone, and a stated
+    /// grey only made this window the one thing on the desktop that does not
+    /// answer to the writer's Appearance settings. Measured against Finder in
+    /// the same session: its window edge #1F1E2C, its sidebar #1D1C26, its
+    /// content #21202C — three surfaces, all tinted, a few levels apart.
+    static var screenplayDesk: NSColor { .underPageBackgroundColor }
 
     /// The page. Light unless the writer has asked for a dark one — see
     /// `PagePaper`, and note that the choice only means anything in dark
@@ -34,7 +41,11 @@ extension NSColor {
             // lamp rather than a page.
             return NSColor(srgbRed: 0.980, green: 0.973, blue: 0.957, alpha: 1) // #FAF8F4
         }
-        return NSColor(srgbRed: 0.173, green: 0.173, blue: 0.180, alpha: 1)     // #2C2C2E
+        // Lifted from #2C2C2E once the desk went back to
+        // `underPageBackgroundColor`: four levels above it is not a sheet,
+        // it is a slightly different patch of desk. `ScreenplayDeskTests`
+        // holds the gap.
+        return NSColor(srgbRed: 0.227, green: 0.227, blue: 0.235, alpha: 1)     // #3A3A3C
     }
 
     /// What is written on it. Tied to the paper rather than to the app's

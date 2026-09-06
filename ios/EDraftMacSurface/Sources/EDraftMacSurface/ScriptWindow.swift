@@ -198,17 +198,6 @@ public struct ScriptWindow: View {
                 }
             }
         }
-        // The desk is the window's ground, not just the detail column's.
-        //
-        // A sidebar on this system is an inset pane of glass floating over the
-        // window rather than a slab filling a column, so the window shows
-        // around it — down its outer edge, and in the rounded corners. That
-        // ground was the plain window background while the desk beside it was
-        // `screenplayDesk`, which is the border the Navigator appeared to
-        // have: not a line drawn anywhere, but two grounds meeting. Giving the
-        // window the same colour the desk uses makes it one surface from edge
-        // to edge with the glass laid over it.
-        .containerBackground(Color(nsColor: .screenplayDesk), for: .window)
         .onChange(of: tab) { _, tab in
             if tab != .cast { selectedCharacter = nil }
         }

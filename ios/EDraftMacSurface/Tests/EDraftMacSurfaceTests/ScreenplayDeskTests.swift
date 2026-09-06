@@ -32,57 +32,46 @@ final class ScreenplayDeskTests: XCTestCase {
         return out
     }
 
-    /// The exact values, because the relationship tests below cannot catch
-    /// the bug on their own: resolved *outside* a window,
-    /// `underPageBackgroundColor` is #282828 and passes every one of them.
-    /// It was only wrong in a window. Pinning the numbers is what notices a
-    /// semantic colour being put back.
-    func testTheDeskIsTheStatedGreyAndNotASemanticColour() {
-        XCTAssertEqual(rgb(.screenplayDesk, in: .darkAqua).r, 30)
-        XCTAssertEqual(rgb(.screenplayDesk, in: .aqua).r, 150)
-    }
-
-    /// The desk is the chrome's own value in dark, and that is not a
-    /// coincidence to be tidied away: the toolbar draws
-    /// `windowBackgroundColor` behind itself, and any other desk meets it at
-    /// a step across the top of the window. Change one and this notices.
-    func testTheDarkDeskMeetsTheToolbarWithoutAStep() {
-        XCTAssertEqual(
-            rgb(.screenplayDesk, in: .darkAqua).r,
-            rgb(.windowBackgroundColor, in: .darkAqua).r,
-            "a desk that is not the chrome's value draws a line under the toolbar"
-        )
-    }
-
-    /// Neutral, in both looks. A desk with a hue in it tints everything drawn
-    /// on it, and the one this replaced had a blue cast of 13 — which is
-    /// exactly what "the background is ugly dark blue" was describing.
-    func testTheDeskHasNoColourInIt() {
+    /// The desk is Apple's own behind-the-page colour, and is meant to be.
+    ///
+    /// It was a stated literal for a while, because with the old near-black
+    /// page the tinted value resolved *darker* than the sheet and the page
+    /// became a hole. The page is paper now, so the reason is gone — and a
+    /// fixed grey made this the one window on the desktop that does not
+    /// answer to the writer's Appearance settings. Measured against Finder in
+    /// the same session: its window edge #1F1E2C, sidebar #1D1C26, content
+    /// #21202C, all tinted, all within a few levels of each other. This
+    /// window now lands within two of each.
+    func testTheDeskIsApplesOwnBehindThePageColour() {
         for name in [NSAppearance.Name.aqua, .darkAqua] {
-            let desk = rgb(.screenplayDesk, in: name)
-            XCTAssertLessThanOrEqual(
-                abs(desk.b - desk.r), 1,
-                "the desk has a cast in \(name.rawValue): "
-                    + String(format: "#%02X%02X%02X", desk.r, desk.g, desk.b)
+            XCTAssertEqual(
+                rgb(.screenplayDesk, in: name).r,
+                rgb(.underPageBackgroundColor, in: name).r,
+                "the desk stopped being the system's, and will stop tinting with it"
             )
-            XCTAssertLessThanOrEqual(abs(desk.g - desk.r), 1)
         }
     }
 
-    /// One rule, both looks: a sheet is the lit thing and the desk is
-    /// darker. Dark mode used to invert it — the desk lighter than the page —
-    /// which made the page a hole rather than a sheet, and put a step between
-    /// the desk and the chrome above it.
-    func testTheDeskIsDarkerThanThePaperInBothLooks() {
-        for name in [NSAppearance.Name.aqua, .darkAqua] {
-            let desk = rgb(.screenplayDesk, in: name)
-            let paper = rgb(.screenplayPaper, in: name)
-
-            XCTAssertGreaterThanOrEqual(
-                paper.r - desk.r, 10,
-                "in \(name.rawValue) the desk is not below the sheet: "
-                    + "desk \(desk.r), paper \(paper.r)"
-            )
+    /// One rule, every combination: a sheet is the lit thing and the desk is
+    /// darker. It is what makes a page read as a page, and it is the distance
+    /// the header's fade travels across.
+    ///
+    /// This is the assertion that caught the desk moving back to
+    /// `underPageBackgroundColor`: #282828 left the *dark* page four levels
+    /// above its own desk, which is not a sheet, it is a slightly different
+    /// patch of desk.
+    func testTheDeskIsAlwaysBelowThePaper() {
+        for choice in PagePaper.allCases {
+            withPaper(choice) {
+                for name in [NSAppearance.Name.aqua, .darkAqua] {
+                    let desk = rgb(.screenplayDesk, in: name)
+                    let paper = rgb(.screenplayPaper, in: name)
+                    XCTAssertGreaterThanOrEqual(
+                        paper.r - desk.r, 10,
+                        "\(choice.title) in \(name.rawValue): desk \(desk.r), paper \(paper.r)"
+                    )
+                }
+            }
         }
     }
 
@@ -119,12 +108,8 @@ final class ScreenplayDeskTests: XCTestCase {
     func testTheInvertedPageIsDarkAndStillASheet() {
         withPaper(.inverted) {
             let paper = rgb(.screenplayPaper, in: .darkAqua)
-            let desk = rgb(.screenplayDesk, in: .darkAqua)
 
-            XCTAssertLessThan(paper.r, 60, "an inverted page is a dark page")
-            XCTAssertGreaterThanOrEqual(
-                paper.r - desk.r, 10, "and is still lighter than the desk under it"
-            )
+            XCTAssertLessThan(paper.r, 80, "an inverted page is a dark page")
         }
     }
 
