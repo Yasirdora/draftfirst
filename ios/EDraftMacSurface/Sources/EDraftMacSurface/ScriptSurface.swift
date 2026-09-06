@@ -513,11 +513,31 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// the preference — otherwise the next window resize would take it away
     /// again while the page was "fitting".
     private func magnificationChanged(to value: CGFloat, fromGesture: Bool) {
-        if fromGesture {
-            preference = .fixed(value)
-            atActualSize = false
-        }
         editor?.reportZoom(value)
+        guard fromGesture else { return }
+        preference = .fixed(value)
+        atActualSize = false
+        // The canvas is measured in document coordinates, which a pinch
+        // changes: zooming out widens the viewport and the card has to be
+        // re-centred in it, or the page sits where it was — against the left
+        // edge. The menu and the corner buttons already lay out afterwards;
+        // the gesture went straight to the scroll view and skipped it.
+        //
+        // Deliberately no scroll correction here. `NSScrollView` anchors a
+        // pinch on the point under the fingers, and forcing the viewport back
+        // to centre would drag the page out from under them.
+        //
+        // Re-measured on the next turn of the run loop, not here. This fires
+        // from inside `NSScrollView`'s own magnification change, and the clip
+        // view's bounds — which is where `layOut` reads the viewport from —
+        // are still the old magnification's until that unwinds. Measuring now
+        // leaves the canvas at its previous width, and a canvas narrower than
+        // the viewport is pinned left with the page on it.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.layOut()
+            self.updateGhost()
+        }
     }
 
     /// Puts the caret in the page the first time there is a window to put it

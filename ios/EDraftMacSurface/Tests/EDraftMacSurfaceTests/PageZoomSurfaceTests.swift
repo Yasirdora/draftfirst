@@ -239,3 +239,38 @@ final class PinchToZoomTests: XCTestCase {
         XCTAssertEqual(surface.scrollView.magnification, 1.6, accuracy: 0.01)
     }
 }
+
+extension PinchToZoomTests {
+
+    /// Zooming out with the trackpad left the page against the left edge.
+    ///
+    /// The canvas is measured in document coordinates, so a pinch changes how
+    /// wide it is: zooming out widens the viewport and the card must be
+    /// re-centred in it. The menu and the corner buttons lay out after they
+    /// change the size; the gesture went straight to the scroll view and did
+    /// not, so the card kept its old x.
+    func testZoomingOutWithAPinchLeavesThePageCentred() {
+        let (editor, surface) = windowed(1200)
+        surface.applyZoom(.zoomIn)
+
+        surface.scrollView.magnification = PageZoom.actualSize
+        // The re-measure happens on the next turn of the run loop, because the
+        // clip view's bounds are not the new magnification's until AppKit's own
+        // change unwinds.
+        _ = ScriptSurfaceHarness.wait {
+            abs(surface.pageFrame.midX - surface.scrollView.contentView.bounds.midX) < 2
+        }
+
+        // Against the *viewport's* centre, not the canvas's: the card is always
+        // centred in the canvas, and the bug is that the canvas itself goes
+        // stale — narrower than the widened viewport, so it is pinned left and
+        // takes the page with it.
+        let viewportCentre = surface.scrollView.contentView.bounds.midX
+        XCTAssertEqual(
+            surface.pageFrame.midX, viewportCentre, accuracy: 2,
+            "the page sat at \(surface.pageFrame.midX) in a viewport centred on "
+                + "\(viewportCentre) — the canvas was never re-measured after the pinch"
+        )
+        withExtendedLifetime(editor) {}
+    }
+}
