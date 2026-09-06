@@ -133,7 +133,7 @@ public enum ScriptLayout {
 
         return [
             .font: font,
-            .foregroundColor: NSColor.labelColor,
+            .foregroundColor: NSColor.screenplayInk,
             .paragraphStyle: paragraph
         ]
     }

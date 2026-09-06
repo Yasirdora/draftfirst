@@ -70,6 +70,8 @@ struct EDraftMacApp: App {
             }
             CommandGroup(after: .sidebar) {
                 ZoomCommands()
+                Divider()
+                PagePaperCommand()
             }
             CommandGroup(after: .textFormatting) {
                 ElementCommands()
@@ -170,6 +172,32 @@ struct FindCommands: View {
         }
         .keyboardShortcut("l", modifiers: .command)
         .disabled(editor == nil)
+    }
+}
+
+/// View → what the page is made of.
+///
+/// Only meaningful in dark mode, where it decides whether the script darkens
+/// with the app or stays paper. It is offered in both, because a writer who
+/// sets it in daylight should still find it set at night, and a control that
+/// disappears is harder to find than one that is simply not doing anything
+/// yet.
+struct PagePaperCommand: View {
+    @State private var paper = PagePaper.stored
+
+    var body: some View {
+        Picker("Page", selection: $paper) {
+            ForEach(PagePaper.allCases, id: \.self) { choice in
+                Text(choice.title).tag(choice)
+            }
+        }
+        .pickerStyle(.inline)
+        .onChange(of: paper) { _, choice in
+            // The surfaces are watching `UserDefaults`; writing it is the
+            // whole of the command. Every open window restyles, which is what
+            // a document-wide appearance choice should do.
+            PagePaper.store(choice)
+        }
     }
 }
 

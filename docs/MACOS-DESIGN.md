@@ -281,7 +281,8 @@ Shared with iOS wherever the platform allows, so the two apps are one product.
 | Subtitle / metric | 11pt secondary / tertiary | |
 | Section header | 11pt semibold, secondary | |
 | Canvas | `NSColor.screenplayDesk` — #969696 light, #1E1E1E dark | see below |
-| Page | `NSColor.screenplayPaper` — white light, #2C2C2E dark, 1pt shadow | |
+| Page | `NSColor.screenplayPaper` — #FAF8F4, both looks by default; #2C2C2E when the writer picks Dark Page | 1pt shadow |
+| Page ink | `NSColor.screenplayInk` — paired with the paper, not the appearance | caret and ghost too |
 | Script face | Courier Prime 12pt, engine metrics | identical to iOS and to print |
 
 Materials: sidebar `.sidebar`, toolbar unified (`.windowToolbarStyle(.unified)`
@@ -313,6 +314,23 @@ twelve-level step, drawing a line across the top of the window exactly where
 the system was trying to draw a gradient. The dark desk is now that same
 #1E1E1E, so there is nothing to step between, and the paper is lifted to
 #2C2C2E so the scroll edge effect has something to ramp from.
+
+**The page is paper by default, even in the dark** — `PagePaper`, View → Page.
+Pages, Preview and Word all darken the chrome and leave the document alone,
+and the reason it matters here is the header: the system fades the page into
+the chrome at the top of the window, and a fade is only as visible as the
+distance it travels. Measured down the page through the toolbar's edge:
+
+| | chrome → page | what the fade has to work with |
+| --- | --- | --- |
+| Dark page (#2C2C2E) | #1E1E1E → #2C2C2E | 14 levels — present, invisible |
+| Paper (#FAF8F4) | #1E1E1E → #FAF8F4 | 220 levels — the gradient Pages draws |
+
+The near-black page remains as a choice, because some writers want it. It is
+a real fork rather than a theme tweak: the ink, the caret and the ghost are
+all paired with the *paper* rather than the appearance, since `labelColor` is
+white in a dark app and a light page in a dark app is exactly the case it
+cannot know about.
 
 ---
 

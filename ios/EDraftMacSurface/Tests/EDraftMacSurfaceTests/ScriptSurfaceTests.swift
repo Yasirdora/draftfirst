@@ -214,7 +214,31 @@ final class ScriptSurfaceTests: XCTestCase {
             lightFill, lightCanvas,
             "in light mode the page and the canvas must not be the same colour or the edge vanishes"
         )
-        XCTAssertNotEqual(darkFill, lightFill, "the page should actually change with appearance")
+        // The page deliberately does *not* change with the appearance any
+        // more, which is the whole of `PagePaper.paper`: the chrome darkens
+        // at night and the document does not, as in Pages and Preview. What
+        // must still hold is the edge, asserted above in both looks.
+        XCTAssertEqual(
+            darkFill, lightFill,
+            "with the default paper the page is the same sheet in both looks"
+        )
+
+        // And the writer who asks for a dark page gets one that does change.
+        let original = PagePaper.stored
+        PagePaper.store(.inverted)
+        defer { PagePaper.store(original) }
+
+        canvas.appearance = NSAppearance(named: .darkAqua)
+        canvas.applyAppearance()
+        let invertedDark = canvas.pageView.layer?.backgroundColor
+        canvas.appearance = NSAppearance(named: .aqua)
+        canvas.applyAppearance()
+        let invertedLight = canvas.pageView.layer?.backgroundColor
+
+        XCTAssertNotEqual(
+            invertedDark, invertedLight,
+            "an inverted page follows the appearance — that is what it is for"
+        )
     }
 
     /// The blank line a writer is about to type into — the case that was

@@ -1,5 +1,6 @@
 import XCTest
 import AppKit
+import EDraftCore
 @testable import EDraftMacSurface
 
 /// The desk is a stated colour, and that is the point of it.
@@ -83,5 +84,73 @@ final class ScreenplayDeskTests: XCTestCase {
                     + "desk \(desk.r), paper \(paper.r)"
             )
         }
+    }
+
+    // MARK: - What the page is made of
+
+    /// Saves and restores the writer's real choice, so running the suite does
+    /// not silently change how their app looks.
+    private func withPaper(_ paper: PagePaper, _ body: () -> Void) {
+        let original = PagePaper.stored
+        PagePaper.store(paper)
+        defer { PagePaper.store(original) }
+        body()
+    }
+
+    /// The default, and the reason the header can draw a gradient at all.
+    ///
+    /// Pages, Preview and Word darken the chrome and leave the document
+    /// alone. With a dark page the fade at the top of the window had fourteen
+    /// levels to travel; with paper it has over two hundred, which is the
+    /// difference between an effect that is present and one that is visible.
+    func testTheDefaultPageIsPaperEvenInTheDark() {
+        withPaper(.paper) {
+            let paper = rgb(.screenplayPaper, in: .darkAqua)
+            let desk = rgb(.screenplayDesk, in: .darkAqua)
+
+            XCTAssertGreaterThan(
+                paper.r - desk.r, 200,
+                "the header fade is only as visible as the distance it travels"
+            )
+        }
+    }
+
+    /// And the writer can have the dark page back.
+    func testTheInvertedPageIsDarkAndStillASheet() {
+        withPaper(.inverted) {
+            let paper = rgb(.screenplayPaper, in: .darkAqua)
+            let desk = rgb(.screenplayDesk, in: .darkAqua)
+
+            XCTAssertLessThan(paper.r, 60, "an inverted page is a dark page")
+            XCTAssertGreaterThanOrEqual(
+                paper.r - desk.r, 10, "and is still lighter than the desk under it"
+            )
+        }
+    }
+
+    /// The ink is paired with the paper, not with the app.
+    ///
+    /// `labelColor` is white in a dark app, and a light page in a dark app is
+    /// exactly the case it cannot know about — the script would have been
+    /// white on off-white. The caret has the same bug one layer down, which
+    /// is why `insertionPointColor` is set from here too.
+    func testInkFollowsThePaperRatherThanTheAppearance() {
+        withPaper(.paper) {
+            let ink = rgb(.screenplayInk, in: .darkAqua)
+            XCTAssertLessThan(ink.r, 60, "dark type belongs on a light page")
+        }
+        withPaper(.inverted) {
+            let ink = rgb(.screenplayInk, in: .darkAqua)
+            XCTAssertGreaterThan(ink.r, 190, "light type belongs on a dark page")
+        }
+    }
+
+    /// In daylight the choice means nothing: a page is paper either way.
+    func testTheChoiceDoesNotReachLightMode() {
+        var byChoice: [(Int, Int, Int)] = []
+        for choice in PagePaper.allCases {
+            withPaper(choice) { byChoice.append(rgb(.screenplayPaper, in: .aqua)) }
+        }
+        XCTAssertEqual(byChoice[0].0, byChoice[1].0)
     }
 }

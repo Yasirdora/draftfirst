@@ -45,6 +45,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// number must not rebuild the page, or the caret visits the top of the
     /// document on every keystroke. See `CaretTransitTests` on the phone.
     private var renderedRevision = -1
+    private var paperObserver: NSObjectProtocol?
+    /// What the page was last drawn on, so a defaults change that is about
+    /// something else does not relay the script.
+    private var renderedPaper = PagePaper.stored
     /// Elements last laid into the text view. Pagination for the sheets
     /// reads this, not `editor.stats` (debounced, estimated at open).
     private var lastLaidElements: [ScriptElement] = []
@@ -99,6 +103,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         container.lineFragmentPadding = 0
         textView.drawsBackground = false
         textView.backgroundColor = .clear
+        // The caret belongs to the paper too. Left to itself it is
+        // `textColor` — white in a dark app — and a writer with a light page
+        // at night would be typing at an invisible cursor.
+        textView.insertionPointColor = .screenplayInk
         // The screenplay's own rules decide what a line looks like; nothing
         // the system might helpfully add belongs on a page that has to print
         // exactly as it reads.
@@ -177,6 +185,14 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
                     if !live { self.settleAfterGesture() }
                 }
             })
+        }
+        // The page's ink, its ghost and its caret are all resolved from
+        // `PagePaper`, and a `cgColor` on a layer is a snapshot — so a change
+        // has to be re-applied rather than waited for.
+        paperObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.paperChanged() }
         }
         scrollView.contentView.postsFrameChangedNotifications = true
         frameObserver = NotificationCenter.default.addObserver(
@@ -553,6 +569,21 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // window — so the page is centred throughout the gesture rather than
         // arriving there in a jump when the fingers lift.
         updateGhost()
+    }
+
+    /// The writer changed what the page is made of.
+    ///
+    /// Everything that carries the paper's colour is a snapshot: the sheet's
+    /// layer, the caret, and the ink baked into the text storage's attributes.
+    /// Re-taking all three is what makes the choice land without a relaunch.
+    private func paperChanged() {
+        guard renderedPaper != PagePaper.stored else { return }
+        renderedPaper = PagePaper.stored
+        canvas.applyAppearance()
+        textView.insertionPointColor = .screenplayInk
+        guard let editor else { return }
+        renderedRevision = -1
+        renderIfNeeded(editor)
     }
 
     /// Lets the page run under the toolbar, which is the whole of what the
@@ -1193,8 +1224,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
         var suggestionAttributes = textView.typingAttributes
         suggestionAttributes[.foregroundColor] = editor.currentPrediction?.hint == true
-            ? NSColor.tertiaryLabelColor
-            : NSColor.secondaryLabelColor
+            ? NSColor.screenplayHintInk
+            : NSColor.screenplayGhostInk
 
         let isPresented = ghost.present(
             in: textView,

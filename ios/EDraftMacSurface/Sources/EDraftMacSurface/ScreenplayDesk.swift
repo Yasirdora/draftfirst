@@ -1,4 +1,5 @@
 import AppKit
+import EDraftCore
 
 extension NSColor {
 
@@ -6,33 +7,56 @@ extension NSColor {
     /// them: **the desk is darker than the paper, in both looks.**
     ///
     /// That is how a page has always read — a lit sheet on a darker surface —
-    /// and it is what Pages shows: a white page on grey. It also decides the
-    /// header, which is why it is stated here rather than left to whichever
-    /// semantic colour seemed closest.
+    /// and it is what Pages shows. It also decides the header: the system
+    /// fades the page into the chrome at the top of the window, and a fade is
+    /// only as visible as the distance it travels. Paper on a near-black desk
+    /// gives it about two hundred levels, which is the gradient Pages draws.
     ///
-    /// Dark mode had it backwards. The desk was `underPageBackgroundColor`
-    /// (#282828 nominally, #181925 once a window resolved it) and the paper
-    /// was `textBackgroundColor` (#1E1E1E), so the ground was *lighter* than
-    /// the sheet on it. Two things followed. The page stopped reading as a
-    /// page, because a sheet darker than its surround is a hole. And the
-    /// toolbar — whose own ground is `windowBackgroundColor`, #1E1E1E — met
-    /// the desk at a twelve-level step, which is a visible line across the
-    /// top of the window and the opposite of the gradient the system was
-    /// trying to draw there.
+    /// Dark mode used to have it inverted — desk #2A2A2B under a #1E1E1E page
+    /// — so the sheet was a hole, the desk met the toolbar at a twelve-level
+    /// step that read as a line, and the fade had nowhere to go.
     ///
-    /// With the desk at the chrome's own value there is nothing to step
-    /// between, and the scroll edge effect has the paper to ramp from.
+    /// The dark desk is the chrome's own `windowBackgroundColor`, so there is
+    /// nothing left to step between; `ScreenplayDeskTests` ties the two.
     static let screenplayDesk = NSColor(name: "screenplayDesk") { appearance in
-        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        appearance.isDark
             ? NSColor(srgbRed: 0.118, green: 0.118, blue: 0.118, alpha: 1)   // #1E1E1E
             : NSColor(srgbRed: 0.588, green: 0.588, blue: 0.588, alpha: 1)   // #969696
     }
 
-    /// The page. White on paper; in the dark, the lightest thing in the
-    /// window rather than the darkest, so it is still a sheet.
+    /// The page. Light unless the writer has asked for a dark one — see
+    /// `PagePaper`, and note that the choice only means anything in dark
+    /// mode, because in light the page is paper either way.
     static let screenplayPaper = NSColor(name: "screenplayPaper") { appearance in
-        appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-            ? NSColor(srgbRed: 0.173, green: 0.173, blue: 0.180, alpha: 1)   // #2C2C2E
-            : .white
+        guard appearance.isDark, PagePaper.stored == .inverted else {
+            // Warm rather than pure white: it is the same off-white the phone
+            // has always drawn, and against a near-black desk pure white is a
+            // lamp rather than a page.
+            return NSColor(srgbRed: 0.980, green: 0.973, blue: 0.957, alpha: 1) // #FAF8F4
+        }
+        return NSColor(srgbRed: 0.173, green: 0.173, blue: 0.180, alpha: 1)     // #2C2C2E
+    }
+
+    /// What is written on it. Tied to the paper rather than to the app's
+    /// appearance, because a light page in a dark app takes dark type — this
+    /// is the pairing `labelColor` cannot know about.
+    static let screenplayInk = NSColor(name: "screenplayInk") { appearance in
+        guard appearance.isDark, PagePaper.stored == .inverted else {
+            return NSColor(srgbRed: 0.106, green: 0.106, blue: 0.118, alpha: 1) // #1B1B1E
+        }
+        return .labelColor
+    }
+
+    /// A prediction, and a hint, in the same ink at less weight — so they
+    /// stay legible on either page.
+    static var screenplayGhostInk: NSColor { screenplayInk.withAlphaComponent(0.45) }
+    static var screenplayHintInk: NSColor { screenplayInk.withAlphaComponent(0.28) }
+}
+
+extension NSAppearance {
+    /// `bestMatch` rather than a name comparison, so vibrant and
+    /// accessibility appearances answer as the mode they belong to.
+    var isDark: Bool {
+        bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
     }
 }

@@ -136,9 +136,21 @@ final class ScriptSurfaceGhostTests: XCTestCase {
             },
             "INT. did not produce a hint ghost"
         )
+        // The ink, at less weight — not a system label colour and not a
+        // hard-coded grey. `secondaryLabelColor` was right while the page
+        // always matched the app's appearance; it is white in a dark app, and
+        // the page can now be paper in a dark app, so a suggestion drawn that
+        // way would be white on off-white. What has to stay true is the
+        // relationship: a hint is dimmer than a live suggestion, and both are
+        // made of whatever the page is written in.
         XCTAssertEqual(
-            surface.ghostForegroundColor, NSColor.tertiaryLabelColor,
-            "a hint must draw as tertiary label, not a hard-coded grey"
+            surface.ghostForegroundColor, NSColor.screenplayHintInk,
+            "a hint must draw in the page's own ink, not a hard-coded grey"
+        )
+        XCTAssertLessThan(
+            NSColor.screenplayHintInk.alphaComponent,
+            NSColor.screenplayGhostInk.alphaComponent,
+            "a hint is advisory and must read dimmer than a live suggestion"
         )
 
         let allowed = ScriptSurfaceHarness.type(" ", into: surface)
@@ -158,7 +170,7 @@ final class ScriptSurfaceGhostTests: XCTestCase {
     func testSpaceAtTheEndOfALiveGhostAcceptsIt() throws {
         let (editor, surface, cue) = cueSurface()
         XCTAssertTrue(ScriptSurfaceHarness.waitForGhost(editor, surface))
-        XCTAssertEqual(surface.ghostForegroundColor, NSColor.secondaryLabelColor)
+        XCTAssertEqual(surface.ghostForegroundColor, NSColor.screenplayGhostInk)
 
         XCTAssertFalse(
             ScriptSurfaceHarness.type(" ", into: surface),
