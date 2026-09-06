@@ -120,6 +120,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
         scrollView.drawsBackground = false
+        // The clip view centres a page smaller than the window, so the canvas
+        // never has to be grown to the viewport and a pinch needs no
+        // re-measure to stay centred.
+        scrollView.contentView = CentringClipView()
         scrollView.documentView = canvas
         self.scrollView = scrollView
 
@@ -396,7 +400,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // re-centring anyway.
         layOut()
         if applyPreferredMagnification() { layOut() }
-        centreHorizontallyIfNeeded()
         updateGhost()
     }
 
@@ -409,25 +412,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         guard !isLiveMagnifying, scrollView.contentView.frame.width > 1 else { return }
         if applyPreferredMagnification() {
             layOut()
-            centreHorizontallyIfNeeded()
             updateGhost()
         }
         pinOpeningViewportIfNeeded()
-    }
-
-    /// Keeps the page in the middle of a canvas wider than the window.
-    ///
-    /// `NSScrollView` starts at its origin, which puts the page's left edge
-    /// against the frame and its right margin out of sight — the page reads as
-    /// shoved to one side rather than as paper on a desk. Only on a resize or
-    /// a zoom: scrolling sideways after that is the writer's business.
-    private func centreHorizontallyIfNeeded() {
-        let viewport = scrollView.contentView.bounds
-        guard viewport.width > 1, canvas.frame.width > viewport.width + 0.5 else { return }
-        let centred = ((canvas.frame.width - viewport.width) / 2).rounded()
-        guard abs(viewport.origin.x - centred) > 0.5 else { return }
-        scrollView.contentView.scroll(to: NSPoint(x: centred, y: viewport.origin.y))
-        scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
     // MARK: - How large the page is drawn
@@ -476,7 +463,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         }
         layOut()
         if applyPreferredMagnification() { layOut() }
-        centreHorizontallyIfNeeded()
         updateGhost()
     }
 
@@ -553,17 +539,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // pinch on the point under the fingers, and forcing the viewport back
         // to centre would drag the page out from under them.
         //
-        // Re-measured on the next turn of the run loop, not here. This fires
-        // from inside `NSScrollView`'s own magnification change, and the clip
-        // view's bounds — which is where `layOut` reads the viewport from —
-        // are still the old magnification's until that unwinds. Measuring now
-        // leaves the canvas at its previous width, and a canvas narrower than
-        // the viewport is pinned left with the page on it.
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.layOut()
-            self.updateGhost()
-        }
+        // Nothing to re-measure. The canvas is the pages and their desk at any
+        // magnification, and `CentringClipView` keeps it in the middle of the
+        // window — so the page is centred throughout the gesture rather than
+        // arriving there in a jump when the fingers lift.
+        updateGhost()
     }
 
     /// Puts the caret in the page the first time there is a window to put it

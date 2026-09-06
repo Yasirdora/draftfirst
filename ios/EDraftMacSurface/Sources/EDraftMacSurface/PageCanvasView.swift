@@ -65,8 +65,12 @@ final class PageCanvasView: NSView {
         let pages = max(1, pageCount)
         let desk = canvasPadding
         let stackHeight = CGFloat(pages) * pageSize.height + CGFloat(max(0, pages - 1)) * desk
-        let canvasWidth = max(viewport.width, pageSize.width + desk * 2)
-        let canvasHeight = max(viewport.height, stackHeight + desk * 2)
+        // Exactly the pages and their desk — not the viewport. `CentringClipView`
+        // puts a canvas smaller than the window in the middle of it, so this
+        // stays the same size at every magnification and a pinch has nothing
+        // to re-measure.
+        let canvasWidth = pageSize.width + desk * 2
+        let canvasHeight = stackHeight + desk * 2
         setFrameSize(CGSize(width: canvasWidth, height: canvasHeight))
 
         let x = ((canvasWidth - pageSize.width) / 2).rounded(.down)
