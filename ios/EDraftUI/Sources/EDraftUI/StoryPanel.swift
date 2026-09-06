@@ -331,23 +331,33 @@ private struct SceneListRow: View {
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 30, alignment: .trailing)
 
+                // A heading that wraps must wrap like a heading: both lines
+                // starting at the same left edge, under the scene number that
+                // introduces them. Taking the full width also pins the page
+                // number to the right margin, so the trailing column lines up
+                // down the list whatever the headings do.
                 Text(scene.title)
                     .font(.body.weight(.medium))
                     .foregroundStyle(.primary)
                     .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Where it falls, at the paper size currently set — read out
                 // of the same pagination the PDF prints, so the two can never
                 // disagree. A scene number says which scene; a page number
                 // says where to turn.
                 if let page = scene.page {
-                    Spacer(minLength: 8)
                     Text(page.formatted())
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.tertiary)
                 }
             }
         }
+        // Without this the row takes macOS's default button style, which
+        // centres its label — which is why a heading long enough to wrap came
+        // out looking like a title card. The cast row already says this.
+        .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Moves the insertion point to this scene")
     }
