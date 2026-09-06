@@ -1278,21 +1278,19 @@ struct ScriptTextView: UIViewRepresentable {
             let kind = editor.screenplay.elements[elementIndex].type
             var text = textView.textStorage.attributedSubstring(from: updatedRange).string
 
-            if kind.uppercasesInput {
-                let uppercased = text.uppercased()
-                // Caps that keep their length are repaired in place, which
-                // leaves UIKit's native undo range intact. This is the
-                // ordinary road, and usually it does nothing at all: the
-                // keyboard is asked for .allCharacters, so the letters arrive
-                // shouting already. It earns its keep on the roads the
-                // keyboard does not pave — a hardware keyboard, a paste.
-                if uppercased != text,
-                   (uppercased as NSString).length == (text as NSString).length {
-                    applyingModel = true
-                    textView.textStorage.replaceCharacters(in: updatedRange, with: uppercased)
-                    applyingModel = false
-                    text = uppercased
-                }
+            // Caps that keep their length are repaired in place, which leaves
+            // UIKit's native undo range intact. This is the ordinary road, and
+            // usually it does nothing at all: the keyboard is asked for
+            // .allCharacters, so the letters arrive shouting already. It earns
+            // its keep on the roads the keyboard does not pave — a hardware
+            // keyboard, a paste. What shouting *is* stays the model's answer.
+            let shouted = EditorState.normalizedText(text, for: kind)
+            if shouted != text,
+               (shouted as NSString).length == (text as NSString).length {
+                applyingModel = true
+                textView.textStorage.replaceCharacters(in: updatedRange, with: shouted)
+                applyingModel = false
+                text = shouted
             }
 
             // Where the caret lands is decided by the same rule as the text.
@@ -1452,7 +1450,10 @@ struct ScriptTextView: UIViewRepresentable {
             hideGhost()
             var elements = editor.screenplay.elements
             if let becomes = prediction.becomes { elements[index].type = becomes }
-            var completed = elements[index].type.uppercasesInput ? suggestion.uppercased() : suggestion
+            // Asked of the model, not decided here. A suggestion landing in a
+            // cue shouts for the same reason a typed letter does, and there is
+            // one sentence in the tree that says so.
+            var completed = EditorState.normalizedText(suggestion, for: elements[index].type)
             if appendingSpace, !completed.hasSuffix(" ") {
                 completed.append(" ")
             }

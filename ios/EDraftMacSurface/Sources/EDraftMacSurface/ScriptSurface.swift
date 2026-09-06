@@ -527,8 +527,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // one insertion of what the writer meant. `insertText` re-enters this
         // method with text that already equals its own uppercase, so the
         // branch is not taken twice.
-        if let index, editor.screenplay.elements[index].type.uppercasesInput {
-            let shouted = text.uppercased()
+        if let index {
+            let shouted = EditorState.normalizedText(
+                text, for: editor.screenplay.elements[index].type
+            )
             if shouted != text {
                 textView.insertText(shouted, replacementRange: range)
                 return false
@@ -909,7 +911,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         hideGhost()
         var elements = editor.screenplay.elements
         if let becomes = prediction.becomes { elements[index].type = becomes }
-        var completed = elements[index].type.uppercasesInput ? suggestion.uppercased() : suggestion
+        // Asked of the model, not decided here. A suggestion landing in a cue
+        // shouts for the same reason a typed letter does, and there is one
+        // sentence in the tree that says so.
+        var completed = EditorState.normalizedText(suggestion, for: elements[index].type)
         if appendingSpace, !completed.hasSuffix(" ") {
             completed.append(" ")
         }
