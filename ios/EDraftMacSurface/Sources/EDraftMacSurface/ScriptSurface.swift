@@ -604,6 +604,37 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     private func openTheWindowToItsFullHeight() {
         guard let window = scrollView.window else { return }
         window.styleMask.insert(.fullSizeContentView)
+        askForApplesSoftScrollEdge()
+    }
+
+    /// Asks AppKit for the soft edge on the column the page is in.
+    ///
+    /// See `SoftScrollEdgeAccessory` for why it is the split view item's
+    /// accessory and not the titlebar's. Finding the item means walking up to
+    /// the split view, because `NavigationSplitView` builds it and does not
+    /// hand it over — the walk is guarded at every step and does nothing at
+    /// all if the shape is ever not what it is today.
+    private func askForApplesSoftScrollEdge() {
+        guard #available(macOS 26.1, *) else { return }
+
+        var ancestor: NSView? = scrollView.superview
+        while let view = ancestor, !(view is NSSplitView) { ancestor = view.superview }
+        guard let splitView = ancestor as? NSSplitView,
+              let controller = splitView.delegate as? NSSplitViewController,
+              let column = controller.splitViewItems.first(where: {
+                  scrollView.isDescendant(of: $0.viewController.view)
+              }),
+              !column.topAlignedAccessoryViewControllers.contains(where: {
+                  $0 is SoftScrollEdgeAccessory
+              })
+        else { return }
+
+        column.addTopAlignedAccessoryViewController(SoftScrollEdgeAccessory())
+
+        if ProcessInfo.processInfo.environment["EDRAFT_EDGE_DEBUG"] != nil {
+            fputs("EDGE column accessories="
+                  + "\(column.topAlignedAccessoryViewControllers.count)\n", stderr)
+        }
     }
 
     /// Puts the caret in the page the first time there is a window to put it

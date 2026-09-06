@@ -103,62 +103,6 @@ public struct ScriptWindow: View {
                         PageZoomControl(editor: editor)
                     }
             }
-            // The script fades out as it goes under the header.
-            //
-            // The system's own edge effect is here — the page runs under the
-            // toolbar — but it is a short, weak ramp: it reaches only about a
-            // third of the way to opaque, so the chrome's lower edge is still
-            // a cliff with a soft tail below it. `.soft` does not change that
-            // (tried through `NSScrollEdgeEffectStyle` on a titlebar
-            // accessory, which installs and does nothing), and glass in the
-            // toolbar trades the cliff for text showing through the controls.
-            //
-            // So the band is drawn. It is the chrome's own ground fading to
-            // nothing over `Chrome.fade` points, which is what a scroll edge
-            // effect is: the type dissolves into the header instead of being
-            // cut off by it. `windowBackgroundColor` rather than the desk,
-            // because it is the toolbar's ground that the band has to leave
-            // without a seam.
-            .overlay(alignment: .top) {
-                Rectangle()
-                    // The toolbar's own material, masked to fade out. A flat
-                    // colour was tried here first and is wrong twice over: it
-                    // fades the type toward a colour rather than blurring it,
-                    // and any colour dark enough to read on paper is darker
-                    // than the glass above it, so the band becomes a smudge
-                    // under the chrome rather than a continuation of it.
-                    // Masking the same material means the top of the band and
-                    // the bottom of the toolbar are the same thing.
-                    .fill(.ultraThinMaterial)
-                    .mask {
-                        LinearGradient(
-                            stops: [
-                                .init(color: .black, location: 0),
-                                .init(color: .black.opacity(0.86), location: 0.22),
-                                .init(color: .black.opacity(0.5), location: 0.55),
-                                .init(color: .black.opacity(0.16), location: 0.8),
-                                .init(color: .clear, location: 1)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    }
-                    .frame(height: 72)
-                    // Decoration. The writer must still be able to click the
-                    // line of dialogue it is drawn over.
-                    .allowsHitTesting(false)
-            }
-            // ...and the chrome above it blurs rather than hides.
-            //
-            // These are two halves of one effect and neither works alone. An
-            // opaque toolbar cuts the script off at its lower edge, so the
-            // band below is a fade out of nothing. Glass alone lets the script
-            // through — blurred, which is the part that reads as depth — but
-            // hands it straight to the crisp page at the toolbar's edge, so
-            // the seam moves rather than going away. Together: the type blurs
-            // as it passes under the controls, and the band carries what is
-            // left of it down to nothing.
-            .toolbarBackground(.ultraThinMaterial, for: .windowToolbar)
             .navigationTitle(editor.screenplay.title)
             .navigationSubtitle(subtitle)
             // `navigationTitle` and `navigationSubtitle` still name the
