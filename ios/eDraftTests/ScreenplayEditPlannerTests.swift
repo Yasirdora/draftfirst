@@ -2,7 +2,7 @@ import EDraftCore
 import Foundation
 import UIKit
 import XCTest
-@testable import eDraft
+@testable import EDraftUIKitSurface
 
 final class ScreenplayEditPlannerTests: XCTestCase {
     @MainActor

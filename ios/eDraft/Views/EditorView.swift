@@ -1,4 +1,5 @@
 import EDraftCore
+import EDraftUIKitSurface
 import EDraftUI
 import SwiftUI
 import UIKit
@@ -45,7 +46,7 @@ struct EditorView: View {
             // scrolling lines pass beneath the platform's glass the way
             // they do in Apple's own apps; the bar's safe-area inset keeps
             // the resting first line clear of it.
-            ScriptTextView(editor: editor)
+            ScriptSurfaceView(editor: editor)
                 .ignoresSafeArea(.container, edges: .top)
             // Zero-size anchor: applies our controls to the system
             // navigation bar as genuine UIBarButtonItems + a title view.

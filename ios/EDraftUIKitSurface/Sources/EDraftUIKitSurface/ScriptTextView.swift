@@ -6,6 +6,27 @@ import UIKit
 /// A native UITextView screenplay surface. Ordinary typing is never intercepted:
 /// UIKit owns composition, autocorrection, dictation, selection, and undo. Draft
 /// First steps in only for screenplay-level actions such as Return and Tab.
+/// The page, on a phone or an iPad — the app's one way in.
+///
+/// A wrapper rather than the representable itself, and deliberately. Making
+/// `ScriptTextView` public would force `UIViewRepresentable`'s requirements
+/// public with it, and those drag the whole `UITextViewDelegate` and
+/// `UIGestureRecognizerDelegate` conformance along — twenty-odd methods
+/// published to callers who must never call them. One public view keeps the
+/// package's surface to what the app actually asks for; `@testable` still
+/// reaches everything inside.
+public struct ScriptSurfaceView: View {
+    private let editor: EditorState
+
+    public init(editor: EditorState) {
+        self.editor = editor
+    }
+
+    public var body: some View {
+        ScriptTextView(editor: editor)
+    }
+}
+
 struct ScriptTextView: UIViewRepresentable {
     let editor: EditorState
 

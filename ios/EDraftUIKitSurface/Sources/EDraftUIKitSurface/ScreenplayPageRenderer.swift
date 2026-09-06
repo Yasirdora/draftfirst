@@ -9,7 +9,7 @@ import UIKit
 /// Courier as a `UIFont`, black as a `UIColor`, and a `UIGraphicsPDFRenderer`
 /// to put the runs on paper. Sixty-odd lines, not two hundred: a second
 /// copy of the placement maths would be two answers to the same question.
-enum ScreenplayPageRenderer {
+public enum ScreenplayPageRenderer {
 
     private static let courier = UIFont(name: "Courier", size: ScreenplayPageLayout.fontSize)
         ?? .monospacedSystemFont(ofSize: ScreenplayPageLayout.fontSize, weight: .regular)
@@ -24,7 +24,7 @@ enum ScreenplayPageRenderer {
 
     /// Rich text with Courier at a fixed six-lines-per-inch rhythm. Word
     /// processors reflow page breaks; the on-screen layout still matches.
-    static func rtfData(_ screenplay: EDraftCore.Screenplay) -> Data? {
+    public static func rtfData(_ screenplay: EDraftCore.Screenplay) -> Data? {
         let paragraph = NSMutableParagraphStyle()
         paragraph.minimumLineHeight = ScreenplayPageLayout.lineHeight
         paragraph.maximumLineHeight = ScreenplayPageLayout.lineHeight
@@ -45,7 +45,7 @@ enum ScreenplayPageRenderer {
     /// The writer's choice, shared with the panel that offers it.
     static var includeTitlePageKey: String { ScreenplayExportPreference.includeTitlePageKey }
 
-    static func pdfData(_ screenplay: EDraftCore.Screenplay) -> Data {
+    public static func pdfData(_ screenplay: EDraftCore.Screenplay) -> Data {
         let format = PageFormat.current
         let rendererFormat = UIGraphicsPDFRendererFormat()
         rendererFormat.documentInfo = [

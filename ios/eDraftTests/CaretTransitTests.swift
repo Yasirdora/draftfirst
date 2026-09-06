@@ -2,7 +2,7 @@ import EDraftCore
 import Foundation
 import UIKit
 import XCTest
-@testable import eDraft
+@testable import EDraftUIKitSurface
 
 /// Where the caret goes *during* a keystroke, not only where it lands.
 ///

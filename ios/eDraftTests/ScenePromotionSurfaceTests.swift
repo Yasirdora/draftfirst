@@ -2,7 +2,7 @@ import EDraftCore
 import Foundation
 import UIKit
 import XCTest
-@testable import eDraft
+@testable import EDraftUIKitSurface
 
 /// Typing a slug makes the line a slug.
 ///

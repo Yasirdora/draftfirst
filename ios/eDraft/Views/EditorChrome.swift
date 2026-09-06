@@ -1,4 +1,5 @@
 import EDraftCore
+import EDraftUIKitSurface
 import EDraftUI
 import SwiftUI
 import EDraftEngine

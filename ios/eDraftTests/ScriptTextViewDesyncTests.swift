@@ -1,6 +1,6 @@
 import XCTest
 import EDraftCore
-@testable import eDraft
+@testable import EDraftUIKitSurface
 
 @MainActor
 final class ScriptTextViewDesyncTests: XCTestCase {
