@@ -170,10 +170,34 @@ final class ExpandingCaseMappingTests: XCTestCase {
         )
         XCTAssertEqual(
             editor.screenplay.elements[0].text, "SS",
-            "the Mac shouts at the input boundary, so it capitalises before the "
-                + "model can decline the length change — the phone stores ß. If "
-                + "this fails, the two surfaces have been brought into agreement "
-                + "and docs/SHARED-ARCHITECTURE.md should say which answer won."
+            "a cue shouts, and ß shouts as SS — the phone asserts the same thing "
+                + "in eDraftTests/ShoutedTypingTests, and the two must not drift"
+        )
+        XCTAssertEqual(
+            surface.textView.selectedRange().location, 2,
+            "the caret should sit after SS, not inside it"
+        )
+    }
+
+    /// The two surfaces reach this by different roads — the Mac capitalises the
+    /// replacement before it is inserted, the phone lets the model answer and
+    /// redraws when the answer is a different length — so it is worth asserting
+    /// that a road neither was designed for arrives at the same place.
+    func testASharpSInTheMiddleOfACueShoutsWithoutScramblingTheLine() {
+        let cue = ScriptElement(type: .character, text: "MARA")
+        let (editor, surface) = ScriptSurfaceHarness.bound([cue])
+        surface.textView.setSelectedRange(NSRange(location: 2, length: 0))
+        surface.textViewDidChangeSelection(
+            Notification(name: NSTextView.didChangeSelectionNotification, object: surface.textView)
+        )
+
+        ScriptSurfaceHarness.type("ß", into: surface)
+
+        XCTAssertEqual(editor.screenplay.elements[0].text, "MASSRA")
+        XCTAssertEqual(surface.textView.string, "MASSRA")
+        XCTAssertEqual(
+            surface.textView.selectedRange().location, 4,
+            "two letters were inserted where one was typed; the caret must clear both"
         )
     }
 }

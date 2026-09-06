@@ -163,4 +163,29 @@ final class ShoutedTypingTests: XCTestCase {
             "the page and the file disagree about what the writer just typed"
         )
     }
+
+    /// The expansion happening in the *middle* of a line, which is where the
+    /// caret arithmetic has to be right rather than merely lucky.
+    ///
+    /// The offset is measured on the shouted prefix — capitalise what is before
+    /// the caret and take its length — so two letters arriving where one was
+    /// typed carries the caret past both. The Mac asserts the same three values
+    /// in `EDraftMacSurfaceTests`, by a different road: it capitalises the
+    /// replacement before insertion, where the phone lets the model answer and
+    /// redraws. Different roads, one destination, is the whole claim.
+    func testASharpSInTheMiddleOfACueShoutsWithoutScramblingTheLine() {
+        let cue = ScriptElement(type: .character, text: "MARA")
+        let (editor, textView, coordinator) = surface([cue])
+        withExtendedLifetime(coordinator) {}
+        textView.selectedRange = NSRange(location: 2, length: 0)
+
+        type("ß", into: textView, coordinator)
+
+        XCTAssertEqual(editor.screenplay.elements[0].text, "MASSRA")
+        XCTAssertEqual(textView.text, "MASSRA")
+        XCTAssertEqual(
+            textView.selectedRange.location, 4,
+            "two letters were inserted where one was typed; the caret must clear both"
+        )
+    }
 }
