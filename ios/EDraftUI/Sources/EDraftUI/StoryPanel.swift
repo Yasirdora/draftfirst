@@ -322,14 +322,17 @@ private struct SceneListRow: View {
 
     public var body: some View {
         Button(action: open) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 // A production number is not a digit count: "12A" and "112"
                 // both have to fit without truncating, so the column grows to
-                // the widest rather than being pinned to two figures.
+                // the widest rather than being pinned to two figures. The
+                // floor only stops single digits from jittering — set wide, it
+                // spends the sidebar's width on empty space in front of every
+                // heading, which is what a reader is actually here to read.
                 Text(scene.label)
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
-                    .frame(minWidth: 30, alignment: .trailing)
+                    .frame(minWidth: 18, alignment: .trailing)
 
                 // A heading that wraps must wrap like a heading: both lines
                 // starting at the same left edge, under the scene number that
