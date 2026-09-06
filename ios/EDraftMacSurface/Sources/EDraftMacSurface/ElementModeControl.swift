@@ -49,6 +49,10 @@ struct ElementModeControl: View {
             Label(editor.activeKind.shortTitle, systemImage: editor.activeKind.symbol)
                 .labelStyle(.titleAndIcon)
         }
+        // Glass, because everything else in this bar is. A menu in a toolbar
+        // draws a plain capsule by default, which reads as a flat chip laid
+        // on the chrome rather than a control made of it.
+        .buttonStyle(.glass)
         .help("Screenplay element: \(editor.activeKind.title)")
     }
 }
