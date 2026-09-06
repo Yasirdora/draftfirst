@@ -55,11 +55,18 @@ public struct StoryPanel: View {
 /// This is matching against titles the model already classified as scenes —
 /// it does not decide what a scene is. Empty query means every row.
 public enum SceneListFilter {
-    public static func included(_ scenes: [SceneRow], query: String) -> [SceneRow] {
+    /// `setting` is nil for "every scene". A scene whose heading carries no
+    /// intro token — a slug forced with a leading dot — belongs to no setting
+    /// and so is hidden by any of them, which is the honest answer: the writer
+    /// asked for interiors and it is not one.
+    public static func included(
+        _ scenes: [SceneRow], query: String, setting: SceneSetting? = nil
+    ) -> [SceneRow] {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return scenes }
         return scenes.filter { scene in
-            scene.title.localizedCaseInsensitiveContains(needle)
+            if let setting, scene.setting != setting { return false }
+            guard !needle.isEmpty else { return true }
+            return scene.title.localizedCaseInsensitiveContains(needle)
                 || scene.label.localizedCaseInsensitiveContains(needle)
         }
     }
@@ -98,6 +105,10 @@ public struct StoryList: View {
     var selectedCharacter: String?
 
     @FocusState private var filterFocused: Bool
+    /// Which setting the list is narrowed to, or nil for all of them. Local:
+    /// it is a way of looking at the list, not a property of the document, and
+    /// nothing outside needs to read it.
+    @State private var sceneSetting: SceneSetting?
 
     public init(
         editor: EditorState,
@@ -146,17 +157,66 @@ public struct StoryList: View {
     /// Narrows the scene list. Return jumps to the first remaining row and
     /// hands the page back — the field is a destination filter, not a verb.
     private var sceneFilterField: some View {
-        TextField("Scene", text: $sceneQuery)
-            .textFieldStyle(.roundedBorder)
-            .focused($filterFocused)
-            .onSubmit { submitFilter() }
-            .accessibilityLabel("Find Scene")
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+        HStack(spacing: 8) {
+            TextField("Scene", text: $sceneQuery)
+                .textFieldStyle(.roundedBorder)
+                .focused($filterFocused)
+                .onSubmit { submitFilter() }
+                .accessibilityLabel("Find Scene")
+            settingMenu
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+
+    private var emptyFilterDetail: String {
+        switch (sceneQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, sceneSetting) {
+        case (true, let setting?): "This script has no \(setting.phrase) scenes."
+        case (false, let setting?): "No \(setting.phrase) scene matches that search."
+        default: "Nothing in the navigator matches that search."
+        }
+    }
+
+    /// Interiors, exteriors, or the ones that cross between.
+    ///
+    /// A menu rather than a row of segments: the sidebar is 240 points at its
+    /// narrowest and a segmented control would spend most of it, while the
+    /// filled glyph already says the list is narrowed. It is also where the
+    /// platform puts this — Mail, Photos and Finder all hang their filters off
+    /// one control beside the search field.
+    private var settingMenu: some View {
+        Menu {
+            // No title at all: an inline picker inside a menu renders its
+            // label as a section header, and a word above three items that
+            // plainly say what they are is a word spent on nothing. The name
+            // a screen reader needs is on the menu button itself.
+            Picker("", selection: $sceneSetting) {
+                Text("All Scenes").tag(SceneSetting?.none)
+                Divider()
+                ForEach(SceneSetting.allCases) { setting in
+                    Label(setting.title, systemImage: setting.symbol)
+                        .tag(SceneSetting?.some(setting))
+                }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } label: {
+            Image(systemName: sceneSetting == nil
+                  ? "line.3.horizontal.decrease.circle"
+                  : "line.3.horizontal.decrease.circle.fill")
+        }
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel(
+            sceneSetting.map { "Filter scenes: \($0.phrase)" } ?? "Filter scenes"
+        )
+        .help("Show only interiors, exteriors, or scenes that cross between")
     }
 
     private func submitFilter() {
-        guard let first = SceneListFilter.included(editor.scenes, query: sceneQuery).first
+        guard let first = SceneListFilter.included(
+            editor.scenes, query: sceneQuery, setting: sceneSetting
+        ).first
         else { return }
         if let onFilterSubmit {
             onFilterSubmit(first.id)
@@ -227,7 +287,9 @@ public struct StoryList: View {
     private var rows: some View {
         switch tab {
         case .scenes:
-            let visible = SceneListFilter.included(editor.scenes, query: sceneQuery)
+            let visible = SceneListFilter.included(
+                editor.scenes, query: sceneQuery, setting: sceneSetting
+            )
             if editor.scenes.isEmpty {
                 EmptyListRow(
                     title: "No Scenes Yet",
@@ -235,10 +297,12 @@ public struct StoryList: View {
                     symbol: "film.stack"
                 )
             } else if visible.isEmpty {
+                // Say which of the two narrowed it away, because the remedy
+                // differs: clear the field, or widen the filter.
                 EmptyListRow(
                     title: "No Matching Scenes",
-                    detail: "Nothing in the navigator matches that search.",
-                    symbol: "magnifyingglass"
+                    detail: emptyFilterDetail,
+                    symbol: sceneQuery.isEmpty ? "line.3.horizontal.decrease.circle" : "magnifyingglass"
                 )
             } else {
                 ForEach(visible) { scene in

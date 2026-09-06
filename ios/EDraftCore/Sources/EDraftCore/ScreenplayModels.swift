@@ -371,6 +371,12 @@ public struct SceneRow: Identifiable, Equatable, Sendable {
         self.title = title
         self.elementIndex = elementIndex
     }
+    /// Inside, outside, or crossing between — read from the heading through
+    /// the engine, so a writer's spelling of `I/E` does not decide whether
+    /// their scene answers a filter. Nil for a slug forced with a leading dot,
+    /// which carries no intro token to read.
+    public var setting: SceneSetting? { SceneSetting(heading: title) }
+
     public let id: UUID
     /// Position in the script, counting from 1.
     public let number: Int
