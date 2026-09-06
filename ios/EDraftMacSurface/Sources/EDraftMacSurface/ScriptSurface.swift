@@ -316,14 +316,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     }
 
     /// Draws the page at the size the current preference asks for, given how
-    /// much room there is now. Cheap to call often: it does nothing unless the
-    /// magnification actually moves.
+    /// much room there is now. Cheap to call often: magnification is a no-op
+    /// unless it actually moved. The opening pin still runs, once.
     func applyZoomForCurrentSize() {
         guard scrollView.contentView.frame.width > 1 else { return }
-        guard applyPreferredMagnification() else { return }
-        layOut()
-        centreHorizontallyIfNeeded()
-        updateGhost()
+        if applyPreferredMagnification() {
+            layOut()
+            centreHorizontallyIfNeeded()
+            updateGhost()
+        }
+        pinOpeningViewportIfNeeded()
     }
 
     /// Keeps the page in the middle of a canvas wider than the window.
@@ -440,6 +442,25 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         hasTakenInitialFocus = true
         placeCaretForEditing()
         window.makeFirstResponder(textView)
+        pinOpeningViewportIfNeeded()
+    }
+
+    /// `NSScrollView` keeps the clip-view centre when magnification
+    /// changes. The opening size is 1.5×, so a window that first lays
+    /// out at 100% and then magnifies lands about a third of a screen
+    /// down the page: the first line is off the top, the next is cut
+    /// in half. Pin once, after that size is actually applied, and
+    /// never again — a later ⌘+ must not jump the writer to page one.
+    private func pinOpeningViewportIfNeeded() {
+        guard pinsOpeningViewport, !hasPinnedOpeningViewport else { return }
+        guard scrollView.window != nil, scrollView.contentView.frame.width > 1 else { return }
+        let target = atActualSize ? PageZoom.actualSize : preferredMagnification()
+        guard abs(scrollView.magnification - target) <= 0.01 else { return }
+        hasPinnedOpeningViewport = true
+        let origin = scrollView.contentView.bounds.origin
+        guard abs(origin.y) > 0.5 else { return }
+        scrollView.contentView.scroll(to: NSPoint(x: origin.x, y: 0))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
     /// The page card, in the canvas's coordinates — what a test asks when
@@ -447,6 +468,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     public var pageFrame: CGRect { canvas.pageView.frame }
 
     private var hasTakenInitialFocus = false
+    private var hasPinnedOpeningViewport = false
+    /// Tests that isolate the opening zoom set this false; the SwiftUI
+    /// path then still crops, which is how we know the crop is the
+    /// zoom, not the caret.
+    var pinsOpeningViewport = true
     private var frameObserver: (any NSObjectProtocol)?
 
     // MARK: - Going to an element
