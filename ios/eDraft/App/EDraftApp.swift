@@ -3,6 +3,13 @@ import EDraftUI
 import SwiftUI
 import UIKit
 
+// Only the QA-fixture build reaches into the surface package from here, for
+// the launch-argument predicate the fixtures share. Guarded rather than
+// unconditional so the dependency says exactly when it is real.
+#if EDITOR_PREVIEW
+import EDraftUIKitSurface
+#endif
+
 /// Applies the writer's chosen appearance to every window the app owns —
 /// document browser, editor, sheets — so the in-app choice is absolute and
 /// the system theme never silently overrides part of the app. SwiftUI's
@@ -118,18 +125,10 @@ private struct EditorPreviewHost: View {
 enum EditorPreviewConfiguration {
     static let arguments = ProcessInfo.processInfo.arguments
 
-    static var usesPredictionFixture: Bool {
-        arguments.contains { argument in
-            [
-                "-prediction-fixture",
-                "-character-prediction-fixture",
-                "-parenthetical-prediction-fixture",
-                "-scroll-prediction-fixture",
-                "-qa-character-uppercase",
-                "-qa-quicktype-scene"
-            ].contains(argument)
-        }
-    }
+    /// Read from the surface, which is what actually behaves differently under
+    /// a prediction fixture. Two copies of this list would drift, and the
+    /// symptom would be a QA fixture that quietly stops asserting.
+    static var usesPredictionFixture: Bool { EditorPreviewFixture.usesPrediction }
 
     static var source: String {
         if arguments.contains("-prediction-fixture") {

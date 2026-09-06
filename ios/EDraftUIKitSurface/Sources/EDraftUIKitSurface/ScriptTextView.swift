@@ -15,6 +15,32 @@ import UIKit
 /// published to callers who must never call them. One public view keeps the
 /// package's surface to what the app actually asks for; `@testable` still
 /// reaches everything inside.
+#if EDITOR_PREVIEW
+/// Which launch arguments put the surface into a prediction fixture.
+///
+/// The QA-fixture programme is the only net that has ever caught a scroll or
+/// typing regression, and it asserts with `precondition()` so a violation
+/// crashes the app rather than being argued about. This predicate lives beside
+/// the surface because it is the surface that behaves differently under it —
+/// the app keeps the fixture's *screenplay*, which is the app's business, and
+/// reads the answer from here so there is one list of argument names.
+public enum EditorPreviewFixture {
+
+    private static let predictionArguments = [
+        "-prediction-fixture",
+        "-character-prediction-fixture",
+        "-parenthetical-prediction-fixture",
+        "-scroll-prediction-fixture",
+        "-qa-character-uppercase",
+        "-qa-quicktype-scene"
+    ]
+
+    public static var usesPrediction: Bool {
+        ProcessInfo.processInfo.arguments.contains { predictionArguments.contains($0) }
+    }
+}
+#endif
+
 public struct ScriptSurfaceView: View {
     private let editor: EditorState
 
@@ -72,7 +98,7 @@ struct ScriptTextView: UIViewRepresentable {
         context.coordinator.attach(to: textView)
         context.coordinator.renderModel(selecting: nil, offset: nil)
 #if EDITOR_PREVIEW
-        let isPredictionFixture = EditorPreviewConfiguration.usesPredictionFixture
+        let isPredictionFixture = EditorPreviewFixture.usesPrediction
             || CommandLine.arguments.contains("-ordinary-space-fixture")
         let shouldExerciseSpaceAcceptance = CommandLine.arguments.contains("-qa-accept-with-space")
         let shouldExercisePredictionUndo = CommandLine.arguments.contains("-qa-undo-redo-prediction")
