@@ -170,10 +170,19 @@ export const UPPERCASE_TYPES: readonly ElementType[] = Object.freeze([
  * Fountain tool, and the only way to keep it one is to write it with a forcing
  * marker — a clean script exported into a thicket of `>` and `@`.
  *
- * Deliberately *not* applied on every commit: while a writer is typing, casing
- * is theirs, and the editor's conversion rule keeps their original so that
- * converting a line back restores what they wrote. This is for the moment a
- * document arrives from somewhere else.
+ * This is the formula, not the policy. It says what a line of a shouting kind
+ * looks like; *when* to apply it is each caller's business. The importer
+ * applies it to a document arriving from somewhere else. The editor applies it
+ * as the writer types, and keeps their verbatim text so that converting a line
+ * back restores what they wrote — which is what makes applying it safe there.
+ *
+ * `toLocaleUpperCase()` asks the runtime's locale; the Swift port's
+ * `uppercased()` does not. They agree on every case the corpus covers, and
+ * disagree in Turkish, where `i` uppercases to `İ` — so a Turkish reader of
+ * this engine would get `İSTANBUL` where the apps write `ISTANBUL`. Whether a
+ * screenplay should case itself by the reader's locale is a question about the
+ * document format and has not been answered; it is recorded rather than
+ * silently settled by whichever engine ran.
  */
 export function canonicalCasing(type: ElementType, text: string): string {
 	return UPPERCASE_TYPES.includes(type) ? text.toLocaleUpperCase() : text;

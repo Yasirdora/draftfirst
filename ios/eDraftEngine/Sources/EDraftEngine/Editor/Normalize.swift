@@ -162,10 +162,19 @@ public enum Normalize {
     /// only way to keep it one is a forcing marker — a clean script exported
     /// into a thicket of `>` and `@`.
     ///
-    /// Deliberately *not* applied on every commit: while a writer is typing,
-    /// casing is theirs, and the editor's conversion rule keeps the original so
-    /// converting a line back restores what they wrote. This is for the moment
-    /// a document arrives from somewhere else.
+    /// This is the formula, not the policy. It says what a line of a shouting
+    /// kind looks like; *when* to apply it is each caller's business. The
+    /// importer applies it to a document arriving from somewhere else. The
+    /// editor applies it as the writer types, and keeps their verbatim text in
+    /// `ElementCaseMemory` so converting a line back restores what they wrote —
+    /// which is what makes applying it safe there.
+    ///
+    /// Note that the TypeScript original uses `toLocaleUpperCase()` and this
+    /// uses `uppercased()`, which is locale-independent. They agree on every
+    /// case the corpus covers, and disagree in Turkish: `i` uppercases to `İ`
+    /// there and to `I` here. Whether a screenplay should case itself by the
+    /// reader's locale is a question about the document format, not about this
+    /// function, and it has not been answered — see `LocaleCasingTests`.
     public static func canonicalCasing(kind: ElementKind, text: String) -> String {
         uppercaseKinds.contains(kind) ? text.uppercased() : text
     }

@@ -925,13 +925,17 @@ public final class EditorState {
     /// began shouting at the input boundary the two surfaces stored different
     /// files for the same keystroke.
     ///
-    /// The rule is the craft's, so it is stated plainly here, and the surfaces
-    /// deal with the consequences of a length change where such consequences
-    /// belong. Conversions remain reversible: `ElementCaseMemory` keeps the
-    /// writer's verbatim text, not a re-derived guess at it.
+    /// The rule is the craft's, so it is asked of the engine rather than
+    /// answered here — the same way `ScreenplayKind.uppercasesInput` already
+    /// asks which kinds shout. Two copies of one formula is how the editor's
+    /// live casing, the conversion rule and the Final Draft importer come to
+    /// different conclusions about what a cue looks like.
+    ///
+    /// The surfaces deal with the consequences of a length change where such
+    /// consequences belong. Conversions remain reversible: `ElementCaseMemory`
+    /// keeps the writer's verbatim text, not a re-derived guess at it.
     public static func normalizedText(_ text: String, for kind: ScreenplayKind) -> String {
-        guard kind.uppercasesInput else { return text }
-        return text.uppercased()
+        Normalize.canonicalCasing(kind: kind.engineKind, text: text)
     }
 
     private static func looksLikeSceneHeading(_ text: String) -> Bool {
