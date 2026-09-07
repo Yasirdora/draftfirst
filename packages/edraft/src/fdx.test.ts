@@ -56,6 +56,71 @@ describe('entities', () => {
 });
 
 describe('parseFdx · import', () => {
+	/**
+	 * A scene heading in a real Final Draft file is not a leaf.
+	 *
+	 * It carries <SceneProperties>, and if the writer uses the Beat Board that
+	 * holds a <CharacterArcBeat> per character in the scene, each with its own
+	 * <Paragraph><Text>. The heading's own text comes *after* all of it.
+	 *
+	 * Read naively, the nested paragraph closes the heading before its text is
+	 * reached: measured on two real features, every one of 37 and 34 headings
+	 * imported empty, the Navigator showed "No Scenes Yet", and the arc beats
+	 * appeared in the script as body copy.
+	 */
+	it('takes a scene heading own text, not its arc beats', () => {
+		const xml = `<FinalDraft><Content>
+<Paragraph Type="Scene Heading" Number="1">
+  <SceneProperties Length="4/8" Page="1" Title="Set up Gold Key">
+    <SceneArcBeats>
+      <CharacterArcBeat Name="TANGLE">
+        <Paragraph><Text>Tangle is obsessed with the treasure.</Text></Paragraph>
+      </CharacterArcBeat>
+      <CharacterArcBeat Name="UNCLE">
+        <Paragraph><Text>Uncle keeps the secret.</Text></Paragraph>
+      </CharacterArcBeat>
+    </SceneArcBeats>
+  </SceneProperties>
+  <Text>INT. HOME LIBRARY - DAY</Text>
+</Paragraph>
+<Paragraph Type="Action"><Text>Majestic.</Text></Paragraph>
+</Content></FinalDraft>`;
+		const { script, diagnostics } = parseFdx(xml);
+		expect(script.elements).toEqual([
+			{ type: 'scene', text: 'INT. HOME LIBRARY - DAY', sceneNumber: '1' },
+			{ type: 'action', text: 'Majestic.' }
+		]);
+		expect(diagnostics.filter((d) => d.code === 'FDX_NESTED_PARAGRAPH')).toHaveLength(0);
+	});
+
+	/**
+	 * The screenplay is the <Content> under <FinalDraft>. A feature written
+	 * with the Beat Board carries one per <Outline> section — fifty-three of
+	 * them in the files this was measured against — and taking paragraphs from
+	 * all of them puts the writer's beats, page goals and cast list into the
+	 * script.
+	 */
+	it('reads the screenplay Content and not the outline sections', () => {
+		const xml = `<FinalDraft>
+<Content><Paragraph Type="Action"><Text>On the page.</Text></Paragraph></Content>
+<Outline><Content>
+  <Paragraph Type="Beat"><Text>Not on the page.</Text></Paragraph>
+  <Paragraph Type="PageGoal"><Text>Nor this.</Text></Paragraph>
+</Content></Outline>
+</FinalDraft>`;
+		expect(parseFdx(xml).script.elements).toEqual([{ type: 'action', text: 'On the page.' }]);
+	});
+
+	/** A paragraph that genuinely never closes is still recovered, and still says so. */
+	it('still warns when a paragraph is left unclosed', () => {
+		const xml = `<FinalDraft><Content>` +
+			`<Paragraph Type="Action"><Text>First.</Text>` +
+			`<Paragraph Type="Action"><Text>Second.</Text></Paragraph>` +
+			`</Content></FinalDraft>`;
+		const { script } = parseFdx(xml);
+		expect(script.elements.map((e) => e.text)).toContain('First.');
+	});
+
 	it('maps FDX paragraph types to the model', () => {
 		const { script } = parseFdx(FOREIGN_FDX);
 		expect(script.elements.map((e) => e.type)).toEqual([

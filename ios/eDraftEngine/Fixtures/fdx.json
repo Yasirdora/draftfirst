@@ -159,12 +159,7 @@
       "expected": {
         "script": {
           "titlePage": [],
-          "elements": [
-            {
-              "type": "action",
-              "text": "x"
-            }
-          ]
+          "elements": []
         },
         "diagnostics": [
           {
@@ -410,19 +405,15 @@
             {
               "type": "action",
               "text": ""
-            },
-            {
-              "type": "character",
-              "text": "MARA"
             }
           ]
         },
         "diagnostics": [
           {
-            "code": "FDX_NESTED_PARAGRAPH",
+            "code": "FDX_UNTERMINATED_PARAGRAPH",
             "severity": "warning",
-            "message": "A nested Paragraph closed the preceding paragraph best-effort.",
-            "offset": 46
+            "message": "An unterminated Paragraph was imported best-effort.",
+            "paragraphIndex": 0
           }
         ]
       }

@@ -244,8 +244,37 @@ public enum Fdx {
         var title: [CollectedParagraph] = []
         var hasFinalDraftRoot = false
         var titleDepth = 0
-        var contentDepth = 0
         var textDepth = 0
+        /// The elements open above the cursor, so a <Content> can be told from
+        /// its parent. A self-closing tag dispatches both start and end, so
+        /// this balances.
+        var open: [String] = []
+        /// One entry per open <Content>: whether it is the script's.
+        ///
+        /// A Final Draft document has many. The screenplay is the one directly
+        /// under <FinalDraft>, the title page has its own under <TitlePage>,
+        /// and a feature written with the Beat Board carries one per <Outline>
+        /// section — fifty-three of them in the files this was measured
+        /// against. Taking paragraphs from all of them puts the writer's
+        /// beats, page goals and cast list into the script.
+        var contents: [Bool] = []
+        /// How deep inside the current paragraph the cursor is, counting
+        /// everything that is not the paragraph's own <Text>.
+        ///
+        /// A paragraph's text is the <Text> that is its *direct child*.
+        /// Everything else inside it is Final Draft's metadata — and in a real
+        /// file that includes whole paragraphs: a scene heading carries
+        /// <SceneProperties> with a <CharacterArcBeat> for every character in
+        /// the scene, each holding its own <Paragraph><Text>. Reading those as
+        /// script is what emptied every scene heading in the file and put the
+        /// arc beats in the body.
+        ///
+        /// Counting rather than naming the containers is deliberate. FDX is a
+        /// large and unstable format; a list of tags to skip is a list to keep
+        /// up with, and the rule "a paragraph owns only its direct-child Text"
+        /// is the format itself. It is bounded by the paragraph's own closing
+        /// tag, so a strange document cannot make it run away.
+        var metadataDepth = 0
         /// Whether the Text run being read is styled AllCaps by Final Draft.
         var runUppercases = false
         var paragraphCount = 0
@@ -258,8 +287,11 @@ public enum Fdx {
             self.diagnostics = diagnostics
         }
 
+        var inScriptContent: Bool { contents.contains(true) }
+
         func finishParagraph() {
             guard let paragraph = current else { return }
+            metadataDepth = 0
             if paragraph.inTitlePage { title.append(paragraph) } else { body.append(paragraph) }
             current = nil
             textDepth = 0
@@ -267,16 +299,32 @@ public enum Fdx {
         }
 
         func start(_ tag: FdxXmlScanner.Tag, offset: Int) -> Bool {
+            let parent = open.last
+            open.append(tag.name)
+
             if tag.name == "finaldraft" { hasFinalDraftRoot = true }
             if tag.name == "titlepage" { titleDepth += 1 }
-            if tag.name == "content" { contentDepth += 1 }
+            if tag.name == "content" {
+                // The screenplay's, the title page's, and nobody else's.
+                contents.append(parent == "finaldraft" || parent == "titlepage")
+            }
 
-            if tag.name == "paragraph" && contentDepth > 0 {
+            // Inside a paragraph, anything that is not its own <Text> is
+            // metadata — including nested paragraphs. Skipped whole.
+            if current != nil,
+               metadataDepth > 0 || (tag.name != "text" && tag.name != "content") {
+                metadataDepth += 1
+                return true
+            }
+
+            if tag.name == "paragraph" && inScriptContent {
                 if paragraphCount >= limits.maxParagraphs {
                     limitReached = true
                     return false
                 }
                 if current != nil {
+                    // Not the nested-metadata case, which is handled above:
+                    // this is a paragraph that never closed.
                     diagnostics.add(.init(
                         code: "FDX_NESTED_PARAGRAPH",
                         severity: .warning,
@@ -309,18 +357,26 @@ public enum Fdx {
         }
 
         func end(_ name: String) -> Bool {
+            if open.last == name { open.removeLast() }
+
+            if current != nil && metadataDepth > 0 {
+                metadataDepth -= 1
+                if name == "content", !contents.isEmpty { contents.removeLast() }
+                return true
+            }
+
             if name == "text" && textDepth > 0 {
                 textDepth -= 1
                 runUppercases = false
             }
             if name == "paragraph" { finishParagraph() }
-            if name == "content" && contentDepth > 0 { contentDepth -= 1 }
+            if name == "content", !contents.isEmpty { contents.removeLast() }
             if name == "titlepage" && titleDepth > 0 { titleDepth -= 1 }
             return true
         }
 
         func text(_ value: String, cdata: Bool) -> Bool {
-            if current != nil && textDepth > 0 {
+            if current != nil && textDepth > 0 && metadataDepth == 0 {
                 let decoded = cdata ? value : Fdx.decodeXmlEntities(value)
                 current?.text += runUppercases ? decoded.uppercased() : decoded
             }
