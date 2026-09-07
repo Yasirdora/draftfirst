@@ -103,10 +103,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         container.lineFragmentPadding = 0
         textView.drawsBackground = false
         textView.backgroundColor = .clear
-        // The caret belongs to the paper too. Left to itself it is
-        // `textColor` — white in a dark app — and a writer with a light page
-        // at night would be typing at an invisible cursor.
-        textView.insertionPointColor = .screenplayInk
         // The screenplay's own rules decide what a line looks like; nothing
         // the system might helpfully add belongs on a page that has to print
         // exactly as it reads.
@@ -590,8 +586,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     private func paperChanged() {
         guard renderedPaper != PagePaper.stored else { return }
         renderedPaper = PagePaper.stored
+        // `applyAppearance` re-takes the paper, the card and the caret.
         canvas.applyAppearance()
-        textView.insertionPointColor = .screenplayInk
         guard let editor else { return }
         renderedRevision = -1
         renderIfNeeded(editor)

@@ -209,23 +209,36 @@ final class PageCanvasView: NSView {
         // Layer `cgColor`s are snapshots. Taking them outside the view's
         // own appearance would paint a light page on a dark canvas (or
         // the reverse) and the edge would vanish in one of the two looks.
-        // The caret goes with them. `insertionPointColor` holds the colour
-        // `NSTextView` resolved when it was set, so a writer who switches the
-        // system between light and dark — or the page between paper and dark
-        // — keeps the old one: a white caret on white paper, which is a caret
-        // that has vanished. Re-taking it here means every appearance-
-        // dependent thing on the page is re-taken in one place.
-        textView?.insertionPointColor = .screenplayInk
         effectiveAppearance.performAsCurrentDrawingAppearance {
+            // The caret goes with them, and it has to be handed a *resolved*
+            // colour. `insertionPointColor` keeps whatever `NSTextView`
+            // resolved when it was set, and assigning the same dynamic colour
+            // again does not make it look afresh — so switching the page
+            // between paper and dark left the old caret behind: dark on a
+            // dark page, or white on white paper. Either way, gone.
+            textView?.insertionPointColor =
+                NSColor.screenplayInk.usingColorSpace(.sRGB) ?? .labelColor
+
             // Clear: the scroll view paints the desk, all the way to the
             // window's edges. The canvas is only as large as the pages, so a
             // colour here would stop at its edge and draw a border round them.
             layer?.backgroundColor = NSColor.clear.cgColor
             for page in pageViews {
+                // Everything the card is made of, in one place. The corner,
+                // the shadow and the border used to be set once in
+                // `makePageView`, where a detached view has no layer yet and
+                // the assignments go nowhere — the card then had no shadow
+                // until something else happened to re-make it. Here they are
+                // applied every time the appearance changes, by which point
+                // there is always a layer.
                 page.layer?.backgroundColor = NSColor.screenplayPaper.cgColor
                 page.layer?.borderColor = NSColor.separatorColor.cgColor
                 page.layer?.borderWidth = 1
+                page.layer?.cornerRadius = 2
                 page.layer?.shadowColor = NSColor.black.cgColor
+                page.layer?.shadowRadius = 8
+                page.layer?.shadowOffset = CGSize(width: 0, height: -1)
+                page.layer?.shadowOpacity = 0.22
             }
         }
     }
@@ -233,10 +246,7 @@ final class PageCanvasView: NSView {
     private func makePageView() -> FlippedView {
         let page = FlippedView()
         page.wantsLayer = true
-        page.layer?.cornerRadius = 2
-        page.layer?.shadowRadius = 8
-        page.layer?.shadowOffset = CGSize(width: 0, height: -1)
-        page.layer?.shadowOpacity = 0.22
+        // What it looks like is `applyAppearance`'s, all of it — see there.
         return page
     }
 }

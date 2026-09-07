@@ -42,30 +42,31 @@ final class ScreenplayDeskTests: XCTestCase {
     /// the same session: its window edge #1F1E2C, sidebar #1D1C26, content
     /// #21202C, all tinted, all within a few levels of each other. This
     /// window now lands within two of each.
-    func testTheDarkDeskIsApplesOwnAndKeepsTinting() {
-        XCTAssertEqual(
-            rgb(.screenplayDesk, in: .darkAqua).r,
-            rgb(.underPageBackgroundColor, in: .darkAqua).r,
-            "the dark desk stopped being the system's, and will stop tinting with it"
-        )
+    func testTheDeskIsTheWindowsOwnGround() {
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            XCTAssertEqual(
+                rgb(.screenplayDesk, in: name).r,
+                rgb(.windowBackgroundColor, in: name).r,
+                "the desk left the ground the Navigator's glass is laid on, and "
+                    + "will read as a panel beside it again"
+            )
+        }
     }
 
-    /// Light is stated, and the reason is the Navigator beside it.
+    /// The relationship that was actually wrong, and the one Finder gets
+    /// right: the area beside a sidebar is *not darker* than the sidebar.
     ///
-    /// `underPageBackgroundColor` is #969696 in light — a photographic
-    /// mid-grey, correct for a page floating alone in Preview, and an
-    /// eighty-nine level step from a near-white sidebar. Measured in the app:
-    /// sidebar #FAF9F9 against a #A1A1A1 desk, which reads as two panels.
-    /// This keeps the desk within reach of the chrome while staying under the
-    /// paper, and it fails if anyone puts the semantic colour back.
-    func testTheLightDeskStaysWithinReachOfTheChrome() {
-        let desk = rgb(.screenplayDesk, in: .aqua)
-        let chrome = rgb(.windowBackgroundColor, in: .aqua)
+    /// Measured on screen, same wallpaper: Finder's sidebar #1D1C26 against
+    /// its content #21202C, content lighter by four. This window had it
+    /// inverted — sidebar 28, desk 24 — with `underPageBackgroundColor`,
+    /// which is why the Navigator read as a panel raised off the page.
+    func testTheDarkDeskIsNotBelowTheChrome() {
+        let desk = rgb(.screenplayDesk, in: .darkAqua)
+        let chrome = rgb(.windowBackgroundColor, in: .darkAqua)
 
-        XCTAssertLessThanOrEqual(
-            chrome.r - desk.r, 40,
-            "the desk is \(chrome.r - desk.r) below the chrome; the Navigator "
-                + "will read as a panel bolted to the page"
+        XCTAssertGreaterThanOrEqual(
+            desk.r, chrome.r,
+            "a desk below the window's own ground makes the sidebar a raised panel"
         )
     }
 
@@ -77,19 +78,34 @@ final class ScreenplayDeskTests: XCTestCase {
     /// `underPageBackgroundColor`: #282828 left the *dark* page four levels
     /// above its own desk, which is not a sheet, it is a slightly different
     /// patch of desk.
-    func testTheDeskIsAlwaysBelowThePaper() {
+    func testTheDarkDeskIsAlwaysBelowThePaper() {
         for choice in PagePaper.allCases {
             withPaper(choice) {
-                for name in [NSAppearance.Name.aqua, .darkAqua] {
-                    let desk = rgb(.screenplayDesk, in: name)
-                    let paper = rgb(.screenplayPaper, in: name)
-                    XCTAssertGreaterThanOrEqual(
-                        paper.r - desk.r, 10,
-                        "\(choice.title) in \(name.rawValue): desk \(desk.r), paper \(paper.r)"
-                    )
-                }
+                let desk = rgb(.screenplayDesk, in: .darkAqua)
+                let paper = rgb(.screenplayPaper, in: .darkAqua)
+                XCTAssertGreaterThanOrEqual(
+                    paper.r - desk.r, 10,
+                    "\(choice.title): desk \(desk.r), paper \(paper.r)"
+                )
             }
         }
+    }
+
+    /// In light the sheet is told from the desk by its edge, not its value —
+    /// see `testTheLightDeskIsTheChromesOwnColour`. So the edge has to exist.
+    func testTheLightPageHasAnEdgeToBeToldApartBy() {
+        let canvas = PageCanvasView()
+        canvas.appearance = NSAppearance(named: .aqua)
+        _ = canvas.pageView          // the first sheet, created on demand
+        canvas.applyAppearance()
+
+        XCTAssertEqual(canvas.pageView.layer?.borderWidth, 1)
+        XCTAssertNotNil(canvas.pageView.layer?.borderColor)
+        XCTAssertGreaterThan(
+            canvas.pageView.layer?.shadowOpacity ?? 0, 0,
+            "without a shadow a white page on a white desk has nothing to be seen by"
+        )
+        XCTAssertEqual(canvas.pageView.layer?.cornerRadius, 2)
     }
 
     // MARK: - What the page is made of

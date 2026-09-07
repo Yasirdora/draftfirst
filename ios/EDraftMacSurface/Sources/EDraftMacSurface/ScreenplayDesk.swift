@@ -18,29 +18,26 @@ extension NSColor {
     ///
     /// The dark desk is the chrome's own `windowBackgroundColor`, so there is
     /// nothing left to step between; `ScreenplayDeskTests` ties the two.
-    /// Behind the page.
+    /// Behind the page: the window's own ground, in both looks.
     ///
-    /// Dark is AppKit's own `underPageBackgroundColor`, tinted by the system
-    /// exactly as Finder's surfaces are — measured against Finder, its window
-    /// edge #1F1E2C, its sidebar #1D1C26, its content #21202C, and this
-    /// window within two of each. In the dark it happens to sit right beside
-    /// the Navigator, which is what makes the window read as one surface.
+    /// Measured against Finder, on the same wallpaper, twice. Finder's
+    /// content area is *lighter* than its sidebar — #1D1C26 against #21202C —
+    /// and that relationship is what makes a sidebar read as part of a window
+    /// rather than as a panel raised off it.
     ///
-    /// In light it does not, and that is the whole reason this is not simply
-    /// the semantic colour. `underPageBackgroundColor` is #969696 there: a
-    /// photographic mid-grey, correct for a white page floating alone in
-    /// Preview, and beside a near-white sidebar it is an eighty-nine level
-    /// step that reads as a second panel bolted on. Measured: window edge
-    /// #F6F6F6, sidebar #FAF9F9, desk #A1A1A1, page #FAF8F4.
+    /// `underPageBackgroundColor` gets it backwards here. It is AppKit's
+    /// behind-the-page grey, meant for a white page floating alone in
+    /// Preview, and it resolved *below* the Navigator in dark (24 against 28)
+    /// and to a #969696 slab in light — an eighty-nine level step from a
+    /// near-white sidebar. Both were measured on screen; both read as two
+    /// panels bolted together.
     ///
-    /// So light is stated, and stated close to the chrome — far enough under
-    /// the paper for the sheet to read with its own edge and shadow, near
-    /// enough to the Navigator that the divider is a divider and not a seam.
-    static let screenplayDesk = NSColor(name: "screenplayDesk") { appearance in
-        appearance.isDark
-            ? .underPageBackgroundColor
-            : NSColor(srgbRed: 0.922, green: 0.922, blue: 0.922, alpha: 1)   // #EBEBEB
-    }
+    /// `windowBackgroundColor` is the ground the Navigator's glass is already
+    /// laid on, so it cannot disagree with it: 31 against a 28 sidebar in
+    /// dark, which is Finder's own +3, and the same colour on both sides of
+    /// the divider in light. The page is told from it by its own edge and
+    /// shadow, which is how a sheet is told from a surface.
+    static var screenplayDesk: NSColor { .windowBackgroundColor }
 
     /// The page. Light unless the writer has asked for a dark one — see
     /// `PagePaper`, and note that the choice only means anything in dark
