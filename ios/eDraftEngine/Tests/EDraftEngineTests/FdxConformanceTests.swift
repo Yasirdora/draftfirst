@@ -18,7 +18,7 @@ struct FdxImportConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.importCases.count == 26)
+        #expect(Self.corpus.importCases.count == 27)
         #expect(Self.corpus.exportCases.count == 12)
     }
 
@@ -64,18 +64,22 @@ struct FdxExportConformanceTests {
                 "\(case_.name): diagnostics differ from the TypeScript engine")
     }
 
-    /// model → fdx → model restores every printing element and the title
-    /// page; structural elements are omitted by design. The expected side
+    /// model → fdx → model restores every element FDX has a paragraph for,
+    /// and the title page; the rest are omitted by design. The expected side
     /// is normalised by the export contract, exactly as the TypeScript
     /// tests express it: illegal XML code points come back repaired as
     /// U+FFFD (the export reports that repair), and an empty title-page
     /// value list comes back as one empty line (`[]` → `[""]`).
-    @Test("export → import restores printing elements", arguments: Self.corpus.exportCases)
+    @Test("export → import restores representable elements", arguments: Self.corpus.exportCases)
     func printingRoundTrip(_ case_: FdxCorpus.ExportCase) {
         let result = Fdx.write(case_.screenplay)
         let back = Fdx.parse(result.xml).script
+        // Stated rather than derived from the map the export uses, so this
+        // fails when the subset changes instead of agreeing with it. Notes do
+        // not print and are still representable: Final Draft's Note element
+        // is a line in the script that does not print, same as [[ ]].
         let printable = case_.screenplay.elements
-            .filter { $0.type.isPrinting }
+            .filter { $0.type.isPrinting || $0.type == .note }
             .map { element in
                 var copy = element
                 copy.text = Self.xmlLegal(element.text)
@@ -83,7 +87,7 @@ struct FdxExportConformanceTests {
                 return copy
             }
         #expect(back.elements == printable,
-                "\(case_.name): printing elements did not survive the round-trip")
+                "\(case_.name): representable elements did not survive the round-trip")
         let expectedTitlePage = case_.screenplay.titlePage.map { entry in
             TitlePageEntry(
                 key: entry.key,

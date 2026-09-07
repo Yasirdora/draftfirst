@@ -12,6 +12,7 @@
  */
 
 import { canonicalCasing } from './normalize.js';
+import { isPrinting } from './types.js';
 import type {
 	AnyElementType,
 	ElementType,
@@ -216,7 +217,12 @@ const FDX_TO_MODEL: Readonly<Record<string, AnyElementType>> = {
 	parenthetical: 'parenthetical',
 	transition: 'transition',
 	shot: 'shot',
-	general: 'general'
+	general: 'general',
+	// A Final Draft "Note" is a line in the script that does not print, which
+	// is exactly what Fountain's [[ ]] is. Reading it as General put a
+	// writer's notes on the page — ten of them across the two real features
+	// this was measured on.
+	note: 'note'
 };
 
 const MODEL_TO_FDX: Readonly<Partial<Record<AnyElementType, string>>> = {
@@ -229,7 +235,8 @@ const MODEL_TO_FDX: Readonly<Partial<Record<AnyElementType, string>>> = {
 	shot: 'Shot',
 	general: 'General',
 	centered: 'General',
-	lyrics: 'General'
+	lyrics: 'General',
+	note: 'Note'
 };
 
 /* Our own FDX extension namespace: the attributes Final Draft has no field
@@ -1167,10 +1174,6 @@ function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph
 
 const XML_HEADER = '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>';
 
-function structuralType(type: AnyElementType): boolean {
-	return type === 'note' || type === 'section' || type === 'synopsis' || type === 'pagebreak';
-}
-
 export function writeFdxWithDiagnostics(
 	script: Screenplay,
 	options: FdxExportOptions = {}
@@ -1185,8 +1188,12 @@ export function writeFdxWithDiagnostics(
 	for (const [index, element] of script.elements.entries()) {
 		const fdxType = MODEL_TO_FDX[element.type];
 		if (!fdxType) {
-			if (structuralType(element.type)) omittedStructural++;
-			else omittedUnknown++;
+			/* A non-printing element FDX has no paragraph type for — a
+			   section, a synopsis, a page break. Notes are not among them:
+			   Final Draft's Note element means what Fountain's [[ ]] means,
+			   so it is in MODEL_TO_FDX and never reaches here. */
+			if (isPrinting(element.type)) omittedUnknown++;
+			else omittedStructural++;
 			continue;
 		}
 

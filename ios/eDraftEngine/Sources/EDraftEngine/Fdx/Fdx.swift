@@ -182,7 +182,12 @@ public enum Fdx {
         "parenthetical": .parenthetical,
         "transition": .transition,
         "shot": .shot,
-        "general": .general
+        "general": .general,
+        // A Final Draft "Note" is a line in the script that does not print,
+        // which is exactly what Fountain's [[ ]] is. Reading it as General put
+        // a writer's notes on the page — ten of them across the two real
+        // features this was measured on.
+        "note": .note
     ]
 
     private static let modelToFdx: [ElementKind: String] = [
@@ -195,7 +200,8 @@ public enum Fdx {
         .shot: "Shot",
         .general: "General",
         .centered: "General",
-        .lyrics: "General"
+        .lyrics: "General",
+        .note: "Note"
     ]
 
     /* Our own FDX extension namespace: the attributes Final Draft has no

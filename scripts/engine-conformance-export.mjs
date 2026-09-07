@@ -489,6 +489,14 @@ addFdxImport(
 	'numeric-entities',
 	`<FinalDraft><Content><Paragraph Type="Action"><Text>&#65;&#x42; &#x110000; &#55296;</Text></Paragraph></Content></FinalDraft>`
 );
+/* Final Draft's Note element: a line in the script that does not print,
+   which is what Fountain's [[ ]] is. The <ParagraphSpec Type="Note"> in
+   <ElementSettings> is the *style* for that element, not an instance of it,
+   and reading it as one would put the stylesheet on the page. */
+addFdxImport(
+	'note',
+	`<FinalDraft><ElementSettings Type="Note"><ParagraphSpec Type="Note"/></ElementSettings><Content><Paragraph Type="Scene Heading"><Text>INT. LAB - DAY</Text></Paragraph><Paragraph Type="Note" id="n1"><Text>Is this the same lab as scene 4?</Text></Paragraph><Paragraph Type="Action"><Text>Hum.</Text></Paragraph></Content></FinalDraft>`
+);
 addFdxImport('limits-source', `<FinalDraft><Content/></FinalDraft>`, { maxSourceCharacters: 10 });
 addFdxImport(
 	'limits-warnings',
@@ -520,11 +528,13 @@ addFdxExport('special-fields', {
 		{ type: 'lyrics', text: 'La la' }
 	]
 });
+/* Sections, synopses and page breaks have no FDX paragraph type, so an
+   export drops them and says so. A note does have one, and goes out. */
 addFdxExport('structural-omissions', {
 	titlePage: [],
 	elements: [
 		{ type: 'section', text: 'Act One', depth: 1 },
-		{ type: 'note', text: 'hidden' },
+		{ type: 'note', text: 'Kept: Final Draft has a Note element.' },
 		{ type: 'synopsis', text: 'beat' },
 		{ type: 'pagebreak', text: '' },
 		{ type: 'action', text: 'Visible.' }

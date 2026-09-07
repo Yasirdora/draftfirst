@@ -26,6 +26,7 @@ final class FdxSaveBackTests: XCTestCase {
           <Text>INT. HOME LIBRARY - DAY</Text>
         </Paragraph>
         <Paragraph Type="Action"><Text>Majestic.</Text></Paragraph>
+        <Paragraph Type="Note"><Text>Is this the same library as scene 9?</Text></Paragraph>
       </Content>
       <LockedPages><LockedPage Number="1"/></LockedPages>
       <Revisions><Revision Color="Blue" Mark="*" Name="First Revision" Number="1"/></Revisions>
@@ -68,6 +69,29 @@ final class FdxSaveBackTests: XCTestCase {
         XCTAssertTrue(xml.contains("<Revision"), "the revision history was lost")
         XCTAssertTrue(xml.contains("<TagDefinition"), "the production tags were lost")
         XCTAssertTrue(xml.contains("<CharacterArcBeat"), "the arc beats were lost")
+    }
+
+    /// A Final Draft Note is a line in the script that does not print, which
+    /// is what Fountain's [[ ]] is — so it reaches the writer as a note rather
+    /// than as a stage direction printed on the page, and goes home as one.
+    func testANoteArrivesAsANoteAndGoesHomeAsOne() throws {
+        let file = try opened()
+        XCTAssertTrue(
+            file.source.contains("[[Is this the same library as scene 9?]]"),
+            "a Final Draft note did not survive the trip into the editor"
+        )
+
+        let edited = file.source.replacingOccurrences(
+            of: "same library as scene 9", with: "same library as scene 12"
+        )
+        let written = try ScreenplayFile.encode(
+            edited, as: .finalDraftScreenplay, origin: file.origin
+        )
+        let xml = try XCTUnwrap(String(data: written, encoding: .utf8))
+
+        XCTAssertTrue(xml.contains("Type=\"Note\""), "the note stopped being a note")
+        XCTAssertTrue(xml.contains("same library as scene 12"), "the edit was lost")
+        XCTAssertFalse(xml.contains("Type=\"General\""), "the note was printed as General")
     }
 
     /// Without an original there is nothing to preserve, and a whole file is

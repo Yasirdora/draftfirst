@@ -581,6 +581,31 @@
       }
     },
     {
+      "name": "note",
+      "source": "<FinalDraft><ElementSettings Type=\"Note\"><ParagraphSpec Type=\"Note\"/></ElementSettings><Content><Paragraph Type=\"Scene Heading\"><Text>INT. LAB - DAY</Text></Paragraph><Paragraph Type=\"Note\" id=\"n1\"><Text>Is this the same lab as scene 4?</Text></Paragraph><Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph></Content></FinalDraft>",
+      "options": {},
+      "expected": {
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "scene",
+              "text": "INT. LAB - DAY"
+            },
+            {
+              "type": "note",
+              "text": "Is this the same lab as scene 4?"
+            },
+            {
+              "type": "action",
+              "text": "Hum."
+            }
+          ]
+        },
+        "diagnostics": []
+      }
+    },
+    {
       "name": "limits-source",
       "source": "<FinalDraft><Content/></FinalDraft>",
       "options": {
@@ -1056,13 +1081,13 @@
         ]
       },
       "expected": {
-        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<!-- eDraft warning: 5 unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. ROOM - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Some action.</Text></Paragraph>\n<Paragraph Type=\"General\" Alignment=\"Center\"><Text>THE END</Text></Paragraph>\n<Paragraph Type=\"General\" EDraft:ElementType=\"lyrics\"><Text>Sung like a lyric</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<!-- eDraft warning: 4 unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->\n<Content>\n<Paragraph Type=\"Note\"><Text>A private note</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\"><Text>INT. ROOM - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Some action.</Text></Paragraph>\n<Paragraph Type=\"General\" Alignment=\"Center\"><Text>THE END</Text></Paragraph>\n<Paragraph Type=\"General\" EDraft:ElementType=\"lyrics\"><Text>Sung like a lyric</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
         "diagnostics": [
           {
             "code": "FDX_STRUCTURAL_ELEMENTS_OMITTED",
             "severity": "warning",
-            "message": "5 non-printing structural element(s) were omitted because the supported FDX paragraph subset cannot represent them safely.",
-            "count": 5
+            "message": "4 non-printing structural element(s) were omitted because the supported FDX paragraph subset cannot represent them safely.",
+            "count": 4
           }
         ]
       }
@@ -4809,7 +4834,7 @@
           },
           {
             "type": "note",
-            "text": "hidden"
+            "text": "Kept: Final Draft has a Note element."
           },
           {
             "type": "synopsis",
@@ -4826,13 +4851,13 @@
         ]
       },
       "expected": {
-        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<!-- eDraft warning: 4 unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->\n<Content>\n<Paragraph Type=\"Action\"><Text>Visible.</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<!-- eDraft warning: 3 unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->\n<Content>\n<Paragraph Type=\"Note\"><Text>Kept: Final Draft has a Note element.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Visible.</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
         "diagnostics": [
           {
             "code": "FDX_STRUCTURAL_ELEMENTS_OMITTED",
             "severity": "warning",
-            "message": "4 non-printing structural element(s) were omitted because the supported FDX paragraph subset cannot represent them safely.",
-            "count": 4
+            "message": "3 non-printing structural element(s) were omitted because the supported FDX paragraph subset cannot represent them safely.",
+            "count": 3
           }
         ]
       }

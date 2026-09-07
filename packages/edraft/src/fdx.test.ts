@@ -374,17 +374,43 @@ describe('writeFdx · export', () => {
 			titlePage: [],
 			elements: [
 				{ type: 'section', text: 'Act One', depth: 1 },
-				{ type: 'note', text: 'hidden' },
+				{ type: 'synopsis', text: 'They meet.' },
 				{ type: 'action', text: 'Visible.' }
 			]
 		});
 		expect(result.xml).not.toContain('Act One');
-		expect(result.xml).not.toContain('hidden');
+		expect(result.xml).not.toContain('They meet.');
 		expect(result.xml).toContain('Visible.');
 		expect(result.xml).toContain('eDraft warning: 2 unsupported element(s) omitted');
 		expect(result.diagnostics).toContainEqual(
 			expect.objectContaining({ code: 'FDX_STRUCTURAL_ELEMENTS_OMITTED', count: 2 })
 		);
+	});
+
+	it('writes a note as the Note paragraph Final Draft reads', () => {
+		const result = writeFdxWithDiagnostics({
+			titlePage: [],
+			elements: [
+				{ type: 'action', text: 'Visible.' },
+				{ type: 'note', text: 'Check this against the schedule.' }
+			]
+		});
+		expect(result.xml).toContain(
+			'<Paragraph Type="Note"><Text>Check this against the schedule.</Text></Paragraph>'
+		);
+		expect(result.diagnostics).toEqual([]);
+	});
+
+	it('round-trips a note through Final Draft and back', () => {
+		const original: Screenplay = {
+			titlePage: [],
+			elements: [
+				{ type: 'scene', text: 'INT. ROOM - DAY' },
+				{ type: 'note', text: 'Is this the same room as scene 4?' },
+				{ type: 'action', text: 'She waits.' }
+			]
+		};
+		expect(parseFdx(writeFdx(original)).script).toEqual(original);
 	});
 
 	it('replaces illegal XML characters and reports the repair', () => {
