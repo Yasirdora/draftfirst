@@ -146,17 +146,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // The canvas is the scroll view's document view, so it joins the
         // window at the same moment the surface does — and that moment, not a
         // SwiftUI update pass, is when the page can take the caret.
-        // Clicking the line between two pages opens or closes that break.
-        // Both the sheets and the text have to move, and only one thing
-        // owns that: `layOut` re-runs the exclusion paths from the canvas's
-        // own offsets, so the two cannot drift.
-        canvas.onToggleBreak = { [weak self] index in
-            guard let self else { return }
-            self.canvas.toggleBreak(after: index)
-            self.layOut()
-            self.updateGhost()
-            self.editor?.reportAllBreaksOpen(self.canvas.allBreaksOpen)
-        }
         canvas.onMoveToWindow = { [weak self] in
             self?.openTheWindowToItsFullHeight()
             self?.takeInitialFocus()
@@ -262,7 +251,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
                 self.scrollView.window?.makeFirstResponder(nil)
             }
         }
-        editor.onToggleAllBreaks = { [weak self] in self?.toggleAllBreaks() }
+        editor.onSetLayoutMode = { [weak self] mode in self?.setLayoutMode(mode) }
+        // The writer's choice reaches the canvas here rather than being read
+        // from a global when the view was built — see `layoutMode`.
+        canvas.layoutMode = editor.layoutMode
     }
 
     /// Draws the model only when this surface has not already mirrored this
@@ -371,33 +363,89 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             textHeight: max(textView.frame.height, 1),
             viewport: size
         )
+        canvas.showBreaks(at: pageBreakPositions())
         scrollView.layoutSubtreeIfNeeded()
     }
 
-    /// Opens every break if any are closed, closes them all otherwise.
+    /// Draws the script as sheets or as one column.
     ///
-    /// The viewport is preserved across the toggle so a 200-page document
-    /// does not jump: the writer stays on the same line while the gaps appear
-    /// or disappear around it.
-    func toggleAllBreaks() {
-        let pages = ScreenplayExporter.paginate(Screenplay(elements: lastLaidElements))
-        let pageCount = max(1, pages?.count ?? 1)
-        guard pageCount > 1 else { return }
-
-        let preserved = scrollView.contentView.bounds.origin
-        if canvas.allBreaksOpen {
-            canvas.closeAllBreaks()
-        } else {
-            canvas.openAllBreaks(pageCount: pageCount)
-        }
+    /// The whole point of the switch is that the document's height changes
+    /// enormously — a hundred pages carry a hundred repeated margin pairs,
+    /// about thirteen thousand points of it — so the writer has to be put
+    /// back on the line they were reading, not at the scroll offset they
+    /// happened to be at. Those are the same number only when nothing above
+    /// them moved, which is exactly what this does not guarantee.
+    func setLayoutMode(_ mode: PageLayoutMode) {
+        guard canvas.layoutMode != mode else { return }
+        let anchor = anchoredLine()
+        canvas.layoutMode = mode
+        PageLayoutMode.store(mode)
+        editor?.reportLayoutMode(mode)
         layOut()
+        scrollBack(to: anchor)
         updateGhost()
-        restoreViewport(preserved: preserved)
-        editor?.reportAllBreaksOpen(canvas.allBreaksOpen)
+    }
+
+    /// The line at the top of what the writer can see, and how far below the
+    /// viewport's edge it sits.
+    private func anchoredLine() -> (location: Int, offset: CGFloat)? {
+        guard let layoutManager = textView.layoutManager,
+              let container = textView.textContainer else { return nil }
+        let visible = scrollView.contentView.bounds
+        let inText = canvas.convert(NSPoint(x: 0, y: visible.minY), to: textView)
+        let glyph = layoutManager.glyphIndex(for: inText, in: container)
+        let location = layoutManager.characterIndexForGlyph(at: glyph)
+        guard let rect = boundingRect(atCharacter: location) else { return nil }
+        return (location, canvas.convert(rect, from: textView).minY - visible.minY)
+    }
+
+    private func scrollBack(to anchor: (location: Int, offset: CGFloat)?) {
+        guard let anchor, let rect = boundingRect(atCharacter: anchor.location) else { return }
+        let y = canvas.convert(rect, from: textView).minY - anchor.offset
+        let clip = scrollView.contentView
+        clip.scroll(to: NSPoint(
+            x: clip.bounds.origin.x,
+            y: min(max(0, y), max(0, canvas.frame.height - clip.bounds.height))
+        ))
+        scrollView.reflectScrolledClipView(clip)
+    }
+
+    /// One character's rectangle, clamped so the end of the document does not
+    /// need a special case at every call site.
+    private func boundingRect(atCharacter location: Int) -> CGRect? {
+        let length = (textView.string as NSString).length
+        let clamped = min(max(0, location), length)
+        let probe = NSRange(location: clamped, length: min(1, max(0, length - clamped)))
+        return ScriptLayout.boundingRect(of: probe, in: textView)
+    }
+
+    /// Where each page after the first actually begins, in canvas
+    /// coordinates, measured after the layout rather than predicted from it.
+    ///
+    /// Both modes ask the same question of the same laid-out text, so a
+    /// marker cannot land anywhere but on the line the engine says starts
+    /// that page.
+    private func pageBreakPositions() -> [CGFloat] {
+        guard let pages = ScreenplayExporter.paginate(Screenplay(elements: lastLaidElements)),
+              pages.count > 1 else { return [] }
+        let locations = ScreenplayPageLayout.pageStartLocations(
+            elements: lastLaidElements, pages: pages
+        )
+        return locations.dropFirst().compactMap { location in
+            boundingRect(atCharacter: location).map { canvas.convert($0, from: textView).minY }
+        }
     }
 
     /// Exclusion paths for the desk between sheets, placed from the
     /// paginator's page-start locations — not from a second line count.
+    /// Where each page after the first begins, in the text view's own
+    /// coordinates — and, in `pages`, the exclusion paths that put it there.
+    ///
+    /// The engine decides which line starts which page; this only decides
+    /// where that line is *drawn*. `continuous` inserts nothing, so line 56
+    /// follows line 55 and the 132 points of margin the two pages would have
+    /// repeated are simply not there. `pages` pushes each page's first line
+    /// down to its own sheet, which is the same arithmetic as before.
     private func applyPageBreaks(
         in layoutManager: NSLayoutManager,
         container: NSTextContainer,
@@ -425,13 +473,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             ungapped.append(rect.minY)
         }
 
+        // `continuous` inserts nothing: line 56 follows line 55, and the
+        // 132 points of margin the two pages would have repeated are simply
+        // not there.
+        guard canvas.layoutMode == .pages else { return }
+
         var paths: [NSBezierPath] = []
         var placed: CGFloat = 0
+        let sheet = PageFormat.current.pageRect.height
         for index in 0..<(pages.count - 1) {
-            // The canvas owns where each page starts, because the writer can
-            // open a break and move everything below it. Deriving it twice is
-            // how the type and the sheets come to disagree.
-            let target = canvas.textTopOffset(ofPage: index + 1)
+            let target = CGFloat(index + 1) * sheet
             let ungappedY = index + 1 < ungapped.count ? ungapped[index + 1] : 0
             let gap = target - ungappedY - placed
             guard gap > 0.5 else { continue }
@@ -715,7 +766,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
 
     /// Where the lines between the sheets are, for a test that has to know
     /// there is something to press.
-    public var breakHandleFrames: [CGRect] { canvas.breakHandleFrames }
+    public var breakMarkerFrames: [CGRect] { canvas.breakMarkerFrames }
+
+    /// What is currently laid out, so a test can ask the engine whether the
+    /// page boundaries moved rather than trusting that they did not.
+    public var renderedElements: [ScriptElement] { lastLaidElements }
+
+    /// The character at the top of what the writer can see. This is the thing
+    /// a mode change has to preserve — not the scroll offset, which means
+    /// something different once the document's height has changed.
+    public var topmostVisibleCharacter: Int? { anchoredLine()?.location }
 
     /// Six lines to the inch without cropping a tall glyph. Held here because
     /// `NSLayoutManager.delegate` is weak.

@@ -54,7 +54,7 @@ public final class EditorState {
     @ObservationIgnored public var onFindScene: (() -> Void)?
     /// Opens every page break if any are closed, closes them all otherwise.
     /// The surface preserves the viewport so a long document does not jump.
-    @ObservationIgnored public var onToggleAllBreaks: (() -> Void)?
+    @ObservationIgnored public var onSetLayoutMode: ((PageLayoutMode) -> Void)?
 
     /// Whether the writer is editing the script or reading it.
     ///
@@ -71,13 +71,14 @@ public final class EditorState {
     /// the default follows the window, and this follows the default.
     public private(set) var zoom: CGFloat = PageZoom.actualSize
 
-    /// Whether every page break is currently open, for the menu checkmark.
-    public private(set) var allBreaksOpen = false
+    /// Sheets or one column — see `PageLayoutMode`. Held here so a menu can
+    /// show which one is on without asking the surface.
+    public private(set) var layoutMode: PageLayoutMode = .stored
 
-    /// The surface reporting the break state it settled on.
-    public func reportAllBreaksOpen(_ open: Bool) {
-        guard allBreaksOpen != open else { return }
-        allBreaksOpen = open
+    /// The surface reporting the layout it settled on.
+    public func reportLayoutMode(_ mode: PageLayoutMode) {
+        guard layoutMode != mode else { return }
+        layoutMode = mode
     }
 
     /// The surface reporting the size it settled on.

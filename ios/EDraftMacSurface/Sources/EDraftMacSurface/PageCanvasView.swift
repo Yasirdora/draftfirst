@@ -14,69 +14,23 @@ import EDraftCore
 final class PageCanvasView: NSView {
     private(set) var pageViews: [FlippedView] = []
     private weak var textView: NSTextView?
-    /// The desk around the whole stack. Not the space between sheets — see
-    /// `gap(after:)`, which used to be this same number and is why a page
-    /// break looked like a gutter.
+    /// The desk around the whole stack. Not the space between sheets: those
+    /// meet, and used to stand this far apart, which is why a page boundary
+    /// read as a gutter.
     var canvasPadding: CGFloat = 36
 
-    /// How far apart two sheets stand when the writer has opened the break
-    /// between them. Ten points: enough to read as two pages, little enough
-    /// that the column is still a column.
-    static let openBreakGap: CGFloat = 10
+    /// Sheets, or one column. See `PageLayoutMode`; the canvas only draws
+    /// what it is told.
+    ///
+    /// Pages by default rather than the stored preference: a view that reads
+    /// a global at construction makes every test that builds one depend on
+    /// what some earlier test happened to leave in `UserDefaults`. The
+    /// writer's choice arrives through the model, in `bind(to:)`.
+    var layoutMode: PageLayoutMode = .pages
 
-    /// Which breaks the writer has opened, by the index of the page above
-    /// the break. Empty is the default and the resting state: the sheets
-    /// meet, and the break is a line.
-    private(set) var openBreaks: Set<Int> = []
+    private var breakMarkers: [PageBreakMarker] = []
 
-    /// Toggling one is a re-layout — every page below it moves, and the text
-    /// has to be pushed down to match — so the canvas asks rather than acts.
-    var onToggleBreak: ((Int) -> Void)?
-
-    private var breakHandles: [PageBreakHandle] = []
-
-    var breakHandleFrames: [CGRect] { breakHandles.map(\.frame) }
-
-    /// The space between page `index` and the one after it.
-    func gap(after index: Int) -> CGFloat {
-        openBreaks.contains(index) ? Self.openBreakGap : 0
-    }
-
-    /// Whether every break is currently open.
-    var allBreaksOpen: Bool {
-        guard pageViews.count > 1 else { return false }
-        return openBreaks.count >= pageViews.count - 1
-    }
-
-    /// Opens every break in the document.
-    func openAllBreaks(pageCount: Int) {
-        let breaks = max(0, pageCount - 1)
-        openBreaks = Set(0..<breaks)
-    }
-
-    /// Closes every break.
-    func closeAllBreaks() {
-        openBreaks.removeAll()
-    }
-
-    /// Where page `index`'s first line sits, measured from the first page's
-    /// first line. The opened gaps are part of it, which is what makes
-    /// everything below a break move when one is opened.
-    func textTopOffset(ofPage index: Int) -> CGFloat {
-        let pageHeight = PageFormat.current.pageRect.height
-        var offset = CGFloat(index) * pageHeight
-        for boundary in 0..<max(0, index) { offset += gap(after: boundary) }
-        return offset
-    }
-
-    /// Opens a joined break or closes an opened one.
-    func toggleBreak(after index: Int) {
-        if openBreaks.contains(index) {
-            openBreaks.remove(index)
-        } else {
-            openBreaks.insert(index)
-        }
-    }
+    var breakMarkerFrames: [CGRect] { breakMarkers.map(\.frame) }
 
     /// The first sheet — what callers mean by "the page" when they ask
     /// about width, the left margin, or the edge colour.
@@ -126,88 +80,90 @@ final class PageCanvasView: NSView {
         let pageSize = format.pageRect.size
         let pages = max(1, pageCount)
         let desk = canvasPadding
-        // The stack is the sheets plus whatever breaks the writer has opened
-        // — not one gutter per break, which is what it was.
-        let openGaps = (0..<max(0, pages - 1)).reduce(CGFloat(0)) { $0 + gap(after: $1) }
-        let stackHeight = CGFloat(pages) * pageSize.height + openGaps
-        // Exactly the pages and their desk — not the viewport. `CentringClipView`
+        let slack = ScreenplayPageLayout.glyphOverflow
+        let textWidth = ScreenplayPageLayout.textBlockWidth(format)
+        let textBlock = ScreenplayPageLayout.textBlockHeight(format)
+
+        // How tall the stack of paper is. In `pages` it is the sheets, which
+        // meet; in `continuous` it is one sheet as tall as the script plus the
+        // margins it opens and closes with — the ones *between* pages are the
+        // 132 points the mode exists to collapse.
+        let stackHeight: CGFloat = switch layoutMode {
+        case .pages: CGFloat(pages) * pageSize.height
+        case .continuous:
+            format.textTop + max(textHeight, textBlock) + ScreenplayPageLayout.textBottom(format)
+        }
+
+        // Exactly the paper and its desk — not the viewport. `CentringClipView`
         // puts a canvas smaller than the window in the middle of it, so this
         // stays the same size at every magnification and a pinch has nothing
         // to re-measure.
         let canvasWidth = pageSize.width + desk * 2
-        let canvasHeight = stackHeight + desk * 2
-        setFrameSize(CGSize(width: canvasWidth, height: canvasHeight))
+        setFrameSize(CGSize(width: canvasWidth, height: stackHeight + desk * 2))
 
         let x = ((canvasWidth - pageSize.width) / 2).rounded(.down)
-        while pageViews.count < pages {
+        let sheets = layoutMode == .pages ? pages : 1
+        while pageViews.count < sheets {
             let page = makePageView()
             pageViews.append(page)
             addSubview(page, positioned: .below, relativeTo: textView)
         }
-        while pageViews.count > pages {
+        while pageViews.count > sheets {
             pageViews.removeLast().removeFromSuperview()
         }
-        for index in 0..<pages {
+        for index in 0..<sheets {
             pageViews[index].frame = CGRect(
                 x: x,
-                y: desk + textTopOffset(ofPage: index),
+                y: desk + CGFloat(index) * pageSize.height,
                 width: pageSize.width,
-                height: pageSize.height
+                height: layoutMode == .pages ? pageSize.height : stackHeight
             )
         }
-        layOutBreakHandles(pages: pages, x: x, pageSize: pageSize, desk: desk)
 
-        let textWidth = ScreenplayPageLayout.textBlockWidth(format)
-        let textBlock = ScreenplayPageLayout.textBlockHeight(format)
-        let lastTextBottom = textTopOffset(ofPage: pages - 1) + textBlock
         // Headroom for a glyph taller than its line. The view starts one line
         // above the text block and insets the text back down by the same
         // amount, so the first line of type still sits exactly on `textTop`
         // while an emoji's ascent has somewhere to go instead of being cut off
         // by the view's own edge. On every other line the room is the line
         // above; on the first there is none.
-        let slack = ScreenplayPageLayout.glyphOverflow
+        let lastTextBottom = CGFloat(pages - 1) * pageSize.height + textBlock
         textView?.textContainerInset = NSSize(width: 0, height: slack)
         textView?.frame = CGRect(
             x: x + ScreenplayPageLayout.textLeft,
             y: desk + format.textTop - slack,
             width: textWidth,
-            height: max(textHeight, lastTextBottom, 1) + slack * 2
+            height: max(textHeight, layoutMode == .pages ? lastTextBottom : textHeight, 1) + slack * 2
         )
         applyAppearance()
         needsDisplay = true
     }
 
-    /// One handle per break, straddling the join.
+    /// Puts a marker at each page boundary.
     ///
-    /// Above the text view, because the text view spans every page and would
-    /// otherwise take the click; over the margins on either side, which the
-    /// format leaves blank, so it never sits on type.
-    private func layOutBreakHandles(
-        pages: Int, x: CGFloat, pageSize: CGSize, desk: CGFloat
-    ) {
-        let breaks = max(0, pages - 1)
-        while breakHandles.count < breaks {
-            let handle = PageBreakHandle(frame: .zero)
-            let index = breakHandles.count
-            handle.onClick = { [weak self] in self?.onToggleBreak?(index) }
-            breakHandles.append(handle)
-            addSubview(handle, positioned: .above, relativeTo: textView)
+    /// The positions come from the surface, because the surface is what laid
+    /// the text out and knows where each page's first line landed; deriving
+    /// them twice is how the type and the paper come to disagree. The page
+    /// number is drawn only in `continuous`, where the marker is the only
+    /// thing saying a page ended — in `pages` the sheets' own edges say it.
+    func showBreaks(at positions: [CGFloat]) {
+        while breakMarkers.count < positions.count {
+            let marker = PageBreakMarker(frame: .zero)
+            breakMarkers.append(marker)
+            addSubview(marker, positioned: .above, relativeTo: textView)
         }
-        while breakHandles.count > breaks {
-            breakHandles.removeLast().removeFromSuperview()
+        while breakMarkers.count > positions.count {
+            breakMarkers.removeLast().removeFromSuperview()
         }
 
-        for index in 0..<breaks {
-            let join = desk + textTopOffset(ofPage: index) + pageSize.height
-            let opened = gap(after: index)
-            let height = max(opened, PageBreakHandle.closedHeight)
-            breakHandles[index].isOpen = opened > 0
-            breakHandles[index].frame = CGRect(
+        let format = PageFormat.current
+        let x = ((frame.width - format.pageRect.width) / 2).rounded(.down)
+        for (index, y) in positions.enumerated() {
+            breakMarkers[index].pageNumber = layoutMode == .continuous ? index + 2 : nil
+            breakMarkers[index].frame = CGRect(
                 x: x,
-                y: join + (opened - height) / 2,
-                width: pageSize.width,
-                height: height
+                y: y - PageBreakMarker.height / 2,
+                width: format.pageRect.width,
+                height: PageBreakMarker.height
             )
         }
     }

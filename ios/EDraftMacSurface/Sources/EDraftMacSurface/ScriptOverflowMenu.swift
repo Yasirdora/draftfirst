@@ -18,10 +18,15 @@ struct ScriptOverflowMenu: View {
 
             Divider()
 
-            Toggle("Show Page Breaks", isOn: Binding(
-                get: { editor.allBreaksOpen },
-                set: { _ in editor.onToggleAllBreaks?() }
-            ))
+            Picker("Layout", selection: Binding(
+                get: { editor.layoutMode },
+                set: { editor.onSetLayoutMode?($0) }
+            )) {
+                ForEach(PageLayoutMode.allCases, id: \.self) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.inline)
 
             Divider()
 

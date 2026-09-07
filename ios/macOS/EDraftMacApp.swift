@@ -71,6 +71,8 @@ struct EDraftMacApp: App {
             CommandGroup(after: .sidebar) {
                 ZoomCommands()
                 Divider()
+                PageLayoutCommand()
+                Divider()
                 PagePaperCommand()
             }
             CommandGroup(after: .textFormatting) {
@@ -177,6 +179,28 @@ struct FindCommands: View {
             editor?.onFindScene?()
         }
         .keyboardShortcut("l", modifiers: .command)
+        .disabled(editor == nil)
+    }
+}
+
+/// View → sheets, or one column.
+///
+/// Two jobs rather than two tastes: drafting is reading a column, proofing is
+/// page turns and where a scene lands. Pagination is the engine's either way,
+/// so this only changes what is drawn — see `PageLayoutMode`.
+struct PageLayoutCommand: View {
+    @FocusedValue(\.editor) private var editor
+
+    var body: some View {
+        Picker("Layout", selection: Binding(
+            get: { editor?.layoutMode ?? .stored },
+            set: { editor?.onSetLayoutMode?($0) }
+        )) {
+            ForEach(PageLayoutMode.allCases, id: \.self) { mode in
+                Text(mode.title).tag(mode)
+            }
+        }
+        .pickerStyle(.inline)
         .disabled(editor == nil)
     }
 }

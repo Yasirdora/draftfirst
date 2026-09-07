@@ -3,14 +3,25 @@ import EDraftCore
 import XCTest
 @testable import EDraftMacSurface
 
-/// Discrete sheets, joined at a line the writer can open.
+/// Sheets, or one column, and the same pagination either way.
 ///
-/// They used to stand 36 points apart, which is a gutter every fifty-five
-/// lines and breaks the read for no gain. They meet now: still separate
-/// sheets with their own edges, but the boundary is a hairline, and clicking
-/// it opens that one break to `PageCanvasView.openBreakGap`.
+/// The sheets used to stand 36 points apart, which is a gutter every
+/// fifty-five lines and breaks the read for no gain. They meet now, marked by
+/// a hairline — and `PageLayoutMode.continuous` drops the sheets altogether,
+/// collapsing the 132 points of margin every boundary repeats. What neither
+/// may do is move a line onto a different page.
 @MainActor
 final class DiscreteSheetsTests: XCTestCase {
+
+    /// `setLayoutMode` writes the preference, which is right for the app and
+    /// poison for a suite: a test that switches to continuous leaves every
+    /// later test — and the writer's own app — in continuous. Put back what
+    /// was there.
+    override func setUp() {
+        super.setUp()
+        let original = PageLayoutMode.stored
+        addTeardownBlock { PageLayoutMode.store(original) }
+    }
 
     private func script(scenes: Int) -> [ScriptElement] {
         var elements: [ScriptElement] = []
@@ -36,9 +47,15 @@ final class DiscreteSheetsTests: XCTestCase {
         return surface
     }
 
+    private func surface(_ elements: [ScriptElement], mode: PageLayoutMode) -> ScriptSurface {
+        let surface = surface(elements)
+        surface.setLayoutMode(mode)
+        return surface
+    }
+
     func testAFourPageScriptIsFourSheetsJoinedAtALine() throws {
         let elements = script(scenes: 25)
-        let surface = surface(elements)
+        let surface = surface(elements, mode: .pages)
         let pages = try XCTUnwrap(ScreenplayExporter.paginate(Screenplay(elements: elements)))
         XCTAssertGreaterThanOrEqual(pages.count, 4, "25 scenes must paginate past four pages")
 
@@ -53,86 +70,85 @@ final class DiscreteSheetsTests: XCTestCase {
                 )
             }
         }
-        // Still sheets, not one tall card: each has its own edge, and there
-        // is a line to press between every pair.
-        XCTAssertEqual(surface.canvas.pageViews.count, pages.count)
-        XCTAssertEqual(surface.breakHandleFrames.count, pages.count - 1)
+        XCTAssertEqual(surface.breakMarkerFrames.count, pages.count - 1)
     }
 
-    /// Opening one break moves that sheet and every sheet below it, by
-    /// exactly the gap, and leaves the ones above where they were.
-    func testOpeningABreakSeparatesOnlyFromThereDown() throws {
+    /// Continuous is one sheet, and it is shorter than the sheets it replaces
+    /// by the margins it stops repeating.
+    func testContinuousIsOneSheetWithoutTheRepeatedMargins() throws {
         let elements = script(scenes: 25)
-        let surface = surface(elements)
-        let before = surface.pageFrames
-        XCTAssertGreaterThanOrEqual(before.count, 4)
+        let paged = surface(elements, mode: .pages)
+        let pages = try XCTUnwrap(ScreenplayExporter.paginate(Screenplay(elements: elements)))
+        let pagedHeight = paged.pageFrames.reduce(CGRect.null) { $0.union($1) }.height
 
-        surface.canvas.onToggleBreak?(1)
-        let after = surface.pageFrames
-        let gap = PageCanvasView.openBreakGap
+        let flowing = surface(elements, mode: .continuous)
+        XCTAssertEqual(flowing.pageFrames.count, 1, "continuous is one sheet")
 
-        XCTAssertEqual(after[0].minY, before[0].minY, accuracy: 0.5, "sheet 1 moved")
-        XCTAssertEqual(after[1].minY, before[1].minY, accuracy: 0.5, "sheet 2 moved")
-        for index in 2..<after.count {
-            XCTAssertEqual(
-                after[index].minY - before[index].minY, gap, accuracy: 0.5,
-                "sheet \(index + 1) did not come down by the gap"
-            )
-        }
-        XCTAssertEqual(after[2].minY - after[1].maxY, gap, accuracy: 0.5)
-        XCTAssertEqual(after[1].minY - after[0].maxY, 0, accuracy: 0.5, "an untouched break opened")
+        let saved = pagedHeight - flowing.pageFrames[0].height
+        let perBoundary = PageFormat.letter.textTop + ScreenplayPageLayout.textBottom(.letter)
+        XCTAssertGreaterThan(
+            saved, perBoundary * CGFloat(pages.count - 1) * 0.5,
+            "continuous did not collapse the margins it exists to collapse"
+        )
+        // Still marked, and still one marker per boundary.
+        XCTAssertEqual(flowing.breakMarkerFrames.count, pages.count - 1)
     }
 
-    /// And closing it puts them back exactly.
-    func testClosingABreakRestoresTheJoin() throws {
+    /// The property the whole thing rests on: the mode draws, the engine
+    /// paginates. Switching must not move a line onto a different page.
+    func testTheModeDoesNotRepaginate() throws {
         let elements = script(scenes: 25)
-        let surface = surface(elements)
-        let before = surface.pageFrames
-
-        surface.canvas.onToggleBreak?(1)
-        surface.canvas.onToggleBreak?(1)
-
-        for (index, frame) in surface.pageFrames.enumerated() {
-            XCTAssertEqual(frame.minY, before[index].minY, accuracy: 0.5)
-        }
-    }
-
-    /// The property that makes the whole thing safe: the gap is presentation
-    /// and pagination is the engine's. Opening a break must not move a single
-    /// line onto a different page.
-    func testOpeningABreakDoesNotRepaginate() throws {
-        let elements = script(scenes: 25)
-        let surface = surface(elements)
         let pages = try XCTUnwrap(ScreenplayExporter.paginate(Screenplay(elements: elements)))
         let locations = ScreenplayPageLayout.pageStartLocations(
             elements: elements, pages: pages
         )
 
-        func lineOfPageTwoRelativeToItsSheet() throws -> CGFloat {
-            let start = locations[1]
-            let length = (surface.textView.string as NSString).length
-            let rect = try XCTUnwrap(ScriptLayout.boundingRect(
-                of: NSRange(location: start, length: min(1, max(0, length - start))),
-                in: surface.textView
-            ))
-            let inCanvas = surface.canvas.convert(rect, from: surface.textView)
-            return inCanvas.minY - surface.pageFrames[1].minY
+        for mode in PageLayoutMode.allCases {
+            let surface = surface(elements, mode: mode)
+            let after = try XCTUnwrap(
+                ScreenplayExporter.paginate(Screenplay(elements: surface.renderedElements))
+            )
+            XCTAssertEqual(after.count, pages.count, "\(mode.title) changed the page count")
+            XCTAssertEqual(
+                ScreenplayPageLayout.pageStartLocations(
+                    elements: surface.renderedElements, pages: after
+                ),
+                locations,
+                "\(mode.title) moved a line onto a different page"
+            )
         }
+    }
 
-        let joined = try lineOfPageTwoRelativeToItsSheet()
-        surface.canvas.onToggleBreak?(0)
-        let separated = try lineOfPageTwoRelativeToItsSheet()
+    /// And the writer keeps their place across the switch.
+    ///
+    /// A hundred pages carry a hundred repeated margin pairs — about thirteen
+    /// thousand points — so preserving the scroll *offset* would throw the
+    /// writer to a different part of the script entirely. The line at the top
+    /// of the viewport is what has to be preserved.
+    func testSwitchingModesKeepsTheWriterOnTheSameLine() throws {
+        let elements = script(scenes: 25)
+        let surface = surface(elements, mode: .pages)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+        surface.scrollView.layoutSubtreeIfNeeded()
 
+        // Somewhere well down the script, where the mode change moves a lot.
+        let clip = surface.scrollView.contentView
+        clip.scroll(to: NSPoint(x: 0, y: surface.canvas.frame.height * 0.6))
+        surface.scrollView.reflectScrolledClipView(clip)
+        let before = try XCTUnwrap(surface.topmostVisibleCharacter)
+
+        surface.setLayoutMode(.continuous)
+
+        let after = try XCTUnwrap(surface.topmostVisibleCharacter)
         XCTAssertEqual(
-            joined, separated, accuracy: 0.5,
-            "opening the break moved the first line of page 2 within its own sheet — "
-                + "the text and the sheets are being measured from different places"
+            after, before, accuracy: 400,
+            "the writer was thrown \(abs(after - before)) characters from where they were"
         )
     }
 
     func testPageTwoOpensOnTheSecondSheetNotInTheGap() throws {
         let elements = script(scenes: 25)
-        let surface = surface(elements)
+        let surface = surface(elements, mode: .pages)
         let pages = try XCTUnwrap(ScreenplayExporter.paginate(Screenplay(elements: elements)))
         XCTAssertGreaterThan(pages.count, 1)
         let locations = ScreenplayPageLayout.pageStartLocations(
@@ -151,21 +167,7 @@ final class DiscreteSheetsTests: XCTestCase {
         let textBottom = card.maxY - ScreenplayPageLayout.textBottom(.letter)
         XCTAssertGreaterThanOrEqual(inCanvas.minY, textTop - 8)
         XCTAssertLessThan(inCanvas.minY, textBottom)
-        // With the sheets joined there is no gap to fall into, so this only
-        // says anything once the break is open. Open it.
-        surface.canvas.onToggleBreak?(0)
-        let opened = try XCTUnwrap(
-            ScriptLayout.boundingRect(
-                of: NSRange(location: start, length: min(1, max(0, (surface.textView.string as NSString).length - start))),
-                in: surface.textView
-            )
-        )
-        let openedInCanvas = surface.canvas.convert(opened, from: surface.textView)
-        XCTAssertFalse(
-            openedInCanvas.minY > surface.pageFrames[0].maxY
-                && openedInCanvas.minY < surface.pageFrames[1].minY,
-            "the first line of page 2 sits in the gap between the sheets"
-        )
+        XCTAssertGreaterThanOrEqual(inCanvas.minY, card.minY - 1, "page 2's first line is above its own sheet")
     }
 
     func testAPushedHeadingOpensItsSheet() throws {
@@ -176,7 +178,7 @@ final class DiscreteSheetsTests: XCTestCase {
         let heading = ScriptElement(type: .scene, text: "INT. PUSHED - DAY")
         elements.append(heading)
         elements.append(ScriptElement(type: .action, text: "The heading was not left alone at the foot."))
-        let surface = surface(elements)
+        let surface = surface(elements, mode: .pages)
         let pages = try XCTUnwrap(ScreenplayExporter.paginate(Screenplay(elements: elements)))
         XCTAssertEqual(pages.count, 2)
         XCTAssertEqual(surface.pageFrames.count, 2)
