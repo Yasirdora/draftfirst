@@ -215,6 +215,13 @@ public enum Fdx {
         var text: String
         var paragraphIndex: Int
         var inTitlePage: Bool
+        /// Where the whole <Paragraph> sits in the source, in UTF-16 units,
+        /// for a preserving write. See `Fdx.Document`.
+        var start: Int = 0
+        var end: Int = 0
+        /// Where its direct-child <Text> runs sit, so only they are replaced.
+        var textStart: Int = -1
+        var textEnd: Int = -1
 
         func attribute(_ name: String) -> String? {
             attributes.last { $0.name == name }?.value
@@ -282,9 +289,19 @@ public enum Fdx {
         var limitReached = false
         var current: CollectedParagraph?
 
+        /// The units of the source, so a span can be sliced back out of it.
+        var units: [UInt16] = []
+
         init(limits: Limits, diagnostics: DiagnosticCollector) {
             self.limits = limits
             self.diagnostics = diagnostics
+        }
+
+        /// The end of the tag that opened at `offset`, past its '>'.
+        func tagEnd(_ offset: Int) -> Int {
+            var index = offset
+            while index < units.count && units[index] != 62 { index += 1 }   // 62 is ">"
+            return min(index + 1, units.count)
         }
 
         var inScriptContent: Bool { contents.contains(true) }
@@ -337,7 +354,9 @@ public enum Fdx {
                     attributes: tag.attributes,
                     text: "",
                     paragraphIndex: paragraphCount,
-                    inTitlePage: titleDepth > 0
+                    inTitlePage: titleDepth > 0,
+                    start: offset,
+                    end: offset
                 )
                 paragraphCount += 1
             }
@@ -349,6 +368,7 @@ public enum Fdx {
                 }
                 textRunCount += 1
                 textDepth += 1
+                if current?.textStart == -1 { current?.textStart = offset }
                 runUppercases = Fdx.runIsAllCaps(
                     tag.attributes.first { $0.name == "style" }?.value
                 )
@@ -356,7 +376,7 @@ public enum Fdx {
             return true
         }
 
-        func end(_ name: String) -> Bool {
+        func end(_ name: String, offset: Int) -> Bool {
             if open.last == name { open.removeLast() }
 
             if current != nil && metadataDepth > 0 {
@@ -368,8 +388,12 @@ public enum Fdx {
             if name == "text" && textDepth > 0 {
                 textDepth -= 1
                 runUppercases = false
+                current?.textEnd = tagEnd(offset)
             }
-            if name == "paragraph" { finishParagraph() }
+            if name == "paragraph" {
+                current?.end = tagEnd(offset)
+                finishParagraph()
+            }
             if name == "content", !contents.isEmpty { contents.removeLast() }
             if name == "titlepage" && titleDepth > 0 { titleDepth -= 1 }
             return true
@@ -390,11 +414,12 @@ public enum Fdx {
         diagnostics: DiagnosticCollector
     ) -> (body: [CollectedParagraph], title: [CollectedParagraph], hasFinalDraftRoot: Bool) {
         let collector = ParagraphCollector(limits: limits, diagnostics: diagnostics)
+        collector.units = Array(source.utf16)
         FdxXmlScanner.scan(
             source,
             handlers: FdxXmlScanner.Handlers(
                 start: { tag, offset in collector.start(tag, offset: offset) },
-                end: { name, _ in collector.end(name) },
+                end: { name, offset in collector.end(name, offset: offset) },
                 text: { value, cdata in collector.text(value, cdata: cdata) }
             ),
             diagnostics: diagnostics
@@ -556,14 +581,7 @@ public enum Fdx {
                 type = .general
             }
 
-            if type == .general,
-               (paragraph.extensionAttribute("elementtype") ?? "").lowercased() == "lyrics" {
-                type = .lyrics
-            }
-            if type == .general,
-               (paragraph.attribute("alignment") ?? "").lowercased() == "center" {
-                type = .centered
-            }
+            type = refineGeneral(type ?? .general, paragraph)
 
             var element = ScreenplayElement(type: type ?? .general, text: paragraph.text)
             let sceneNumber = paragraph.attribute("number") ?? ""
@@ -586,6 +604,297 @@ public enum Fdx {
             warnings: items.map(\.message),
             diagnostics: items
         )
+    }
+
+    /// What a paragraph typed "General" actually is.
+    ///
+    /// Final Draft has one bucket for anything that is not a script element,
+    /// and what it means is carried by other attributes: centred by its
+    /// alignment, lyrics by ours. Shared by the import and the preserving
+    /// rewrite, because a rewrite has to reach the same answer the import did
+    /// — deriving it twice was how a centred paragraph came out as an
+    /// unmatched insert and rewrote the tail of the file.
+    private static func refineGeneral(
+        _ type: ElementKind, _ paragraph: CollectedParagraph
+    ) -> ElementKind {
+        guard type == .general else { return type }
+        if (paragraph.extensionAttribute("elementtype") ?? "").lowercased() == "lyrics" {
+            return .lyrics
+        }
+        if (paragraph.attribute("alignment") ?? "").lowercased() == "center" {
+            return .centered
+        }
+        return type
+    }
+
+    /// The element a paragraph becomes, warnings aside — the same answer the
+    /// import reaches, so a rewrite cannot disagree with it.
+    private static func elementKind(of paragraph: CollectedParagraph) -> ElementKind {
+        let key = (paragraph.attribute("type") ?? "").jsTrimmed.lowercased()
+        return refineGeneral(fdxToModel[key] ?? .general, paragraph)
+    }
+
+    // MARK: - Preserving round trip
+
+    /// A Final Draft file, kept whole.
+    ///
+    /// Reading an .fdx into a screenplay and writing a new one from that
+    /// screenplay throws away everything the screenplay cannot hold. Measured
+    /// on a real production draft: 19 revisions, 171 revised runs, 25 locked
+    /// pages, 73 deleted-text marks, 248 production tags, 6 dual-dialogue
+    /// blocks, 136 emphasis runs and 3 script notes — all gone, from opening
+    /// the file, changing one word and saving. On a script a crew is shooting
+    /// from, the revision history and the locked pages *are* the document.
+    ///
+    /// So the file is not rebuilt, it is edited. A write replaces only the
+    /// paragraphs whose text actually changed; the rest, and the whole of the
+    /// document outside the script's own <Content>, is emitted byte for byte.
+    /// This costs no understanding — eDraft need not know what a
+    /// `<TagDefinition>` means in order to keep it.
+    public struct Document: Sendable {
+        public let script: Screenplay
+        public let warnings: [String]
+        public let diagnostics: [Diagnostic]
+
+        fileprivate let units: [UInt16]
+        fileprivate let spans: [Span]
+
+        /// The screenplay written back into the file it came from.
+        public func rewrite(_ script: Screenplay) -> String {
+            guard let first = spans.first, let last = spans.last else {
+                // Nothing recognisable to edit: write a whole new file rather
+                // than pretend, so a malformed original cannot corrupt a save.
+                return Fdx.writeXml(script)
+            }
+
+            let paired = Fdx.align(spans, to: script.elements)
+            var out: [UInt16] = Array(units[0..<first.start])
+            var lead: [UInt16] = []
+            var wrote = false
+            for (index, element) in script.elements.enumerated() {
+                if let origin = paired[index] {
+                    if wrote { out += origin.lead.isEmpty ? lead : origin.lead }
+                    if !origin.lead.isEmpty { lead = origin.lead }
+                    out += Fdx.rewritten(origin, as: element, in: units)
+                } else {
+                    if wrote { out += lead.isEmpty ? Array("\n".utf16) : lead }
+                    let fresh = Fdx.writeXml(Screenplay(titlePage: [], elements: [element]))
+                    if let body = Fdx.paragraphBody(of: fresh) { out += Array(body.utf16) }
+                }
+                wrote = true
+            }
+            out += Array(units[last.end...])
+            return String(utf16CodeUnits: out, count: out.count)
+        }
+    }
+
+    /// How a paragraph is recognised across a round trip.
+    ///
+    /// Compared with the casing the app applies rather than the letters the
+    /// file stores, because Final Draft stores what the writer typed and puts
+    /// the capitals on in the *view* — `ElementSettings Type="Scene Heading"`
+    /// carries `Style="Bold+AllCaps"`. Opening `Deeper in the woods -
+    /// cONTINUOUS` therefore gives a screenplay that says DEEPER IN THE WOODS
+    /// - CONTINUOUS, and comparing the letters would call every heading, cue
+    /// and transition in the file an edit: measured on a real production
+    /// draft, that rewrote them all, lost the writer's own casing, and dropped
+    /// the twelve `<DualDialogue>` wrappers living between the paragraphs it
+    /// replaced.
+    ///
+    /// So casing is not an edit. The file keeps what the writer typed; the app
+    /// goes on showing capitals.
+    fileprivate static func recognisedText(_ type: ElementKind, _ text: String) -> String {
+        Normalize.canonicalCasing(kind: type, text: text)
+    }
+
+    /// Element kinds a Fountain round trip cannot carry.
+    ///
+    /// The document eDraft edits is Fountain, and Fountain has no `General`
+    /// and no `Shot` — both arrive back as action. So a paragraph of either
+    /// kind looks to a naive comparison as though the writer retyped it, and
+    /// rewriting it as Action is a loss the writer never asked for. Measured
+    /// on a real production draft: that alone dropped all twelve
+    /// `<DualDialogue>` wrappers, which live in the whitespace between the
+    /// paragraphs it replaced. The file's own type is authoritative for these;
+    /// eDraft cannot prove it changed.
+    fileprivate static let fountainFlattens: Set<ElementKind> = [.general, .shot]
+
+    /// One paragraph as it sits in the original file.
+    fileprivate struct Span: Sendable {
+        let type: ElementKind
+        let text: String
+        let start: Int
+        let end: Int
+        let textStart: Int
+        let textEnd: Int
+        /// The whitespace before it, kept so a save reproduces the file byte
+        /// for byte rather than re-indenting every line of a 750KB document.
+        let lead: [UInt16]
+    }
+
+    /// Opens a Final Draft file and keeps it, so it can be written back whole.
+    ///
+    /// The screenplay is exactly `parse`'s. Use this whenever the file may be
+    /// saved again; `parse` remains right for reading a script that will never
+    /// be written back.
+    public static func open(_ xml: String, options: ImportOptions = ImportOptions()) -> Document {
+        let imported = parse(xml, options: options)
+        let limits = limits(of: options)
+        let collected = collectParagraphs(
+            from: xml, limits: limits, diagnostics: DiagnosticCollector(limit: 1)
+        )
+        let units = Array(xml.utf16)
+
+        var spans: [Span] = []
+        var previousEnd = -1
+        for paragraph in collected.body {
+            let lead: [UInt16] = previousEnd == -1
+                ? []
+                : Array(units[previousEnd..<max(previousEnd, paragraph.start)])
+            previousEnd = paragraph.end
+            spans.append(Span(
+                type: elementKind(of: paragraph),
+                text: paragraph.text,
+                start: paragraph.start,
+                end: paragraph.end,
+                textStart: paragraph.textStart,
+                textEnd: paragraph.textEnd,
+                lead: lead
+            ))
+        }
+
+        return Document(
+            script: imported.script,
+            warnings: imported.warnings,
+            diagnostics: imported.diagnostics,
+            units: units,
+            spans: spans
+        )
+    }
+
+    /// Which original paragraphs the new screenplay still contains.
+    ///
+    /// A longest-common-subsequence over (type, text): what matches is kept
+    /// verbatim, what does not is an edit. The pass afterwards is what makes
+    /// this worth doing — a delete and an insert of the same element type is
+    /// one paragraph whose text was edited, and pairing them keeps its
+    /// attributes and its nested blocks instead of writing a bare one.
+    fileprivate static func align(
+        _ origin: [Span], to elements: [ScreenplayElement]
+    ) -> [Span?] {
+        var paired = [Span?](repeating: nil, count: elements.count)
+        let n = origin.count
+        let m = elements.count
+        guard n > 0, m > 0 else { return paired }
+
+        // Falls back to matching by position when the table would be
+        // extravagant. Still lossless for an unedited file and still right for
+        // an edit in place; it only pairs less cleverly after a large move.
+        guard n * m <= 4_000_000 else {
+            for index in 0..<min(n, m) { paired[index] = origin[index] }
+            return paired
+        }
+
+        // Text, not kind. A Fountain round trip has no `General` and no
+        // `Shot` — both come back as action — so comparing kinds would call
+        // every one of them an insert. See `fountainFlattens`.
+        func same(_ i: Int, _ j: Int) -> Bool {
+            Fdx.recognisedText(origin[i].type, origin[i].text)
+                == Fdx.recognisedText(elements[j].type, elements[j].text)
+        }
+
+        var table = [Int32](repeating: 0, count: (n + 1) * (m + 1))
+        func at(_ i: Int, _ j: Int) -> Int { i * (m + 1) + j }
+        for i in stride(from: n - 1, through: 0, by: -1) {
+            for j in stride(from: m - 1, through: 0, by: -1) {
+                table[at(i, j)] = same(i, j)
+                    ? table[at(i + 1, j + 1)] + 1
+                    : max(table[at(i + 1, j)], table[at(i, j + 1)])
+            }
+        }
+
+        var dropped: [Int] = []
+        var inserted: [Int] = []
+        var i = 0
+        var j = 0
+        while i < n && j < m {
+            if same(i, j) {
+                paired[j] = origin[i]
+                i += 1
+                j += 1
+            } else if table[at(i + 1, j)] >= table[at(i, j + 1)] {
+                dropped.append(i)
+                i += 1
+            } else {
+                inserted.append(j)
+                j += 1
+            }
+        }
+        while i < n { dropped.append(i); i += 1 }
+        while j < m { inserted.append(j); j += 1 }
+
+        // An edit in place: one paragraph gone and one arrived, same kind.
+        for j2 in inserted {
+            if let near = dropped.firstIndex(where: {
+                origin[$0].type == elements[j2].type || Fdx.fountainFlattens.contains(origin[$0].type)
+            }) {
+                paired[j2] = origin[dropped[near]]
+                dropped.remove(at: near)
+            }
+        }
+        return paired
+    }
+
+    fileprivate static func rewritten(
+        _ origin: Span, as element: ScreenplayElement, in units: [UInt16]
+    ) -> [UInt16] {
+        let whole = Array(units[origin.start..<origin.end])
+        let sameText = recognisedText(origin.type, origin.text)
+            == recognisedText(element.type, element.text)
+        let changedKind = origin.type != element.type
+            && !fountainFlattens.contains(origin.type)
+            && modelToFdx[element.type] != nil
+        if sameText && !changedKind { return whole }
+        guard origin.textStart >= 0, origin.textEnd > origin.textStart else { return whole }
+
+        // The attributes and every nested block stay; only the paragraph's own
+        // text runs are replaced. A scene heading keeps its <SceneProperties>.
+        var out = changedKind
+            ? retypedOpenTag(origin, as: modelToFdx[element.type] ?? "Action", in: units)
+            : Array(units[origin.start..<origin.textStart])
+        if sameText {
+            out += Array(units[origin.textStart..<origin.end])
+            return out
+        }
+        out += Array("<Text>\(encodeXmlEntities(element.text))</Text>".utf16)
+        out += Array(units[origin.textEnd..<origin.end])
+        return out
+    }
+
+    /// The paragraph's opening tag with a new Type, every other attribute left
+    /// alone — an id, an alignment, a scene number all survive a writer
+    /// changing what kind of line this is.
+    fileprivate static func retypedOpenTag(
+        _ origin: Span, as fdxType: String, in units: [UInt16]
+    ) -> [UInt16] {
+        let head = String(
+            utf16CodeUnits: Array(units[origin.start..<origin.textStart]),
+            count: origin.textStart - origin.start
+        )
+        guard let range = head.range(of: #"\sType="[^"]*""#, options: .regularExpression) else {
+            return Array(head.replacingOccurrences(
+                of: "<Paragraph", with: "<Paragraph Type=\"\(fdxType)\""
+            ).utf16)
+        }
+        return Array(head.replacingCharacters(in: range, with: " Type=\"\(fdxType)\"").utf16)
+    }
+
+    /// The single <Paragraph>…</Paragraph> out of a one-element export.
+    fileprivate static func paragraphBody(of xml: String) -> String? {
+        guard let open = xml.range(of: "<Paragraph"),
+              let close = xml.range(of: "</Paragraph>", options: .backwards)
+        else { return nil }
+        return String(xml[open.lowerBound..<close.upperBound])
     }
 
     // MARK: - Export

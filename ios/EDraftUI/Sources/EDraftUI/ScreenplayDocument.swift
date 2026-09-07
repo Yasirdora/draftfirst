@@ -26,20 +26,34 @@ public struct EDraftDocument: FileDocument {
 
     public var source: String
 
+    /// The Final Draft file this document was opened from, when it was one.
+    ///
+    /// Carried so a save can edit it rather than rebuild it: a screenplay
+    /// cannot hold revisions, locked pages, tags or the arc beats nested in a
+    /// scene heading, and a writer who opens a locked shooting script, fixes a
+    /// typo and saves must not lose them. Never written to disk itself — it is
+    /// the file, remembered. See `ScreenplayFile.open` and `Fdx.Document`.
+    public var origin: String?
+
     public init(source: String = ScreenplayFile.blankSource) {
         self.source = source
+        self.origin = nil
     }
 
     public init(configuration: ReadConfiguration) throws {
-        self.source = try ScreenplayFile.decode(
+        let opened = try ScreenplayFile.open(
             configuration.file.regularFileContents,
             as: configuration.contentType
         )
+        self.source = opened.source
+        self.origin = opened.origin
     }
 
     public func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         FileWrapper(
-            regularFileWithContents: try ScreenplayFile.encode(source, as: configuration.contentType)
+            regularFileWithContents: try ScreenplayFile.encode(
+                source, as: configuration.contentType, origin: origin
+            )
         )
     }
 }

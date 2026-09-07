@@ -141,6 +141,43 @@ describe('openFdx · preserving round trip', () => {
 		expect(xml).toContain('Number="1"');
 	});
 
+	/**
+	 * Fountain has no `Shot` and no `General`, so both come back as action.
+	 * Rewriting them as Action would be a loss the writer never asked for —
+	 * and it is what dropped all twelve `<DualDialogue>` wrappers on a real
+	 * production draft, since those live in the whitespace between the
+	 * paragraphs being replaced.
+	 */
+	it('keeps a kind Fountain cannot carry, even when the words change', () => {
+		const xml = `<FinalDraft><Content>
+<Paragraph Type="Shot"><Text>CLOSE ON: A GOLD KEY</Text></Paragraph>
+</Content></FinalDraft>`;
+		const doc = openFdx(xml);
+		expect(doc.script.elements[0].type).toBe('shot');
+
+		// What the editor gives back after a Fountain round trip: action.
+		const out = doc.rewrite({
+			titlePage: [],
+			elements: [{ type: 'action', text: 'CLOSE ON: A SILVER KEY' }]
+		}).xml;
+		expect(out).toContain('Type="Shot"');
+		expect(out).toContain('CLOSE ON: A SILVER KEY');
+	});
+
+	/** A kind Fountain *can* carry is the writer's to change. */
+	it('writes a kind the writer really did change', () => {
+		const xml = `<FinalDraft><Content>
+<Paragraph Type="Action" id="k1"><Text>MARA</Text></Paragraph>
+</Content></FinalDraft>`;
+		const doc = openFdx(xml);
+		const out = doc.rewrite({
+			titlePage: [],
+			elements: [{ type: 'character', text: 'MARA' }]
+		}).xml;
+		expect(out).toContain('Type="Character"');
+		expect(out).toContain('id="k1"');
+	});
+
 	it('writes a whole file when there is nothing to preserve', () => {
 		const doc = openFdx('not xml at all');
 		const xml = doc.rewrite({

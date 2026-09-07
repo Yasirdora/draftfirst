@@ -11,7 +11,14 @@
  * helper embeds an XML warning when non-printing structure must be omitted.
  */
 
-import type { AnyElementType, Screenplay, ScreenplayElement, TitlePageEntry } from './types.js';
+import { canonicalCasing } from './normalize.js';
+import type {
+	AnyElementType,
+	ElementType,
+	Screenplay,
+	ScreenplayElement,
+	TitlePageEntry
+} from './types.js';
 
 /* ---- diagnostics and limits -------------------------------------------- */
 
@@ -898,6 +905,7 @@ export interface FdxDocument extends FdxImportResult {
 /** One paragraph as it sits in the original file. */
 interface OriginParagraph {
 	key: string;
+	type: AnyElementType;
 	start: number;
 	end: number;
 	textStart: number;
@@ -913,9 +921,36 @@ interface OriginParagraph {
 	lead: string;
 }
 
+/**
+ * How a paragraph is recognised across a round trip.
+ *
+ * Compared with the casing the app applies rather than the letters the file
+ * stores, because Final Draft stores what the writer typed and puts the
+ * capitals on in the *view* — `ElementSettings Type="Scene Heading"` carries
+ * `Style="Bold+AllCaps"`. Opening `Deeper in the woods - cONTINUOUS` therefore
+ * gives a screenplay that says DEEPER IN THE WOODS - CONTINUOUS, and comparing
+ * the letters would call every heading, cue and transition in the file an
+ * edit: measured, that rewrote them all, lost the writer's own casing, and
+ * dropped the `<DualDialogue>` wrappers that live between the paragraphs it
+ * replaced.
+ *
+ * So casing is not an edit. The file keeps what the writer typed; the app goes
+ * on showing capitals.
+ */
 function originKey(type: AnyElementType, text: string): string {
-	return `${type}\u0000${text}`;
+	return canonicalCasing(type as ElementType, text);
 }
+
+/**
+ * Element kinds a Fountain round trip cannot carry.
+ *
+ * The document eDraft edits is Fountain, and Fountain has no `General` and no
+ * `Shot` — both arrive back as action. So a paragraph of either kind looks to
+ * a naive comparison as though the writer retyped it, and rewriting it as
+ * Action is a loss the writer never asked for. The file's own type is
+ * authoritative for these; eDraft cannot prove it changed.
+ */
+const FOUNTAIN_FLATTENS = new Set<AnyElementType>(['general', 'shot']);
 
 /**
  * Which original paragraphs the new screenplay still contains.
@@ -979,8 +1014,10 @@ function alignParagraphs(
 	// An edit in place: one paragraph gone and one arrived, in the same place.
 	for (const j2 of inserted) {
 		const type = elements[j2].type;
+		// Same kind, or a kind Fountain flattened on the way through — a Shot
+		// the writer retyped comes back as action and is still that Shot.
 		const near = dropped.findIndex(
-			(i2) => origin[i2].key.startsWith(`${type}\u0000`)
+			(i2) => origin[i2].type === type || FOUNTAIN_FLATTENS.has(origin[i2].type)
 		);
 		if (near !== -1) {
 			paired[j2] = origin[dropped[near]];
@@ -990,6 +1027,18 @@ function alignParagraphs(
 	return paired;
 }
 
+/**
+ * The paragraph's opening tag with a new Type, and every other attribute of it
+ * left alone — an id, an alignment, a scene number all survive a writer
+ * changing what kind of line this is.
+ */
+function retypedOpenTag(source: string, origin: OriginParagraph, fdxType: string): string {
+	const head = source.slice(origin.start, origin.textStart);
+	return /\sType="[^"]*"/.test(head)
+		? head.replace(/\sType="[^"]*"/, ` Type="${fdxType}"`)
+		: head.replace('<Paragraph', `<Paragraph Type="${fdxType}"`);
+}
+
 function rewriteParagraph(
 	source: string,
 	origin: OriginParagraph,
@@ -997,18 +1046,25 @@ function rewriteParagraph(
 	diagnostics: DiagnosticCollector,
 	index: number
 ): string {
-	const whole = source.slice(origin.start, origin.end);
-	if (origin.key === originKey(element.type, element.text)) return whole;
-	if (origin.textStart === -1 || origin.textEnd <= origin.textStart) return whole;
+	const sameText = origin.key === originKey(element.type, element.text);
+	const changedKind =
+		origin.type !== element.type &&
+		!FOUNTAIN_FLATTENS.has(origin.type) &&
+		MODEL_TO_FDX[element.type] !== undefined;
+	if (sameText && !changedKind) return source.slice(origin.start, origin.end);
+	if (origin.textStart === -1 || origin.textEnd <= origin.textStart) {
+		return source.slice(origin.start, origin.end);
+	}
 
 	// The attributes and every nested block stay; only the paragraph's own
 	// text runs are replaced. A scene heading keeps its <SceneProperties>.
+	const head = changedKind
+		? retypedOpenTag(source, origin, MODEL_TO_FDX[element.type] as string)
+		: source.slice(origin.start, origin.textStart);
+	if (sameText) return head + source.slice(origin.textStart, origin.end);
+
 	const encoded = encodeXmlValue(element.text, diagnostics, 'paragraph text', index);
-	return (
-		source.slice(origin.start, origin.textStart) +
-		`<Text>${encoded}</Text>` +
-		source.slice(origin.textEnd, origin.end)
-	);
+	return head + `<Text>${encoded}</Text>` + source.slice(origin.textEnd, origin.end);
 }
 
 /**
@@ -1097,6 +1153,7 @@ function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph
 		previousEnd = held.end;
 		return {
 			key: originKey(type, paragraph.text),
+			type,
 			start: held.start,
 			end: held.end,
 			textStart: held.textStart,

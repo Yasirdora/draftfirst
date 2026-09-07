@@ -47,9 +47,20 @@ public nonisolated enum ScreenplayFile {
     /// truth on the way in: the engine's reader is total (best-effort,
     /// never throws), so a foreign file can corrupt nothing.
     public static func decode(_ data: Data?, as type: UTType) throws -> String {
+        try open(data, as: type).source
+    }
+
+    /// The same read, keeping the original when it is one we must write back
+    /// whole.
+    ///
+    /// A screenplay cannot hold what a Final Draft file carries — revisions,
+    /// locked pages, tags, the arc beats nested inside a scene heading — so a
+    /// save that rebuilt the file from the screenplay would delete all of it.
+    /// The original comes along, and `encode` edits it. See `Fdx.Document`.
+    public static func open(_ data: Data?, as type: UTType) throws -> (source: String, origin: String?) {
         let text = try decode(data)
-        guard type.conforms(to: .finalDraftScreenplay) else { return text }
-        return Fountain.serialise(shouted(Fdx.parse(text).script))
+        guard type.conforms(to: .finalDraftScreenplay) else { return (text, nil) }
+        return (Fountain.serialise(shouted(Fdx.parse(text).script)), text)
     }
 
     /// The kinds a screenplay shouts, shouted — for a document arriving from
@@ -81,12 +92,16 @@ public nonisolated enum ScreenplayFile {
     /// The typed write boundary: an .fdx opened in place writes back as
     /// FDX — never Fountain source wearing an .fdx name, which Final Draft
     /// would refuse to open.
-    public static func encode(_ source: String, as type: UTType) throws -> Data {
-        if type.conforms(to: .finalDraftScreenplay) {
-            let screenplay = try Fountain.parse(source)
-            return try encode(Fdx.writeXml(screenplay))
-        }
-        return try encode(source)
+    ///
+    /// With `origin` — the file as it was read — the save *edits* it: only the
+    /// paragraphs whose text changed are rewritten, and everything eDraft does
+    /// not model survives untouched. Without one, as when exporting a
+    /// screenplay that began life here, a whole file is written.
+    public static func encode(_ source: String, as type: UTType, origin: String? = nil) throws -> Data {
+        guard type.conforms(to: .finalDraftScreenplay) else { return try encode(source) }
+        let screenplay = try Fountain.parse(source)
+        guard let origin else { return try encode(Fdx.writeXml(screenplay)) }
+        return try encode(Fdx.open(origin).rewrite(screenplay))
     }
 
     /// A new screenplay is a blank page, not a pre-written ritual: title
