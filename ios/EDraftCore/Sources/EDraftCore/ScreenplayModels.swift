@@ -377,6 +377,23 @@ public struct SceneRow: Identifiable, Equatable, Sendable {
     /// which carries no intro token to read.
     public var setting: SceneSetting? { SceneSetting(heading: title) }
 
+    /// Whether this reads as a secondary slug rather than a master scene.
+    ///
+    /// A master scene heading opens with `INT.`, `EXT.` or one of the crossing
+    /// forms. It is a new setup: it takes a scene number, it appears on a
+    /// schedule, and it is what a first AD breaks the day down by. A secondary
+    /// slug — `LATER`, `BACK TO SCENE`, `DOWN THE SLOPE` — names somewhere
+    /// inside that setup and takes none of those things. Both are typed as
+    /// headings, and both should be, so this is a reading of the line rather
+    /// than a second element type.
+    ///
+    /// It is used for emphasis in the Navigator and nowhere else. The document
+    /// does not change, the numbering does not change, and a writer who forces
+    /// `.BLACK SCREEN` as a real scene is only shown it a shade lighter — the
+    /// same information Final Draft has about that line, presented as a
+    /// suggestion instead of a decision.
+    public var isSecondary: Bool { setting == nil }
+
     public let id: UUID
     /// Position in the script, counting from 1.
     public let number: Int

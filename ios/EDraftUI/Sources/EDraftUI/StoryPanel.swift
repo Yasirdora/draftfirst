@@ -403,11 +403,19 @@ private struct SceneListRow: View {
                 // introduces them. Taking the full width also pins the page
                 // number to the right margin, so the trailing column lines up
                 // down the list whatever the headings do.
+                // Master scenes are the spine; a secondary slug names
+                // somewhere inside one. Indented and a shade lighter, so a
+                // reader running down the list sees the setups first and the
+                // rooms within them second — which is how the script is
+                // actually structured, and what turned this list from a
+                // wall of headings into an outline. See `SceneRow.isSecondary`
+                // for why this is emphasis and not a second element type.
                 Text(scene.title)
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(.primary)
+                    .font(scene.isSecondary ? .subheadline : .body.weight(.medium))
+                    .foregroundStyle(scene.isSecondary ? .secondary : .primary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
+                    .padding(.leading, scene.isSecondary ? 14 : 0)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 // Where it falls, at the paper size currently set — read out
