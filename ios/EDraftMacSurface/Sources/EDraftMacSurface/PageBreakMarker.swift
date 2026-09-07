@@ -22,10 +22,15 @@ final class PageBreakMarker: NSView {
         }
     }
 
-    /// How present the line is. Not `separatorColor`, which is 10% ink —
-    /// right between panels of chrome, invisible on paper.
-    private static let lineInk: CGFloat = 0.34
-    private static let numberInk: CGFloat = 0.45
+    /// How present the mark is, which is: barely.
+    ///
+    /// It is a reference, not punctuation — the writer looks for it when they
+    /// want to know where a page turns and should not be reading it the rest
+    /// of the time. A rule dark enough to notice while writing is a rule that
+    /// cuts the script into pieces every fifty-five lines, which is what the
+    /// mode exists to stop.
+    private static let lineInk: CGFloat = 0.14
+    private static let numberInk: CGFloat = 0.30
 
     /// Room for the number to sit under the line without touching it.
     static let height: CGFloat = 18
@@ -52,14 +57,17 @@ final class PageBreakMarker: NSView {
         // ink — a rule across the page rather than a printer's mark.
         let ink = NSColor.screenplayInk.usingColorSpace(.sRGB) ?? .labelColor
 
+        // One physical pixel, not one point: on this display a point is two
+        // pixels, and two is a rule where one is a hairline.
+        let hairline = 1 / max(1, window?.backingScaleFactor ?? 2)
         let midline = (bounds.height / 2).rounded()
         ink.withAlphaComponent(Self.lineInk).setFill()
-        NSRect(x: 0, y: midline, width: bounds.width, height: 1).fill()
+        NSRect(x: 0, y: midline, width: bounds.width, height: hairline).fill()
 
         guard let pageNumber else { return }
         let caption = "Page \(pageNumber)" as NSString
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 10, weight: .medium),
+            .font: NSFont.systemFont(ofSize: 9, weight: .regular),
             .foregroundColor: ink.withAlphaComponent(Self.numberInk)
         ]
         let size = caption.size(withAttributes: attributes)
