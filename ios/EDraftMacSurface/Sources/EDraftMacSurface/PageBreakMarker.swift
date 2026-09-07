@@ -40,6 +40,10 @@ final class PageBreakMarker: NSView {
     private static let ruleWidth: CGFloat = 44
     private static let ruleGap: CGFloat = 6
 
+    /// A little air between the number and the sheet's edge, so it reads as
+    /// sitting in the margin rather than falling off it.
+    private static let rightInset: CGFloat = 4
+
     /// Room for the number to sit under the line without touching it.
     static let height: CGFloat = 18
 
@@ -85,7 +89,7 @@ final class PageBreakMarker: NSView {
             .foregroundColor: ink.withAlphaComponent(Self.numberInk)
         ]
         let size = caption.size(withAttributes: attributes)
-        let numberX = bounds.maxX - size.width
+        let numberX = bounds.maxX - Self.rightInset - size.width
         caption.draw(
             at: NSPoint(x: numberX, y: midline - (size.height / 2).rounded()),
             withAttributes: attributes
