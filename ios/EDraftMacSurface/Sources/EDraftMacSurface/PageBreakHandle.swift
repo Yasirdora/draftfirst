@@ -66,17 +66,9 @@ final class PageBreakHandle: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        // A full point rather than one physical pixel: a hairline on a white
-        // sheet at this contrast disappears, and the mark has to be findable
-        // before it can be pressed.
-        let line = NSRect(x: 0, y: (bounds.height - 1) / 2, width: bounds.width, height: 1)
-        // Resolved before the alpha is applied. `screenplayInk` is a dynamic
-        // colour, and `withAlphaComponent` on one of those does not compose —
-        // measured, the line drew at full ink whatever weight was asked for,
-        // which is a rule across the page rather than a printer's mark.
-        let ink = NSColor.screenplayInk.usingColorSpace(.sRGB) ?? .labelColor
-        ink.withAlphaComponent(isHovered ? Self.hoveredInk : Self.restingInk).setFill()
-        line.fill()
+        // Nothing drawn. The handle is an invisible hit area: the writer
+        // can still click between two pages to toggle that one break, but
+        // no hairline is painted across the page at rest.
     }
 
     // MARK: - Under the pointer

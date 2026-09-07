@@ -42,6 +42,23 @@ final class PageCanvasView: NSView {
         openBreaks.contains(index) ? Self.openBreakGap : 0
     }
 
+    /// Whether every break is currently open.
+    var allBreaksOpen: Bool {
+        guard pageViews.count > 1 else { return false }
+        return openBreaks.count >= pageViews.count - 1
+    }
+
+    /// Opens every break in the document.
+    func openAllBreaks(pageCount: Int) {
+        let breaks = max(0, pageCount - 1)
+        openBreaks = Set(0..<breaks)
+    }
+
+    /// Closes every break.
+    func closeAllBreaks() {
+        openBreaks.removeAll()
+    }
+
     /// Where page `index`'s first line sits, measured from the first page's
     /// first line. The opened gaps are part of it, which is what makes
     /// everything below a break move when one is opened.
@@ -232,8 +249,7 @@ final class PageCanvasView: NSView {
                 // applied every time the appearance changes, by which point
                 // there is always a layer.
                 page.layer?.backgroundColor = NSColor.screenplayPaper.cgColor
-                page.layer?.borderColor = NSColor.separatorColor.cgColor
-                page.layer?.borderWidth = 1
+                page.layer?.borderWidth = 0
                 page.layer?.cornerRadius = 2
                 page.layer?.shadowColor = NSColor.black.cgColor
                 page.layer?.shadowRadius = 8

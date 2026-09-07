@@ -91,16 +91,16 @@ final class ScreenplayDeskTests: XCTestCase {
         }
     }
 
-    /// In light the sheet is told from the desk by its edge, not its value —
-    /// see `testTheLightDeskIsTheChromesOwnColour`. So the edge has to exist.
+    /// In light the sheet is told from the desk by its shadow and corner, not
+    /// by a border — the border was removed to avoid the double-line where
+    /// pages meet.
     func testTheLightPageHasAnEdgeToBeToldApartBy() {
         let canvas = PageCanvasView()
         canvas.appearance = NSAppearance(named: .aqua)
         _ = canvas.pageView          // the first sheet, created on demand
         canvas.applyAppearance()
 
-        XCTAssertEqual(canvas.pageView.layer?.borderWidth, 1)
-        XCTAssertNotNil(canvas.pageView.layer?.borderColor)
+        XCTAssertEqual(canvas.pageView.layer?.borderWidth, 0)
         XCTAssertGreaterThan(
             canvas.pageView.layer?.shadowOpacity ?? 0, 0,
             "without a shadow a white page on a white desk has nothing to be seen by"

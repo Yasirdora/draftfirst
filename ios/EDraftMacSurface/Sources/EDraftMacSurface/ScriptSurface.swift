@@ -155,6 +155,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             self.canvas.toggleBreak(after: index)
             self.layOut()
             self.updateGhost()
+            self.editor?.reportAllBreaksOpen(self.canvas.allBreaksOpen)
         }
         canvas.onMoveToWindow = { [weak self] in
             self?.openTheWindowToItsFullHeight()
@@ -261,6 +262,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
                 self.scrollView.window?.makeFirstResponder(nil)
             }
         }
+        editor.onToggleAllBreaks = { [weak self] in self?.toggleAllBreaks() }
     }
 
     /// Draws the model only when this surface has not already mirrored this
@@ -370,6 +372,28 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             viewport: size
         )
         scrollView.layoutSubtreeIfNeeded()
+    }
+
+    /// Opens every break if any are closed, closes them all otherwise.
+    ///
+    /// The viewport is preserved across the toggle so a 200-page document
+    /// does not jump: the writer stays on the same line while the gaps appear
+    /// or disappear around it.
+    func toggleAllBreaks() {
+        let pages = ScreenplayExporter.paginate(Screenplay(elements: lastLaidElements))
+        let pageCount = max(1, pages?.count ?? 1)
+        guard pageCount > 1 else { return }
+
+        let preserved = scrollView.contentView.bounds.origin
+        if canvas.allBreaksOpen {
+            canvas.closeAllBreaks()
+        } else {
+            canvas.openAllBreaks(pageCount: pageCount)
+        }
+        layOut()
+        updateGhost()
+        restoreViewport(preserved: preserved)
+        editor?.reportAllBreaksOpen(canvas.allBreaksOpen)
     }
 
     /// Exclusion paths for the desk between sheets, placed from the

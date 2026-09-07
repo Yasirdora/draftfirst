@@ -18,6 +18,13 @@ struct ScriptOverflowMenu: View {
 
             Divider()
 
+            Toggle("Show Page Breaks", isOn: Binding(
+                get: { editor.allBreaksOpen },
+                set: { _ in editor.onToggleAllBreaks?() }
+            ))
+
+            Divider()
+
             Button("Zoom In") { editor.onZoom?(.zoomIn) }
                 .disabled(!PageZoom.isAvailable(.zoomIn, at: editor.zoom))
             Button("Zoom Out") { editor.onZoom?(.zoomOut) }
@@ -33,5 +40,6 @@ struct ScriptOverflowMenu: View {
                 .accessibilityLabel("More")
         }
         .help("More actions")
+        .menuIndicator(.hidden)
     }
 }

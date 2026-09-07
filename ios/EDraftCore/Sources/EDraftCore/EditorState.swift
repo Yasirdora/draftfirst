@@ -52,6 +52,9 @@ public final class EditorState {
     /// Find Scene (⌘L): the window reveals the Navigator's Scenes tab and
     /// focuses the filter. Not a second text search.
     @ObservationIgnored public var onFindScene: (() -> Void)?
+    /// Opens every page break if any are closed, closes them all otherwise.
+    /// The surface preserves the viewport so a long document does not jump.
+    @ObservationIgnored public var onToggleAllBreaks: (() -> Void)?
 
     /// Whether the writer is editing the script or reading it.
     ///
@@ -67,6 +70,15 @@ public final class EditorState {
     /// can grey out a command that would do nothing. Not a stored preference:
     /// the default follows the window, and this follows the default.
     public private(set) var zoom: CGFloat = PageZoom.actualSize
+
+    /// Whether every page break is currently open, for the menu checkmark.
+    public private(set) var allBreaksOpen = false
+
+    /// The surface reporting the break state it settled on.
+    public func reportAllBreaksOpen(_ open: Bool) {
+        guard allBreaksOpen != open else { return }
+        allBreaksOpen = open
+    }
 
     /// The surface reporting the size it settled on.
     public func reportZoom(_ value: CGFloat) {

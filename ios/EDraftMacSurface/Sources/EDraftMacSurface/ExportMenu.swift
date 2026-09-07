@@ -18,5 +18,6 @@ struct ExportMenu: View {
             Label("Export", systemImage: "square.and.arrow.up")
         }
         .help("Export the screenplay")
+        .menuIndicator(.hidden)
     }
 }

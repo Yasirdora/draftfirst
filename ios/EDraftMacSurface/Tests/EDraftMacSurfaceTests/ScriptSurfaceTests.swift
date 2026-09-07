@@ -113,7 +113,7 @@ final class ScriptSurfaceTests: XCTestCase {
             ScreenplayPageLayout.textBlockWidth(.letter),
             accuracy: 0.5
         )
-        XCTAssertGreaterThan(surface.canvas.pageView.layer?.borderWidth ?? 0, 0)
+        XCTAssertEqual(surface.canvas.pageView.layer?.borderWidth ?? 0, 0)
     }
 
     /// The card is not the page. A glyph of the last element must sit on it
@@ -188,6 +188,8 @@ final class ScriptSurfaceTests: XCTestCase {
     /// A page card is a surface with edges. Layer `cgColor`s do not track
     /// appearance on their own, so both looks have to be applied and read
     /// back — a card that only looks right in light has no edge in dark.
+    /// The border was removed (to avoid the double-line where pages meet);
+    /// the shadow and colour difference are what separate the page now.
     func testThePageCardHasAnEdgeInDarkAndLight() {
         let surface = surface([ScriptElement(type: .scene, text: "INT. ROOM - DAY")])
         let canvas = surface.canvas
@@ -197,8 +199,7 @@ final class ScriptSurfaceTests: XCTestCase {
         canvas.applyAppearance()
         let darkFill = canvas.pageView.layer?.backgroundColor
         let darkCanvas = canvas.layer?.backgroundColor
-        XCTAssertEqual(canvas.pageView.layer?.borderWidth, 1)
-        XCTAssertNotNil(canvas.pageView.layer?.borderColor)
+        XCTAssertEqual(canvas.pageView.layer?.borderWidth, 0)
         XCTAssertNotEqual(
             darkFill, darkCanvas,
             "in dark mode the page and the canvas must not be the same colour or the edge vanishes"
@@ -209,7 +210,7 @@ final class ScriptSurfaceTests: XCTestCase {
         canvas.applyAppearance()
         let lightFill = canvas.pageView.layer?.backgroundColor
         let lightCanvas = canvas.layer?.backgroundColor
-        XCTAssertEqual(canvas.pageView.layer?.borderWidth, 1)
+        XCTAssertEqual(canvas.pageView.layer?.borderWidth, 0)
         XCTAssertNotEqual(
             lightFill, lightCanvas,
             "in light mode the page and the canvas must not be the same colour or the edge vanishes"
