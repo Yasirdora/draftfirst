@@ -491,7 +491,15 @@ interface ParsedParagraphs {
 	hasFinalDraftRoot: boolean;
 }
 
-type MutableFdxParagraph = FdxParagraph & { inTitlePage: boolean };
+type MutableFdxParagraph = FdxParagraph & {
+	inTitlePage: boolean;
+	/** Where the whole <Paragraph> sits in the source, for a preserving write. */
+	start: number;
+	end: number;
+	/** Where its direct-child <Text> runs sit, so only they are replaced. */
+	textStart: number;
+	textEnd: number;
+};
 
 function paragraphsOf(
 	source: string,
@@ -544,6 +552,11 @@ function paragraphsOf(
 	let textRunCount = 0;
 	let limitReached = false;
 	let current: MutableFdxParagraph | null = null;
+	/** The end of the tag that opened at `offset`, past its '>'. */
+	const tagEnd = (offset: number): number => {
+		const close = source.indexOf('>', offset);
+		return close === -1 ? source.length : close + 1;
+	};
 
 	const finishParagraph = (): void => {
 		if (!current) return;
@@ -595,7 +608,11 @@ function paragraphsOf(
 						attributes: tag.attributes,
 						text: '',
 						paragraphIndex: paragraphCount,
-						inTitlePage: titleDepth > 0
+						inTitlePage: titleDepth > 0,
+						start: offset,
+						end: offset,
+						textStart: -1,
+						textEnd: -1
 					};
 					paragraphCount++;
 				}
@@ -607,11 +624,12 @@ function paragraphsOf(
 					}
 					textRunCount++;
 					textDepth++;
+					if (current.textStart === -1) current.textStart = offset;
 					runUppercases = runIsAllCaps(tag.attributes.get('style'));
 				}
 				return true;
 			},
-			end(name): boolean {
+			end(name, offset): boolean {
 				if (open[open.length - 1] === name) open.pop();
 
 				if (current && metadataDepth > 0) {
@@ -623,8 +641,12 @@ function paragraphsOf(
 				if (name === 'text' && textDepth > 0) {
 					textDepth--;
 					runUppercases = false;
+					if (current) current.textEnd = tagEnd(offset);
 				}
-				if (name === 'paragraph') finishParagraph();
+				if (name === 'paragraph') {
+					if (current) current.end = tagEnd(offset);
+					finishParagraph();
+				}
 				if (name === 'content') contents.pop();
 				if (name === 'titlepage' && titleDepth > 0) titleDepth--;
 				return true;
@@ -795,11 +817,7 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 				type = 'general';
 			}
 
-			const extensionType = extensionAttribute(paragraph, 'elementtype').toLowerCase();
-			if (type === 'general' && extensionType === 'lyrics') type = 'lyrics';
-			if (type === 'general' && attributeOf(paragraph, 'alignment').toLowerCase() === 'center') {
-				type = 'centered';
-			}
+			type = refineGeneral(type, paragraph);
 
 			const element: ScreenplayElement = { type, text: paragraph.text };
 			const sceneNumber = attributeOf(paragraph, 'number');
@@ -823,6 +841,269 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 		});
 		return emptyImport(diagnostics);
 	}
+}
+
+/**
+ * What a paragraph typed "General" actually is.
+ *
+ * Final Draft has one bucket for anything that is not a script element, and
+ * what it means is carried by other attributes: centred by its alignment,
+ * lyrics by ours. Shared by the import and the preserving rewrite, because a
+ * rewrite has to reach the same answer the import did — deriving it twice was
+ * how a centred paragraph came out as an unmatched insert and rewrote the tail
+ * of the file.
+ */
+function refineGeneral(type: AnyElementType, paragraph: FdxParagraph): AnyElementType {
+	if (type !== 'general') return type;
+	if (extensionAttribute(paragraph, 'elementtype').toLowerCase() === 'lyrics') return 'lyrics';
+	if (attributeOf(paragraph, 'alignment').toLowerCase() === 'center') return 'centered';
+	return type;
+}
+
+/* ---- preserving round trip ---------------------------------------------- */
+
+/**
+ * A Final Draft file, kept whole.
+ *
+ * Reading an .fdx into a screenplay and writing a new one from that screenplay
+ * throws away everything the screenplay cannot hold. Measured on a real
+ * production draft: 19 revisions, 171 revised runs, 25 locked pages, 73
+ * deleted-text marks, 248 production tags, 6 dual-dialogue blocks, 136
+ * emphasis runs and 3 script notes — all gone, from opening the file, changing
+ * one word and saving. On a script a crew is shooting from, the revision
+ * history and the locked pages *are* the document.
+ *
+ * So the file is not rebuilt, it is edited. The original stays, and a write
+ * replaces only the paragraphs whose text actually changed. Everything else —
+ * every attribute, every nested block, and the whole of the document outside
+ * the script's own <Content> — is emitted byte for byte as it arrived.
+ *
+ * The point is that this costs no understanding. eDraft does not have to know
+ * what a `<TagDefinition>` or a `<LockedPage>` means in order to keep it, and
+ * a future version of Final Draft can invent a dozen more without this needing
+ * to be told.
+ */
+export interface FdxDocument extends FdxImportResult {
+	/**
+	 * The screenplay written back into the file it came from.
+	 *
+	 * Unchanged paragraphs keep their bytes. A paragraph whose text changed
+	 * keeps its attributes and its nested blocks — a scene heading keeps its
+	 * <SceneProperties> and its arc beats — and only its own <Text> is
+	 * rewritten. New paragraphs are written the way `writeFdx` writes them.
+	 */
+	rewrite(script: Screenplay): FdxExportResult;
+}
+
+/** One paragraph as it sits in the original file. */
+interface OriginParagraph {
+	key: string;
+	start: number;
+	end: number;
+	textStart: number;
+	textEnd: number;
+	/**
+	 * The whitespace between the paragraph before it and this one.
+	 *
+	 * Kept so a save reproduces the file byte for byte. Final Draft indents
+	 * its Content; joining paragraphs with a newline would rewrite every line
+	 * of a 750KB document, which turns "I fixed a typo" into a diff nobody can
+	 * read and makes it impossible to see what actually changed.
+	 */
+	lead: string;
+}
+
+function originKey(type: AnyElementType, text: string): string {
+	return `${type}\u0000${text}`;
+}
+
+/**
+ * Which original paragraphs the new screenplay still contains.
+ *
+ * A longest-common-subsequence over (type, text): what matches is kept
+ * verbatim, what does not is an edit. The pass afterwards is what makes this
+ * worth doing — a delete and an insert of the same element type, adjacent, is
+ * one paragraph whose text was edited, and pairing them keeps its attributes
+ * and its nested blocks instead of discarding them and writing a bare one.
+ *
+ * Falls back to matching by position when a script is large enough that the
+ * table would be extravagant. That is still lossless for an unedited file and
+ * still right for an edit in place; it only pairs less cleverly after a large
+ * reordering.
+ */
+function alignParagraphs(
+	origin: OriginParagraph[],
+	elements: ScreenplayElement[]
+): (OriginParagraph | null)[] {
+	const paired: (OriginParagraph | null)[] = new Array(elements.length).fill(null);
+	const n = origin.length;
+	const m = elements.length;
+	if (n === 0 || m === 0) return paired;
+
+	if (n * m > 4_000_000) {
+		for (let i = 0; i < Math.min(n, m); i++) paired[i] = origin[i];
+		return paired;
+	}
+
+	const table = new Int32Array((n + 1) * (m + 1));
+	const at = (i: number, j: number): number => i * (m + 1) + j;
+	for (let i = n - 1; i >= 0; i--) {
+		for (let j = m - 1; j >= 0; j--) {
+			table[at(i, j)] =
+				origin[i].key === originKey(elements[j].type, elements[j].text)
+					? table[at(i + 1, j + 1)] + 1
+					: Math.max(table[at(i + 1, j)], table[at(i, j + 1)]);
+		}
+	}
+
+	// Walk the table, recording which original paragraph each element keeps and
+	// which originals fell out, so an edit in place can be paired afterwards.
+	const dropped: number[] = [];
+	const inserted: number[] = [];
+	let i = 0;
+	let j = 0;
+	while (i < n && j < m) {
+		if (origin[i].key === originKey(elements[j].type, elements[j].text)) {
+			paired[j] = origin[i];
+			i++;
+			j++;
+		} else if (table[at(i + 1, j)] >= table[at(i, j + 1)]) {
+			dropped.push(i++);
+		} else {
+			inserted.push(j++);
+		}
+	}
+	while (i < n) dropped.push(i++);
+	while (j < m) inserted.push(j++);
+
+	// An edit in place: one paragraph gone and one arrived, in the same place.
+	for (const j2 of inserted) {
+		const type = elements[j2].type;
+		const near = dropped.findIndex(
+			(i2) => origin[i2].key.startsWith(`${type}\u0000`)
+		);
+		if (near !== -1) {
+			paired[j2] = origin[dropped[near]];
+			dropped.splice(near, 1);
+		}
+	}
+	return paired;
+}
+
+function rewriteParagraph(
+	source: string,
+	origin: OriginParagraph,
+	element: ScreenplayElement,
+	diagnostics: DiagnosticCollector,
+	index: number
+): string {
+	const whole = source.slice(origin.start, origin.end);
+	if (origin.key === originKey(element.type, element.text)) return whole;
+	if (origin.textStart === -1 || origin.textEnd <= origin.textStart) return whole;
+
+	// The attributes and every nested block stay; only the paragraph's own
+	// text runs are replaced. A scene heading keeps its <SceneProperties>.
+	const encoded = encodeXmlValue(element.text, diagnostics, 'paragraph text', index);
+	return (
+		source.slice(origin.start, origin.textStart) +
+		`<Text>${encoded}</Text>` +
+		source.slice(origin.textEnd, origin.end)
+	);
+}
+
+/**
+ * Opens a Final Draft file and keeps it, so it can be written back whole.
+ *
+ * The screenplay it returns is exactly `parseFdx`'s — same elements, same
+ * diagnostics — and `rewrite` is the part that matters: it edits the original
+ * rather than rebuilding it. Use this whenever the file may be saved again.
+ * `parseFdx` remains right for reading a script you will never write back,
+ * such as an import into a new document.
+ */
+export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocument {
+	const source = String(xml ?? '');
+	const imported = parseFdx(source, options);
+
+	// The paragraphs of the script's own <Content>, in order, with where they
+	// sit. `parseFdx` has already decided which those are.
+	const spans = bodySpansOf(source, options);
+	const first = spans.length > 0 ? spans[0].start : -1;
+	const last = spans.length > 0 ? spans[spans.length - 1].end : -1;
+
+	return {
+		...imported,
+		rewrite(script: Screenplay): FdxExportResult {
+			// Nothing recognisable to edit: write a whole new file rather than
+			// pretend, so a malformed or empty original cannot corrupt a save.
+			if (spans.length === 0 || first < 0) return writeFdxWithDiagnostics(script);
+
+			const diagnostics = new DiagnosticCollector(
+				positiveInteger(options.maxWarnings, DEFAULT_FDX_LIMITS.maxWarnings)
+			);
+			const paired = alignParagraphs(spans, script.elements);
+			const out: string[] = [];
+			// A new paragraph is laid out like the one it follows, so an insert
+			// does not announce itself as the one differently-indented line in
+			// the file.
+			let lead = '';
+			for (const [index, element] of script.elements.entries()) {
+				const origin = paired[index];
+				if (origin) {
+					if (out.length > 0) out.push(origin.lead === '' ? lead : origin.lead);
+					if (origin.lead !== '') lead = origin.lead;
+					out.push(rewriteParagraph(source, origin, element, diagnostics, index));
+					continue;
+				}
+				if (out.length > 0) out.push(lead === '' ? '\n' : lead);
+				const fresh = writeFdxWithDiagnostics(
+					{ titlePage: [], elements: [element] },
+					options
+				);
+				const body = fresh.xml.match(/<Paragraph[\s\S]*<\/Paragraph>/);
+				if (body) out.push(body[0]);
+			}
+
+			return {
+				xml: source.slice(0, first) + out.join('') + source.slice(last),
+				warnings: messagesOf(diagnostics.result()),
+				diagnostics: diagnostics.result()
+			};
+		}
+	};
+}
+
+/**
+ * Where the script's body paragraphs sit in the source.
+ *
+ * Deliberately a second, narrow scan rather than a return value threaded
+ * through `parseFdx`: the import's shape is pinned by a conformance corpus
+ * shared with the Swift engine, and widening it to carry byte offsets would
+ * make every fixture carry them too.
+ */
+function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph[] {
+	const diagnostics = new DiagnosticCollector(1);
+	const parsed = paragraphsOf(source, importLimits(options), diagnostics);
+	let previousEnd = -1;
+	return parsed.body.map((paragraph) => {
+		const held = paragraph as FdxParagraph & {
+			start: number;
+			end: number;
+			textStart: number;
+			textEnd: number;
+		};
+		const fdxType = attributeOf(paragraph, 'type').trim().toLowerCase();
+		const type = refineGeneral(FDX_TO_MODEL[fdxType] ?? 'general', paragraph);
+		const lead = previousEnd === -1 ? '' : source.slice(previousEnd, held.start);
+		previousEnd = held.end;
+		return {
+			key: originKey(type, paragraph.text),
+			start: held.start,
+			end: held.end,
+			textStart: held.textStart,
+			textEnd: held.textEnd,
+			lead
+		};
+	});
 }
 
 /* ---- export ------------------------------------------------------------- */

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	decodeXmlEntities,
 	encodeXmlEntities,
+	openFdx,
 	parseFdx,
 	writeFdx,
 	writeFdxWithDiagnostics
@@ -52,6 +53,102 @@ describe('entities', () => {
 
 	it('decodes entities only once', () => {
 		expect(decodeXmlEntities('&amp;lt;')).toBe('&lt;');
+	});
+});
+
+
+/**
+ * A production draft in miniature: the constructs a real Final Draft file
+ * carries that a screenplay model cannot hold — revisions, locked pages,
+ * tags, emphasis runs, and a scene heading with its arc beats nested inside.
+ */
+const PRODUCTION_FDX = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="6">
+  <Content>
+    <Paragraph Type="Scene Heading" Number="1" id="a1">
+      <SceneProperties Length="4/8" Page="1" Title="Set up Gold Key">
+        <SceneArcBeats>
+          <CharacterArcBeat Name="TANGLE">
+            <Paragraph><Text>Tangle is obsessed with the treasure.</Text></Paragraph>
+          </CharacterArcBeat>
+        </SceneArcBeats>
+      </SceneProperties>
+      <Text>INT. HOME LIBRARY - DAY</Text>
+    </Paragraph>
+    <Paragraph Type="Action" id="a2"><Text>Majestic.</Text></Paragraph>
+    <Paragraph Type="Action" id="a3"><Text RevisionID="2">Light </Text><Text Style="Italic">glinting</Text><Text> off it.</Text></Paragraph>
+    <Paragraph Alignment="Center" Type="General"><Text>The end</Text></Paragraph>
+  </Content>
+  <LockedPages><LockedPage Number="1"/></LockedPages>
+  <Revisions><Revision Color="Blue" Mark="*" Name="First Revision" Number="1"/></Revisions>
+  <TagData><TagDefinition Id="t1" Label="Spanish moss"/></TagData>
+</FinalDraft>`;
+
+describe('openFdx · preserving round trip', () => {
+	/**
+	 * The invariant the whole thing rests on: opening a file and saving it
+	 * without editing gives back the same file, to the byte.
+	 *
+	 * Rebuilding from the screenplay instead loses everything the screenplay
+	 * cannot hold. Measured on a real production draft: 19 revisions, 171
+	 * revised runs, 25 locked pages, 73 deleted-text marks, 248 production
+	 * tags, 6 dual-dialogue blocks, 136 emphasis runs and 3 script notes — all
+	 * gone from opening the file, changing one word and saving.
+	 */
+	it('a save with no edit returns the identical file', () => {
+		const doc = openFdx(PRODUCTION_FDX);
+		expect(doc.rewrite(doc.script).xml).toBe(PRODUCTION_FDX);
+	});
+
+	it('an edit rewrites that paragraph and touches nothing else', () => {
+		const doc = openFdx(PRODUCTION_FDX);
+		const edited = {
+			...doc.script,
+			elements: doc.script.elements.map((e) =>
+				e.text === 'Majestic.' ? { ...e, text: 'Majestic, and lit.' } : e
+			)
+		};
+		const xml = doc.rewrite(edited).xml;
+
+		expect(xml).toContain('Majestic, and lit.');
+		expect(xml).not.toContain('>Majestic.<');
+		// Everything the screenplay cannot hold survived the edit.
+		expect(xml).toContain('<Revision');
+		expect(xml).toContain('<LockedPage');
+		expect(xml).toContain('<TagDefinition');
+		expect(xml).toContain('Style="Italic"');
+		// Including on the edited paragraph's own neighbours.
+		expect(xml).toContain('<SceneProperties');
+	});
+
+	/**
+	 * A scene heading carries <SceneProperties> and, with the Beat Board, an
+	 * arc beat per character. Editing the heading's words must not cost the
+	 * writer their beats.
+	 */
+	it('keeps a scene heading nested blocks when its text changes', () => {
+		const doc = openFdx(PRODUCTION_FDX);
+		const edited = {
+			...doc.script,
+			elements: doc.script.elements.map((e) =>
+				e.type === 'scene' ? { ...e, text: 'INT. SOMEWHERE ELSE - NIGHT' } : e
+			)
+		};
+		const xml = doc.rewrite(edited).xml;
+		expect(xml).toContain('INT. SOMEWHERE ELSE - NIGHT');
+		expect(xml).toContain('<CharacterArcBeat Name="TANGLE">');
+		expect(xml).toContain('Tangle is obsessed');
+		expect(xml).toContain('Number="1"');
+	});
+
+	it('writes a whole file when there is nothing to preserve', () => {
+		const doc = openFdx('not xml at all');
+		const xml = doc.rewrite({
+			titlePage: [],
+			elements: [{ type: 'action', text: 'A fresh start.' }]
+		}).xml;
+		expect(xml).toContain('<FinalDraft');
+		expect(xml).toContain('A fresh start.');
 	});
 });
 
