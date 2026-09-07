@@ -66,6 +66,8 @@ struct EDraftMacApp: App {
             CommandGroup(after: .pasteboard) {
                 AcceptSuggestionCommand()
                 Divider()
+                NoteCommand()
+                Divider()
                 FindCommands()
             }
             CommandGroup(after: .sidebar) {
@@ -395,6 +397,23 @@ struct SceneNumbersCommands: View {
         if alert.runModal() == .alertFirstButtonReturn {
             run()
         }
+    }
+}
+
+/// Edit → Add Note (⇧⌘K), which is where Pages puts it and the key it uses.
+///
+/// In Edit rather than under an Insert menu of our own: a note is a thing you
+/// do to the document you are editing, and one item does not justify a menu
+/// nobody has been looking for.
+struct NoteCommand: View {
+    @FocusedValue(\.editor) private var editor
+
+    var body: some View {
+        Button("Add Note") {
+            editor?.onAddNote?()
+        }
+        .keyboardShortcut("k", modifiers: [.command, .shift])
+        .disabled(editor?.onAddNote == nil)
     }
 }
 

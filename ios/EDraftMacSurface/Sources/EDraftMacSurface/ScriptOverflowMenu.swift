@@ -15,6 +15,8 @@ struct ScriptOverflowMenu: View {
         Menu {
             Button("Find…") { editor.onShowFind?() }
                 .keyboardShortcut("f", modifiers: .command)
+            Button("Add Note") { editor.onAddNote?() }
+                .keyboardShortcut("k", modifiers: [.command, .shift])
 
             Divider()
 

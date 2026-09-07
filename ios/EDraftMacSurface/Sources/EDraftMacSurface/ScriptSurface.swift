@@ -2,6 +2,7 @@ import AppKit
 import EDraftCore
 import EDraftEngine
 import Foundation
+import SwiftUI
 
 /// The page, on a Mac.
 ///
@@ -25,7 +26,7 @@ import Foundation
 /// A rule that lived here would be a second editor, and the two apps would
 /// disagree eventually.
 @MainActor
-public final class ScriptSurface: NSObject, NSTextViewDelegate {
+public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegate {
 
     public let scrollView: NSScrollView
     public let textView: NSTextView
@@ -65,6 +66,19 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     /// System find bar, Replace disabled. See `FindBarClient`.
     private let textFinder = NSTextFinder()
     private let findClient: FindBarClient
+
+    /// The note whose card is open, and the popover showing it. One at a
+    /// time, which is what a `.transient` popover enforces anyway — clicking
+    /// the page closes the card, and clicking another mark opens that one.
+    private var openNoteID: UUID?
+    private var notePopover: NSPopover?
+    /// What the open card currently reads, so closing it can write that to
+    /// the model. The card reports every keystroke here; the model is written
+    /// once, when the card goes away — see `NoteCard.onEdit`.
+    private var openNoteDraft: String?
+    /// The element the context menu was opened over, so "Add Note" leaves the
+    /// note where the writer pointed.
+    private var rightClickedElement: UUID?
 
     public init(measure: CGFloat = 640) {
         let textWidth = ScriptLayout.pageMeasure
@@ -252,6 +266,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             }
         }
         editor.onSetLayoutMode = { [weak self] mode in self?.setLayoutMode(mode) }
+        editor.onAddNote = { [weak self] in self?.addNoteAtCaret() }
         // The writer's choice reaches the canvas here rather than being read
         // from a global when the view was built — see `layoutMode`.
         canvas.layoutMode = editor.layoutMode
@@ -368,6 +383,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         // already say it, and a rule as well is a third mark for one
         // boundary.
         canvas.showBreaks(at: canvas.layoutMode == .continuous ? pageBreakPositions() : [])
+        placeNoteMarkers()
+        washNotedLines()
         scrollView.layoutSubtreeIfNeeded()
     }
 
@@ -805,6 +822,184 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
     var pinsOpeningViewport = true
     private var frameObserver: (any NSObjectProtocol)?
 
+    // MARK: - Notes
+
+    /// Puts a mark in the margin beside every note's line.
+    ///
+    /// The line comes from the laid-out text, not from a count of elements:
+    /// an element wraps, and the mark belongs beside the line the note is
+    /// about rather than beside the line a tally says it should be.
+    private func placeNoteMarkers() {
+        canvas.showNotes(notePlacements(), active: openNoteID) { [weak self] id in
+            self?.openNote(id)
+        }
+    }
+
+    /// Tints the lines that have notes on them, so the mark in the margin
+    /// says *which* line it is about.
+    ///
+    /// A temporary attribute rather than one written into the text storage:
+    /// the storage is the script, and a colour put there would follow the
+    /// writer's words into a copy, a paste and a PDF. Temporary attributes
+    /// live on the layout manager, which is exactly the distinction — how
+    /// this text is drawn right now, not what it is.
+    private func washNotedLines() {
+        guard let layoutManager = textView.layoutManager else { return }
+        let whole = NSRange(location: 0, length: (textView.string as NSString).length)
+        layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: whole)
+        guard let editor, !editor.notes.isEmpty else { return }
+
+        let byElement = Dictionary(ranges.map { ($0.id, $0.range) }) { first, _ in first }
+        // Resolved for the page's own appearance, the way the ink is: a light
+        // page in a dark app takes the wash meant for paper.
+        var wash: NSColor = .screenplayNoteWash
+        var open: NSColor = .screenplayOpenNoteWash
+        textView.effectiveAppearance.performAsCurrentDrawingAppearance {
+            wash = NSColor.screenplayNoteWash.usingColorSpace(.sRGB) ?? wash
+            open = NSColor.screenplayOpenNoteWash.usingColorSpace(.sRGB) ?? open
+        }
+
+        for note in editor.notes {
+            guard let anchor = note.anchor, let range = byElement[anchor], range.length > 0,
+                  NSMaxRange(range) <= whole.length else { continue }
+            layoutManager.addTemporaryAttribute(
+                .backgroundColor,
+                value: note.id == openNoteID ? open : wash,
+                forCharacterRange: range
+            )
+        }
+    }
+
+    /// Where each note's mark goes, in canvas coordinates.
+    private func notePlacements() -> [PageCanvasView.NotePlacement] {
+        guard let editor else { return [] }
+        let byElement = Dictionary(ranges.map { ($0.id, $0.range) }) { first, _ in first }
+        return editor.notes.compactMap { note -> PageCanvasView.NotePlacement? in
+            // A note anchored to nothing trails the script, and belongs
+            // beside its last line — which is where the writer left it.
+            let range = note.anchor.flatMap { byElement[$0] } ?? ranges.last?.range
+            guard let range, let rect = boundingRect(atCharacter: range.location) else { return nil }
+            let inCanvas = canvas.convert(rect, from: textView)
+            return PageCanvasView.NotePlacement(
+                id: note.id, lineTop: inCanvas.minY, lineHeight: inCanvas.height
+            )
+        }
+    }
+
+    /// Leaves a note beside the line the caret is on, and opens it.
+    ///
+    /// Laid out before the card is shown, because the card points at the
+    /// mark in the margin and the mark is placed by the layout.
+    private func addNoteAtCaret() {
+        addNote(to: nil)
+    }
+
+    /// `nil` means the caret's own element — see `EditorState.addNote`.
+    private func addNote(to anchor: UUID?) {
+        guard let editor, let note = editor.addNote(to: anchor) else { return }
+        renderIfNeeded(editor)
+        openNote(note.id)
+    }
+
+    /// Opens a note's card, pointing at its mark.
+    ///
+    /// An `NSPopover` rather than a card parked in the margin: the desk is
+    /// 36 points wide either side of the paper and a Pages comment card is
+    /// 260, so a card that lived out there would either cover the script or
+    /// push the page off centre every time a note existed. A popover is the
+    /// same rounded, elevated card with an arrow to the mark it came from,
+    /// and it is the system's own.
+    public func openNote(_ id: UUID) {
+        guard let editor, let note = editor.notes.first(where: { $0.id == id }),
+              let marker = canvas.noteMarker(for: id) else { return }
+
+        commitOpenNote()
+        notePopover?.performClose(nil)
+        let total = editor.notes.count
+        let position = (editor.notes.firstIndex { $0.id == id } ?? 0) + 1
+
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.delegate = self
+        popover.contentViewController = NSHostingController(
+            rootView: NoteCard(
+                note: note,
+                position: position,
+                total: total,
+                onEdit: { [weak self] text in self?.openNoteDraft = text },
+                onDone: { [weak self] in self?.commitOpenNote() },
+                onDelete: { [weak self] in
+                    guard let self else { return }
+                    // Dropped before the popover closes, so `popoverDidClose`
+                    // does not write the deleted note's text back and
+                    // resurrect it.
+                    self.openNoteDraft = nil
+                    self.notePopover?.performClose(nil)
+                    self.editor?.deleteNote(id: id)
+                },
+                onMove: { [weak self] step in
+                    guard let self, let editor = self.editor else { return }
+                    let index = (editor.notes.firstIndex { $0.id == id } ?? 0) + step
+                    guard editor.notes.indices.contains(index) else { return }
+                    let next = editor.notes[index].id
+                    // Reveal first: a mark scrolled off the page has no view
+                    // for the next card to point at.
+                    self.revealNote(next)
+                    self.openNote(next)
+                }
+            )
+        )
+        notePopover = popover
+        openNoteID = id
+        openNoteDraft = nil
+        placeNoteMarkers()
+        washNotedLines()
+        popover.show(relativeTo: marker.bounds, of: marker, preferredEdge: .maxX)
+    }
+
+    /// However the card ends — clicked away from, replaced, or closed with
+    /// the window — this is where the writing lands.
+    public func popoverDidClose(_ notification: Notification) {
+        guard (notification.object as AnyObject?) === notePopover else { return }
+        commitOpenNote()
+        openNoteID = nil
+        notePopover = nil
+        placeNoteMarkers()
+        washNotedLines()
+    }
+
+    /// Writes what the open card reads into the model, if it changed.
+    ///
+    /// The one place a note is written. Called when the card closes — by the
+    /// writer clicking away, by the next note replacing it, or by the window
+    /// going away — so the arrangement holds however the card ends.
+    private func commitOpenNote() {
+        guard let id = openNoteID else { return }
+        let draft = openNoteDraft
+        openNoteDraft = nil
+        // What to do with a blank one is the model's rule, not the card's —
+        // the phone's surface will close a note too. See `finishNote`.
+        editor?.finishNote(id: id, text: draft)
+    }
+
+    /// Brings a note's mark into view — and only if it is not already there.
+    ///
+    /// Stepping to the next note must not move the page when the next note is
+    /// already on screen. Revealing unconditionally scrolled the line to the
+    /// top of the window and took the caret with it, so reading two notes on
+    /// one page threw the writer's place away twice.
+    ///
+    /// `scrollToVisible` is the system's own minimum scroll: nothing happens
+    /// when the rectangle is visible, and when it is not, the page moves the
+    /// least distance that makes it so.
+    private func revealNote(_ id: UUID) {
+        guard let marker = canvas.noteMarker(for: id) else { return }
+        // A line of air around the mark, so a note arriving from off-screen
+        // does not land flush against the edge of the window.
+        canvas.scrollToVisible(marker.frame.insetBy(dx: 0, dy: -ScreenplayPageLayout.lineHeight))
+        scrollView.layoutSubtreeIfNeeded()
+    }
+
     // MARK: - Going to an element
 
     /// Brings an element into view and marks it.
@@ -899,6 +1094,34 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             return true
         }
         return false
+    }
+
+    /// Right-clicking the page offers a note on the line under the pointer.
+    ///
+    /// Added to the system's own menu rather than replacing it: Cut, Copy,
+    /// Paste, Look Up, the writing tools and the spelling submenu are all
+    /// still there, because a text view's context menu is the system's and a
+    /// screenplay editor has no business shortening it.
+    public func textView(
+        _ view: NSTextView, menu: NSMenu, for event: NSEvent, at charIndex: Int
+    ) -> NSMenu? {
+        guard editor != nil else { return menu }
+        // The line under the pointer, not the line the caret happens to be
+        // on: a right-click does not move the caret, and a note that landed
+        // somewhere else is a note in the wrong scene.
+        rightClickedElement = elementRange(at: charIndex)?.id
+        let item = NSMenuItem(
+            title: "Add Note", action: #selector(addNoteFromMenu), keyEquivalent: ""
+        )
+        item.target = self
+        menu.insertItem(item, at: 0)
+        menu.insertItem(.separator(), at: 1)
+        return menu
+    }
+
+    @objc private func addNoteFromMenu() {
+        addNote(to: rightClickedElement)
+        rightClickedElement = nil
     }
 
     public func undoManager(for view: NSTextView) -> UndoManager? {

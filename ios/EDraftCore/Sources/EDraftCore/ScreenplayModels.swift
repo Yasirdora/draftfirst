@@ -106,7 +106,10 @@ public enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendabl
     ]
 }
 
-public struct ScriptElement: Identifiable, Codable, Equatable, Sendable {
+/// One paragraph of the screenplay. Data, not state: `nonisolated` so the
+/// pure transforms over it — the edit planner, the note projection — can be
+/// what they are rather than borrowing the main actor to compare two structs.
+public nonisolated struct ScriptElement: Identifiable, Codable, Equatable, Sendable {
     public var id: UUID
     public var type: ScreenplayKind
     public var text: String

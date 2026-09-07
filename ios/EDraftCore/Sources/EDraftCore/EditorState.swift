@@ -5,7 +5,21 @@ import EDraftEngine
 @MainActor
 @Observable
 public final class EditorState {
+    /// What the page sets.
+    ///
+    /// Not the whole document: the writer's notes are lifted out of it at
+    /// open and put back at save — see `notes` and `ScriptNotes`. Everything
+    /// that measures the script reads this, so a note neither prints, nor
+    /// paginates, nor shifts the element indices the Navigator and the
+    /// prediction engine are keyed by.
     public var screenplay: Screenplay
+    /// The notes beside the page, in document order.
+    ///
+    /// A note is in the document — it saves, it exports, it round-trips
+    /// through Final Draft — and it is not on the page. Reading a private
+    /// aside as though it were a stage direction is what putting it in the
+    /// text stream did.
+    public private(set) var notes: [ScriptNote] = []
     public var activeElementID: UUID?
     public var selectionOffset = 0
     public var predictions: [EnginePrediction] = []
@@ -40,6 +54,14 @@ public final class EditorState {
     /// the magnification — asking is the only honest way to change it, the same
     /// arrangement as `onSetEditing`.
     @ObservationIgnored public var onZoom: ((PageZoom.Command) -> Void)?
+
+    /// Leaves a note on the caret's element and opens its card.
+    ///
+    /// The surface's, not the model's, because the card points at a mark in
+    /// the margin and the mark does not exist until the page has been laid
+    /// out with the new note in it. `addNote` is the model half; this is the
+    /// two halves in the order that works.
+    @ObservationIgnored public var onAddNote: (() -> Void)?
 
     /// Shows the system find bar. The surface owns the `NSTextFinder`.
     @ObservationIgnored public var onShowFind: (() -> Void)?
@@ -137,6 +159,22 @@ public final class EditorState {
         cachedEngineModelRevision = revision
         return model
     }
+
+    /// The whole document: the page with the notes back in it.
+    ///
+    /// Only the writers-out use this — serialising to Fountain, and through
+    /// that every export. Pagination, stats and prediction read
+    /// `currentEngineModel` instead, which is the page: a note occupies no
+    /// line, and the indices those answers are keyed by are the page's.
+    /// Uncached on purpose — it is built when a file is written, not per
+    /// keystroke, and a second cache keyed on a second revision is how the
+    /// document and the page come to disagree about what is in the file.
+    private var currentDocumentModel: EDraftEngine.Screenplay {
+        guard !notes.isEmpty else { return currentEngineModel }
+        var document = screenplay
+        document.elements = ScriptNotes.merge(page: screenplay.elements, notes: notes)
+        return document.engineModel
+    }
     @ObservationIgnored private var undoStack: [EditorSnapshot] = []
     @ObservationIgnored private var redoStack: [EditorSnapshot] = []
     /// Remembers what re-cased elements looked like before conversion, so
@@ -161,8 +199,11 @@ public final class EditorState {
         self.opensAtEnd = startsAtEnd
         /* Native Fountain parse; the naive parser remains only as the
            guard-rail for sources beyond the engine's size limit. */
-        self.screenplay = (try? Fountain.parse(source)).map(Screenplay.init(engineModel:))
+        let parsed = (try? Fountain.parse(source)).map(Screenplay.init(engineModel:))
             ?? Self.naiveParse(source)
+        let split = ScriptNotes.split(parsed.elements)
+        self.screenplay = Screenplay(titlePage: parsed.titlePage, elements: split.page)
+        self.notes = split.notes
         if screenplay.elements.isEmpty { screenplay.elements = Screenplay.blank.elements }
         let initialElement = startsAtEnd ? screenplay.elements.last : screenplay.elements.first
         activeElementID = initialElement?.id
@@ -783,6 +824,85 @@ public final class EditorState {
         commitChange()
     }
 
+    // MARK: - Notes
+
+    /// Leaves a note on the element the caret is in, and returns it.
+    ///
+    /// Anchored to an element rather than to a character range: Final Draft
+    /// stores a note's position as an offset into the script and those offsets
+    /// rot the moment anyone edits above them. An element id cannot.
+    @discardableResult
+    public func addNote(_ text: String = "", to anchor: UUID? = nil) -> ScriptNote? {
+        let target = anchor ?? activeElementID
+        guard target == nil || screenplay.elements.contains(where: { $0.id == target }) else {
+            return nil
+        }
+        let note = ScriptNote(id: UUID(), text: text, anchor: target)
+        applyNotes(inserting: note)
+        return note
+    }
+
+    /// The bubble finished editing. Called once when the writer is done, not
+    /// per keystroke — the same arrangement as the title-page sheet, and for
+    /// the same reason: a model change re-lays the page, and the page must not
+    /// be re-laid on every letter typed beside it.
+    public func updateNote(id: UUID, text: String) {
+        guard let index = notes.firstIndex(where: { $0.id == id }), notes[index].text != text
+        else { return }
+        var updated = notes
+        updated[index].text = text
+        applyNotes(updated)
+    }
+
+    /// The writer has finished with this note — Done, or the card closing.
+    ///
+    /// `text` is what the card reads, or `nil` when it was never typed in.
+    /// Either way a note with nothing written in it is not a note and goes:
+    /// added and left blank, or emptied and closed, it should not reach the
+    /// file as an empty `[[]]` for the next reader to wonder about. Pages
+    /// drops a comment nobody typed into for the same reason.
+    public func finishNote(id: UUID, text: String?) {
+        guard let settled = text ?? notes.first(where: { $0.id == id })?.text else { return }
+        if settled.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            deleteNote(id: id)
+        } else if text != nil {
+            updateNote(id: id, text: settled)
+        }
+    }
+
+    public func deleteNote(id: UUID) {
+        guard notes.contains(where: { $0.id == id }) else { return }
+        applyNotes(notes.filter { $0.id != id })
+    }
+
+    /// Puts a new note where it belongs: in front of the element it is
+    /// anchored to, after any notes already there. Document order, so the
+    /// bubbles beside a line read top to bottom in the order they were left.
+    private func applyNotes(inserting note: ScriptNote) {
+        var updated = notes
+        let anchorIndex = note.anchor.flatMap { anchor in
+            screenplay.elements.firstIndex { $0.id == anchor }
+        }
+        let position = updated.lastIndex { existing in
+            guard let existingAnchor = existing.anchor else { return anchorIndex == nil }
+            guard let anchorIndex else { return true }
+            let index = screenplay.elements.firstIndex { $0.id == existingAnchor }
+            return (index ?? .max) <= anchorIndex
+        }
+        updated.insert(note, at: position.map { $0 + 1 } ?? 0)
+        applyNotes(updated)
+    }
+
+    private func applyNotes(_ updated: [ScriptNote]) {
+        // The text view's undo stack knows nothing about a change made beside
+        // the page, and a ⌘Z that skipped back past it would undo the wrong
+        // thing. Same reasoning as `updateTitlePage`.
+        clearNativeUndoHistory()
+        recordSnapshot(structural: true)
+        notes = updated
+        commitChange()
+    }
+
     public func flushPendingWork() {
         sourceTask?.cancel()
         publishSource()
@@ -1004,6 +1124,7 @@ public final class EditorState {
     private func snapshotNow() -> EditorSnapshot {
         EditorSnapshot(
             screenplay: screenplay,
+            notes: notes,
             activeElementID: activeElementID,
             selectionOffset: selectionOffset
         )
@@ -1011,6 +1132,7 @@ public final class EditorState {
 
     private func restore(_ snapshot: EditorSnapshot) {
         screenplay = snapshot.screenplay
+        notes = snapshot.notes
         activeElementID = snapshot.activeElementID
         selectionOffset = snapshot.selectionOffset
         revision += 1
@@ -1068,7 +1190,7 @@ public final class EditorState {
     }
 
     private func serializedSource() -> String {
-        Fountain.serialise(currentEngineModel)
+        Fountain.serialise(currentDocumentModel)
     }
 
     /// Precise stats from the native paginator over the cached engine model,
@@ -1175,6 +1297,7 @@ public final class EditorState {
 
     private struct EditorSnapshot {
         let screenplay: Screenplay
+        let notes: [ScriptNote]
         let activeElementID: UUID?
         let selectionOffset: Int
     }

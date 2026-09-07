@@ -66,6 +66,40 @@ extension NSColor {
         return .labelColor
     }
 
+    /// A note's mark in the margin, and the tint of its card.
+    ///
+    /// Yellow, because that is what a note in a margin has always been and
+    /// what Pages uses for a comment — and one yellow rather than two, keyed
+    /// to the paper the way `screenplayInk` is: a light page in a dark app
+    /// still takes the mark meant for paper. `systemYellow` would follow the
+    /// *app's* appearance instead, and go pale on a page that had not changed.
+    static let screenplayNoteTint = NSColor(name: "screenplayNoteTint") { appearance in
+        guard appearance.isDark, PagePaper.stored == .inverted else {
+            // Deep enough to read as ink on off-white rather than as a
+            // highlighter, which is what full-strength yellow looks like at
+            // 16 points.
+            return NSColor(srgbRed: 0.784, green: 0.573, blue: 0.086, alpha: 1) // #C89216
+        }
+        // Lifted on a dark page, where the same yellow goes muddy.
+        return NSColor(srgbRed: 0.961, green: 0.780, blue: 0.290, alpha: 1)     // #F5C74A
+    }
+
+    /// The wash over a line that has a note on it, and the stronger one over
+    /// the line whose card is open.
+    ///
+    /// Pages tints the commented words; this tints the whole line, because a
+    /// note here is anchored to an element and not to a range of characters.
+    /// Neither Fountain's `[[ ]]` nor Final Draft's Note paragraph can say
+    /// "these five words", so a highlight that claimed to would be a promise
+    /// the file cannot keep the moment it leaves the app.
+    ///
+    /// Pale enough to read Courier through: it marks the line, it does not
+    /// take it over. Measured on the dark page, where a yellow that reads as
+    /// a wash on paper turns into an olive slab — 0.30 was a block with type
+    /// on it rather than a highlighted line.
+    static var screenplayNoteWash: NSColor { screenplayNoteTint.withAlphaComponent(0.10) }
+    static var screenplayOpenNoteWash: NSColor { screenplayNoteTint.withAlphaComponent(0.20) }
+
     /// A prediction, and a hint, in the same ink at less weight — so they
     /// stay legible on either page.
     static var screenplayGhostInk: NSColor { screenplayInk.withAlphaComponent(0.45) }

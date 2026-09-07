@@ -37,8 +37,10 @@ final class PageCanvasView: NSView {
     var layoutMode: PageLayoutMode = .pages
 
     private var breakMarkers: [PageBreakMarker] = []
+    private var noteMarkers: [NoteMarker] = []
 
     var breakMarkerFrames: [CGRect] { breakMarkers.map(\.frame) }
+    var noteMarkerFrames: [CGRect] { noteMarkers.map(\.frame) }
 
     /// The first sheet — what callers mean by "the page" when they ask
     /// about width, the left margin, or the edge colour.
@@ -177,6 +179,69 @@ final class PageCanvasView: NSView {
             )
         }
     }
+
+    /// Where a note sits: its id, and the top of the line it is about.
+    struct NotePlacement: Equatable {
+        let id: UUID
+        let lineTop: CGFloat
+        let lineHeight: CGFloat
+    }
+
+    /// Puts a marker in the right margin beside each note's line.
+    ///
+    /// The right margin is the marks margin of a screenplay — revision
+    /// asterisks live there, and Final Draft's own note icons — and it is the
+    /// side Pages puts a comment on. Nothing printed reaches it: action wraps
+    /// at sixty characters and everything else is indented well inside that.
+    ///
+    /// In `continuous` a note beside the first line of a page draws over the
+    /// page-break hairline. That is a bubble interrupting a 14%-ink rule for
+    /// the width of a bubble, and it reads as one mark in front of another
+    /// rather than as damage.
+    func showNotes(
+        _ placements: [NotePlacement],
+        active: UUID?,
+        onOpen: @escaping (UUID) -> Void
+    ) {
+        while noteMarkers.count < placements.count {
+            let marker = NoteMarker(frame: .zero)
+            noteMarkers.append(marker)
+            addSubview(marker, positioned: .above, relativeTo: textView)
+        }
+        while noteMarkers.count > placements.count {
+            noteMarkers.removeLast().removeFromSuperview()
+        }
+
+        let format = PageFormat.current
+        let pageLeft = ((frame.width - format.pageRect.width) / 2).rounded(.down)
+        let x = pageLeft
+            + ScreenplayPageLayout.textLeft
+            + ScreenplayPageLayout.textBlockWidth(format)
+            + Self.noteMarkerGap
+        for (marker, placement) in zip(noteMarkers, placements) {
+            marker.noteID = placement.id
+            marker.isActive = placement.id == active
+            marker.onOpen = onOpen
+            // Centred on the line rather than sitting on its baseline: a mark
+            // beside a line should look level with it.
+            marker.frame = CGRect(
+                x: x.rounded(),
+                y: (placement.lineTop + (placement.lineHeight - NoteMarker.size.height) / 2).rounded(),
+                width: NoteMarker.size.width,
+                height: NoteMarker.size.height
+            )
+        }
+    }
+
+    /// The view a note's card should point at, so the popover's arrow lands
+    /// on the mark the writer clicked rather than on the page.
+    func noteMarker(for id: UUID) -> NSView? {
+        noteMarkers.first { $0.noteID == id }
+    }
+
+    /// Air between the last column of type and the mark, so the two read as
+    /// text and margin rather than as a run-on.
+    private static let noteMarkerGap: CGFloat = 8
 
     /// Back-compat for the one-card layout callers. Prefer `layoutPages`.
     func layoutPage(textHeight: CGFloat, viewport: CGSize) {
