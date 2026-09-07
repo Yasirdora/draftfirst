@@ -38,7 +38,7 @@ reading a number, not by reasoning about what ought to happen.
 |---|---|
 | Branch | `rename/edraft` |
 | iOS app | Feature-complete for its own plan; ships |
-| macOS app | Greets on launch, page card, types, ghosts, finds, exports, prints. Title page is a sheet; Cast opens the character thread. View modes and statistics still M3 |
+| macOS app | Greets on launch, page card, types, ghosts, finds, exports, prints. Title page is a sheet; Cast opens the character thread. Notes live in the margin. View modes and statistics still M3 |
 | Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface`, `EDraftUIKitSurface` |
 | Xcode targets | `eDraft`, `eDraftTests`, `eDraft (macOS)` |
 
@@ -46,11 +46,11 @@ reading a number, not by reasoning about what ought to happen.
 a number drops, you broke something.
 
 ```bash
-npm test                                              # 414 TypeScript
-swift test --package-path ios/eDraftEngine            #  99 engine
-swift test --package-path ios/EDraftCore              # 102 core        (macOS)
-swift test --package-path ios/EDraftUI                #  18 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        #  99 Mac surface (macOS)
+npm test                                              # 425 TypeScript
+swift test --package-path ios/eDraftEngine            # 112 engine
+swift test --package-path ios/EDraftCore              # 142 core        (macOS)
+swift test --package-path ios/EDraftUI                #  24 document    (macOS)
+swift test --package-path ios/EDraftMacSurface        # 147 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 105 app
@@ -137,12 +137,19 @@ prevent.**
 
 The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
 
-1. **View modes** (Page · Typewriter · Focus) and statistics in the
+1. **Notes on iPhone.** The document half is done and shared — `ScriptNotes`
+   splits them off the page, `EditorState` owns them, FDX and Fountain both
+   carry them. What the phone has no UI for yet is seeing or leaving one:
+   a mark in the margin is a Mac affordance, and the phone's answer is the
+   selection context menu ("Add Note") plus somewhere to read them. Until
+   that lands, a note opened on iPhone is invisible — preserved on save, but
+   invisible, which is the gap to close first.
+2. **View modes** (Page · Typewriter · Focus) and statistics in the
    status area — remaining M3. The inspector was retired: a properties
    pane has nothing continuous to hold. Format → Element, Scene Numbers,
    File → Title Page, and the Cast thread are done.
-2. **Writing-assistance settings**, shared with iOS.
-3. **M0.6**, optional: move to an `apple/` directory layout. The `ios/` name is
+3. **Writing-assistance settings**, shared with iOS.
+4. **M0.6**, optional: move to an `apple/` directory layout. The `ios/` name is
    now wrong for a tree with a Mac app in it.
 
 Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
