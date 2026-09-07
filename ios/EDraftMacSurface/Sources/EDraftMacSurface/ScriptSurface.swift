@@ -363,7 +363,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
             textHeight: max(textView.frame.height, 1),
             viewport: size
         )
-        canvas.showBreaks(at: pageBreakPositions())
+        // Only in `continuous`, where the rule is the one thing saying a page
+        // ended. In `pages` the gap between the sheets and their own edges
+        // already say it, and a rule as well is a third mark for one
+        // boundary.
+        canvas.showBreaks(at: canvas.layoutMode == .continuous ? pageBreakPositions() : [])
         scrollView.layoutSubtreeIfNeeded()
     }
 
@@ -482,7 +486,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate {
         var placed: CGFloat = 0
         let sheet = PageFormat.current.pageRect.height
         for index in 0..<(pages.count - 1) {
-            let target = CGFloat(index + 1) * sheet
+            let target = CGFloat(index + 1) * (sheet + PageCanvasView.pageGap)
             let ungappedY = index + 1 < ungapped.count ? ungapped[index + 1] : 0
             let gap = target - ungappedY - placed
             guard gap > 0.5 else { continue }

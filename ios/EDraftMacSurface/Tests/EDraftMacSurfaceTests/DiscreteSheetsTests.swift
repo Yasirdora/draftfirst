@@ -5,11 +5,12 @@ import XCTest
 
 /// Sheets, or one column, and the same pagination either way.
 ///
-/// The sheets used to stand 36 points apart, which is a gutter every
-/// fifty-five lines and breaks the read for no gain. They meet now, marked by
-/// a hairline — and `PageLayoutMode.continuous` drops the sheets altogether,
-/// collapsing the 132 points of margin every boundary repeats. What neither
-/// may do is move a line onto a different page.
+/// In `pages` each sheet is its own page, standing `PageCanvasView.pageGap`
+/// apart — five points, where it used to be the desk's own 36, which is a
+/// gutter every fifty-five lines. In `continuous` there are no sheets at all:
+/// one column, the 132 points of margin every boundary repeats collapsed, and
+/// the break marked with its page number. What neither may do is move a line
+/// onto a different page.
 @MainActor
 final class DiscreteSheetsTests: XCTestCase {
 
@@ -65,12 +66,15 @@ final class DiscreteSheetsTests: XCTestCase {
             XCTAssertEqual(frame.width, PageFormat.letter.pageRect.width, accuracy: 0.5)
             if index > 0 {
                 XCTAssertEqual(
-                    frame.minY - surface.pageFrames[index - 1].maxY, 0, accuracy: 0.5,
-                    "the sheets are meant to meet; a gap here is the old gutter"
+                    frame.minY - surface.pageFrames[index - 1].maxY,
+                    PageCanvasView.pageGap, accuracy: 0.5,
+                    "each page is its own sheet, standing clear of the one above it"
                 )
             }
         }
-        XCTAssertEqual(surface.breakMarkerFrames.count, pages.count - 1)
+        // No rules here: the gap and the sheets' own edges say where a page
+        // ended, and a third mark for one boundary is clutter.
+        XCTAssertTrue(surface.breakMarkerFrames.isEmpty)
     }
 
     /// Continuous is one sheet, and it is shorter than the sheets it replaces

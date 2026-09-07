@@ -19,6 +19,14 @@ final class PageCanvasView: NSView {
     /// read as a gutter.
     var canvasPadding: CGFloat = 36
 
+    /// How far apart two sheets stand in `pages`.
+    ///
+    /// Five points: enough that each page is plainly its own sheet with its
+    /// own edge and shadow, little enough that the column still reads as one
+    /// script. The old 36 was the desk's own padding used for two jobs, and
+    /// a gutter that size every fifty-five lines is what made the read break.
+    static let pageGap: CGFloat = 5
+
     /// Sheets, or one column. See `PageLayoutMode`; the canvas only draws
     /// what it is told.
     ///
@@ -89,7 +97,8 @@ final class PageCanvasView: NSView {
         // margins it opens and closes with — the ones *between* pages are the
         // 132 points the mode exists to collapse.
         let stackHeight: CGFloat = switch layoutMode {
-        case .pages: CGFloat(pages) * pageSize.height
+        case .pages:
+            CGFloat(pages) * pageSize.height + CGFloat(pages - 1) * Self.pageGap
         case .continuous:
             format.textTop + max(textHeight, textBlock) + ScreenplayPageLayout.textBottom(format)
         }
@@ -114,7 +123,7 @@ final class PageCanvasView: NSView {
         for index in 0..<sheets {
             pageViews[index].frame = CGRect(
                 x: x,
-                y: desk + CGFloat(index) * pageSize.height,
+                y: desk + CGFloat(index) * (pageSize.height + Self.pageGap),
                 width: pageSize.width,
                 height: layoutMode == .pages ? pageSize.height : stackHeight
             )
@@ -126,7 +135,8 @@ final class PageCanvasView: NSView {
         // while an emoji's ascent has somewhere to go instead of being cut off
         // by the view's own edge. On every other line the room is the line
         // above; on the first there is none.
-        let lastTextBottom = CGFloat(pages - 1) * pageSize.height + textBlock
+        let lastTextBottom =
+            CGFloat(pages - 1) * (pageSize.height + Self.pageGap) + textBlock
         textView?.textContainerInset = NSSize(width: 0, height: slack)
         textView?.frame = CGRect(
             x: x + ScreenplayPageLayout.textLeft,
@@ -158,7 +168,7 @@ final class PageCanvasView: NSView {
         let format = PageFormat.current
         let x = ((frame.width - format.pageRect.width) / 2).rounded(.down)
         for (index, y) in positions.enumerated() {
-            breakMarkers[index].pageNumber = layoutMode == .continuous ? index + 2 : nil
+            breakMarkers[index].pageNumber = index + 2
             breakMarkers[index].frame = CGRect(
                 x: x,
                 y: y - PageBreakMarker.height / 2,
