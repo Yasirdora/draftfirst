@@ -11,7 +11,9 @@ import SwiftUI
 /// The percentage is a button, and the useful thing it does is answer "how big
 /// is this really?" without costing the writer the size they were working at.
 /// One press shows actual size; the next gives back whatever they had — the
-/// window's fit, or the size they chose with plus and minus.
+/// window's fit, or the size they chose with plus and minus. At actual size
+/// the answer is already showing, so there the percentage becomes a menu of
+/// the stops instead, chosen by name.
 struct PageZoomControl: View {
     let editor: EditorState
 
@@ -19,19 +21,37 @@ struct PageZoomControl: View {
         HStack(spacing: 0) {
             step(.zoomOut, symbol: "minus", label: "Zoom Out")
 
-            Button {
-                editor.onZoom?(.toggleActualSize)
-            } label: {
-                // Monospaced digits so the capsule does not breathe as the
-                // number changes under the pointer.
-                Text(PageZoom.percentage(editor.zoom))
-                    .font(.caption.monospacedDigit())
-                    .frame(minWidth: 44)
-                    .contentShape(Rectangle())
+            if PageZoom.percentageShowsMenu(at: editor.zoom) {
+                Menu {
+                    ForEach(PageZoom.stops, id: \.self) { stop in
+                        Button {
+                            editor.onZoomTo?(stop)
+                        } label: {
+                            if PageZoom.displayedPercentage(stop) == PageZoom.displayedPercentage(editor.zoom) {
+                                Label(PageZoom.percentage(stop), systemImage: "checkmark")
+                            } else {
+                                Text(PageZoom.percentage(stop))
+                            }
+                        }
+                    }
+                } label: {
+                    percentageLabel
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("Choose a size")
+                .accessibilityLabel("Page zoom \(PageZoom.percentage(editor.zoom))")
+            } else {
+                Button {
+                    editor.onZoom?(.toggleActualSize)
+                } label: {
+                    percentageLabel
+                }
+                .buttonStyle(.plain)
+                .help("Show actual size, and back again")
+                .accessibilityLabel("Page zoom \(PageZoom.percentage(editor.zoom))")
             }
-            .buttonStyle(.plain)
-            .help("Show actual size, and back again")
-            .accessibilityLabel("Page zoom \(PageZoom.percentage(editor.zoom))")
 
             step(.zoomIn, symbol: "plus", label: "Zoom In")
         }
@@ -41,6 +61,16 @@ struct PageZoomControl: View {
         // is made of the same material as the controls floating over it.
         .glassEffect(.regular.interactive(), in: .capsule)
         .padding(12)
+    }
+
+    // Monospaced digits so the capsule does not breathe as the number
+    // changes under the pointer. One label for both affordances, so the
+    // control reads the same whether it toggles or offers the menu.
+    private var percentageLabel: some View {
+        Text(PageZoom.percentage(editor.zoom))
+            .font(.caption.monospacedDigit())
+            .frame(minWidth: 44)
+            .contentShape(Rectangle())
     }
 
     private func step(_ command: PageZoom.Command, symbol: String, label: String) -> some View {

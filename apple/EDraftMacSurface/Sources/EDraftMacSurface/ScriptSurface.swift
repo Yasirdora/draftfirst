@@ -290,6 +290,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         editor.onNativeRedo = { [weak self] in self?.performNativeRedo() ?? false }
         editor.onClearNativeUndo = { [weak self] in self?.clearNativeUndoHistory() }
         editor.onZoom = { [weak self] command in self?.applyZoom(command) }
+        editor.onZoomTo = { [weak self] size in self?.applyChosenSize(size) }
         editor.onThreadColumn = { [weak self] opened in self?.threadColumn(opened: opened) }
         editor.onSetEditing = { [weak self] editing in
             guard let self else { return }
@@ -378,9 +379,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// inherits that ceiling. The layout manager still has the glyphs; the
     /// view does not display them. See `testTheLastElementLandsOnTheCard`.
     private func layOut() {
+        var pageStarts: [CGFloat] = [0]
         if let layoutManager = textView.layoutManager, let container = textView.textContainer {
             container.size = CGSize(width: measure, height: .greatestFiniteMagnitude)
-            applyPageBreaks(
+            pageStarts = applyPageBreaks(
                 in: layoutManager, container: container, elements: lastLaidElements
             )
             layoutManager.ensureLayout(for: container)
@@ -407,9 +409,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         }
         let viewport = scrollView.contentView.bounds.size
         let size = viewport.width > 1 ? viewport : scrollView.frame.size
-        let pages = ScreenplayExporter.paginate(Screenplay(elements: lastLaidElements))
         canvas.layoutPages(
-            pageCount: max(1, pages?.count ?? 1),
+            pageStarts: pageStarts,
             textHeight: max(textView.frame.height, 1),
             viewport: size
         )
@@ -551,56 +552,110 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// follows line 55 and the 132 points of margin the two pages would have
     /// repeated are simply not there. `pages` pushes each page's first line
     /// down to its own sheet, which is the same arithmetic as before.
+    /// Opens the space between one page and the next, and says where each
+    /// page's first line ended up.
+    ///
+    /// One fixed amount per boundary: the bottom margin the page closes with,
+    /// the top margin the next one opens with, and the gap between two
+    /// sheets. That is the whole of what `pages` adds and `continuous`
+    /// removes, and it is why the two modes hold the same words in the same
+    /// order.
+    ///
+    /// It replaces an arithmetic that tried to force each page's first line
+    /// onto a fixed grid of sheets — `target - where it is now`. Where the
+    /// text view had already flowed past that target, which happens whenever
+    /// it lays out one more line than the paginator counted, the amount came
+    /// out negative and the break was skipped altogether. The page then never
+    /// broke, every later page inherited the deficit, and it accumulated:
+    /// measured on a production draft, page 27 began thirty-five lines down
+    /// its own sheet. Adding a fixed space cannot go negative and cannot
+    /// accumulate.
+    ///
+    /// Inserted one at a time, measuring between, because an exclusion path
+    /// moves everything after it — the position of the next boundary is not
+    /// known until this one has been placed.
+    @discardableResult
     private func applyPageBreaks(
         in layoutManager: NSLayoutManager,
         container: NSTextContainer,
         elements: [ScriptElement]
-    ) {
+    ) -> [CGFloat] {
         container.exclusionPaths = []
         layoutManager.ensureLayout(for: container)
         guard let pages = ScreenplayExporter.paginate(Screenplay(elements: elements)),
               pages.count > 1
-        else { return }
+        else { return [0] }
 
-        let locations = ScreenplayPageLayout.pageStartLocations(
-            elements: elements, pages: pages
-        )
-        let length = (textView.string as NSString).length
-        var ungapped: [CGFloat] = []
-        ungapped.reserveCapacity(locations.count)
-        for location in locations {
-            let loc = min(max(0, location), length)
-            let probe = loc < length
-                ? NSRange(location: loc, length: min(1, length - loc))
-                : NSRange(location: max(0, length - 1), length: 0)
-            let rect = ScriptLayout.boundingRect(of: probe, in: textView)
-                ?? layoutManager.extraLineFragmentUsedRect
-            ungapped.append(rect.minY)
+        let locations = ScreenplayPageLayout.pageStartLocations(elements: elements, pages: pages)
+        guard canvas.layoutMode == .pages else {
+            // `continuous` opens nothing. The marks still need to know where
+            // each page begins, which is wherever the text put it.
+            return locations.map { pageStartY($0, in: layoutManager) }
         }
 
-        // `continuous` inserts nothing: line 56 follows line 55, and the
-        // 132 points of margin the two pages would have repeated are simply
-        // not there.
-        guard canvas.layoutMode == .pages else { return }
+        let format = PageFormat.current
+        // One sheet to the next: the whole page and the gap between sheets.
+        let pitch = format.pageRect.height + PageCanvasView.pageGap
 
         var paths: [NSBezierPath] = []
-        var placed: CGFloat = 0
-        let sheet = PageFormat.current.pageRect.height
-        for index in 0..<(pages.count - 1) {
-            let target = CGFloat(index + 1) * (sheet + PageCanvasView.pageGap)
-            let ungappedY = index + 1 < ungapped.count ? ungapped[index + 1] : 0
-            let gap = target - ungappedY - placed
-            guard gap > 0.5 else { continue }
+        var previous = pageStartY(locations[0], in: layoutManager)
+        var starts: [CGFloat] = [previous]
+        for location in locations.dropFirst() {
+            let here = pageStartY(location, in: layoutManager)
+            // Whatever it takes to land this page's first line exactly one
+            // sheet below the last one's — measured now, against where the
+            // text actually is, not predicted from where it was before any
+            // of this was inserted.
+            //
+            // A fixed amount was tried and is what made the gaps between
+            // sheets uneven: the space between two page starts is then the
+            // page's own text height, so a page the text view set one line
+            // longer than the paginator counted showed a gap one line wider.
+            // The disagreement was being displayed as paper.
+            let space = previous + pitch - here
+            guard space > 0.5 else {
+                starts.append(here)
+                previous = here
+                continue
+            }
             paths.append(NSBezierPath(rect: CGRect(
-                x: 0, y: ungappedY + placed, width: container.size.width, height: gap
+                x: 0, y: here, width: container.size.width, height: space
             )))
-            placed += gap
-        }
-        container.exclusionPaths = paths
+            container.exclusionPaths = paths
+            layoutManager.ensureLayout(for: container)
+            var landed = pageStartY(location, in: layoutManager)
 
-        placeOverflowOnFreshSheets(
-            after: pages.count, in: layoutManager, container: container, paths: &paths
-        )
+            // An exclusion pushes the line *below* it, and a line lands on
+            // the leading grid — so asking for `space` can move the text as
+            // much as a line further than asked. Take the overshoot back off
+            // the path and let it settle again. One pass is enough: the
+            // second placement is already on the grid.
+            let overshoot = landed - (previous + pitch)
+            if abs(overshoot) > 0.5, let last = paths.indices.last {
+                let corrected = max(0, space - overshoot)
+                paths[last] = NSBezierPath(rect: CGRect(
+                    x: 0, y: here, width: container.size.width, height: corrected
+                ))
+                container.exclusionPaths = paths
+                layoutManager.ensureLayout(for: container)
+                landed = pageStartY(location, in: layoutManager)
+            }
+            starts.append(landed)
+            previous = landed
+        }
+        return starts
+    }
+
+    /// Where the line beginning at `location` sits, in the text view's own
+    /// coordinates.
+    private func pageStartY(_ location: Int, in layoutManager: NSLayoutManager) -> CGFloat {
+        let length = (textView.string as NSString).length
+        let clamped = min(max(0, location), length)
+        let probe = clamped < length
+            ? NSRange(location: clamped, length: 1)
+            : NSRange(location: max(0, length - 1), length: 0)
+        return (ScriptLayout.boundingRect(of: probe, in: textView)
+            ?? layoutManager.extraLineFragmentUsedRect).minY
     }
 
     /// Puts whatever runs past the last counted page onto paper of its own.
@@ -791,6 +846,23 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         case .toggleActualSize:
             atActualSize.toggle()
         }
+        layOut()
+        if applyPreferredMagnification() { layOut() }
+        updateGhost()
+    }
+
+    /// A size the writer chose by name from the percentage menu.
+    ///
+    /// An explicit choice, so it stands with a pinch or a keyed size: it
+    /// ends the thread's borrow rather than sitting under it, and a window
+    /// resize must not undo it.
+    func applyChosenSize(_ size: CGFloat) {
+        // A choice that arrives mid-settle means the writer has somewhere
+        // else to be: stop the drift where it is and answer from there.
+        cancelSettle()
+        preference = .fixed(min(max(size, PageZoom.actualSize), PageZoom.maximum))
+        atActualSize = false
+        sizeLentToThread = false
         layOut()
         if applyPreferredMagnification() { layOut() }
         updateGhost()
@@ -1534,11 +1606,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     }
 
     /// How far below the top of the readable area a reveal comes to rest, as
-    /// a share of the visible height. A quarter: enough that the lines
-    /// leading to the mark are on the glass with it — a cue is read in the
-    /// exchange that prompted it — and little enough that the mark is
-    /// plainly the place arrived at. Flush against the chrome was neither.
-    private static let revealAir: CGFloat = 0.25
+    /// a share of the visible height. A fifth: enough that the lines leading
+    /// to the mark are on the glass with it — a cue is read in the exchange
+    /// that prompted it — and little enough that the mark is plainly the
+    /// place arrived at. Flush against the chrome was neither.
+    private static let revealAir: CGFloat = 0.2
 
     /// Moves the page so `rect` comes to rest a little below the top of the
     /// readable area, the lines that led to it still on the glass — as near

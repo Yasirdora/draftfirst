@@ -64,6 +64,9 @@ public final class EditorState {
     /// the magnification — asking is the only honest way to change it, the same
     /// arrangement as `onSetEditing`.
     @ObservationIgnored public var onZoom: ((PageZoom.Command) -> Void)?
+    /// A size the writer chose by name from the percentage menu — the same
+    /// arrangement as `onZoom`: the surface owns the magnification.
+    @ObservationIgnored public var onZoomTo: ((CGFloat) -> Void)?
     /// A column that borrows the page's room opened or closed beside it — the
     /// Mac's character thread. The surface owns the magnification, so the
     /// lend-and-return lives there too, the same arrangement as `onZoom`.

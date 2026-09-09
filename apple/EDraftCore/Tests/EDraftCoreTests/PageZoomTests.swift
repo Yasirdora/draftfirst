@@ -173,4 +173,13 @@ final class PageZoomTests: XCTestCase {
         XCTAssertTrue(PageZoom.isAvailable(.actualSize, at: 1.25))
         XCTAssertTrue(PageZoom.isAvailable(.fit, at: 1), "fitting is always something to ask for")
     }
+
+    /// Near actual size the percentage stops toggling and offers the stops
+    /// instead: at the truth, "show me the truth" has nowhere to go.
+    func testThePercentageOffersAMenuNearActualSize() {
+        XCTAssertTrue(PageZoom.percentageShowsMenu(at: 1))
+        XCTAssertTrue(PageZoom.percentageShowsMenu(at: 1.05))
+        XCTAssertFalse(PageZoom.percentageShowsMenu(at: 1.1))
+        XCTAssertFalse(PageZoom.percentageShowsMenu(at: 2))
+    }
 }

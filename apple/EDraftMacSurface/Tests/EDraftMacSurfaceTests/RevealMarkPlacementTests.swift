@@ -33,7 +33,7 @@ final class RevealMarkPlacementTests: XCTestCase {
         XCTAssertEqual(mark.minX, line.minX - RevealMark.horizontalPadding, accuracy: 1)
     }
 
-    /// A reveal does not land flush against the chrome: it rests a quarter
+    /// A reveal does not land flush against the chrome: it rests a fifth
     /// of the visible height below the top, so the lines that led to the
     /// mark — the exchange a cue answers — are still on the glass.
     func testARevealRestsBelowTheTopWithAir() {
@@ -64,7 +64,7 @@ final class RevealMarkPlacementTests: XCTestCase {
         let readableTop = clip.bounds.origin.y + surface.scrollView.contentInsets.top
         let belowTop = line.minY + surface.textView.frame.minY - readableTop
         XCTAssertEqual(
-            belowTop, clip.bounds.height * 0.25, accuracy: 2,
+            belowTop, clip.bounds.height * 0.2, accuracy: 2,
             "the reveal landed flush against the top of the window"
         )
     }

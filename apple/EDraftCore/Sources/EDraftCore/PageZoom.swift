@@ -92,6 +92,16 @@ public nonisolated enum PageZoom {
         Int((zoom * 100).rounded())
     }
 
+    /// Whether the control's percentage acts as a menu rather than the
+    /// actual-size toggle. The toggle answers "how big is this really?" by
+    /// going away to actual size and back — at actual size it is already
+    /// there, and a press would only nod. So near the truth the control
+    /// offers the stops by name instead, and the toggle keeps its place
+    /// everywhere else.
+    public static func percentageShowsMenu(at zoom: CGFloat) -> Bool {
+        displayedPercentage(zoom) < 110
+    }
+
     /// What the writer asked for.
     public enum Command: Sendable, Equatable {
         case zoomIn

@@ -96,7 +96,21 @@ final class PageCanvasView: NSView {
     /// N letter-sized sheets with desk between them. `textHeight` is the
     /// laid-out script including exclusion gaps, so the text view fills
     /// through the last sheet's text block.
-    func layoutPages(pageCount: Int, textHeight: CGFloat, viewport: CGSize) {
+    /// Lays a sheet under each page of type.
+    ///
+    /// `pageStarts` is where each page's first line actually ended up, in the
+    /// text view's own coordinates — not a count. The sheets follow the type
+    /// rather than the type being forced onto a grid of sheets, which is the
+    /// difference between a page that begins at the top of its paper and one
+    /// that begins thirty-five lines down it.
+    func layoutPages(pageStarts: [CGFloat], textHeight: CGFloat, viewport: CGSize) {
+        let starts = pageStarts.isEmpty ? [0] : pageStarts
+        layoutPages(pageCount: starts.count, textHeight: textHeight, viewport: viewport,
+                    starts: starts)
+    }
+
+    func layoutPages(pageCount: Int, textHeight: CGFloat, viewport: CGSize,
+                     starts: [CGFloat]? = nil) {
         let format = PageFormat.current
         let pageSize = format.pageRect.size
         let desk = canvasPadding
@@ -162,9 +176,26 @@ final class PageCanvasView: NSView {
             pageViews.removeLast().removeFromSuperview()
         }
         for index in 0..<sheets {
+            // Under the line that begins this page, when the caller has
+            // measured it. The text view sits at `desk + textTop`, so a page
+            // beginning at y in its coordinates puts its sheet's top at
+            // `desk + y`.
+            let top: CGFloat
+            if layoutMode == .pages, let starts, index < starts.count {
+                // Measured from the first page's own start rather than from
+                // the text view's origin. The text view begins one line above
+                // the text block and insets its text back down by the same
+                // amount (`glyphOverflow`, so a tall glyph has somewhere to
+                // go), and a rectangle measured inside it carries that inset.
+                // Taking the difference cancels it, whatever it is, instead of
+                // subtracting a constant that has to be kept in step.
+                top = desk + starts[index] - starts[0]
+            } else {
+                top = desk + CGFloat(index) * (pageSize.height + Self.pageGap)
+            }
             pageViews[index].frame = CGRect(
                 x: x,
-                y: desk + CGFloat(index) * (pageSize.height + Self.pageGap),
+                y: top,
                 width: pageSize.width,
                 height: layoutMode == .pages ? pageSize.height : stackHeight
             )

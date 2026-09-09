@@ -638,6 +638,24 @@ extension PinchToZoomTests {
         )
     }
 
+    /// A size chosen by name from the percentage menu is an explicit choice:
+    /// it ends the thread's borrow, and a window resize must not undo it.
+    func testAChosenSizeEndsTheBorrow() {
+        let (editor, surface) = windowed(1209)
+        surface.threadColumn(opened: true)
+
+        surface.applyChosenSize(1.5)
+        XCTAssertEqual(surface.scrollView.magnification, 1.5, accuracy: 0.01)
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.remeasure(to: 700, elements: editor.screenplay.elements)
+        XCTAssertEqual(
+            surface.scrollView.magnification, 1.5, accuracy: 0.01,
+            "resizing the window overrode a size the writer had chosen by name"
+        )
+    }
+
     // MARK: - A pinch stays on the page's midline
 
     /// A pinch anchors on the point under the cursor, and the cursor is
