@@ -79,6 +79,75 @@ final class PaperHoldsTheTypeTests: XCTestCase {
         )
     }
 
+    /// No line of the script may be drawn in a sheet's bottom margin.
+    ///
+    /// This is the one a writer sees: a character cue left at the foot of a
+    /// page with its dialogue on the next, and type running across the gap
+    /// between two sheets into the margin of the one below. Both were the
+    /// same thing — the exclusion paths are built from the engine's page
+    /// starts and stopped at the last of them, so whatever the text view laid
+    /// out past the final counted page simply flowed on.
+    ///
+    /// Measured on the draft it was reported from: type ran past the block on
+    /// 25 of 26 sheets before the measure was taken from the font, 1 of 28
+    /// after, and 0 of 28 once the overflow was placed on paper of its own.
+    func testNoLineIsDrawnInASheetsBottomMargin() throws {
+        let surface = ScriptSurface(measure: ScriptLayout.pageMeasure)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 900, height: 700)
+        surface.render(longScript())
+        surface.setLayoutMode(.pages)
+        surface.scrollView.layoutSubtreeIfNeeded()
+
+        let format = PageFormat.current
+        let block = ScreenplayPageLayout.textBlockHeight(format)
+        let layoutManager = try XCTUnwrap(surface.textView.layoutManager)
+        let container = try XCTUnwrap(surface.textView.textContainer)
+        layoutManager.ensureLayout(for: container)
+        let text = surface.textView.string as NSString
+
+        for (index, sheet) in surface.pageFrames.enumerated() {
+            let blockBottom = sheet.minY + format.textTop + block
+            var deepest: CGFloat = 0
+            var offender = ""
+            layoutManager.enumerateLineFragments(
+                forGlyphRange: NSRange(location: 0, length: layoutManager.numberOfGlyphs)
+            ) { _, used, _, glyphRange, _ in
+                let characters = layoutManager.characterRange(
+                    forGlyphRange: glyphRange, actualGlyphRange: nil
+                )
+                guard characters.location + characters.length <= text.length else { return }
+                let line = text.substring(with: characters)
+                guard !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                let inCanvas = surface.canvas.convert(used, from: surface.textView)
+                guard inCanvas.minY >= sheet.minY - 1, inCanvas.minY < sheet.maxY else { return }
+                if inCanvas.maxY > deepest { deepest = inCanvas.maxY; offender = line }
+            }
+            XCTAssertLessThanOrEqual(
+                deepest, blockBottom + 1,
+                "sheet \(index + 1) has type \(Int(deepest - blockBottom))pt into its bottom "
+                    + "margin — \(offender.prefix(40))"
+            )
+        }
+    }
+
+    /// Long enough to run past several page boundaries, with full-measure
+    /// action so the wrap is the thing under test.
+    private func longScript() -> [ScriptElement] {
+        var elements: [ScriptElement] = []
+        for beat in 1...120 {
+            elements.append(ScriptElement(type: .scene, text: "INT. ROOM \(beat) - DAY"))
+            elements.append(ScriptElement(
+                type: .action,
+                text: "Action for beat \(beat), written long enough that it fills the measure and "
+                    + "wraps, which is where the engine's characters and the text view's glyphs "
+                    + "can part company."
+            ))
+            elements.append(ScriptElement(type: .character, text: "MARA"))
+            elements.append(ScriptElement(type: .dialogue, text: "Line \(beat), plainly said."))
+        }
+        return elements
+    }
+
     /// Whatever the mode and whatever the count, no glyph may be drawn where
     /// the scroll view cannot go.
     func testNoGlyphIsEverDrawnPastTheCanvas() throws {

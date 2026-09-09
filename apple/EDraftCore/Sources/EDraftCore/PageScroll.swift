@@ -44,7 +44,10 @@ public nonisolated enum PageScroll {
     }
 
     /// The offset that brings `rectTop` to rest at the top of the readable
-    /// area — as near as the document allows.
+    /// area — as near as the document allows. `airAbove` rests it that many
+    /// points lower instead: a line arrived at flush against the chrome is
+    /// easy to miss, and the lines above it are the context that says where
+    /// you are.
     ///
     /// A target within a window's height of the end cannot reach the top,
     /// because the page stops when its last line does. The result is clamped
@@ -53,9 +56,10 @@ public nonisolated enum PageScroll {
     /// `RevealMark`.
     public static func offset(
         bringingContentY rectTop: CGFloat,
-        toTopOf range: ClosedRange<CGFloat>
+        toTopOf range: ClosedRange<CGFloat>,
+        airAbove air: CGFloat = 0
     ) -> CGFloat {
-        clamp(rectTop + range.lowerBound, to: range)
+        clamp(rectTop + range.lowerBound - air, to: range)
     }
 
     /// The smallest correction that brings the caret back into view, or nil

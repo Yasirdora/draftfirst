@@ -597,6 +597,84 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             placed += gap
         }
         container.exclusionPaths = paths
+
+        placeOverflowOnFreshSheets(
+            after: pages.count, in: layoutManager, container: container, paths: &paths
+        )
+    }
+
+    /// Puts whatever runs past the last counted page onto paper of its own.
+    ///
+    /// The exclusion paths above are built from the engine's page starts, so
+    /// they stop at the last one. The engine counts pages by wrapping at
+    /// sixty characters and the text view lays out by measuring glyphs, and
+    /// where the two differ the type outlasts the pages: measured on a real
+    /// draft, five lines past the final page start ran down the foot of the
+    /// last sheet, across the gap and into the top margin of the next one —
+    /// which is where a writer found a character cue stranded from its
+    /// dialogue.
+    ///
+    /// So the placing continues past the count: while any line still begins
+    /// below the current sheet's text block, it is pushed to the top of the
+    /// next sheet, exactly as a counted page break would have pushed it.
+    /// `PageCanvasView` has already laid out enough sheets to receive them.
+    private func placeOverflowOnFreshSheets(
+        after countedPages: Int,
+        in layoutManager: NSLayoutManager,
+        container: NSTextContainer,
+        paths: inout [NSBezierPath]
+    ) {
+        let format = PageFormat.current
+        let pitch = format.pageRect.height + PageCanvasView.pageGap
+        let block = ScreenplayPageLayout.textBlockHeight(format)
+        var sheet = max(1, countedPages)
+
+
+        // Bounded: each turn places at least one sheet's worth, and a script
+        // cannot need more sheets than it has lines. The cap is a guard
+        // against a layout that refuses to settle, not an expected exit.
+        for _ in 0..<64 {
+            layoutManager.ensureLayout(for: container)
+            let blockBottom = CGFloat(sheet - 1) * pitch + block
+            guard let overflowTop = firstLineTop(below: blockBottom, in: layoutManager) else {
+                return
+            }
+            let target = CGFloat(sheet) * pitch
+            let push = target - overflowTop
+            guard push > 0.5 else { return }
+            paths.append(NSBezierPath(rect: CGRect(
+                x: 0, y: overflowTop, width: container.size.width, height: push
+            )))
+            container.exclusionPaths = paths
+            sheet += 1
+        }
+    }
+
+    /// The top of the first line carrying words that begins at or below `y`.
+    ///
+    /// Blank lines are skipped on purpose. The spacing after a page's last
+    /// element is drawn below the text block and is nothing a reader can see;
+    /// pushing a fresh sheet for it would open a page for a blank.
+    private func firstLineTop(below y: CGFloat, in layoutManager: NSLayoutManager) -> CGFloat? {
+        guard let container = textView.textContainer else { return nil }
+        let text = textView.string as NSString
+        var found: CGFloat?
+        layoutManager.enumerateLineFragments(
+            forGlyphRange: NSRange(location: 0, length: layoutManager.numberOfGlyphs)
+        ) { _, used, _, glyphRange, stop in
+            guard used.minY >= y - 0.5 else { return }
+            let characters = layoutManager.characterRange(
+                forGlyphRange: glyphRange, actualGlyphRange: nil
+            )
+            guard characters.location + characters.length <= text.length,
+                  !text.substring(with: characters)
+                    .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else { return }
+            found = used.minY
+            stop.pointee = true
+        }
+        _ = container
+        return found
     }
 
     /// Recentres the page card in a resized window. The script's measure is
@@ -1438,7 +1516,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
         textView.setSelectedRange(NSRange(location: mapped.range.location, length: 0))
         updateSelection()
-        scroll(bringingToTop: rect)
+        scroll(revealing: rect)
         mark(rect, reduceMotion: reduceMotion)
         return true
     }
@@ -1455,13 +1533,22 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         )
     }
 
-    /// Moves the page so `rect` rests at the top of the readable area — as
-    /// near as the document allows.
-    public func scroll(bringingToTop rect: CGRect) {
+    /// How far below the top of the readable area a reveal comes to rest, as
+    /// a share of the visible height. A quarter: enough that the lines
+    /// leading to the mark are on the glass with it — a cue is read in the
+    /// exchange that prompted it — and little enough that the mark is
+    /// plainly the place arrived at. Flush against the chrome was neither.
+    private static let revealAir: CGFloat = 0.25
+
+    /// Moves the page so `rect` comes to rest a little below the top of the
+    /// readable area, the lines that led to it still on the glass — as near
+    /// as the document allows.
+    public func scroll(revealing rect: CGRect) {
         let range = scrollableRange
         guard PageScroll.canScroll(range) else { return }
+        let air = scrollView.contentView.bounds.height * Self.revealAir
         let y = PageScroll.offset(
-            bringingContentY: canvasY(ofTextRect: rect), toTopOf: range
+            bringingContentY: canvasY(ofTextRect: rect), toTopOf: range, airAbove: air
         )
         scrollView.contentView.scroll(to: NSPoint(x: max(0, canvas.pageView.frame.minX - canvas.canvasPadding), y: y))
         scrollView.reflectScrolledClipView(scrollView.contentView)

@@ -67,6 +67,27 @@ final class PageScrollTests: XCTestCase {
         XCTAssertEqual(PageScroll.offset(bringingContentY: 0, toTopOf: longPage()), -bar)
     }
 
+    /// A reveal does not land flush against the chrome: it rests with air
+    /// above it, so the lines that led there are on the glass too. At the
+    /// ends of the document the air is what gives, never the clamp.
+    func testARevealRestsBelowTheTopWithAir() {
+        let range = longPage()
+        XCTAssertEqual(
+            PageScroll.offset(bringingContentY: 2000, toTopOf: range, airAbove: 150),
+            2000 - bar - 150, accuracy: 0.001
+        )
+        XCTAssertEqual(
+            PageScroll.offset(bringingContentY: 4700, toTopOf: range, airAbove: 150),
+            range.upperBound,
+            "a target near the end goes as far as it can, air or no"
+        )
+        XCTAssertEqual(
+            PageScroll.offset(bringingContentY: 0, toTopOf: range, airAbove: 150),
+            -bar,
+            "the first scene still rests at the top rather than above it"
+        )
+    }
+
     // MARK: - Keeping the caret in sight
 
     func testACaretUnderTheKeyboardIsBroughtUpTheLeastPossible() throws {
