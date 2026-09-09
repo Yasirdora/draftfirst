@@ -18,7 +18,7 @@ struct FdxImportConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.importCases.count == 27)
+        #expect(Self.corpus.importCases.count == 28)
         #expect(Self.corpus.exportCases.count == 12)
     }
 
@@ -75,11 +75,12 @@ struct FdxExportConformanceTests {
         let result = Fdx.write(case_.screenplay)
         let back = Fdx.parse(result.xml).script
         // Stated rather than derived from the map the export uses, so this
-        // fails when the subset changes instead of agreeing with it. Notes do
-        // not print and are still representable: Final Draft's Note element
-        // is a line in the script that does not print, same as [[ ]].
+        // fails when the subset changes instead of agreeing with it. Most of
+        // what does not print is still representable — a Note is a line that
+        // does not print, an Outline level is a section, a Summary is a
+        // synopsis. A page break is the only thing left with no counterpart.
         let printable = case_.screenplay.elements
-            .filter { $0.type.isPrinting || $0.type == .note }
+            .filter { $0.type != .pagebreak }
             .map { element in
                 var copy = element
                 copy.text = Self.xmlLegal(element.text)

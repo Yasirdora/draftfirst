@@ -222,7 +222,14 @@ const FDX_TO_MODEL: Readonly<Record<string, AnyElementType>> = {
 	// is exactly what Fountain's [[ ]] is. Reading it as General put a
 	// writer's notes on the page — ten of them across the two real features
 	// this was measured on.
-	note: 'note'
+	note: 'note',
+	// Act breaks. Both print, both carry `Alignment="Center"` on the
+	// paragraph, so `refineGeneral` makes them centered and they come out
+	// looking the way Final Draft drew them. Named here rather than left to
+	// fall through so they stop being reported as unknown: a warning a reader
+	// cannot act on is one that teaches them to ignore the list.
+	'new act': 'general',
+	'end of act': 'general'
 };
 
 const MODEL_TO_FDX: Readonly<Partial<Record<AnyElementType, string>>> = {
@@ -236,7 +243,9 @@ const MODEL_TO_FDX: Readonly<Partial<Record<AnyElementType, string>>> = {
 	general: 'General',
 	centered: 'General',
 	lyrics: 'General',
-	note: 'Note'
+	note: 'Note',
+	synopsis: 'Summary'
+	/* `section` is not here: its level is part of its type — see `fdxTypeOf`. */
 };
 
 /* Our own FDX extension namespace: the attributes Final Draft has no field
@@ -818,22 +827,20 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 		for (const paragraph of parsed.body) {
 			const fdxType = attributeOf(paragraph, 'type');
 			const key = fdxType.trim().toLowerCase();
-			let type = FDX_TO_MODEL[key];
-			if (!type) {
-				if (fdxType !== '') {
-					diagnostics.add({
-						code: 'FDX_UNKNOWN_PARAGRAPH_TYPE',
-						severity: 'warning',
-						message: `Unknown paragraph type "${fdxType}" — imported as General.`,
-						paragraphIndex: paragraph.paragraphIndex
-					});
-				}
-				type = 'general';
+			const kind = fdxElementKind(key);
+			if (!kind && fdxType !== '') {
+				diagnostics.add({
+					code: 'FDX_UNKNOWN_PARAGRAPH_TYPE',
+					severity: 'warning',
+					message: `Unknown paragraph type "${fdxType}" — imported as General.`,
+					paragraphIndex: paragraph.paragraphIndex
+				});
 			}
 
-			type = refineGeneral(type, paragraph);
+			const type = refineGeneral(kind?.type ?? 'general', paragraph);
 
 			const element: ScreenplayElement = { type, text: paragraph.text };
+			if (type === 'section' && kind?.depth !== undefined) element.depth = kind.depth;
 			const sceneNumber = attributeOf(paragraph, 'number');
 			if (type === 'scene' && sceneNumber !== '') element.sceneNumber = sceneNumber;
 			if (type === 'character' && attributeOf(paragraph, 'dual').toLowerCase() === 'yes') {
@@ -867,6 +874,54 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
  * how a centred paragraph came out as an unmatched insert and rewrote the tail
  * of the file.
  */
+/**
+ * The outline levels, which Final Draft lets a writer rename.
+ *
+ * Stock they are `Outline 1`, `Outline 2`, `Outline 3`; renamed they arrive as
+ * `Outline 1 (Acts)`, `Outline 2 (Sequences)`, `Outline 3 (Scenes)` — both
+ * shapes are in the two production drafts this was measured on, from the same
+ * writer. Matching the number and ignoring whatever they called it is the only
+ * rule that reads both.
+ */
+const OUTLINE_TYPE = /^outline\s+(\d+)(?:\s*\(.*\))?$/;
+
+/**
+ * What a Final Draft paragraph type means to the engine, and how deep it sits.
+ *
+ * `undefined` for a type we have never heard of — the caller warns and falls
+ * back to General, which is what it always did.
+ */
+function fdxElementKind(key: string): { type: AnyElementType; depth?: number } | undefined {
+	const known = FDX_TO_MODEL[key];
+	if (known) return { type: known };
+
+	/* An outline heading is a section, at the level Final Draft gives it.
+	   Read as General these printed on the page as stage directions — 82 of
+	   them across the two real features, and they took the page count with
+	   them, because a section does not paginate and General does. */
+	const outline = OUTLINE_TYPE.exec(key);
+	if (outline) return { type: 'section', depth: Math.max(1, Number(outline[1])) };
+
+	/* The prose under an outline heading. Fountain calls it a synopsis and
+	   writes it `= like this`; Final Draft calls it a Summary. Same thing:
+	   what the scene is for, not a line of it. */
+	if (key === 'summary') return { type: 'synopsis' };
+
+	return undefined;
+}
+
+/** The Final Draft paragraph type an element goes out as. */
+function fdxTypeOf(element: {
+	type: AnyElementType;
+	depth?: number;
+}): string | undefined {
+	/* Keyed on the element rather than on its type alone, because a section's
+	   level is part of what it is: `# Act One` is `Outline 1` and `### A scene`
+	   is `Outline 3`, and a map from type to string cannot say that. */
+	if (element.type === 'section') return `Outline ${Math.max(1, element.depth ?? 1)}`;
+	return MODEL_TO_FDX[element.type];
+}
+
 function refineGeneral(type: AnyElementType, paragraph: FdxParagraph): AnyElementType {
 	if (type !== 'general') return type;
 	if (extensionAttribute(paragraph, 'elementtype').toLowerCase() === 'lyrics') return 'lyrics';
@@ -1155,7 +1210,7 @@ function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph
 			textEnd: number;
 		};
 		const fdxType = attributeOf(paragraph, 'type').trim().toLowerCase();
-		const type = refineGeneral(FDX_TO_MODEL[fdxType] ?? 'general', paragraph);
+		const type = refineGeneral(fdxElementKind(fdxType)?.type ?? 'general', paragraph);
 		const lead = previousEnd === -1 ? '' : source.slice(previousEnd, held.start);
 		previousEnd = held.end;
 		return {
@@ -1186,7 +1241,7 @@ export function writeFdxWithDiagnostics(
 	let omittedUnknown = 0;
 
 	for (const [index, element] of script.elements.entries()) {
-		const fdxType = MODEL_TO_FDX[element.type];
+		const fdxType = fdxTypeOf(element);
 		if (!fdxType) {
 			/* A non-printing element FDX has no paragraph type for — a
 			   section, a synopsis, a page break. Notes are not among them:

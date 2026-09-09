@@ -373,18 +373,64 @@ describe('writeFdx · export', () => {
 		const result = writeFdxWithDiagnostics({
 			titlePage: [],
 			elements: [
+				{ type: 'pagebreak', text: '' },
+				{ type: 'action', text: 'Visible.' }
+			]
+		});
+		expect(result.xml).toContain('Visible.');
+		expect(result.xml).toContain('eDraft warning: 1 unsupported element(s) omitted');
+		expect(result.diagnostics).toContainEqual(
+			expect.objectContaining({ code: 'FDX_STRUCTURAL_ELEMENTS_OMITTED', count: 1 })
+		);
+	});
+
+	/**
+	 * The outline is not decoration. Final Draft's Outline levels and its
+	 * Summary are a writer's act and sequence structure, and reading them as
+	 * General put 82 of them on the page as stage directions across the two
+	 * production drafts this was measured on.
+	 */
+	it('writes the outline back as the levels Final Draft reads', () => {
+		const result = writeFdxWithDiagnostics({
+			titlePage: [],
+			elements: [
 				{ type: 'section', text: 'Act One', depth: 1 },
+				{ type: 'section', text: 'Meet Tangle', depth: 2 },
 				{ type: 'synopsis', text: 'They meet.' },
 				{ type: 'action', text: 'Visible.' }
 			]
 		});
-		expect(result.xml).not.toContain('Act One');
-		expect(result.xml).not.toContain('They meet.');
-		expect(result.xml).toContain('Visible.');
-		expect(result.xml).toContain('eDraft warning: 2 unsupported element(s) omitted');
-		expect(result.diagnostics).toContainEqual(
-			expect.objectContaining({ code: 'FDX_STRUCTURAL_ELEMENTS_OMITTED', count: 2 })
-		);
+		expect(result.xml).toContain('<Paragraph Type="Outline 1"><Text>Act One</Text></Paragraph>');
+		expect(result.xml).toContain('<Paragraph Type="Outline 2"><Text>Meet Tangle</Text></Paragraph>');
+		expect(result.xml).toContain('<Paragraph Type="Summary"><Text>They meet.</Text></Paragraph>');
+		expect(result.diagnostics).toEqual([]);
+	});
+
+	it('reads the outline back at the level it was written', () => {
+		const original: Screenplay = {
+			titlePage: [],
+			elements: [
+				{ type: 'section', text: 'Act One', depth: 1 },
+				{ type: 'section', text: 'Set up Gold Key', depth: 3 },
+				{ type: 'synopsis', text: 'Tangle questions Uncle.' },
+				{ type: 'scene', text: 'INT. LIBRARY - DAY' }
+			]
+		};
+		expect(parseFdx(writeFdx(original)).script).toEqual(original);
+	});
+
+	/** Final Draft lets a writer rename the levels; the number still rules. */
+	it('reads a renamed outline level', () => {
+		const xml = `<FinalDraft><Content>
+<Paragraph Type="Outline 1 (Acts)"><Text>Act One</Text></Paragraph>
+<Paragraph Type="Outline 3 (Scenes)"><Text>Set up Gold Key</Text></Paragraph>
+</Content></FinalDraft>`;
+		const result = parseFdx(xml);
+		expect(result.script.elements).toEqual([
+			{ type: 'section', text: 'Act One', depth: 1 },
+			{ type: 'section', text: 'Set up Gold Key', depth: 3 }
+		]);
+		expect(result.diagnostics).toEqual([]);
 	});
 
 	it('writes a note as the Note paragraph Final Draft reads', () => {
@@ -446,11 +492,10 @@ describe('FDX round-trips (hard invariants)', () => {
 	it('model → fdx → model is an identity for the sample script', () => {
 		const model = parseFountain(SAMPLE_FOUNTAIN);
 		const back = parseFdx(writeFdx(model)).script;
-		/* printing elements survive exactly (structural excluded by design) */
-		const printable = model.elements.filter(
-			(e) => !['note', 'section', 'synopsis', 'pagebreak'].includes(e.type)
-		);
-		expect(back.elements).toEqual(printable);
+		/* Everything FDX has a paragraph for survives exactly. Only a page
+		   break has none — see `fdxTypeOf`. */
+		const representable = model.elements.filter((e) => e.type !== 'pagebreak');
+		expect(back.elements).toEqual(representable);
 	});
 
 	it('fdx → model → fdx → model is an identity for foreign files', () => {
@@ -462,11 +507,9 @@ describe('FDX round-trips (hard invariants)', () => {
 	it('fountain → model → fdx → model preserves type+text of every element', () => {
 		const model = parseFountain(SAMPLE_FOUNTAIN);
 		const viaFdx = parseFdx(writeFdx(model)).script;
-		const printable = model.elements.filter(
-			(e) => !['note', 'section', 'synopsis', 'pagebreak'].includes(e.type)
-		);
+		const representable = model.elements.filter((e) => e.type !== 'pagebreak');
 		expect(viaFdx.elements.map((e) => [e.type, e.text])).toEqual(
-			printable.map((e) => [e.type, e.text])
+			representable.map((e) => [e.type, e.text])
 		);
 	});
 });

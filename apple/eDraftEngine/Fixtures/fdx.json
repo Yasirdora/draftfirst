@@ -606,6 +606,42 @@
       }
     },
     {
+      "name": "outline",
+      "source": "<FinalDraft><Content><Paragraph Type=\"Outline 1\"><Text>Act One</Text></Paragraph><Paragraph Type=\"Outline 2 (Sequences)\"><Text>Meet Tangle</Text></Paragraph><Paragraph Type=\"Outline 3\"><Text>Set up Gold Key</Text></Paragraph><Paragraph Type=\"Summary\"><Text>Tangle questions Uncle.</Text></Paragraph><Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>The end</Text></Paragraph></Content></FinalDraft>",
+      "options": {},
+      "expected": {
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "section",
+              "text": "Act One",
+              "depth": 1
+            },
+            {
+              "type": "section",
+              "text": "Meet Tangle",
+              "depth": 2
+            },
+            {
+              "type": "section",
+              "text": "Set up Gold Key",
+              "depth": 3
+            },
+            {
+              "type": "synopsis",
+              "text": "Tangle questions Uncle."
+            },
+            {
+              "type": "centered",
+              "text": "The end"
+            }
+          ]
+        },
+        "diagnostics": []
+      }
+    },
+    {
       "name": "limits-source",
       "source": "<FinalDraft><Content/></FinalDraft>",
       "options": {
@@ -846,15 +882,8 @@
         ]
       },
       "expected": {
-        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<!-- eDraft warning: 1 unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. THE REX CINEMA, PROJECTION BOOTH - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Dust hangs in the beam of a 35mm projector. ELIAS VANCE, 60s, threads the final reel with surgeon&apos;s hands. The auditorium below is empty.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Parenthetical\"><Text>(quietly, to the machine)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>One more time. Like we promised.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>He flips the shutter. Light floods the booth.</Text></Paragraph>\n<Paragraph Type=\"Transition\"><Text>CUT TO:</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\"><Text>INT. THE REX CINEMA, AUDITORIUM - CONTINUOUS</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Rows of vacant seats. On screen, a HOME MOVIE flickers: a birthday party, decades old. A young girl blows out candles.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>MARA (O.S.)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You kept it.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Elias doesn&apos;t turn. MARA, 30s, stands in the aisle, out of breath.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You came back.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph>\n<Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You said the reel burns at midnight.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Then we watch it—</Text></Paragraph>\n<Paragraph Type=\"Character\" Dual=\"Yes\"><Text>MARA</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Together.</Text></Paragraph>\n<Paragraph Type=\"General\" Alignment=\"Center\"><Text>THE END</Text></Paragraph>\n</Content>\n<TitlePage>\n<Content>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Title\" EDraft:TitleEntry=\"0\"><Text>The Empty Cinema</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Credit\" EDraft:TitleEntry=\"1\"><Text>written by</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Author\" EDraft:TitleEntry=\"2\"><Text>A. Projectionist</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Draft date\" EDraft:TitleEntry=\"3\"><Text>8/8/2026</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Contact\" EDraft:TitleEntry=\"4\"><Text>booth@example.com</Text></Paragraph>\n</Content>\n</TitlePage>\n</FinalDraft>\n",
-        "diagnostics": [
-          {
-            "code": "FDX_STRUCTURAL_ELEMENTS_OMITTED",
-            "severity": "warning",
-            "message": "1 non-printing structural element(s) were omitted because the supported FDX paragraph subset cannot represent them safely.",
-            "count": 1
-          }
-        ]
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Outline 1\"><Text>Act One</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\"><Text>INT. THE REX CINEMA, PROJECTION BOOTH - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Dust hangs in the beam of a 35mm projector. ELIAS VANCE, 60s, threads the final reel with surgeon&apos;s hands. The auditorium below is empty.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Parenthetical\"><Text>(quietly, to the machine)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>One more time. Like we promised.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>He flips the shutter. Light floods the booth.</Text></Paragraph>\n<Paragraph Type=\"Transition\"><Text>CUT TO:</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\"><Text>INT. THE REX CINEMA, AUDITORIUM - CONTINUOUS</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Rows of vacant seats. On screen, a HOME MOVIE flickers: a birthday party, decades old. A young girl blows out candles.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>MARA (O.S.)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You kept it.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Elias doesn&apos;t turn. MARA, 30s, stands in the aisle, out of breath.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You came back.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph>\n<Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You said the reel burns at midnight.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Then we watch it—</Text></Paragraph>\n<Paragraph Type=\"Character\" Dual=\"Yes\"><Text>MARA</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Together.</Text></Paragraph>\n<Paragraph Type=\"General\" Alignment=\"Center\"><Text>THE END</Text></Paragraph>\n</Content>\n<TitlePage>\n<Content>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Title\" EDraft:TitleEntry=\"0\"><Text>The Empty Cinema</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Credit\" EDraft:TitleEntry=\"1\"><Text>written by</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Author\" EDraft:TitleEntry=\"2\"><Text>A. Projectionist</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Draft date\" EDraft:TitleEntry=\"3\"><Text>8/8/2026</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Contact\" EDraft:TitleEntry=\"4\"><Text>booth@example.com</Text></Paragraph>\n</Content>\n</TitlePage>\n</FinalDraft>\n",
+        "diagnostics": []
       }
     },
     {
@@ -1081,13 +1110,13 @@
         ]
       },
       "expected": {
-        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<!-- eDraft warning: 4 unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->\n<Content>\n<Paragraph Type=\"Note\"><Text>A private note</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\"><Text>INT. ROOM - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Some action.</Text></Paragraph>\n<Paragraph Type=\"General\" Alignment=\"Center\"><Text>THE END</Text></Paragraph>\n<Paragraph Type=\"General\" EDraft:ElementType=\"lyrics\"><Text>Sung like a lyric</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<!-- eDraft warning: 1 unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->\n<Content>\n<Paragraph Type=\"Outline 1\"><Text>Act One</Text></Paragraph>\n<Paragraph Type=\"Outline 2\"><Text>Sequence</Text></Paragraph>\n<Paragraph Type=\"Summary\"><Text>A synopsis of the beat.</Text></Paragraph>\n<Paragraph Type=\"Note\"><Text>A private note</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\"><Text>INT. ROOM - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Some action.</Text></Paragraph>\n<Paragraph Type=\"General\" Alignment=\"Center\"><Text>THE END</Text></Paragraph>\n<Paragraph Type=\"General\" EDraft:ElementType=\"lyrics\"><Text>Sung like a lyric</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
         "diagnostics": [
           {
             "code": "FDX_STRUCTURAL_ELEMENTS_OMITTED",
             "severity": "warning",
-            "message": "4 non-printing structural element(s) were omitted because the supported FDX paragraph subset cannot represent them safely.",
-            "count": 4
+            "message": "1 non-printing structural element(s) were omitted because the supported FDX paragraph subset cannot represent them safely.",
+            "count": 1
           }
         ]
       }
@@ -4833,12 +4862,17 @@
             "depth": 1
           },
           {
+            "type": "section",
+            "text": "Set up Gold Key",
+            "depth": 3
+          },
+          {
             "type": "note",
             "text": "Kept: Final Draft has a Note element."
           },
           {
             "type": "synopsis",
-            "text": "beat"
+            "text": "Tangle questions Uncle."
           },
           {
             "type": "pagebreak",
@@ -4851,13 +4885,13 @@
         ]
       },
       "expected": {
-        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<!-- eDraft warning: 3 unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->\n<Content>\n<Paragraph Type=\"Note\"><Text>Kept: Final Draft has a Note element.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Visible.</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<!-- eDraft warning: 1 unsupported element(s) omitted; inspect writeFdxWithDiagnostics(). -->\n<Content>\n<Paragraph Type=\"Outline 1\"><Text>Act One</Text></Paragraph>\n<Paragraph Type=\"Outline 3\"><Text>Set up Gold Key</Text></Paragraph>\n<Paragraph Type=\"Note\"><Text>Kept: Final Draft has a Note element.</Text></Paragraph>\n<Paragraph Type=\"Summary\"><Text>Tangle questions Uncle.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Visible.</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
         "diagnostics": [
           {
             "code": "FDX_STRUCTURAL_ELEMENTS_OMITTED",
             "severity": "warning",
-            "message": "3 non-printing structural element(s) were omitted because the supported FDX paragraph subset cannot represent them safely.",
-            "count": 3
+            "message": "1 non-printing structural element(s) were omitted because the supported FDX paragraph subset cannot represent them safely.",
+            "count": 1
           }
         ]
       }

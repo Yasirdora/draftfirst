@@ -3,7 +3,7 @@
  * Engine conformance corpus exporter.
  *
  * Runs the TypeScript engine — the web source of truth — over a curated
- * fixture matrix and writes golden masters to ios/eDraftEngine/Fixtures/.
+ * fixture matrix and writes golden masters to apple/eDraftEngine/Fixtures/.
  * The Swift engine must reproduce every expected value exactly. Regenerating
  * after an engine change produces a diff: that diff IS the behaviour change,
  * and it is reviewed like code.
@@ -33,7 +33,7 @@ import {
 import { crc32 } from '../packages/edraft/dist/crc32.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const outDir = join(root, 'ios/eDraftEngine/Fixtures');
+const outDir = join(root, 'apple/eDraftEngine/Fixtures');
 mkdirSync(outDir, { recursive: true });
 
 const PRINTING_TYPES = [
@@ -497,6 +497,15 @@ addFdxImport(
 	'note',
 	`<FinalDraft><ElementSettings Type="Note"><ParagraphSpec Type="Note"/></ElementSettings><Content><Paragraph Type="Scene Heading"><Text>INT. LAB - DAY</Text></Paragraph><Paragraph Type="Note" id="n1"><Text>Is this the same lab as scene 4?</Text></Paragraph><Paragraph Type="Action"><Text>Hum.</Text></Paragraph></Content></FinalDraft>`
 );
+/* Final Draft's outline: `Outline 1..N` are the writer's act, sequence and
+   scene structure, and `Summary` is the prose under one. Read as General they
+   printed on the page and paginated — four pages of outline counted as script
+   on one of the two real features. The levels can be renamed, so the number
+   rules and the name in brackets is ignored. */
+addFdxImport(
+	'outline',
+	`<FinalDraft><Content><Paragraph Type="Outline 1"><Text>Act One</Text></Paragraph><Paragraph Type="Outline 2 (Sequences)"><Text>Meet Tangle</Text></Paragraph><Paragraph Type="Outline 3"><Text>Set up Gold Key</Text></Paragraph><Paragraph Type="Summary"><Text>Tangle questions Uncle.</Text></Paragraph><Paragraph Alignment="Center" Type="End of Act"><Text>The end</Text></Paragraph></Content></FinalDraft>`
+);
 addFdxImport('limits-source', `<FinalDraft><Content/></FinalDraft>`, { maxSourceCharacters: 10 });
 addFdxImport(
 	'limits-warnings',
@@ -528,14 +537,16 @@ addFdxExport('special-fields', {
 		{ type: 'lyrics', text: 'La la' }
 	]
 });
-/* Sections, synopses and page breaks have no FDX paragraph type, so an
-   export drops them and says so. A note does have one, and goes out. */
+/* Only a page break has no FDX paragraph type left, so it is the only thing
+   an export drops. Notes, outline levels and summaries all go out as
+   themselves — see `fdxTypeOf`. */
 addFdxExport('structural-omissions', {
 	titlePage: [],
 	elements: [
 		{ type: 'section', text: 'Act One', depth: 1 },
+		{ type: 'section', text: 'Set up Gold Key', depth: 3 },
 		{ type: 'note', text: 'Kept: Final Draft has a Note element.' },
-		{ type: 'synopsis', text: 'beat' },
+		{ type: 'synopsis', text: 'Tangle questions Uncle.' },
 		{ type: 'pagebreak', text: '' },
 		{ type: 'action', text: 'Visible.' }
 	]
@@ -547,4 +558,4 @@ addFdxExport('illegal-characters', {
 
 writeFixture('fdx.json', { import: fdxImport, export: fdxExport });
 
-console.log('✓ conformance corpus written to ios/eDraftEngine/Fixtures/');
+console.log('✓ conformance corpus written to apple/eDraftEngine/Fixtures/');
