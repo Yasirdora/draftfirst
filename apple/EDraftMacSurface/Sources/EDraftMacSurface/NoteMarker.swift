@@ -13,8 +13,8 @@ import AppKit
 /// well inside. So the mark never lands on a word.
 final class NoteMarker: NSView {
 
-    /// The note this marker opens.
-    var noteID: UUID?
+    /// The notes on this line — all of them, opened together.
+    var noteIDs: [UUID] = []
 
     /// Whether this note's card is the one currently open. Pages fills the
     /// active marker and outlines the rest; so does this.
@@ -27,7 +27,7 @@ final class NoteMarker: NSView {
 
     /// Told, not asked. The marker is a subview of the canvas and has no way
     /// to reach the surface that placed it.
-    var onOpen: ((UUID) -> Void)?
+    var onOpen: (([UUID]) -> Void)?
 
     /// Big enough to be an easy click target at the sizes a script is read
     /// at, small enough to stay out of the way of the words beside it. This
@@ -119,13 +119,13 @@ final class NoteMarker: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard let noteID else { return }
-        onOpen?(noteID)
+        guard !noteIDs.isEmpty else { return }
+        onOpen?(noteIDs)
     }
 
     override func accessibilityPerformPress() -> Bool {
-        guard let noteID else { return false }
-        onOpen?(noteID)
+        guard !noteIDs.isEmpty else { return false }
+        onOpen?(noteIDs)
         return true
     }
 }

@@ -108,6 +108,60 @@ final class PageZoomTests: XCTestCase {
         XCTAssertEqual(PageZoom.settled(0.97), PageZoom.actualSize, accuracy: 0.001)
     }
 
+    // MARK: - The drift itself
+
+    /// The ease: both ends exact, the middle halfway, never past the
+    /// target, and still at the ends — a glide, not a bounce.
+    func testTheDriftGlideHoldsItsPromises() {
+        XCTAssertEqual(PageZoom.eased(from: 1.2, to: 1.5, progress: 0), 1.2, accuracy: 0.0001)
+        XCTAssertEqual(PageZoom.eased(from: 1.2, to: 1.5, progress: 1), 1.5, accuracy: 0.0001)
+        XCTAssertEqual(PageZoom.eased(from: 1.2, to: 1.5, progress: 0.5), 1.35, accuracy: 0.0001,
+                       "smootherstep is halfway through at the halfway instant")
+
+        // Monotonic, and never past either end.
+        var previous = -CGFloat.infinity
+        for step in 0...100 {
+            let value = PageZoom.eased(from: 1.2, to: 1.5, progress: CGFloat(step) / 100)
+            XCTAssertGreaterThanOrEqual(value, previous)
+            XCTAssert((1.2...1.5).contains(value))
+            previous = value
+        }
+
+        // Zero velocity at the ends: the first and last hundredths barely move.
+        let start = PageZoom.eased(from: 1.2, to: 1.5, progress: 0.01) - 1.2
+        let end = 1.5 - PageZoom.eased(from: 1.2, to: 1.5, progress: 0.99)
+        XCTAssertLessThan(start, 0.001, "the glide does not leap off the mark")
+        XCTAssertLessThan(end, 0.001, "the glide does not snap onto the stop")
+    }
+
+    /// Time reversed reads the same: the second half is the first half
+    /// mirrored, so a drift decelerates exactly the way it accelerated.
+    func testTheDriftReadsTheSameBackwards() {
+        for step in 0...20 {
+            let t = CGFloat(step) / 20
+            XCTAssertEqual(
+                PageZoom.eased(from: 0, to: 1, progress: t)
+                    + PageZoom.eased(from: 0, to: 1, progress: 1 - t),
+                1, accuracy: 0.0001
+            )
+        }
+    }
+
+    /// Longer jumps take longer, but sublinearly: ten times the distance is
+    /// far from ten times the time, and nothing exceeds half a second.
+    func testTheDriftPace() {
+        let nudge = PageZoom.driftDuration(for: 0.005)
+        let settle = PageZoom.driftDuration(for: 0.025)
+        let lend = PageZoom.driftDuration(for: 0.25)
+        let wholeRange = PageZoom.driftDuration(for: 1)
+
+        XCTAssertGreaterThan(settle, nudge)
+        XCTAssertGreaterThan(lend, settle)
+        XCTAssertLessThan(lend / settle, 2, "the pace is sublinear — far jumps never drag")
+        XCTAssertLessThanOrEqual(wholeRange, 0.5)
+        XCTAssertGreaterThan(nudge, 0.1, "even a nudge gets a breath")
+    }
+
     // MARK: - What the menu can say
 
     func testAMenuCanTellTheWriterWhenNothingWouldHappen() {

@@ -73,12 +73,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// The note whose card is open, and the popover showing it. One at a
     /// time, which is what a `.transient` popover enforces anyway — clicking
     /// the page closes the card, and clicking another mark opens that one.
-    private var openNoteID: UUID?
+    private var openNoteIDs: [UUID] = []
     private var notePopover: NSPopover?
-    /// What the open card currently reads, so closing it can write that to
-    /// the model. The card reports every keystroke here; the model is written
-    /// once, when the card goes away — see `NoteCard.onEdit`.
-    private var openNoteDraft: String?
+    /// What each note in the open card currently reads, so closing it can
+    /// write them to the model. The card reports every keystroke here; the
+    /// model is written once, when the card goes away — see `NoteCard.onEdit`.
+    private var openNoteDrafts: [UUID: String] = [:]
     /// The element the context menu was opened over, so "Add Note" leaves the
     /// note where the writer pointed.
     private var rightClickedElement: UUID?
@@ -918,14 +918,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private var settleBegan: CFTimeInterval = 0
     private var settleDuration: CFTimeInterval = 0
 
-    /// How long a drift of a given distance takes. Consistent velocity
-    /// rather than constant time: a half-point nudge taking as long as a
-    /// full hop to the next stop would feel syrupy, and the reverse — a
-    /// long hop in a short time — is what reads as jerky.
-    private static func driftDuration(for distance: CGFloat) -> CFTimeInterval {
-        min(0.38, 0.16 + 6.4 * distance)
-    }
-
     /// Walks the magnification from where the fingers left it to the stop
     /// they were nearest.
     ///
@@ -949,7 +941,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         syncHorizontalCentring()
         settleFrom = scrollView.magnification
         settleTo = target
-        settleDuration = Self.driftDuration(for: abs(target - settleFrom))
+        settleDuration = PageZoom.driftDuration(for: abs(target - settleFrom))
         settleBegan = CACurrentMediaTime()
         let link = scrollView.displayLink(
             target: SettleRelay(self), selector: #selector(SettleRelay.tick(_:))
@@ -958,10 +950,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         settleLink = link
     }
 
-    /// One frame of the drift. The ease is a smootherstep — position,
-    /// velocity and acceleration all continuous at both ends, and never past
-    /// the target — so the page glides onto the stop the way the rubber-band
-    /// returns at the limits, minus the bounce.
+    /// One frame of the drift: how far along we are comes from the link,
+    /// which is only a clock; where that puts the page is `PageZoom.eased`,
+    /// held in the core where a test can hold it.
     fileprivate func settleFrame() {
         let t = min(max((CACurrentMediaTime() - settleBegan) / settleDuration, 0), 1)
         guard t < 1 else {
@@ -972,11 +963,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             cancelSettle()
             return
         }
-        let eased = t * t * t * (t * (6 * t - 15) + 10)
         // Written directly rather than through `magnify`: each frame is
         // reported by the magnification observer like a gesture is, and
         // `isAnimatingSettle` is what tells the two apart.
-        scrollView.magnification = settleFrom + (settleTo - settleFrom) * eased
+        scrollView.magnification = PageZoom.eased(from: settleFrom, to: settleTo, progress: t)
     }
 
     /// Stops the drift wherever it has got to — never by jumping to the
@@ -1134,6 +1124,22 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// something different once the document's height has changed.
     public var topmostVisibleCharacter: Int? { anchoredLine()?.location }
 
+    /// The anchor line and its distance below the viewport's top edge — the
+    /// pair a mode change holds still. The offset is the half of stillness
+    /// the location alone cannot say: when the window's top sat on desk or
+    /// a margin pair, the band's departure fills that space with earlier
+    /// text, and the topmost *line* legitimately changes while the line the
+    /// writer was reading keeps its place.
+    public var anchoredLineForTesting: (location: Int, offset: CGFloat)? { anchoredLine() }
+
+    /// How far below the viewport's top edge a character's line sits, so a
+    /// stillness test can measure the writer's own line rather than
+    /// whichever line happens to be first.
+    public func screenOffsetForTesting(atCharacter location: Int) -> CGFloat? {
+        guard let rect = boundingRect(atCharacter: location) else { return nil }
+        return canvas.convert(rect, from: textView).minY - scrollView.contentView.bounds.minY
+    }
+
     /// Six lines to the inch without cropping a tall glyph. Held here because
     /// `NSLayoutManager.delegate` is weak.
     private let fixedLeading = FixedLeading()
@@ -1168,8 +1174,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// an element wraps, and the mark belongs beside the line the note is
     /// about rather than beside the line a tally says it should be.
     private func placeNoteMarkers() {
-        canvas.showNotes(notePlacements(), active: openNoteID) { [weak self] id in
-            self?.openNote(id)
+        canvas.showNotes(notePlacements(), active: openNoteIDs.first) { [weak self] ids in
+            self?.openNotes(ids)
         }
     }
 
@@ -1202,7 +1208,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                   NSMaxRange(range) <= whole.length else { continue }
             layoutManager.addTemporaryAttribute(
                 .backgroundColor,
-                value: note.id == openNoteID ? open : wash,
+                value: openNoteIDs.contains(note.id) ? open : wash,
                 forCharacterRange: range
             )
         }
@@ -1218,21 +1224,33 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private func notePlacements() -> [PageCanvasView.NotePlacement] {
         guard let editor else { return [] }
         let byElement = Dictionary(ranges.map { ($0.id, $0.range) }) { first, _ in first }
-        var perLine: [Int: Int] = [:]
-        return editor.notes.compactMap { note -> PageCanvasView.NotePlacement? in
+
+        // Gathered by line rather than listed per note. Three notes on one
+        // line used to be three marks side by side in the margin, walking
+        // toward the edge of the sheet, and their words readable only one at
+        // a time. The line is what the writer is looking at, so the line
+        // carries one mark and its card holds everything left on it.
+        var order: [Int] = []
+        var byLine: [Int: (top: CGFloat, height: CGFloat, ids: [UUID])] = [:]
+        for note in editor.notes {
             // A note anchored to nothing trails the script, and belongs
             // beside its last line — which is where the writer left it.
             let range = note.anchor.flatMap { byElement[$0] } ?? ranges.last?.range
-            guard let range, let rect = boundingRect(atCharacter: range.location) else { return nil }
+            guard let range, let rect = boundingRect(atCharacter: range.location) else { continue }
             let inCanvas = canvas.convert(rect, from: textView)
-            // Keyed on the line, not the anchor: a wrapped element is one
-            // element and several lines, and two notes on it belong beside
-            // the line they were left on.
             let line = Int(inCanvas.minY.rounded())
-            let column = perLine[line, default: 0]
-            perLine[line] = column + 1
+            if var existing = byLine[line] {
+                existing.ids.append(note.id)
+                byLine[line] = existing
+            } else {
+                order.append(line)
+                byLine[line] = (inCanvas.minY, inCanvas.height, [note.id])
+            }
+        }
+        return order.compactMap { line in
+            guard let group = byLine[line] else { return nil }
             return PageCanvasView.NotePlacement(
-                id: note.id, lineTop: inCanvas.minY, lineHeight: inCanvas.height, column: column
+                noteIDs: group.ids, lineTop: group.top, lineHeight: group.height
             )
         }
     }
@@ -1249,60 +1267,72 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private func addNote(to anchor: UUID?) {
         guard let editor, let note = editor.addNote(to: anchor) else { return }
         renderIfNeeded(editor)
-        openNote(note.id)
+        // Everything on that line, so a second note joins the first in one
+        // card rather than replacing it.
+        let line = editor.notes.filter { $0.anchor == note.anchor }.map(\.id)
+        // The new one takes the caret, whether it is this line's first note
+        // or its fourth.
+        openNotes(line.isEmpty ? [note.id] : line, focusing: note.id)
     }
 
     /// Opens a note's card, pointing at its mark.
     ///
     /// An `NSPopover` rather than a card parked in the margin: the desk is
-    /// 36 points wide either side of the paper and a Pages comment card is
-    /// 260, so a card that lived out there would either cover the script or
+    /// a breath either side of the paper and a Pages comment card is 260,
+    /// so a card that lived out there would either cover the script or
     /// push the page off centre every time a note existed. A popover is the
     /// same rounded, elevated card with an arrow to the mark it came from,
     /// and it is the system's own.
-    public func openNote(_ id: UUID) {
-        guard let editor, let note = editor.notes.first(where: { $0.id == id }),
-              let marker = canvas.noteMarker(for: id) else { return }
+    /// Opens the card for a line's notes, pointing at its mark.
+    ///
+    /// An `NSPopover` rather than a card parked in the margin: the desk is
+    /// 36 points wide either side of the paper and this card is 280, so a
+    /// card that lived out there would either cover the script or push the
+    /// page off centre every time a note existed. A popover is the same
+    /// rounded, elevated card with an arrow to the mark it came from, and it
+    /// is the system's own.
+    public func openNotes(_ ids: [UUID], focusing focused: UUID? = nil) {
+        guard let editor, let anchor = ids.first,
+              let marker = canvas.noteMarker(for: anchor) else { return }
 
-        commitOpenNote()
+        commitOpenNotes()
         notePopover?.performClose(nil)
-        let total = editor.notes.count
-        let position = (editor.notes.firstIndex { $0.id == id } ?? 0) + 1
 
         let popover = NSPopover()
         popover.behavior = .transient
         popover.delegate = self
         popover.contentViewController = NSHostingController(
             rootView: NoteCard(
-                note: note,
-                position: position,
-                total: total,
-                onEdit: { [weak self] text in self?.openNoteDraft = text },
-                onDone: { [weak self] in self?.commitOpenNote() },
-                onDelete: { [weak self] in
+                notes: editor.notes.filter { ids.contains($0.id) },
+                focused: focused,
+                onEdit: { [weak self] id, text in self?.openNoteDrafts[id] = text },
+                onDone: { [weak self] in self?.commitOpenNotes() },
+                onDelete: { [weak self] id in
                     guard let self else { return }
-                    // Dropped before the popover closes, so `popoverDidClose`
-                    // does not write the deleted note's text back and
-                    // resurrect it.
-                    self.openNoteDraft = nil
-                    self.notePopover?.performClose(nil)
+                    // Dropped before the model changes, so closing the card
+                    // cannot write the deleted note's text back.
+                    self.openNoteDrafts[id] = nil
+                    let remaining = self.openNoteIDs.filter { $0 != id }
                     self.editor?.deleteNote(id: id)
+                    // Nothing takes the caret: removing a note is not the
+                    // same as wanting to write another one.
+                    self.reopen(remaining, focusing: nil)
                 },
-                onMove: { [weak self] step in
+                onAdd: { [weak self] in
                     guard let self, let editor = self.editor else { return }
-                    let index = (editor.notes.firstIndex { $0.id == id } ?? 0) + step
-                    guard editor.notes.indices.contains(index) else { return }
-                    let next = editor.notes[index].id
-                    // Reveal first: a mark scrolled off the page has no view
-                    // for the next card to point at.
-                    self.revealNote(next)
-                    self.openNote(next)
+                    // The same line the card belongs to, whatever the caret
+                    // is doing elsewhere.
+                    let line = editor.notes.first { $0.id == anchor }?.anchor
+                    guard let added = editor.addNote(to: line) else { return }
+                    // The caret goes into the note just made — not back to
+                    // the first one, which the writer has already written.
+                    self.reopen(self.openNoteIDs + [added.id], focusing: added.id)
                 }
             )
         )
         notePopover = popover
-        openNoteID = id
-        openNoteDraft = nil
+        openNoteIDs = ids
+        openNoteDrafts = [:]
         placeNoteMarkers()
         washNotedLines()
         popover.show(relativeTo: marker.bounds, of: marker, preferredEdge: .maxX)
@@ -1310,43 +1340,36 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // The card opens ready to be written in.
         //
         // `NSPopover` puts its content in a window of its own and does not
-        // make it key, so SwiftUI's `@FocusState` had nothing to focus into:
-        // the card opened with no caret and read as an empty box with no
-        // indication that typing would do anything. Asking the popover's own
-        // window to take key and putting first responder on the hosting view
-        // is what gives the text editor a caret. On the next turn, because
-        // the window does not exist until the popover has finished showing.
+        // make it key, so the card opened with no caret and read as an empty
+        // box — a keystroke went to the script's window instead and dismissed
+        // the card. Scrolling the page afterwards made the caret appear,
+        // which is the tell: the window became key by accident, later, and
+        // only then did any of it mean anything.
         DispatchQueue.main.async { [weak popover] in
-            guard let content = popover?.contentViewController?.view,
-                  let window = content.window else { return }
-            // The card opens ready to be written in.
-            //
-            // `NSPopover` puts its content in a window of its own and does not
-            // make it key, so the card opened with no caret and read as an
-            // empty box — a keystroke went to the script's window instead and
-            // dismissed the card. Scrolling the page afterwards made the
-            // caret appear, which is the tell: the window became key by
-            // accident, later, and only then did the focus mean anything.
-            //
-            // Focus is put on the text view itself rather than asked for
-            // through SwiftUI's `@FocusState`. That request is made in
-            // `onAppear`, before this window exists, so there is nothing to
-            // move first responder *to* and the request is quietly dropped;
-            // and the hosting view is a container, which cannot take it
-            // either. The text editor's own `NSTextView` can.
+            guard let window = popover?.contentViewController?.view.window else { return }
             window.makeKeyAndOrderFront(nil)
-            if let editor = Self.firstTextView(in: content) {
-                window.makeFirstResponder(editor)
-            }
         }
     }
+
+    /// Lays the page out again and puts the card back, after adding a note to
+    /// this line or removing one from it. The mark is placed by the layout,
+    /// so the card has nothing to point at until that has happened.
+    private func reopen(_ ids: [UUID], focusing focused: UUID?) {
+        guard let editor else { return }
+        notePopover?.performClose(nil)
+        renderIfNeeded(editor)
+        let alive = ids.filter { id in editor.notes.contains { $0.id == id } }
+        guard !alive.isEmpty else { return }
+        openNotes(alive, focusing: focused)
+    }
+
 
     /// However the card ends — clicked away from, replaced, or closed with
     /// the window — this is where the writing lands.
     public func popoverDidClose(_ notification: Notification) {
         guard (notification.object as AnyObject?) === notePopover else { return }
-        commitOpenNote()
-        openNoteID = nil
+        commitOpenNotes()
+        openNoteIDs = []
         notePopover = nil
         placeNoteMarkers()
         washNotedLines()
@@ -1357,13 +1380,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// The one place a note is written. Called when the card closes — by the
     /// writer clicking away, by the next note replacing it, or by the window
     /// going away — so the arrangement holds however the card ends.
-    private func commitOpenNote() {
-        guard let id = openNoteID else { return }
-        let draft = openNoteDraft
-        openNoteDraft = nil
+    private func commitOpenNotes() {
+        guard let editor, !openNoteIDs.isEmpty else { return }
+        let drafts = openNoteDrafts
+        openNoteDrafts = [:]
         // What to do with a blank one is the model's rule, not the card's —
         // the phone's surface will close a note too. See `finishNote`.
-        editor?.finishNote(id: id, text: draft)
+        for id in openNoteIDs {
+            editor.finishNote(id: id, text: drafts[id])
+        }
     }
 
     /// The text view SwiftUI's `TextEditor` is made of, wherever it has put

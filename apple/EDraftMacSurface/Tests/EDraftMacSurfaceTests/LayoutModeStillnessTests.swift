@@ -59,22 +59,29 @@ final class LayoutModeStillnessTests: XCTestCase {
         surface.scrollView.reflectScrolledClipView(clip)
     }
 
-    /// A line, not a character offset: what the writer notices is the words at
-    /// the top of the window, and one line is the honest unit of "still".
+    /// The writer's own line, not the topmost one. When the window's top
+    /// sat on desk or a margin pair, the band's departure fills that space
+    /// with earlier text — the first line legitimately changes while the
+    /// line the writer was reading keeps its place on the glass. So the
+    /// measure is the anchor: its location, and its distance below the top
+    /// edge, which is the half of stillness the location alone cannot say.
     private func assertStill(
         _ surface: ScriptSurface,
         _ change: () -> Void,
         _ what: String,
         line: UInt = #line
     ) throws {
-        let before = try XCTUnwrap(surface.topmostVisibleCharacter)
+        let before = try XCTUnwrap(surface.anchoredLineForTesting)
         change()
-        let after = try XCTUnwrap(surface.topmostVisibleCharacter)
-        // Roughly one line of dialogue. Anything more and the words at the top
-        // of the window are different words.
+        let now = try XCTUnwrap(
+            surface.screenOffsetForTesting(atCharacter: before.location),
+            "the writer's line is gone"
+        )
+        // The surface puts the anchor back at its own offset, so anything
+        // past layout rounding is a real move.
         XCTAssertEqual(
-            after, before, accuracy: 60,
-            "\(what): the writer moved \(abs(after - before)) characters",
+            now, before.offset, accuracy: 4,
+            "\(what): the writer's line moved \(abs(now - before.offset)) points",
             line: line
         )
     }

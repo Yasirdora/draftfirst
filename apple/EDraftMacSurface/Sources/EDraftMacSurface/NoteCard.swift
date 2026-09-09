@@ -1,150 +1,146 @@
 import EDraftCore
 import SwiftUI
 
-/// The card a note opens into.
+/// The card a line's notes open into.
 ///
-/// Pages' comment card, minus the half of it that makes a comment a
-/// conversation. There is no Reply and no thread: a note is something a
-/// writer leaves for themself in the margin, and Final Draft, Fountain and
-/// the `.draft` file all agree — none of the three has anywhere to put a
-/// second voice, an author or a date, and a field with nowhere to be stored
-/// is a field that disappears the first time the file is sent to someone.
+/// One card per line, holding every note left on that line, because that is
+/// how a writer thinks about them — "what did I say about this moment", not
+/// "show me note two of three". The first version put a mark in the margin
+/// for each note and paged between them; three notes on one line became three
+/// marks walking toward the edge of the sheet, and their words were readable
+/// only one at a time.
 ///
-/// So: the words, a way to be rid of one beside the title, and at the foot
-/// either the way through the rest of them or — while the writer is in the
-/// middle of changing this one — the way to be finished with it. The counter
-/// steps aside for Done rather than sitting beside it: mid-sentence, where
-/// this note falls among the others is not what the writer is thinking about.
+/// Pages' comment card, minus the half that makes a comment a conversation.
+/// No Reply, no author, no date: none of Fountain, Final Draft or the `.draft`
+/// has anywhere to put them, and a field with nowhere honest to be stored is
+/// one that disappears the first time the file is sent to someone.
 struct NoteCard: View {
-    let note: ScriptAside
-    /// Where this note falls among all of them, for the counter and to grey
-    /// out an arrow at either end.
-    let position: Int
-    let total: Int
+    let notes: [ScriptAside]
+    /// The note the caret belongs in, or `nil` for a card being read rather
+    /// than written in. Opening a line's notes to read them must not put the
+    /// cursor in one of them; adding a note must put it in *that* note, which
+    /// is the newest and not the first.
+    let focused: UUID?
 
-    /// Every keystroke, told to whoever is holding the card open.
-    ///
-    /// Not a commit — the model is written by the surface that opened this,
-    /// on Done or when the card closes. `onDisappear` was the obvious place
-    /// for the latter and does not reliably run when an `NSPopover` closes:
-    /// measured, a note edited and dismissed kept its old text on disk.
-    let onEdit: (String) -> Void
-    /// Write it now, without closing the card.
+    /// A keystroke in one of the notes. Not a commit — the surface writes
+    /// them when the card closes, or when Done is pressed.
+    let onEdit: (UUID, String) -> Void
     let onDone: () -> Void
-    let onDelete: () -> Void
-    let onMove: (Int) -> Void
+    let onDelete: (UUID) -> Void
+    /// Another note on the same line.
+    let onAdd: () -> Void
 
-    @State private var text: String
-    /// What the model last took. Not `note.text`: that is the note as it was
-    /// when the card opened, so comparing against it would leave Done showing
-    /// forever after the first commit.
-    @State private var committed: String
-    @FocusState private var writing: Bool
+    /// What each note reads now, and what the model last took. Kept apart so
+    /// Done knows whether there is anything to finish.
+    @State private var drafts: [UUID: String] = [:]
+    @State private var committed: [UUID: String] = [:]
+    /// Which notes have more in them than their box shows.
+    @State private var overflowing: Set<UUID> = []
 
-    init(
-        note: ScriptAside,
-        position: Int,
-        total: Int,
-        onEdit: @escaping (String) -> Void,
-        onDone: @escaping () -> Void,
-        onDelete: @escaping () -> Void,
-        onMove: @escaping (Int) -> Void
-    ) {
-        self.note = note
-        self.position = position
-        self.total = total
-        self.onEdit = onEdit
-        self.onDone = onDone
-        self.onDelete = onDelete
-        self.onMove = onMove
-        _text = State(initialValue: note.text)
-        _committed = State(initialValue: note.text)
-    }
-
-    private var isEditing: Bool { text != committed }
+    private var isEditing: Bool { drafts != committed }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            header
-            // The note itself. A `TextEditor` rather than a `TextField`,
-            // because a note is a paragraph — "she has already said this in
-            // scene 4, and it lands better there" is one sentence too many
-            // for a single line that scrolls sideways.
-            //
-            // No placeholder. One sat here reading "Note", which the title
-            // above it already says, and it could not be made to line up with
-            // the caret: a `TextEditor`'s text origin is its own — container
-            // inset plus line-fragment padding — and an overlay can only
-            // guess at it. The guess was visibly out by a few points in both
-            // directions. An empty card with a caret in it is not ambiguous.
-            TextEditor(text: $text)
-                .font(.body)
-                .scrollContentBackground(.hidden)
-                .focused($writing)
-                .frame(minHeight: 54, maxHeight: 140)
+        VStack(alignment: .leading, spacing: 0) {
+            // The notes scroll as a group once there are more than the card
+            // should stand. Capping the card is not only tidiness: a popover
+            // taller than the room beside its mark is slid up the screen by
+            // AppKit, and its arrow then sits at the very end of the edge,
+            // cutting into the corner — which is what "the bubble looks
+            // broken" was.
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
+                        if index > 0 { Divider().padding(.vertical, 8) }
+                        row(note)
+                    }
+                }
+            }
+            .frame(maxHeight: Self.tallestStack)
             footer
         }
         .padding(12)
-        .frame(width: 260)
-        .onChange(of: text) { _, edited in onEdit(edited) }
-        .onAppear { writing = true }
+        .frame(width: 280)
+        .onAppear(perform: seed)
+        .onChange(of: notes.map(\.id)) { _, _ in seed() }
     }
 
-    /// The title, and the one destructive thing, kept apart from everything
-    /// the writer does while they are working.
-    private var header: some View {
-        HStack(spacing: 8) {
-            Label("Note", systemImage: "bubble.fill")
-                .labelStyle(.titleAndIcon)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color(nsColor: .screenplayNoteTint))
+    /// How tall the notes may stand before the card scrolls them.
+    private static let tallestStack: CGFloat = 260
 
-            Spacer(minLength: 8)
+    /// One note: its words, whether there are more of them than fit, and the
+    /// one thing you can do to it.
+    private func row(_ note: ScriptAside) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            NoteTextView(
+                text: Binding(
+                    get: { drafts[note.id] ?? note.text },
+                    set: { drafts[note.id] = $0; onEdit(note.id, $0) }
+                ),
+                placeholder: "Add a note",
+                focusesOnAppear: note.id == focused,
+                onOverflowChange: { overflows in
+                    if overflows { overflowing.insert(note.id) }
+                    else { overflowing.remove(note.id) }
+                }
+            )
+            .frame(minHeight: 44, maxHeight: Self.tallestNote)
+            // A note longer than its box fades out at the foot rather than
+            // stopping mid-word, so the writer can see that it goes on.
+            .overlay(alignment: .bottom) {
+                if overflowing.contains(note.id) {
+                    LinearGradient(
+                        colors: [.clear, Color(nsColor: .windowBackgroundColor)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 18)
+                    .allowsHitTesting(false)
+                }
+            }
 
-            Button(role: .destructive) { onDelete() } label: {
+            Button(role: .destructive) { onDelete(note.id) } label: {
                 Image(systemName: "trash")
             }
             .buttonStyle(.borderless)
             .controlSize(.small)
-            .help("Delete note")
+            .help("Delete this note")
             .accessibilityLabel("Delete note")
         }
     }
 
-    /// The foot of the card: Done while there is something to finish, and
-    /// otherwise the way through the other notes.
+    /// How tall one note may stand before it scrolls inside its own box.
+    private static let tallestNote: CGFloat = 120
+
+    /// Add on the left, finish on the right — the two directions this card
+    /// goes, and never the destructive one, which belongs to a single note
+    /// rather than to the card.
     private var footer: some View {
-        HStack(spacing: 2) {
-            Spacer(minLength: 0)
+        HStack(spacing: 8) {
+            Button(action: onAdd) {
+                Label("Add", systemImage: "plus")
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+            .help("Another note on this line")
+
+            Spacer(minLength: 8)
+
             if isEditing {
                 Button("Done") {
-                    committed = text
+                    committed = drafts
                     onDone()
-                    // Focus leaves with the writing: the card settles back to
-                    // the counter, which is the point of the swap.
-                    writing = false
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
-            } else if total > 1 {
-                Text("\(position) of \(total)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                Button { onMove(-1) } label: {
-                    Image(systemName: "chevron.left")
-                }
-                .disabled(position <= 1)
-                .help("Previous note")
-
-                Button { onMove(1) } label: {
-                    Image(systemName: "chevron.right")
-                }
-                .disabled(position >= total)
-                .help("Next note")
             }
         }
-        .buttonStyle(.borderless)
-        .imageScale(.medium)
+        .padding(.top, 8)
+    }
+
+    private func seed() {
+        var seeded: [UUID: String] = [:]
+        for note in notes { seeded[note.id] = note.text }
+        drafts = seeded
+        committed = seeded
     }
 }

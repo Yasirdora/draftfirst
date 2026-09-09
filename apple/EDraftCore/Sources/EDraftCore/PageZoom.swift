@@ -54,10 +54,31 @@ public nonisolated enum PageZoom {
     ///
     /// A gesture never lands on a number, and a page left at 103% is a page
     /// forever between stops — the size drifts to the grid rather than
-    /// staying wherever the fingers happened to lift. A tie goes up: 102.5%
-    /// has been dragged past the hundred, not back to it.
+    /// staying wherever the fingers happened to lift.
     public static func settled(_ zoom: CGFloat) -> CGFloat {
         clamped((zoom / snapIncrement).rounded() * snapIncrement)
+    }
+
+    /// The position along a drift, `progress` of the way from `from` to
+    /// `to`: a smootherstep, t³(6t² − 15t + 10), so position, velocity and
+    /// acceleration are all continuous at both ends and the value never
+    /// overshoots — the page glides onto a stop the way the rubber-band
+    /// returns at the limits, minus the bounce. The pure curve, held here
+    /// so a test can hold it; the display link that paces it is only a
+    /// clock.
+    public static func eased(from: CGFloat, to: CGFloat, progress: CGFloat) -> CGFloat {
+        let t = min(max(progress, 0), 1)
+        let s = t * t * t * (t * (6 * t - 15) + 10)
+        return from + (to - from) * s
+    }
+
+    /// How long a drift of a given distance takes. Longer jumps take longer,
+    /// but sublinearly — with √distance — so a far one never drags and a
+    /// near one never whips: a two-and-a-half-point settle is a breath
+    /// (0.2s), and a drift the width of the whole range is under half a
+    /// second.
+    public static func driftDuration(for distance: CGFloat) -> CFTimeInterval {
+        0.16 + 0.24 * sqrt(min(max(distance, 0), 1))
     }
 
     /// How the control says it: 152%, not 1.52.

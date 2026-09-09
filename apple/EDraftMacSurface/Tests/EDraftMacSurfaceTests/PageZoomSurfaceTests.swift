@@ -176,23 +176,71 @@ final class PageZoomSurfaceTests: XCTestCase {
 
     // MARK: - The window a document opens in
 
-    /// The opening width is measured against the most the window is ever
-    /// asked to hold: a character's thread (260) and its divider beside the
-    /// page at actual size with its desk margins — 1,186 points. A page
-    /// lent to the thread fits at actual size and never below, so a
-    /// narrower window clips the page the moment someone is chosen. Stated
-    /// in two places the arithmetic and the design would drift apart.
-    func testANewWindowHoldsTheThreadBesideThePageAtActualSize() {
-        let pageAndDesk = (PageFormat.letter.pageRect.width + 2 * 36) * 1.0
-        XCTAssertEqual(pageAndDesk, 684, accuracy: 0.01,
-                       "the arithmetic this window is measured against changed")
+    /// Two widths, one for each state of the desk: 1,026 points hugs the
+    /// page at the opening size, 1,130 holds the thread beside the page at
+    /// actual size — where a lent page settles, a fit never going below.
+    /// The window moves between the two as the column comes and goes, which
+    /// is what lets the margins stay a breath in both states; one fixed
+    /// width would pad one state or clip the other.
+    func testTheWindowWidthsAreDerivedFromThePageAndTheThread() {
+        let pageAndDesk = PageFormat.letter.pageRect.width + 2 * PageCanvasView.deskPadding
+        XCTAssertEqual(pageAndDesk, 628, accuracy: 0.01,
+                       "the arithmetic the window is measured against changed")
 
         XCTAssertEqual(
-            ScriptWindowController.openingWidth, 240 + 1 + 260 + 1 + pageAndDesk, accuracy: 0.5,
-            "the window no longer opens holding exactly the thread beside the "
-                + "page at actual size with its desk margins, past the "
-                + "240-point Navigator"
+            ScriptWindowController.openingWidth, 240 + 1 + pageAndDesk * 1.25, accuracy: 0.5,
+            "the window no longer opens hugging the page at the opening size, "
+                + "beside the 240-point Navigator"
         )
+        XCTAssertEqual(
+            ScriptWindowController.threadOpenWidth, 240 + 1 + 260 + 1 + pageAndDesk, accuracy: 0.5,
+            "a thread-open window no longer holds exactly the thread beside "
+                + "the page at actual size"
+        )
+    }
+
+    /// Growing keeps the page's left edge still and never reaches past the
+    /// screen; a window already wide enough is left alone, and one the
+    /// writer resized after the grow is not narrowed out from under them.
+    func testTheWindowGrowsForTheThreadAndGivesTheRoomBack() {
+        let screen = NSRect(x: 0, y: 0, width: 1600, height: 1000)
+        let closed = NSRect(x: 100, y: 100, width: ScriptWindowController.openingWidth, height: 860)
+
+        guard let grow = ScriptWindowController.frameForThread(
+            open: true, current: closed, screen: screen, grownFrom: nil
+        ) else { return XCTFail("a window too narrow for the thread did not grow") }
+        XCTAssertEqual(grow.frame.width, ScriptWindowController.threadOpenWidth, accuracy: 0.5)
+        XCTAssertEqual(grow.frame.minX, closed.minX, accuracy: 0.5,
+                       "growing moved the page's left edge")
+
+        // The close gives back exactly the room the grow took.
+        guard let shrink = ScriptWindowController.frameForThread(
+            open: false, current: grow.frame, screen: screen, grownFrom: grow.grownFrom
+        ) else { return XCTFail("a grown window did not give the room back") }
+        XCTAssertEqual(shrink.frame.width, closed.width, accuracy: 0.5)
+        XCTAssertNil(shrink.grownFrom)
+
+        // A window already wide enough is left alone.
+        let wide = NSRect(x: 100, y: 100,
+                          width: ScriptWindowController.threadOpenWidth + 200, height: 860)
+        XCTAssertNil(ScriptWindowController.frameForThread(
+            open: true, current: wide, screen: screen, grownFrom: nil
+        ))
+
+        // A window the writer resized after the grow keeps their size.
+        var resized = grow.frame
+        resized.size.width += 40
+        XCTAssertNil(ScriptWindowController.frameForThread(
+            open: false, current: resized, screen: screen, grownFrom: grow.grownFrom
+        ))
+
+        // Growth never reaches past the screen's visible edge.
+        let nearEdge = NSRect(x: 1550, y: 100, width: 400, height: 860)
+        guard let clamped = ScriptWindowController.frameForThread(
+            open: true, current: nearEdge, screen: screen, grownFrom: nil
+        ) else { return XCTFail("a narrow window at the screen's edge did not grow") }
+        XCTAssertLessThanOrEqual(clamped.frame.maxX, screen.maxX + 0.5)
+        XCTAssertGreaterThanOrEqual(clamped.frame.minX, screen.minX - 0.5)
     }
 
     /// The arithmetic above only holds if the Navigator really opens at its
@@ -537,7 +585,7 @@ extension PinchToZoomTests {
         surface.scrollView.layoutSubtreeIfNeeded()
         surface.threadColumn(opened: true)
         let lent = surface.scrollView.magnification
-        XCTAssertEqual(lent, 1.77, accuracy: 0.01, "1209 points fit the canvas at about 177%")
+        XCTAssertEqual(lent, 1.925, accuracy: 0.01, "1209 points fit the canvas at about 192%")
 
         surface.applyZoom(.toggleActualSize)
         XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
@@ -566,7 +614,7 @@ extension PinchToZoomTests {
 
         surface.applyZoom(.toggleActualSize)
         XCTAssertEqual(
-            surface.scrollView.magnification, 1.77, accuracy: 0.01,
+            surface.scrollView.magnification, 1.925, accuracy: 0.01,
             "letting go of the button should land on the lent fit"
         )
     }
@@ -585,7 +633,7 @@ extension PinchToZoomTests {
         surface.remeasure(to: 700, elements: editor.screenplay.elements)
 
         XCTAssertEqual(
-            surface.scrollView.magnification, 1.02, accuracy: 0.01,
+            surface.scrollView.magnification, 1.115, accuracy: 0.01,
             "a narrower window beside the thread did not shrink the fit"
         )
     }
@@ -616,7 +664,9 @@ extension PinchToZoomTests {
         )
 
         XCTAssertEqual(
-            clip.bounds.origin.x, (684 - clip.bounds.width) / 2, accuracy: 0.5,
+            clip.bounds.origin.x,
+            (PageFormat.letter.pageRect.width + 2 * PageCanvasView.deskPadding - clip.bounds.width) / 2,
+            accuracy: 0.5,
             "the page followed the cursor's x instead of its own midline"
         )
     }

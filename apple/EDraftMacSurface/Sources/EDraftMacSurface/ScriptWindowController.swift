@@ -14,6 +14,9 @@ final class ScriptWindowState {
     var focusSceneFilter = 0
     /// Whose thread is open beside the cast, if anyone's.
     var selectedCharacter: String?
+    /// The thread came or went; the window widens and narrows with it. The
+    /// surface's ear for the same fact lives on the editor.
+    var onThreadColumn: ((Bool) -> Void)?
     var showingTitlePage = false
     /// Focus: the sidebar folds away and the thread and zoom control leave, so
     /// the page is the only thing on the desk.
@@ -65,30 +68,92 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
     /// cannot drift apart.
     static let threadColumnWidth: CGFloat = 260
 
-    /// The width a new window opens at: room for the thread and its divider
-    /// beside the page at actual size with its desk margins either side —
-    /// the most the window is ever asked to hold. A page lent to the thread
-    /// fits at actual size and never below, so a narrower window would clip
-    /// the page the moment a character is chosen, and a wider one would
-    /// maroon it in a field of desk. While no one is chosen the same room
-    /// simply centres the page at the opening size. The Navigator's
-    /// automatic width is a fraction of the window's, which at this size
-    /// comes out under its minimum — so the minimum (240) is what it opens
-    /// at, and this arithmetic holds. What the window tests measure against.
+    /// The page with its desk margins either side, at a size — the room the
+    /// desk column needs to show the whole sheet.
+    private static func pageAndDesk(_ zoom: CGFloat) -> CGFloat {
+        ((PageFormat.current.pageRect.width + PageCanvasView.deskPadding * 2) * zoom).rounded()
+    }
+
+    /// The width a new window opens at: the page at the opening size with
+    /// its desk margins, beside the Navigator at its smallest and the
+    /// divider. The Navigator's automatic width is a fraction of the
+    /// window's, which at this size comes out under its minimum — so the
+    /// minimum (240) is what it opens at, and this arithmetic holds. What
+    /// the window tests measure against.
     static var openingWidth: CGFloat {
-        let desk = (PageFormat.current.pageRect.width + PageCanvasView.deskPadding * 2)
-            * PageZoom.actualSize
-        return 240 + 1 + Self.threadColumnWidth + 1 + desk.rounded()
+        240 + 1 + pageAndDesk(PageZoom.opening)
+    }
+
+    /// The width the window grows to while a character's thread is open:
+    /// the thread and its divider beside the page at actual size, which is
+    /// where a lent page settles. Growing for the thread — and shrinking
+    /// back when it leaves — is what keeps the margins at a breath in both
+    /// states; one fixed width would pad one state or clip the other.
+    static var threadOpenWidth: CGFloat {
+        240 + 1 + threadColumnWidth + 1 + pageAndDesk(PageZoom.actualSize)
+    }
+
+    /// The width the window had before it grew for a character's thread,
+    /// and the width it grew to — what it returns to when the thread
+    /// leaves, unless the writer resized the window themselves since.
+    private var grownForThread: (before: CGFloat, grown: CGFloat)?
+
+    /// Where the window goes as a character's thread comes or goes — nil
+    /// when the writer's own size should stand: a window already wide
+    /// enough, a close that never grew, or one the writer resized after
+    /// the grow.
+    ///
+    /// Growing keeps the page's left edge still and never reaches past the
+    /// screen's visible frame. Pure, so a test can hold it; the animation
+    /// that plays it is only a clock.
+    static func frameForThread(
+        open: Bool,
+        current: NSRect,
+        screen: NSRect,
+        grownFrom: (before: CGFloat, grown: CGFloat)?
+    ) -> (frame: NSRect, grownFrom: (before: CGFloat, grown: CGFloat)?)? {
+        if open {
+            guard current.width < threadOpenWidth - 0.5 else { return nil }
+            var frame = current
+            frame.size.width = min(threadOpenWidth, screen.width)
+            if frame.maxX > screen.maxX { frame.origin.x = screen.maxX - frame.width }
+            if frame.origin.x < screen.minX { frame.origin.x = screen.minX }
+            return (frame, (before: current.width, grown: frame.size.width))
+        }
+        guard let grownFrom, abs(current.width - grownFrom.grown) < 1 else { return nil }
+        var frame = current
+        frame.size.width = grownFrom.before
+        if frame.maxX > screen.maxX { frame.origin.x = screen.maxX - frame.width }
+        if frame.origin.x < screen.minX { frame.origin.x = screen.minX }
+        return (frame, nil)
+    }
+
+    /// Widens the window for a character's thread, and gives the room back
+    /// when it leaves — one move, riding the column's own animation, so the
+    /// window makes room as the column arrives and the page's drift settles
+    /// once both have landed.
+    private func threadColumn(open: Bool) {
+        guard let window, let screen = window.screen ?? NSScreen.main else { return }
+        guard let move = Self.frameForThread(
+            open: open, current: window.frame, screen: screen.visibleFrame,
+            grownFrom: grownForThread
+        ) else { return }
+        grownForThread = move.grownFrom
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.22
+            window.animator().setFrame(move.frame, display: true)
+        }
     }
 
     public init(editor: EditorState) {
         self.editor = editor
-        // As wide as the thread beside the page at actual size with its
-        // desk margins: choosing a character then never clips the page or
-        // starts it scrolling sideways, and before anyone is chosen the
-        // room just centres the page at the opening size. Derived rather
-        // than stated, so the width and the page's own metrics cannot drift
-        // apart this way.
+        // As wide as the page at the opening size with its desk margins,
+        // beside the Navigator at its smallest and the divider: the margins
+        // a window opens with are the page's own, tiny and equal, and the
+        // page never starts life scrolled sideways. A thread's arrival
+        // grows the window to `threadOpenWidth` rather than taking the room
+        // from the page. Derived rather than stated, so the width and the
+        // page's own metrics cannot drift apart this way.
         super.init(
             contentSize: NSSize(width: Self.openingWidth, height: 860),
             minimumSize: NSSize(width: 720, height: 480)
@@ -103,6 +168,7 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         installToolbar(identifier: "eDraft.script", entries: toolbarEntries())
 
         editor.onFindScene = { [weak self] in self?.revealSceneFilter() }
+        state.onThreadColumn = { [weak self] open in self?.threadColumn(open: open) }
         followTheModel()
         NotificationCenter.default.addObserver(
             self, selector: #selector(pagePaperChanged),
@@ -436,16 +502,18 @@ private struct DeskColumn: View {
         .sheet(isPresented: $state.showingTitlePage) {
             TitlePageSheet(editor: editor)
         }
-        // The thread takes 260 points from the desk, and gives them back. The
-        // page lends the room — fitting whatever is left while the column is
-        // open, and returning the writer's own size when it closes. Told as
-        // the slide begins, so the borrow and the column always agree on
-        // which came first; the surface holds its drift until the slide has
+        // The thread takes 260 points from the desk, and gives them back.
+        // The window grows for part of it and the page lends the rest —
+        // fitting whatever is left while the column is open, and returning
+        // the writer's own size when it closes. Told as the slide begins,
+        // so the borrow, the grow and the column always agree on which
+        // came first; the surface holds its drift until the slide has
         // landed. Focus mode hides the column without un-choosing the
-        // character, so the lend follows the column's visibility, not the
+        // character, so all of it follows the column's visibility, not the
         // choice.
         .onChange(of: threadOpen) { _, open in
             editor.onThreadColumn?(open)
+            state.onThreadColumn?(open)
         }
     }
 }

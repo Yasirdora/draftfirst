@@ -18,9 +18,10 @@ final class PageCanvasView: NSView {
     /// meet, and used to stand this far apart, which is why a page boundary
     /// read as a gutter.
     ///
-    /// A constant the window reads too: the opening window width is built
-    /// from it, so the margins a window opens with are these.
-    static let deskPadding: CGFloat = 36
+    /// A constant the window reads too: the window's widths are built from
+    /// it, so the margins the page keeps are these. Eight points is a breath
+    /// between paper and edge — ten at the opening size — and nothing more.
+    static let deskPadding: CGFloat = 8
     var canvasPadding: CGFloat = PageCanvasView.deskPadding
 
     /// How far apart two sheets stand in `pages`.
@@ -231,11 +232,9 @@ final class PageCanvasView: NSView {
     /// Where a note sits: its id, the top of the line it is about, and which
     /// mark it is among the ones sharing that line.
     struct NotePlacement: Equatable {
-        let id: UUID
+        let noteIDs: [UUID]
         let lineTop: CGFloat
         let lineHeight: CGFloat
-        /// 0 for the first note on a line, 1 for the second, and so on.
-        var column: Int = 0
     }
 
     /// Puts a marker in the right margin beside each note's line.
@@ -252,7 +251,7 @@ final class PageCanvasView: NSView {
     func showNotes(
         _ placements: [NotePlacement],
         active: UUID?,
-        onOpen: @escaping (UUID) -> Void
+        onOpen: @escaping ([UUID]) -> Void
     ) {
         while noteMarkers.count < placements.count {
             let marker = NoteMarker(frame: .zero)
@@ -273,21 +272,14 @@ final class PageCanvasView: NSView {
         // that they fan closer together like a dealt hand rather than walking
         // off the sheet — every one still says "there are more here", and the
         // card's own pager reaches the ones that overlap.
-        let room = max(0, pageLeft + format.pageRect.width - Self.noteMarkerEdgeInset
-                          - (x + NoteMarker.size.width))
-        let widest = placements.map(\.column).max() ?? 0
-        let step = widest == 0
-            ? 0
-            : min(NoteMarker.size.width + 2, room / CGFloat(widest))
-
         for (marker, placement) in zip(noteMarkers, placements) {
-            marker.noteID = placement.id
-            marker.isActive = placement.id == active
+            marker.noteIDs = placement.noteIDs
+            marker.isActive = active.map(placement.noteIDs.contains) ?? false
             marker.onOpen = onOpen
             // Centred on the line rather than sitting on its baseline: a mark
             // beside a line should look level with it.
             marker.frame = CGRect(
-                x: (x + step * CGFloat(placement.column)).rounded(),
+                x: x.rounded(),
                 y: (placement.lineTop + (placement.lineHeight - NoteMarker.size.height) / 2).rounded(),
                 width: NoteMarker.size.width,
                 height: NoteMarker.size.height
@@ -307,13 +299,10 @@ final class PageCanvasView: NSView {
         return 1 + Int(((textHeight - block) / perSheet).rounded(.up))
     }
 
-    /// Air kept at the sheet's right edge, so a fanned mark never sits on it.
-    private static let noteMarkerEdgeInset: CGFloat = 6
-
     /// The view a note's card should point at, so the popover's arrow lands
     /// on the mark the writer clicked rather than on the page.
     func noteMarker(for id: UUID) -> NSView? {
-        noteMarkers.first { $0.noteID == id }
+        noteMarkers.first { $0.noteIDs.contains(id) }
     }
 
     /// Air between the last column of type and the mark, so the two read as
