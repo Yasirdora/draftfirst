@@ -25,6 +25,18 @@ enum ScriptSurfaceHarness {
         return (editor, surface)
     }
 
+    /// The same drive, but from Fountain source — so the document goes
+    /// through the real open path and whatever does not print is split off
+    /// the page the way it is for a writer, rather than assigned around it.
+    static func bound(source: String) -> (EditorState, ScriptSurface) {
+        let editor = EditorState(source: source)
+        let surface = ScriptSurface(measure: 500)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 500, height: 400)
+        surface.bind(to: editor)
+        surface.renderIfNeeded(editor)
+        return (editor, surface)
+    }
+
     /// Types the way a keyboard does: the delegate first, then the storage
     /// only when that returns true, then the change the surface listens to.
     @discardableResult

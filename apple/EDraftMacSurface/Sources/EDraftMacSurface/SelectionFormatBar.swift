@@ -8,7 +8,7 @@ import SwiftUI
 /// as `> <`. Strikethrough is not Fountain's: it travels as `~~` inside the
 /// text until M5 gives the model inline runs, and an exporter that cannot say
 /// it will write the marks as typed. A note is anchored to the element, not
-/// the selection — see `ScriptNotes`.
+/// the selection — see `ScriptAsides`.
 enum FormatMark: CaseIterable {
     case bold, italic, underline, strikethrough, centered, note
 

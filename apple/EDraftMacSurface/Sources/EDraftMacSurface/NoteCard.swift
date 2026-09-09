@@ -16,7 +16,7 @@ import SwiftUI
 /// steps aside for Done rather than sitting beside it: mid-sentence, where
 /// this note falls among the others is not what the writer is thinking about.
 struct NoteCard: View {
-    let note: ScriptNote
+    let note: ScriptAside
     /// Where this note falls among all of them, for the counter and to grey
     /// out an arrow at either end.
     let position: Int
@@ -42,7 +42,7 @@ struct NoteCard: View {
     @FocusState private var writing: Bool
 
     init(
-        note: ScriptNote,
+        note: ScriptAside,
         position: Int,
         total: Int,
         onEdit: @escaping (String) -> Void,

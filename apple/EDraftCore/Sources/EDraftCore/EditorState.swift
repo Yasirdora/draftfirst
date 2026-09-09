@@ -7,19 +7,29 @@ import EDraftEngine
 public final class EditorState {
     /// What the page sets.
     ///
-    /// Not the whole document: the writer's notes are lifted out of it at
-    /// open and put back at save — see `notes` and `ScriptNotes`. Everything
-    /// that measures the script reads this, so a note neither prints, nor
-    /// paginates, nor shifts the element indices the Navigator and the
-    /// prediction engine are keyed by.
+    /// Not the whole document: everything that does not print is lifted out
+    /// of it at open and put back at save — see `asides` and `ScriptAsides`.
+    /// Everything that measures the script reads this, so a note or an act
+    /// heading neither prints, nor paginates, nor shifts the element indices
+    /// the Navigator and the prediction engine are keyed by.
     public var screenplay: Screenplay
-    /// The notes beside the page, in document order.
+    /// What sits beside the page, in document order: the writer's notes and
+    /// their outline.
     ///
-    /// A note is in the document — it saves, it exports, it round-trips
-    /// through Final Draft — and it is not on the page. Reading a private
-    /// aside as though it were a stage direction is what putting it in the
-    /// text stream did.
-    public private(set) var notes: [ScriptNote] = []
+    /// All of it is in the document — it saves, it exports, it round-trips
+    /// through Final Draft — and none of it is on the page. Reading a private
+    /// aside as though it were a stage direction, and counting an act heading
+    /// toward the page number, is what putting them in the text stream did.
+    public private(set) var asides: [ScriptAside] = []
+
+    /// The notes among them.
+    public var notes: [ScriptAside] { asides.filter { $0.kind == .note } }
+
+    /// The writer's structure among them: acts, sequences and beats, each
+    /// with the prose under it. In document order, so a reader can walk it.
+    public var outline: [ScriptAside] {
+        asides.filter { $0.kind == .section || $0.kind == .synopsis }
+    }
     public var activeElementID: UUID?
     public var selectionOffset = 0
     public var predictions: [EnginePrediction] = []
@@ -160,7 +170,7 @@ public final class EditorState {
         return model
     }
 
-    /// The whole document: the page with the notes back in it.
+    /// The whole document: the page with everything beside it put back.
     ///
     /// Only the writers-out use this — serialising to Fountain, and through
     /// that every export. Pagination, stats and prediction read
@@ -170,9 +180,9 @@ public final class EditorState {
     /// keystroke, and a second cache keyed on a second revision is how the
     /// document and the page come to disagree about what is in the file.
     private var currentDocumentModel: EDraftEngine.Screenplay {
-        guard !notes.isEmpty else { return currentEngineModel }
+        guard !asides.isEmpty else { return currentEngineModel }
         var document = screenplay
-        document.elements = ScriptNotes.merge(page: screenplay.elements, notes: notes)
+        document.elements = ScriptAsides.merge(page: screenplay.elements, asides: asides)
         return document.engineModel
     }
     @ObservationIgnored private var undoStack: [EditorSnapshot] = []
@@ -201,9 +211,9 @@ public final class EditorState {
            guard-rail for sources beyond the engine's size limit. */
         let parsed = (try? Fountain.parse(source)).map(Screenplay.init(engineModel:))
             ?? Self.naiveParse(source)
-        let split = ScriptNotes.split(parsed.elements)
+        let split = ScriptAsides.split(parsed.elements)
         self.screenplay = Screenplay(titlePage: parsed.titlePage, elements: split.page)
-        self.notes = split.notes
+        self.asides = split.asides
         if screenplay.elements.isEmpty { screenplay.elements = Screenplay.blank.elements }
         let initialElement = startsAtEnd ? screenplay.elements.last : screenplay.elements.first
         activeElementID = initialElement?.id
@@ -832,13 +842,15 @@ public final class EditorState {
     /// stores a note's position as an offset into the script and those offsets
     /// rot the moment anyone edits above them. An element id cannot.
     @discardableResult
-    public func addNote(_ text: String = "", to anchor: UUID? = nil) -> ScriptNote? {
+    public func addNote(_ text: String = "", to anchor: UUID? = nil) -> ScriptAside? {
         let target = anchor ?? activeElementID
         guard target == nil || screenplay.elements.contains(where: { $0.id == target }) else {
             return nil
         }
-        let note = ScriptNote(id: UUID(), text: text, anchor: target)
-        applyNotes(inserting: note)
+        let note = ScriptAside(
+            element: ScriptElement(type: .note, text: text), anchor: target
+        )
+        applyAsides(inserting: note)
         return note
     }
 
@@ -847,11 +859,11 @@ public final class EditorState {
     /// the same reason: a model change re-lays the page, and the page must not
     /// be re-laid on every letter typed beside it.
     public func updateNote(id: UUID, text: String) {
-        guard let index = notes.firstIndex(where: { $0.id == id }), notes[index].text != text
+        guard let index = asides.firstIndex(where: { $0.id == id }), asides[index].text != text
         else { return }
-        var updated = notes
-        updated[index].text = text
-        applyNotes(updated)
+        var updated = asides
+        updated[index].element.text = text
+        applyAsides(updated)
     }
 
     /// The writer has finished with this note — Done, or the card closing.
@@ -862,7 +874,7 @@ public final class EditorState {
     /// file as an empty `[[]]` for the next reader to wonder about. Pages
     /// drops a comment nobody typed into for the same reason.
     public func finishNote(id: UUID, text: String?) {
-        guard let settled = text ?? notes.first(where: { $0.id == id })?.text else { return }
+        guard let settled = text ?? asides.first(where: { $0.id == id })?.text else { return }
         if settled.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             deleteNote(id: id)
         } else if text != nil {
@@ -871,16 +883,16 @@ public final class EditorState {
     }
 
     public func deleteNote(id: UUID) {
-        guard notes.contains(where: { $0.id == id }) else { return }
-        applyNotes(notes.filter { $0.id != id })
+        guard asides.contains(where: { $0.id == id }) else { return }
+        applyAsides(asides.filter { $0.id != id })
     }
 
     /// Puts a new note where it belongs: in front of the element it is
     /// anchored to, after any notes already there. Document order, so the
     /// bubbles beside a line read top to bottom in the order they were left.
-    private func applyNotes(inserting note: ScriptNote) {
-        var updated = notes
-        let anchorIndex = note.anchor.flatMap { anchor in
+    private func applyAsides(inserting aside: ScriptAside) {
+        var updated = asides
+        let anchorIndex = aside.anchor.flatMap { anchor in
             screenplay.elements.firstIndex { $0.id == anchor }
         }
         let position = updated.lastIndex { existing in
@@ -889,17 +901,17 @@ public final class EditorState {
             let index = screenplay.elements.firstIndex { $0.id == existingAnchor }
             return (index ?? .max) <= anchorIndex
         }
-        updated.insert(note, at: position.map { $0 + 1 } ?? 0)
-        applyNotes(updated)
+        updated.insert(aside, at: position.map { $0 + 1 } ?? 0)
+        applyAsides(updated)
     }
 
-    private func applyNotes(_ updated: [ScriptNote]) {
+    private func applyAsides(_ updated: [ScriptAside]) {
         // The text view's undo stack knows nothing about a change made beside
         // the page, and a ⌘Z that skipped back past it would undo the wrong
         // thing. Same reasoning as `updateTitlePage`.
         clearNativeUndoHistory()
         recordSnapshot(structural: true)
-        notes = updated
+        asides = updated
         commitChange()
     }
 
@@ -1124,7 +1136,7 @@ public final class EditorState {
     private func snapshotNow() -> EditorSnapshot {
         EditorSnapshot(
             screenplay: screenplay,
-            notes: notes,
+            asides: asides,
             activeElementID: activeElementID,
             selectionOffset: selectionOffset
         )
@@ -1132,7 +1144,7 @@ public final class EditorState {
 
     private func restore(_ snapshot: EditorSnapshot) {
         screenplay = snapshot.screenplay
-        notes = snapshot.notes
+        asides = snapshot.asides
         activeElementID = snapshot.activeElementID
         selectionOffset = snapshot.selectionOffset
         revision += 1
@@ -1297,7 +1309,7 @@ public final class EditorState {
 
     private struct EditorSnapshot {
         let screenplay: Screenplay
-        let notes: [ScriptNote]
+        let asides: [ScriptAside]
         let activeElementID: UUID?
         let selectionOffset: Int
     }

@@ -36,6 +36,22 @@ final class ScriptSurfaceNotesTests: XCTestCase {
         XCTAssertTrue(surface.textView.string.contains("She waits."))
     }
 
+    /// The outline shares the seam. It must not be set on the page either —
+    /// and unlike a note it gets no mark in the margin, because an act heading
+    /// belongs to the whole stretch under it, not to one line.
+    func testTheOutlineIsNotOnThePageAndGetsNoMark() {
+        let (editor, surface) = ScriptSurfaceHarness.bound(
+            source: "# Act One\n\n= They meet.\n\nINT. LAB - DAY\n\nShe waits."
+        )
+
+        XCTAssertEqual(editor.outline.count, 2, "the outline did not come off the page")
+        XCTAssertFalse(surface.textView.string.contains("Act One"), "an act heading was set on the page")
+        XCTAssertFalse(surface.textView.string.contains("They meet."), "a summary was set on the page")
+        XCTAssertFalse(surface.textView.string.contains("#"), "the Fountain marks reached the page")
+        XCTAssertTrue(surface.textView.string.contains("INT. LAB - DAY"))
+        XCTAssertTrue(surface.canvas.noteMarkerFrames.isEmpty, "the outline got a note's mark")
+    }
+
     /// The mark is what says a note is there at all.
     func testEachNoteGetsAMarkInTheMargin() {
         let elements = script()

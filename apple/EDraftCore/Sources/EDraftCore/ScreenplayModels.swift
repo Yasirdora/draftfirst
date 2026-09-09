@@ -27,7 +27,7 @@ public enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendabl
     /// enums carry the identical fourteen raw values (pinned by the
     /// engine's conformance corpus), so a miss means a careless rename —
     /// a bug to catch in debug, never a reason to crash a writer's app.
-    public var engineKind: ElementKind {
+    public nonisolated var engineKind: ElementKind {
         guard let kind = ElementKind(rawValue: rawValue) else {
             assertionFailure("ScreenplayKind.\(rawValue) has no ElementKind counterpart")
             modelLog.fault("ScreenplayKind.\(self.rawValue, privacy: .public) has no ElementKind counterpart; fell back to action")
@@ -90,6 +90,15 @@ public enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendabl
         case .pagebreak: "doc.append"
         }
     }
+
+    /// Whether this kind occupies a line of a printed page.
+    ///
+    /// Asked of the engine rather than answered here, for the same reason as
+    /// `uppercasesInput`: the paginator decides what a page holds, and a
+    /// second list here would eventually disagree with it — which is a page
+    /// count that disagrees with the PDF. `ScriptAsides` is the one caller
+    /// that matters, and what it decides is what a writer sees on the page.
+    public nonisolated var isPrinting: Bool { engineKind.isPrinting }
 
     /// Whether this kind is written in capitals.
     ///
