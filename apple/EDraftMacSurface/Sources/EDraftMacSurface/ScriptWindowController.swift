@@ -60,26 +60,35 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         static let zoom = "eDraft.zoom"
     }
 
-    /// The width a new window opens at: the page at the opening size with
-    /// its desk margins either side, beside the Navigator at its smallest
-    /// (240) and the divider (1). The sidebar's automatic width is a
-    /// fraction of the window's, which at this size comes out under its
-    /// minimum — so the minimum is what it opens at, and this arithmetic
-    /// holds. What the window tests measure against.
+    /// How wide a character's thread is — the one fixed measure of the desk
+    /// column, stated once so the window's width and the column's frame
+    /// cannot drift apart.
+    static let threadColumnWidth: CGFloat = 260
+
+    /// The width a new window opens at: room for the thread and its divider
+    /// beside the page at actual size with its desk margins either side —
+    /// the most the window is ever asked to hold. A page lent to the thread
+    /// fits at actual size and never below, so a narrower window would clip
+    /// the page the moment a character is chosen, and a wider one would
+    /// maroon it in a field of desk. While no one is chosen the same room
+    /// simply centres the page at the opening size. The Navigator's
+    /// automatic width is a fraction of the window's, which at this size
+    /// comes out under its minimum — so the minimum (240) is what it opens
+    /// at, and this arithmetic holds. What the window tests measure against.
     static var openingWidth: CGFloat {
         let desk = (PageFormat.current.pageRect.width + PageCanvasView.deskPadding * 2)
-            * PageZoom.opening
-        return 240 + 1 + desk.rounded()
+            * PageZoom.actualSize
+        return 240 + 1 + Self.threadColumnWidth + 1 + desk.rounded()
     }
 
     public init(editor: EditorState) {
         self.editor = editor
-        // As wide as the page at the opening size with its desk margins,
-        // beside the Navigator at its smallest and the divider — no wider,
-        // so the margins a new window opens with are the page's own, tiny
-        // and equal, and the page never starts life scrolled sideways.
-        // Derived rather than stated: the width and the opening zoom cannot
-        // drift apart this way.
+        // As wide as the thread beside the page at actual size with its
+        // desk margins: choosing a character then never clips the page or
+        // starts it scrolling sideways, and before anyone is chosen the
+        // room just centres the page at the opening size. Derived rather
+        // than stated, so the width and the page's own metrics cannot drift
+        // apart this way.
         super.init(
             contentSize: NSSize(width: Self.openingWidth, height: 860),
             minimumSize: NSSize(width: 720, height: 480)
@@ -405,7 +414,7 @@ private struct DeskColumn: View {
                 // character is a different view, not the same one asked to
                 // change its mind.
                 .id(name)
-                .frame(width: 260)
+                .frame(width: ScriptWindowController.threadColumnWidth)
                 Divider()
             }
             ScriptPageView(editor: editor)

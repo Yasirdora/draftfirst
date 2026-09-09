@@ -1317,8 +1317,27 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // is what gives the text editor a caret. On the next turn, because
         // the window does not exist until the popover has finished showing.
         DispatchQueue.main.async { [weak popover] in
-            guard let window = popover?.contentViewController?.view.window else { return }
+            guard let content = popover?.contentViewController?.view,
+                  let window = content.window else { return }
+            // The card opens ready to be written in.
+            //
+            // `NSPopover` puts its content in a window of its own and does not
+            // make it key, so the card opened with no caret and read as an
+            // empty box — a keystroke went to the script's window instead and
+            // dismissed the card. Scrolling the page afterwards made the
+            // caret appear, which is the tell: the window became key by
+            // accident, later, and only then did the focus mean anything.
+            //
+            // Focus is put on the text view itself rather than asked for
+            // through SwiftUI's `@FocusState`. That request is made in
+            // `onAppear`, before this window exists, so there is nothing to
+            // move first responder *to* and the request is quietly dropped;
+            // and the hosting view is a container, which cannot take it
+            // either. The text editor's own `NSTextView` can.
             window.makeKeyAndOrderFront(nil)
+            if let editor = Self.firstTextView(in: content) {
+                window.makeFirstResponder(editor)
+            }
         }
     }
 
@@ -1345,6 +1364,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // What to do with a blank one is the model's rule, not the card's —
         // the phone's surface will close a note too. See `finishNote`.
         editor?.finishNote(id: id, text: draft)
+    }
+
+    /// The text view SwiftUI's `TextEditor` is made of, wherever it has put
+    /// it in the view tree.
+    private static func firstTextView(in view: NSView) -> NSTextView? {
+        if let text = view as? NSTextView { return text }
+        for child in view.subviews {
+            if let found = firstTextView(in: child) { return found }
+        }
+        return nil
     }
 
     /// Brings a note's mark into view — and only if it is not already there.

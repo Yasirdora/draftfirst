@@ -29,11 +29,11 @@ public nonisolated enum PageZoom {
     /// around 125% to 150% — and it is a better place to start writing than
     /// either extreme. The percentage button is one press from the truth.
     ///
-    /// The calm end of that range, 125%, because it is the largest size at
-    /// which the page and its desk margins still fit a modest window beside
-    /// the Navigator: 855 points for the page, 240 for the Navigator, and a
-    /// divider between them. Anything larger opens already scrolling
-    /// sideways, which is a bad first impression of a page.
+    /// The calm end of that range, 125%: large enough that the page reads as
+    /// a page, small enough that it and its desk margins fit a modest window
+    /// beside the Navigator with room kept for a character's thread.
+    /// Anything larger opens already scrolling sideways, which is a bad
+    /// first impression of a page.
     public static let opening: CGFloat = 1.25
 
     /// Twice life size on a typical laptop, and the point past which a reader

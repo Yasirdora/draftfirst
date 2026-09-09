@@ -176,21 +176,45 @@ final class PageZoomSurfaceTests: XCTestCase {
 
     // MARK: - The window a document opens in
 
-    /// The opening size and the opening width are the same decision: the
-    /// page at the opening size with its desk margins either side is 855
-    /// points, so the window is that plus the Navigator at its smallest and
-    /// the divider. Stated in two places they would drift apart — the page
-    /// would open scrolled sideways, or marooned in a field of desk.
-    func testANewWindowHoldsThePageAndItsDeskAtTheOpeningSize() {
-        let pageAndDesk = (PageFormat.letter.pageRect.width + 2 * 36) * 1.25
-        XCTAssertEqual(pageAndDesk, 855, accuracy: 0.01,
+    /// The opening width is measured against the most the window is ever
+    /// asked to hold: a character's thread (260) and its divider beside the
+    /// page at actual size with its desk margins — 1,186 points. A page
+    /// lent to the thread fits at actual size and never below, so a
+    /// narrower window clips the page the moment someone is chosen. Stated
+    /// in two places the arithmetic and the design would drift apart.
+    func testANewWindowHoldsTheThreadBesideThePageAtActualSize() {
+        let pageAndDesk = (PageFormat.letter.pageRect.width + 2 * 36) * 1.0
+        XCTAssertEqual(pageAndDesk, 684, accuracy: 0.01,
                        "the arithmetic this window is measured against changed")
 
         XCTAssertEqual(
-            ScriptWindowController.openingWidth, 240 + 1 + pageAndDesk, accuracy: 0.5,
-            "the window no longer opens holding exactly the page at the opening "
-                + "size with its desk margins, beside the 240-point Navigator"
+            ScriptWindowController.openingWidth, 240 + 1 + 260 + 1 + pageAndDesk, accuracy: 0.5,
+            "the window no longer opens holding exactly the thread beside the "
+                + "page at actual size with its desk margins, past the "
+                + "240-point Navigator"
         )
+    }
+
+    /// The arithmetic above only holds if the Navigator really opens at its
+    /// 240-point minimum. AppKit picks an automatic width proportional to
+    /// the window's, and past some window width that choice climbs over the
+    /// minimum and takes the room the page was promised — so open a real
+    /// window and measure.
+    func testARealWindowOpensWithTheNavigatorAtItsMinimum() {
+        let controller = ScriptWindowController(editor: EditorState(source: "INT. LAB - DAY"))
+        withExtendedLifetime(controller) {
+            guard let window = controller.window,
+                  let split = window.contentViewController as? NSSplitViewController
+            else { return XCTFail("the window's columns are not a split view") }
+            window.makeKeyAndOrderFront(nil)
+            window.displayIfNeeded()
+            window.contentView?.layoutSubtreeIfNeeded()
+
+            let navigator = split.splitViewItems[0].viewController.view.frame.width
+            XCTAssertEqual(navigator, 240, accuracy: 1,
+                           "the Navigator opened wider than its minimum and took "
+                               + "the room the page was measured for")
+        }
     }
 }
 
