@@ -78,7 +78,7 @@ final class PageZoomSurfaceTests: XCTestCase {
         let (_, surface) = windowed(1470)
         surface.applyZoom(.zoomIn)
         let chosen = surface.scrollView.magnification
-        XCTAssertEqual(chosen, 1.75, accuracy: 0.01, "one step up from the opening 1.5")
+        XCTAssertEqual(chosen, 1.5, accuracy: 0.01, "one step up from the opening 1.25")
 
         surface.applyZoom(.toggleActualSize)
         XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
@@ -172,6 +172,25 @@ final class PageZoomSurfaceTests: XCTestCase {
         surface.remeasure(to: 1470, elements: editor.screenplay.elements)
 
         XCTAssertEqual(surface.scrollView.magnification, before, accuracy: 0.01)
+    }
+
+    // MARK: - The window a document opens in
+
+    /// The opening size and the opening width are the same decision: the
+    /// page at the opening size with its desk margins either side is 855
+    /// points, so the window is that plus the Navigator at its smallest and
+    /// the divider. Stated in two places they would drift apart — the page
+    /// would open scrolled sideways, or marooned in a field of desk.
+    func testANewWindowHoldsThePageAndItsDeskAtTheOpeningSize() {
+        let pageAndDesk = (PageFormat.letter.pageRect.width + 2 * 36) * 1.25
+        XCTAssertEqual(pageAndDesk, 855, accuracy: 0.01,
+                       "the arithmetic this window is measured against changed")
+
+        XCTAssertEqual(
+            ScriptWindowController.openingWidth, 240 + 1 + pageAndDesk, accuracy: 0.5,
+            "the window no longer opens holding exactly the page at the opening "
+                + "size with its desk margins, beside the 240-point Navigator"
+        )
     }
 }
 
@@ -353,15 +372,15 @@ extension PinchToZoomTests {
         NotificationCenter.default.post(
             name: NSScrollView.willStartLiveMagnifyNotification, object: surface.scrollView
         )
-        surface.scrollView.magnification = 1.504
+        surface.scrollView.magnification = 1.254
         XCTAssertEqual(
             editor.zoom, PageZoom.opening, accuracy: 0.0001,
             "a change too small to display re-rendered the capsule anyway"
         )
 
-        surface.scrollView.magnification = 1.52
+        surface.scrollView.magnification = 1.27
         XCTAssertEqual(
-            editor.zoom, 1.52, accuracy: 0.0001,
+            editor.zoom, 1.27, accuracy: 0.0001,
             "a change that crosses a whole point is shown"
         )
 
@@ -385,8 +404,196 @@ extension PinchToZoomTests {
 
         surface.applyZoom(.zoomIn)
         XCTAssertEqual(
-            surface.scrollView.magnification, 1.75, accuracy: 0.01,
+            surface.scrollView.magnification, 1.5, accuracy: 0.01,
             "a missed didEnd left the surface refusing to change the size"
+        )
+    }
+
+    // MARK: - The thread column borrows the size
+
+    /// Choosing a character opens the thread beside the page and takes 260
+    /// points of the desk. The page lends the room — fits what is left, down
+    /// to actual size and never below — without the writer asking.
+    func testAnOpenThreadLendsTheRoomAndFitsWhatIsLeft() {
+        let (editor, surface) = windowed(855)
+
+        // The thread's arrival as the window reports it: the column is laid
+        // out — 260 points and a divider gone from the page — and then the
+        // surface is told.
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 594, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.threadColumn(opened: true)
+
+        XCTAssertEqual(
+            surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01,
+            "594 points cannot hold a 684-point canvas, so the fit floors at actual size"
+        )
+        XCTAssertEqual(editor.zoom, PageZoom.actualSize, accuracy: 0.01,
+                       "the readout shows the size the page actually has")
+    }
+
+    /// The lend is a borrow, not a takeover: closing the column hands back
+    /// the size the writer had, though no one asked for it in between.
+    func testAClosedThreadHandsTheWritersSizeBack() {
+        let (_, surface) = windowed(855)
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 594, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.threadColumn(opened: true)
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 855, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.threadColumn(opened: false)
+
+        XCTAssertEqual(
+            surface.scrollView.magnification, PageZoom.opening, accuracy: 0.01,
+            "the writer's own 125% did not come back when the column closed"
+        )
+    }
+
+    /// A size asked for while the room is lent is the writer taking the wheel
+    /// back: it ends the borrow, and the column closing changes nothing.
+    func testASizeChosenWhileLentStands() {
+        let (_, surface) = windowed(855)
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 594, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.threadColumn(opened: true)
+
+        surface.applyZoom(.zoomIn)
+        let chosen = surface.scrollView.magnification
+        XCTAssertEqual(chosen, 1.1, accuracy: 0.01, "one stop up from the lent 100%")
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 855, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.threadColumn(opened: false)
+
+        XCTAssertEqual(
+            surface.scrollView.magnification, chosen, accuracy: 0.01,
+            "closing the column overrode a size the writer chose beside it"
+        )
+    }
+
+    /// A pinch is the same choice made with the fingers.
+    func testAPinchWhileLentStands() {
+        let (_, surface) = windowed(855)
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 594, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.threadColumn(opened: true)
+
+        NotificationCenter.default.post(
+            name: NSScrollView.willStartLiveMagnifyNotification, object: surface.scrollView
+        )
+        surface.scrollView.magnification = 1.42
+        NotificationCenter.default.post(
+            name: NSScrollView.didEndLiveMagnifyNotification, object: surface.scrollView
+        )
+        let settled = surface.scrollView.magnification
+        XCTAssertEqual(settled, 1.4, accuracy: 0.01, "the gesture settles onto the 5% grid")
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 855, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.threadColumn(opened: false)
+
+        XCTAssertEqual(
+            surface.scrollView.magnification, settled, accuracy: 0.01,
+            "closing the column overrode the size the writer pinched to"
+        )
+    }
+
+    /// Actual size borrows the lent size; it does not end the lend. Pressing
+    /// the button twice beside an open thread returns to the fit the thread
+    /// left in place — not to a size that no longer fits beside it.
+    func testTheButtonBorrowsTheLentSize() {
+        let (_, surface) = windowed(1470)
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1209, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.threadColumn(opened: true)
+        let lent = surface.scrollView.magnification
+        XCTAssertEqual(lent, 1.77, accuracy: 0.01, "1209 points fit the canvas at about 177%")
+
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
+
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(
+            surface.scrollView.magnification, lent, accuracy: 0.01,
+            "the button returned to the writer's old size, which does not fit the room"
+        )
+    }
+
+    /// While the writer is holding actual size, the thread's arrival moves
+    /// nothing: the button's borrow is the more explicit one.
+    func testAThreadOpeningDuringAnActualSizeHoldDoesNotMoveThePage() {
+        let (_, surface) = windowed(1470)
+        surface.applyZoom(.toggleActualSize)
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1209, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.threadColumn(opened: true)
+
+        XCTAssertEqual(
+            surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01,
+            "the column's arrival moved a page the writer was holding at 100%"
+        )
+
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(
+            surface.scrollView.magnification, 1.77, accuracy: 0.01,
+            "letting go of the button should land on the lent fit"
+        )
+    }
+
+    /// A lent size is a fit, and a fit follows the window: resizing beside an
+    /// open thread re-fits the room that is left.
+    func testALentSizeFollowsTheWindow() {
+        let (editor, surface) = windowed(1470)
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1209, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.threadColumn(opened: true)
+
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 700)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.remeasure(to: 700, elements: editor.screenplay.elements)
+
+        XCTAssertEqual(
+            surface.scrollView.magnification, 1.02, accuracy: 0.01,
+            "a narrower window beside the thread did not shrink the fit"
+        )
+    }
+
+    // MARK: - A pinch stays on the page's midline
+
+    /// A pinch anchors on the point under the cursor, and the cursor is
+    /// rarely on the page's midline — so the page used to slide sideways as
+    /// the fingers wandered. From willStart to didEnd the horizontal anchor
+    /// is the page's own centre, and a pan the writer had going is taken
+    /// back to it.
+    func testAPinchKeepsThePageOnItsMidline() {
+        let (_, surface) = windowed(500)
+        let clip = surface.scrollView.contentView
+
+        // A pan the writer chose — far enough that keeping the *visible*
+        // centre instead of the page's would read clearly differently.
+        clip.scroll(to: NSPoint(x: 200, y: 200))
+        surface.scrollView.reflectScrolledClipView(clip)
+        XCTAssertEqual(clip.bounds.origin.x, 200, accuracy: 0.5, "the pan did not stand")
+
+        NotificationCenter.default.post(
+            name: NSScrollView.willStartLiveMagnifyNotification, object: surface.scrollView
+        )
+        surface.scrollView.magnification = 1.6
+        NotificationCenter.default.post(
+            name: NSScrollView.didEndLiveMagnifyNotification, object: surface.scrollView
+        )
+
+        XCTAssertEqual(
+            clip.bounds.origin.x, (684 - clip.bounds.width) / 2, accuracy: 0.5,
+            "the page followed the cursor's x instead of its own midline"
         )
     }
 }

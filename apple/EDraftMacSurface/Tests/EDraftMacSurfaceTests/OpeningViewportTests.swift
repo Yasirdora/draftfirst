@@ -100,8 +100,8 @@ final class OpeningViewportTests: XCTestCase {
     }
 
     /// The contract the owner named. SwiftUI's first layout is the one
-    /// that crops: the page is sized at 100%, then magnified to 150%
-    /// about the clip-view centre, which is 143pt down an 860pt window.
+    /// that crops: the page is sized at 100%, then magnified to 125%
+    /// about the clip-view centre, which is 86pt down an 860pt window.
     func testADocumentOpensAtTheTopOfThePage() throws {
         let elements = elements()
         let (window, scroll) = hosted(elements)
@@ -127,7 +127,7 @@ final class OpeningViewportTests: XCTestCase {
 
     /// If this fails (y still 0) while the contract above fails, the
     /// crop is not the opening zoom. Measured: it is. Stubbing the pin
-    /// leaves y at 143 on an 860pt window — `height/2 * (1 - 1/1.5)`.
+    /// leaves y at 86 on an 860pt window — `height/2 * (1 - 1/1.25)`.
     func testWithoutTheOpeningPinThePageOpensOffTheTop() throws {
         let elements = elements()
         let editor = editor(elements)

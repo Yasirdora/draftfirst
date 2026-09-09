@@ -17,7 +17,11 @@ final class PageCanvasView: NSView {
     /// The desk around the whole stack. Not the space between sheets: those
     /// meet, and used to stand this far apart, which is why a page boundary
     /// read as a gutter.
-    var canvasPadding: CGFloat = 36
+    ///
+    /// A constant the window reads too: the opening window width is built
+    /// from it, so the margins a window opens with are these.
+    static let deskPadding: CGFloat = 36
+    var canvasPadding: CGFloat = PageCanvasView.deskPadding
 
     /// How far apart two sheets stand in `pages`.
     ///
@@ -94,11 +98,27 @@ final class PageCanvasView: NSView {
     func layoutPages(pageCount: Int, textHeight: CGFloat, viewport: CGSize) {
         let format = PageFormat.current
         let pageSize = format.pageRect.size
-        let pages = max(1, pageCount)
         let desk = canvasPadding
         let slack = ScreenplayPageLayout.glyphOverflow
         let textWidth = ScreenplayPageLayout.textBlockWidth(format)
         let textBlock = ScreenplayPageLayout.textBlockHeight(format)
+
+        // Enough paper for the words, whatever the paginator said.
+        //
+        // The engine counts pages by wrapping at sixty Courier characters;
+        // the text view lays out by measuring glyphs. The two agree almost
+        // always and not quite always — measured on a real production draft,
+        // the type needed a twenty-eighth sheet where the engine had counted
+        // twenty-seven. The stack was built from the count alone, so the last
+        // hundred points of the script were drawn past the final sheet and
+        // past the canvas, where a scroll view cannot reach: the writer's
+        // script simply ended early, and only in `pages`.
+        //
+        // The engine's number is still the page count — it is what the PDF
+        // prints and what a production schedules against, and it is not
+        // changed here. This decides only how much paper is laid out under
+        // the type, and the answer is: never less than the type needs.
+        let pages = max(1, pageCount, Self.sheetsHolding(textHeight, format: format))
 
         // How tall the stack of paper is. In `pages` it is the sheets, which
         // meet; in `continuous` it is one sheet as tall as the script plus the
@@ -115,8 +135,17 @@ final class PageCanvasView: NSView {
         // puts a canvas smaller than the window in the middle of it, so this
         // stays the same size at every magnification and a pinch has nothing
         // to re-measure.
+        //
+        // Never shorter than what is on it. The sheets above are sized to
+        // hold the type, and this says the same thing a second time about
+        // the canvas itself — because the one thing that must never happen
+        // is a glyph drawn where the scroll view cannot travel.
         let canvasWidth = pageSize.width + desk * 2
-        setFrameSize(CGSize(width: canvasWidth, height: stackHeight + desk * 2))
+        let typeBottom = format.textTop + textHeight + ScreenplayPageLayout.textBottom(format)
+        setFrameSize(CGSize(
+            width: canvasWidth,
+            height: max(stackHeight, typeBottom) + desk * 2
+        ))
 
         let x = ((canvasWidth - pageSize.width) / 2).rounded(.down)
         let sheets = layoutMode == .pages ? pages : 1
@@ -264,6 +293,18 @@ final class PageCanvasView: NSView {
                 height: NoteMarker.size.height
             )
         }
+    }
+
+    /// How many sheets it takes to hold this much type.
+    ///
+    /// Type on sheet *k* runs from that sheet's text top for at most one text
+    /// block, so `n` sheets hold `(n - 1) * (page + gap) + block`. Inverted,
+    /// and never fewer than one.
+    static func sheetsHolding(_ textHeight: CGFloat, format: PageFormat) -> Int {
+        let block = ScreenplayPageLayout.textBlockHeight(format)
+        guard textHeight > block else { return 1 }
+        let perSheet = format.pageRect.height + pageGap
+        return 1 + Int(((textHeight - block) / perSheet).rounded(.up))
     }
 
     /// Air kept at the sheet's right edge, so a fanned mark never sits on it.

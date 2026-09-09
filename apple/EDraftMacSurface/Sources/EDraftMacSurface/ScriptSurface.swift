@@ -210,8 +210,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                         // fingers own the size from there.
                         self.cancelSettle()
                         self.isLiveMagnifying = true
+                        self.syncHorizontalCentring()
                     } else {
                         self.isLiveMagnifying = false
+                        self.syncHorizontalCentring()
                         self.settleAfterGesture()
                     }
                 }
@@ -231,7 +233,18 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             object: scrollView.contentView,
             queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.applyZoomForCurrentSize() }
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                // A frame during the column's slide is the slide, not a new
+                // preference: reschedule the drift and leave the fit for
+                // when the room stops moving.
+                if self.isLentTransitioning {
+                    self.lentGeneration += 1
+                    self.scheduleLentDrift()
+                    return
+                }
+                self.applyZoomForCurrentSize()
+            }
         }
         textView.delegate = self
         ghost.onAccept = { [weak self] in self?.acceptPrediction() }
@@ -277,6 +290,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         editor.onNativeRedo = { [weak self] in self?.performNativeRedo() ?? false }
         editor.onClearNativeUndo = { [weak self] in self?.clearNativeUndoHistory() }
         editor.onZoom = { [weak self] command in self?.applyZoom(command) }
+        editor.onThreadColumn = { [weak self] opened in self?.threadColumn(opened: opened) }
         editor.onSetEditing = { [weak self] editing in
             guard let self else { return }
             if editing {
@@ -430,15 +444,57 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     /// The line at the top of what the writer can see, and how far below the
     /// viewport's edge it sits.
+    ///
+    /// The edge does not always land on a line. In `pages` it can land on the
+    /// desk between sheets — an exclusion band with no glyphs in it at all —
+    /// and there the layout engine's answer to "what is here" is the
+    /// *nearest* glyph, which can sit a whole margin pair above the window,
+    /// invisible. That line cannot be the anchor: pinning it would hold
+    /// something the writer cannot see while everything they *can* see jumps
+    /// the height of the band the moment the band goes away. The anchor is
+    /// the first line whose fragment reaches the edge — the first words
+    /// actually on the glass.
     private func anchoredLine() -> (location: Int, offset: CGFloat)? {
         guard let layoutManager = textView.layoutManager,
               let container = textView.textContainer else { return nil }
         let visible = scrollView.contentView.bounds
         let inText = canvas.convert(NSPoint(x: 0, y: visible.minY), to: textView)
-        let glyph = layoutManager.glyphIndex(for: inText, in: container)
+        // The layout engine reckons in the container's coordinates, which the
+        // inset puts a few points above the view's own.
+        let top = NSPoint(
+            x: inText.x - textView.textContainerOrigin.x,
+            y: inText.y - textView.textContainerOrigin.y
+        )
+        var glyph = layoutManager.glyphIndex(for: top, in: container)
+        if glyph < layoutManager.numberOfGlyphs,
+           layoutManager.lineFragmentRect(forGlyphAt: glyph, effectiveRange: nil).maxY <= top.y,
+           let below = firstGlyph(reachingBelow: top.y, from: glyph, in: layoutManager) {
+            glyph = below
+        }
         let location = layoutManager.characterIndexForGlyph(at: glyph)
         guard let rect = boundingRect(atCharacter: location) else { return nil }
         return (location, canvas.convert(rect, from: textView).minY - visible.minY)
+    }
+
+    /// The first glyph whose line fragment reaches at or below `top`,
+    /// counting down from `glyph` — the far side of a desk band, never more
+    /// than a margin pair away. Past the end of the text there is no such
+    /// line, and the caller keeps the glyph it was given.
+    private func firstGlyph(
+        reachingBelow top: CGFloat,
+        from glyph: Int,
+        in layoutManager: NSLayoutManager
+    ) -> Int? {
+        var found: Int?
+        layoutManager.enumerateLineFragments(
+            forGlyphRange: NSRange(location: glyph, length: layoutManager.numberOfGlyphs - glyph)
+        ) { rect, _, _, glyphRange, stop in
+            if rect.maxY > top {
+                found = glyphRange.location
+                stop.pointee = true
+            }
+        }
+        return found
     }
 
     private func scrollBack(to anchor: (location: Int, offset: CGFloat)?) {
@@ -566,7 +622,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // Never while the magnification is moving on its own: a pinch owns
         // it between willStart and didEnd, the settle until it lands on the
         // grid. Setting it from here is what made the page shrink and bounce.
-        guard !isLiveMagnifying, !isAnimatingSettle,
+        // Nor during the column's slide: the room and the borrow would be
+        // read mid-change, and disagree. The debounced drift fits the room
+        // the slide lands on.
+        guard !isLiveMagnifying, !isAnimatingSettle, !isLentTransitioning,
               scrollView.contentView.frame.width > 1 else { return }
         if applyPreferredMagnification() {
             layOut()
@@ -579,9 +638,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     /// The size the writer is working at, as distinct from the size on screen.
     ///
-    /// They are the same thing until the percentage button is used: that shows
-    /// actual size *temporarily*, so pressing it twice must give back the size
-    /// that was there before rather than leaving the writer to find it again.
+    /// They are the same thing until the size is borrowed: the percentage
+    /// button shows actual size *temporarily*, and a thread column beside the
+    /// page fits whatever room is left while it is open. A borrowed size is
+    /// always given back — pressing the button twice, or closing the column,
+    /// returns the size that was there before rather than leaving the writer
+    /// to find it again.
     private enum SizePreference {
         /// Follow the window. The default, because it needs no decision and no
         /// setting to remember.
@@ -603,27 +665,117 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// Whether the percentage button is currently holding the page at 100%.
     private var atActualSize = false
 
+    /// Whether the thread column beside the page has borrowed the size.
+    ///
+    /// While it is open the page fits the room that is left; the writer's
+    /// preference waits, untouched, and comes back when the column closes.
+    /// Any size the writer asks for in the meantime — a pinch, ⌘+, the menu —
+    /// ends the borrow on the spot: the last explicit choice is the one that
+    /// stands.
+    private var sizeLentToThread = false
+
+    /// True between a thread column's open or close and the drift that
+    /// answers it — the slide's duration, plus a breath. The frame
+    /// observer's fits stand down for it: read then, the new room and the
+    /// old borrow would disagree, and the page would snap.
+    private var isLentTransitioning = false
+
+    /// How many times the transition's geometry has moved. Every layout
+    /// frame of the column's slide bumps it, and the drift is scheduled by
+    /// the latest number — so only the settled room is ever fitted.
+    private var lentGeneration = 0
+
     func applyZoom(_ command: PageZoom.Command) {
         // A command that arrives mid-settle means the writer has somewhere
         // else to be: stop the drift where it is and answer from there.
         cancelSettle()
         switch command {
         case .fit:
+            // The menu's fit is the writer's own choice — it outlives the
+            // column, so it ends the borrow rather than sitting under it.
             preference = .fit
             atActualSize = false
+            sizeLentToThread = false
         case .zoomIn, .zoomOut:
+            // An explicit size ends the thread's borrow: from here the
+            // writer's own choice is the one that stands.
             preference = .fixed(PageZoom.stepped(from: scrollView.magnification, command))
             atActualSize = false
+            sizeLentToThread = false
         case .actualSize:
             // Leaves the preference alone, so the percentage button still
             // knows where to go back to. ⌘0 and that button are the same
-            // gesture reached two ways.
+            // gesture reached two ways. The thread's borrow is left alone
+            // too: actual size borrows the lent size, it does not end the
+            // lend — pressing the button twice beside an open thread returns
+            // to the fit it left in place, not to a size that fits no longer.
             atActualSize = true
         case .toggleActualSize:
             atActualSize.toggle()
         }
         layOut()
         if applyPreferredMagnification() { layOut() }
+        updateGhost()
+    }
+
+    /// The thread column beside the page opened, or closed.
+    ///
+    /// Open, the page lends the room: it fits whatever the column leaves,
+    /// down to actual size and never below — the same floor as every fit.
+    /// Closed, the writer's own size comes back. Both are drifts, never
+    /// snaps: the column arriving is change enough without the page jumping
+    /// to meet it.
+    func threadColumn(opened: Bool) {
+        if opened {
+            guard !sizeLentToThread else { return }
+            sizeLentToThread = true
+        } else {
+            guard sizeLentToThread else { return }
+            sizeLentToThread = false
+        }
+        // A pinch owns the size until the fingers lift; the gesture's settle
+        // is the next writer of it, and an explicit size ends the borrow
+        // anyway.
+        guard !isLiveMagnifying else { return }
+        cancelSettle()
+        // A windowless surface — the test harness — has no layout pass
+        // coming: the room is what it is. With a window, the column slides
+        // for a fifth of a second and every frame of the slide is a new
+        // room, so the drift waits for the slide to fall quiet; until then
+        // the frame observer's fits stand down.
+        if scrollView.window == nil {
+            driftToPreferredSize()
+        } else {
+            isLentTransitioning = true
+            lentGeneration += 1
+            scheduleLentDrift()
+        }
+    }
+
+    /// Schedules the drift that ends a column's slide. A debounce, not a
+    /// delay: every layout frame of the slide reschedules it, so it runs
+    /// only once the room has been still for a breath — fitting the room
+    /// the slide landed on, never a guess partway.
+    private func scheduleLentDrift() {
+        let generation = lentGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in
+            guard let self, self.isLentTransitioning, self.lentGeneration == generation else { return }
+            self.isLentTransitioning = false
+            self.driftToPreferredSize()
+        }
+    }
+
+    /// Moves the page to the size the current preference and room ask for,
+    /// as a drift rather than a snap. A size asked for mid-transition — the
+    /// column's slide — is not lost: this reads the preference when it
+    /// fires, so the last choice is the one it glides to.
+    private func driftToPreferredSize() {
+        let target = atActualSize ? PageZoom.actualSize : preferredMagnification()
+        if abs(target - scrollView.magnification) > 0.001 {
+            drift(to: target)
+        } else {
+            reportZoom(scrollView.magnification)
+        }
         updateGhost()
     }
 
@@ -637,27 +789,40 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// arriving mid-gesture used to reach this point via `remeasure` and
     /// set the *old* preference back, snapping the page out from under the
     /// fingers. That is why a pinch used to take several attempts to stick.
+    /// A thread column owns it for the turn its layout takes, too: read
+    /// then, the new room and the old borrow would disagree, and the page
+    /// would snap.
     @discardableResult
     private func applyPreferredMagnification() -> Bool {
-        guard !isLiveMagnifying, !isAnimatingSettle else { return false }
+        guard !isLiveMagnifying, !isAnimatingSettle, !isLentTransitioning else { return false }
         return magnify(to: atActualSize ? PageZoom.actualSize : preferredMagnification())
     }
 
     private func preferredMagnification() -> CGFloat {
+        // A borrowed size always fits the room the column left; the writer's
+        // own preference is not consulted until the column gives it back.
+        if sizeLentToThread { return fitting(scrollView.contentView.frame.width) }
         switch preference {
-        case .fixed(let value): value
-        case .fit:
-            // The clip view's *frame* is the width in screen points; its bounds
-            // are already divided by the magnification, which is the number
-            // being solved for here.
-            scrollView.contentView.frame.width > 1
-                ? PageZoom.fitting(
-                    canvasWidth: scrollView.contentView.frame.width,
-                    pageWidth: PageFormat.current.pageRect.width,
-                    padding: canvas.canvasPadding
-                )
-                : scrollView.magnification
+        case .fixed(let value): return value
+        case .fit: return fitting(scrollView.contentView.frame.width)
         }
+    }
+
+    /// As large as the room allows, within the same bounds as everything
+    /// else — or the size the page already has, when the clip has not been
+    /// laid out enough to say.
+    ///
+    /// The clip view's *frame* is the width in screen points; its bounds are
+    /// already divided by the magnification, which is the number being solved
+    /// for here.
+    private func fitting(_ clipWidth: CGFloat) -> CGFloat {
+        clipWidth > 1
+            ? PageZoom.fitting(
+                canvasWidth: clipWidth,
+                pageWidth: PageFormat.current.pageRect.width,
+                padding: canvas.canvasPadding
+            )
+            : scrollView.magnification
     }
 
     @discardableResult
@@ -716,6 +881,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let target = PageZoom.settled(landed)
         preference = .fixed(target)
         atActualSize = false
+        // A pinch is an explicit size, and the last explicit choice stands:
+        // the thread's borrow ends where the fingers finish.
+        sizeLentToThread = false
         // The canvas is measured in document coordinates, which a pinch
         // changes: zooming out widens the viewport and the card has to be
         // re-centred in it, or the page sits where it was — against the left
@@ -748,11 +916,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private var settleFrom: CGFloat = 0
     private var settleTo: CGFloat = 0
     private var settleBegan: CFTimeInterval = 0
+    private var settleDuration: CFTimeInterval = 0
 
-    /// How long the drift takes. Slow enough to read as a drift rather than
-    /// a jump, quick enough that the page is never still moving after the
-    /// writer has left it.
-    private static let settleDuration: CFTimeInterval = 0.28
+    /// How long a drift of a given distance takes. Consistent velocity
+    /// rather than constant time: a half-point nudge taking as long as a
+    /// full hop to the next stop would feel syrupy, and the reverse — a
+    /// long hop in a short time — is what reads as jerky.
+    private static func driftDuration(for distance: CGFloat) -> CFTimeInterval {
+        min(0.38, 0.16 + 6.4 * distance)
+    }
 
     /// Walks the magnification from where the fingers left it to the stop
     /// they were nearest.
@@ -774,8 +946,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         }
         cancelSettle()
         isAnimatingSettle = true
+        syncHorizontalCentring()
         settleFrom = scrollView.magnification
         settleTo = target
+        settleDuration = Self.driftDuration(for: abs(target - settleFrom))
         settleBegan = CACurrentMediaTime()
         let link = scrollView.displayLink(
             target: SettleRelay(self), selector: #selector(SettleRelay.tick(_:))
@@ -784,18 +958,21 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         settleLink = link
     }
 
-    /// One frame of the drift. The ease is a smoothstep — zero velocity at
-    /// both ends and never past the target — so the page glides onto the
-    /// stop the way the rubber-band returns at the limits, minus the bounce.
+    /// One frame of the drift. The ease is a smootherstep — position,
+    /// velocity and acceleration all continuous at both ends, and never past
+    /// the target — so the page glides onto the stop the way the rubber-band
+    /// returns at the limits, minus the bounce.
     fileprivate func settleFrame() {
-        let t = min(max((CACurrentMediaTime() - settleBegan) / Self.settleDuration, 0), 1)
+        let t = min(max((CACurrentMediaTime() - settleBegan) / settleDuration, 0), 1)
         guard t < 1 else {
             let target = settleTo
-            cancelSettle()
+            // Magnify before standing down, so the last frame's bounds
+            // proposal is still made under the drift's centring.
             magnify(to: target)
+            cancelSettle()
             return
         }
-        let eased = t * t * (3 - 2 * t)
+        let eased = t * t * t * (t * (6 * t - 15) + 10)
         // Written directly rather than through `magnify`: each frame is
         // reported by the magnification observer like a gesture is, and
         // `isAnimatingSettle` is what tells the two apart.
@@ -810,6 +987,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         settleLink?.invalidate()
         settleLink = nil
         isAnimatingSettle = false
+        syncHorizontalCentring()
+    }
+
+    /// Whether the clip view pins the page to the window's midline — true
+    /// exactly while a pinch or its landing drift owns the size. Derived
+    /// from the two flags rather than set on its own, so it can never
+    /// disagree with them.
+    private func syncHorizontalCentring() {
+        (scrollView.contentView as? CentringClipView)?.centresHorizontally =
+            isLiveMagnifying || isAnimatingSettle
     }
 
     /// A pinch whose didEnd never arrived — the window closed or was torn
@@ -819,6 +1006,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private func recoverFromInterruptedGesture() {
         cancelSettle()
         isLiveMagnifying = false
+        syncHorizontalCentring()
     }
 
     /// The writer changed what the page is made of.
@@ -908,8 +1096,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     }
 
     /// `NSScrollView` keeps the clip-view centre when magnification
-    /// changes. The opening size is 1.5×, so a window that first lays
-    /// out at 100% and then magnifies lands about a third of a screen
+    /// changes. The opening size is 1.25×, so a window that first lays
+    /// out at 100% and then magnifies lands about a tenth of a screen
     /// down the page: the first line is off the top, the next is cut
     /// in half. Pin once, after that size is actually applied, and
     /// never again — a later ⌘+ must not jump the writer to page one.
@@ -1129,10 +1317,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // is what gives the text editor a caret. On the next turn, because
         // the window does not exist until the popover has finished showing.
         DispatchQueue.main.async { [weak popover] in
-            guard let content = popover?.contentViewController?.view,
-                  let window = content.window else { return }
+            guard let window = popover?.contentViewController?.view.window else { return }
             window.makeKeyAndOrderFront(nil)
-            window.makeFirstResponder(content)
         }
     }
 

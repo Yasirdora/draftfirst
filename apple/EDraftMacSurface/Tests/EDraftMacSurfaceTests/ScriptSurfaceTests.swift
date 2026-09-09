@@ -77,7 +77,7 @@ final class ScriptSurfaceTests: XCTestCase {
     ///
     /// The window has to be measured at the size the page is *drawn*, not at
     /// its own metrics: a document opens at `PageZoom.opening`, so one letter
-    /// sheet plus its desk padding needs 864 × 1.5 points of height before it
+    /// sheet plus its desk padding needs 864 × 1.25 points of height before it
     /// fits. Sizing this at 1000 was right until the opening zoom landed and
     /// wrong the moment it did.
     func testAScriptThatFitsIsStillAnswered() throws {

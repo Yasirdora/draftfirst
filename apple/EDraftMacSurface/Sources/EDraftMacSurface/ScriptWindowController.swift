@@ -60,12 +60,28 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         static let zoom = "eDraft.zoom"
     }
 
+    /// The width a new window opens at: the page at the opening size with
+    /// its desk margins either side, beside the Navigator at its smallest
+    /// (240) and the divider (1). The sidebar's automatic width is a
+    /// fraction of the window's, which at this size comes out under its
+    /// minimum — so the minimum is what it opens at, and this arithmetic
+    /// holds. What the window tests measure against.
+    static var openingWidth: CGFloat {
+        let desk = (PageFormat.current.pageRect.width + PageCanvasView.deskPadding * 2)
+            * PageZoom.opening
+        return 240 + 1 + desk.rounded()
+    }
+
     public init(editor: EditorState) {
         self.editor = editor
-        // Wide enough to hold a page at a size a person can read: a 240-point
-        // Navigator leaves 1040 for the page, which draws it at about 1.5×.
+        // As wide as the page at the opening size with its desk margins,
+        // beside the Navigator at its smallest and the divider — no wider,
+        // so the margins a new window opens with are the page's own, tiny
+        // and equal, and the page never starts life scrolled sideways.
+        // Derived rather than stated: the width and the opening zoom cannot
+        // drift apart this way.
         super.init(
-            contentSize: NSSize(width: 1280, height: 860),
+            contentSize: NSSize(width: Self.openingWidth, height: 860),
             minimumSize: NSSize(width: 720, height: 480)
         )
         let state = self.state
@@ -370,6 +386,11 @@ private struct DeskColumn: View {
     let editor: EditorState
     @Bindable var state: ScriptWindowState
 
+    /// Whether the thread column is on screen. Focus mode hides it without
+    /// un-choosing the character, so this — not the choice — is the truth
+    /// the page's room follows.
+    private var threadOpen: Bool { !state.isFocused && state.selectedCharacter != nil }
+
     var body: some View {
         HStack(spacing: 0) {
             // Sidebar, list, content — Notes' arrangement, and the Mac's.
@@ -399,15 +420,23 @@ private struct DeskColumn: View {
                     if !state.isFocused { PageZoomControl(editor: editor) }
                 }
         }
+        // The column slides rather than pops: one animation on the row, so
+        // every path that opens or closes the thread — choosing a character,
+        // dismissing it, focus mode — moves the same way.
+        .animation(.easeInOut(duration: 0.22), value: threadOpen)
         .sheet(isPresented: $state.showingTitlePage) {
             TitlePageSheet(editor: editor)
         }
         // The thread takes 260 points from the desk, and gives them back. The
-        // page fits whatever is left, on the next turn so the column has been
-        // laid out first — a page drawn at 150% beside a thread does not fit
-        // the window, and a writer should not have to zoom it themselves.
-        .onChange(of: state.selectedCharacter == nil) { _, _ in
-            DispatchQueue.main.async { editor.onZoom?(.fit) }
+        // page lends the room — fitting whatever is left while the column is
+        // open, and returning the writer's own size when it closes. Told as
+        // the slide begins, so the borrow and the column always agree on
+        // which came first; the surface holds its drift until the slide has
+        // landed. Focus mode hides the column without un-choosing the
+        // character, so the lend follows the column's visibility, not the
+        // choice.
+        .onChange(of: threadOpen) { _, open in
+            editor.onThreadColumn?(open)
         }
     }
 }
