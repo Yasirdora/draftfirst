@@ -101,7 +101,10 @@ final class PageCanvasView: NSView {
         let pageSize = format.pageRect.size
         let desk = canvasPadding
         let slack = ScreenplayPageLayout.glyphOverflow
-        let textWidth = ScreenplayPageLayout.textBlockWidth(format)
+        // The font's sixty characters, not the geometry's — see
+        // `ScriptLayout.pageMeasure`. A container of exactly 432 points wraps
+        // a full line one character early.
+        let textWidth = ScriptLayout.measuredTextWidth(for: format)
         let textBlock = ScreenplayPageLayout.textBlockHeight(format)
 
         // Enough paper for the words, whatever the paginator said.

@@ -108,10 +108,20 @@ final class ScriptSurfaceTests: XCTestCase {
             ScreenplayPageLayout.textLeft,
             accuracy: 0.5
         )
+        // Sixty Courier characters, not the 432 points the page geometry
+        // says that is. The font's advance is 7.201171875, so sixty of them
+        // need 432.0703125 and a container of exactly 432 wraps a full line
+        // one character early — see `ScriptLayout.pageMeasure`. The card
+        // above is still print metrics; only the type's own measure moved.
         XCTAssertEqual(
             surface.textView.frame.width,
-            ScreenplayPageLayout.textBlockWidth(.letter),
+            ScriptLayout.measuredTextWidth(for: .letter),
             accuracy: 0.5
+        )
+        XCTAssertGreaterThanOrEqual(
+            surface.textView.frame.width,
+            ScreenplayPageLayout.textBlockWidth(.letter),
+            "sixty characters must never be given less room than the block"
         )
         XCTAssertEqual(surface.canvas.pageView.layer?.borderWidth ?? 0, 0)
     }

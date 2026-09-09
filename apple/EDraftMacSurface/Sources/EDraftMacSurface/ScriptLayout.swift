@@ -1,5 +1,6 @@
 import AppKit
 import CoreText
+import EDraftEngine
 import EDraftCore
 import Foundation
 
@@ -146,8 +147,37 @@ public enum ScriptLayout {
     }
 
     /// The text-block width the page is set to — not the window.
+    ///
+    /// Sixty Courier characters as the font actually measures them, not the
+    /// 432 points the page geometry says that is. Courier 12's advance is
+    /// 7.201171875, so sixty of them are 432.0703125 — seven hundredths of a
+    /// point wider than the block. A container of exactly 432 therefore wraps
+    /// a full line at fifty-nine characters and pushes a word down, and every
+    /// full-measure paragraph gains a line.
+    ///
+    /// Measured on a production draft: the text view laid out one to two more
+    /// lines than the paginator counted on twenty-five of twenty-six pages,
+    /// so the type overran the foot of nearly every sheet and a character cue
+    /// was left stranded from its dialogue across the page break.
+    ///
+    /// Only full-measure elements were affected. Dialogue, parentheticals and
+    /// cues are given head and tail indents in character units, so their wrap
+    /// was always in characters; action, scene headings and transitions have
+    /// no indents and fall back to the container, which is this.
+    ///
+    /// This is the *screen's* measure. The printed page is unchanged — the
+    /// PDF places glyphs by character position rather than by wrapping — so
+    /// nothing here moves a word on paper.
     public static var pageMeasure: CGFloat {
-        ScreenplayPageLayout.textBlockWidth(PageFormat.current)
+        measuredTextWidth(for: PageFormat.current)
+    }
+
+    /// The width sixty of this font's characters really occupy, rounded up so
+    /// the sixtieth always fits.
+    public static func measuredTextWidth(for format: PageFormat) -> CGFloat {
+        let advance = ("0" as NSString).size(withAttributes: [.font: font(for: .action)]).width
+        guard advance > 0 else { return ScreenplayPageLayout.textBlockWidth(format) }
+        return (CGFloat(Paginator.pageWidthChars) * advance).rounded(.up)
     }
 
     // MARK: - Asking where an element is
