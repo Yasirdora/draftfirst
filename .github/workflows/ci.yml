@@ -55,10 +55,10 @@ jobs:
       # here is what stops the two apps from drifting: a rule that behaves
       # differently on the desktop fails in CI rather than in a writer's hands.
       - name: Engine
-        run: swift test --package-path ios/eDraftEngine
+        run: swift test --package-path apple/eDraftEngine
       - name: Core
-        run: swift test --package-path ios/EDraftCore
+        run: swift test --package-path apple/EDraftCore
       - name: Shared panels
-        run: swift test --package-path ios/EDraftUI
+        run: swift test --package-path apple/EDraftUI
       - name: Mac surface
-        run: swift test --package-path ios/EDraftMacSurface
+        run: swift test --package-path apple/EDraftMacSurface

@@ -303,7 +303,7 @@ This is the design problem that decides whether we feel native. Our answer:
 - [x] Verify toolchain: **Xcode 26.6, iOS 26.5 SDK + simulator runtime, Swift 6.3.3**
       (developer dir override: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`).
 - [x] Engine bundle step: `npm run ios:engine` — tsc → esbuild IIFE (25 KB) →
-      `ios/eDraft/Resources/edraft-engine.js`, sha256-pinned in `ENGINE-CHECKSUM.txt`,
+      `apple/eDraft/Resources/edraft-engine.js`, sha256-pinned in `ENGINE-CHECKSUM.txt`,
       **auto-verified in the real JavaScriptCore CLI on every build** (12-check smoke).
 - [x] Xcode project: iOS 26 target, SwiftUI, `EngineFacade` over JSC
       (classic pbxproj; all engine calls serialized on one queue).

@@ -11,7 +11,7 @@ two surfaces**, and the migration that gets us there without a rewrite.
 ## 1. Where the code actually is today
 
 Measured, not estimated — every Swift file in the iOS app target, by what it
-imports (`ios/eDraft`, 8,141 lines):
+imports (`apple/eDraft`, 8,141 lines):
 
 | File | Lines | Imports | Verdict |
 |---|---:|---|---|
@@ -137,12 +137,15 @@ with it.
    (the reveal mark), the *rule* moves to `EDraftCore` and each platform draws
    it.
 4. One document format. No macOS-only fields, ever.
+5. `SplitWindowKit` — the AppKit window `EDraftMacSurface` builds its window on —
+   knows nothing of screenplays, and the boundary check keeps it so. It is the
+   part of the Mac app the next app takes.
 
 ---
 
 ## 3. Directory layout
 
-The `ios/` folder becomes wrong the moment there is a Mac app. Proposed:
+The `apple/` folder becomes wrong the moment there is a Mac app. Proposed:
 
 ```
 apple/

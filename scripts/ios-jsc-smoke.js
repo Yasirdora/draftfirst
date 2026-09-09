@@ -2,7 +2,7 @@
  * JSC smoke harness — evaluated by the real JavaScriptCore CLI immediately
  * after the iOS engine bundle:
  *
- *   jsc ios/eDraft/Resources/edraft-engine.js scripts/ios-jsc-smoke.js
+ *   jsc apple/eDraft/Resources/edraft-engine.js scripts/ios-jsc-smoke.js
  *
  * Exercises the exact global contract the Swift EngineFacade depends on.
  * Any failure throws, which fails `npm run ios:engine`.

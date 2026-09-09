@@ -25,7 +25,7 @@ all yet, so you are adding one; the other three items are later boxes and must
 not appear.
 
 The control names the kind of line the caret is in, and lets a writer change it.
-The phone has had one for a long time — `ios/eDraft/Views/ElementModeControl.swift`
+The phone has had one for a long time — `apple/eDraft/Views/ElementModeControl.swift`
 — and **the Mac's must offer a writer the same thing the phone offers.** Read
 that file properly before you design anything. What it does is not obvious from
 its size, and copying its *shape* is not the same as offering the same thing.
@@ -68,18 +68,18 @@ and the two will disagree eventually.
 ## Verification
 
 Baseline — if every package dies with `missing required module 'SwiftShims'`,
-`rm -rf ios/*/.build`; that is a stale path, not a broken floor.
+`rm -rf apple/*/.build`; that is a stale path, not a broken floor.
 
 ```
 npm test                                              # 414
-swift test --package-path ios/eDraftEngine            #  95
-swift test --package-path ios/EDraftCore              #  84
-swift test --package-path ios/EDraftUI                #  18
-swift test --package-path ios/EDraftMacSurface        #  68
+swift test --package-path apple/eDraftEngine            #  95
+swift test --package-path apple/EDraftCore              #  84
+swift test --package-path apple/EDraftUI                #  18
+swift test --package-path apple/EDraftMacSurface        #  68
 npm run check:boundaries
-xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
+xcodebuild test -project apple/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'   # 96
-xcodebuild build -project ios/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
+xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   -configuration Debug CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
   DEVELOPMENT_TEAM=""
 ```

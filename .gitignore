@@ -33,8 +33,8 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # iOS / Xcode
-/ios/build/
-/ios/DerivedData/
+/apple/build/
+/apple/DerivedData/
 **/xcuserdata/
 **/*.xcuserstate
 

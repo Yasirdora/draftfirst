@@ -1,7 +1,7 @@
 /*
  * JSC benchmark harness (Phase 0, Spike B):
  *
- *   jsc [--useJIT=false] ios/eDraft/Resources/edraft-engine.js \
+ *   jsc [--useJIT=false] apple/eDraft/Resources/edraft-engine.js \
  *       scripts/ios-jsc-bench.js -- [sceneCount]
  *
  * --useJIT=false reproduces the interpreter-only JavaScriptCore that

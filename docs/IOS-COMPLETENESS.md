@@ -1,7 +1,7 @@
 # iOS Completeness Assessment
 
 **Date:** 2026-08-24
-**Scope:** Full audit of the iOS app (`ios/eDraft/`, `ios/eDraftEngine/`) against one question: *what stands between today's build and a truly complete professional screenwriting app for iPhone and iPad?*
+**Scope:** Full audit of the iOS app (`apple/eDraft/`, `apple/eDraftEngine/`) against one question: *what stands between today's build and a truly complete professional screenwriting app for iPhone and iPad?*
 **Method:** line-level review of the app surface, engine modules, document types, keyboard handling, and test coverage. Every claim below was verified in code, not assumed.
 
 ---

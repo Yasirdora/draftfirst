@@ -22,24 +22,24 @@ ahead.
 
 ```bash
 npm test                                              # 414 TypeScript
-swift test --package-path ios/eDraftEngine            #  95 engine
-swift test --package-path ios/EDraftCore              #  88 core        (macOS)
-swift test --package-path ios/EDraftUI                #  18 document/filter (macOS)
-swift test --package-path ios/EDraftMacSurface        #  76 Mac surface (macOS)
+swift test --package-path apple/eDraftEngine            #  95 engine
+swift test --package-path apple/EDraftCore              #  88 core        (macOS)
+swift test --package-path apple/EDraftUI                #  18 document/filter (macOS)
+swift test --package-path apple/EDraftMacSurface        #  76 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
-xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
+xcodebuild test -project apple/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 96 app
-xcodebuild build -project ios/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
+xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   -configuration Debug CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
   DEVELOPMENT_TEAM=""                                        # the Mac app
 ```
 
 If `swift test` fails in every package with `missing required module 'SwiftShims'`,
 the `.build` directories were compiled at an older path of this repo. That is
-not a broken floor: `rm -rf ios/*/.build` and run again.
+not a broken floor: `rm -rf apple/*/.build` and run again.
 
-The packages live at `ios/EDraftCore` and `ios/EDraftUI`, beside
-`ios/eDraftEngine`, and are wired into `ios/eDraft.xcodeproj` as local package
+The packages live at `apple/EDraftCore` and `apple/EDraftUI`, beside
+`apple/eDraftEngine`, and are wired into `apple/eDraft.xcodeproj` as local package
 references.
 
 **State of the tree:** the directory rename `DraftFirst → eDraft` is complete
@@ -114,10 +114,13 @@ moves it, and changes nothing else. Detail and file-by-file inventory in
       symbols, fewer than the estimate; the three other files given imports on
       the way did not need them, which the compiler was asked rather than
       trusted. 96 iOS tests passed before and after, unchanged in name.
-- [ ] **M0.6** *(optional, recommended)* adopt the `apple/` directory layout.
+- [x] **M0.6** adopt the `apple/` directory layout.
       *Proof:* clean checkout builds both schemes. Now the more adjacent of the
-      two — five packages live under `ios/`, and the folder's name has been
+      two — five packages live under `apple/`, and the folder's name has been
       wrong since the Mac app existed.
+      *Done 2026-09-08.* `git mv ios apple`; every path in the docs, the scripts,
+      CI and `.gitignore` followed, `.build` caches were dropped, and the boundary
+      check and both package builds were green afterwards.
 
 ### M1 — The spike · *the unknown is answered*
 
@@ -125,7 +128,7 @@ The question was whether the Mac's text system can tell us where an element is,
 since every scroll and every reveal is built on that. **It can — on both text
 systems.** Measured, not assumed: `EDraftMacSurface` is a package rather than
 app-target code precisely so the answer is a test rather than a demo, and
-`swift test --package-path ios/EDraftMacSurface` runs it in a fraction of a
+`swift test --package-path apple/EDraftMacSurface` runs it in a fraction of a
 second with no window ever shown.
 
 - [x] `ScriptLayout` sets the script for an `NSTextView` on either stack.
@@ -366,6 +369,93 @@ driven to Open that file; the import path calls the same extract.
 
 ---
 
+### M4 — Pages' toolbar: the window is AppKit's · *done 2026-09-08*
+
+The owner's prototype (a Freeform-style desk with a page) showed what the Mac
+window should be: the toolbar's Liquid Glass turning light as the white page
+passes under it, the script softening into the chrome, the sidebar native. Every
+piece of that was measured before it was built — see `SplitWindowController`'s
+comment for the numbers, and `docs/images/macos-toolbar-adaptive-2026-09-08.png`
+(paper page, chips light) and `macos-window-dark-page-2026-09-08.png` (dark page,
+chips dark) for what it looks like.
+
+- [x] **`SplitWindowKit`** — a new package holding the AppKit window that hosts
+      SwiftUI columns under a unified toolbar, and nothing about screenplays.
+      The boundary check forbids it importing any eDraft package. *Proof:* it
+      is the piece a second app takes unchanged.
+- [x] **`ScriptWindowController` replaces `ScriptWindow`.** Same Navigator,
+      thread column, page, zoom control and title page sheet; the toolbar is
+      `NSToolbar` (element menu, page/title page/export group, overflow) and
+      every action is a selector validated on the responder chain, so the
+      toolbar, the menu bar and a shortcut cannot disagree. The hand-drawn
+      top gradient and `toolbarBackgroundVisibility(.hidden)` are gone: the
+      system draws the edge now, and it is visible.
+- [x] **`ScreenplayDocument` (`NSDocument`) and `MainMenu` replace
+      `DocumentGroup` and the SwiftUI commands.** Save, Duplicate, Rename,
+      Move To, Revert, Versions, Open Recent, tabs and the Edited subtitle
+      come from the platform. The launch window is the same `LaunchWindow`,
+      in an `NSWindow`.
+- [x] *Proof:* `swift test --package-path apple/EDraftMacSurface` — 147, the
+      two element-control tests re-pointed at the menu and the toolbar title;
+      `xcodebuild` of `eDraft (macOS)` green; the app opened `Sample.fountain`,
+      real scroll events put the page under the toolbar, and the chips turned
+      light over paper and stayed dark over the dark page.
+- [x] **The prototype's launch gallery.** A document-style window — title,
+      a toolbar with the plus menu, the grid/list switch and the system search
+      field (`DeclaredToolbar`, reusable for any window) — over recents as lit
+      sheets in a grid, a list for those who prefer rows, and a per-script menu
+      — Rename, Duplicate, Favorite, Move to Trash — wired in the app, where
+      `NSDocumentController` can say whether a file is open and hand the
+      operation to that document. `LaunchModel.filtered` orders starred first;
+      `LaunchModelTests` cover it. *Done 2026-09-08.*
+- [x] **The prototype's toolbar.** Back before the title (the library first,
+      then the window closes), the element chip, Focus · Zoom in one glass,
+      then page · title page · export, then the overflow. Focus folds the
+      sidebar and takes the thread and zoom control off the desk.
+      *Done 2026-09-08.*
+- [x] **A format bar over a selection** — bold, italic, underline, centre, as
+      Fountain's own marks, applied through `insertText` so the planner sees
+      them as typing. `SelectionFormatBarTests`. The marks are Fountain's
+      notation and nothing else, which is why no engine rule was needed; if
+      the phone grows the same bar, `FormatMark` moves to the core.
+      *Done 2026-09-08.*
+- [x] **One window.** A script opens in the library's place — the document
+      window takes the library window's frame and the library closes — and
+      Back hands the frame back. "Open in New Window" on a card is the one
+      explicit exception. *Done 2026-09-08.*
+- [x] **The reveal mark was one line low, and faint.** `ScriptLayout.boundingRect`
+      answers in view coordinates, inset included; the surface, the find bar
+      and the format bar each added the inset again, and the inset is one line
+      of glyph headroom. Removed at all four sites; the mark is 36% accent
+      now. `RevealMarkPlacementTests` pins it. *Done 2026-09-08.*
+- [x] **The page refits when the thread opens or closes**, on the next turn
+      so the column has laid out. *Done 2026-09-08.*
+- [ ] **Owed.** Hand-QA Versions, Rename and Duplicate on a saved `.draft`,
+      iCloud Drive, and the one-window flow with an already-open script.
+
+### M5 — WYSIWYG emphasis · *planned 2026-09-08, not begun*
+
+The owner's requirement: the page shows bold, italic and underline as type,
+never as `**` and `_`; markup exists only where a file is written. Today the
+model carries plain text with Fountain's marks inside it, so the surface can
+only show the marks. This is an engine feature first, by rule 2, and the order
+is fixed:
+
+1. **TypeScript engine** — inline runs on an element (`{start, length,
+   styles}`), parsed from and serialised to Fountain's `*`/`**`/`_`; FDX
+   carries them as `<Style>`. Fixtures regenerated.
+2. **Swift engine** — the same, pinned by the conformance corpus.
+3. **Core** — `EditorState` and the planner keep runs through edits (a
+   deletion across a run boundary is the hard case; test it first).
+4. **Surfaces** — `ScriptLayout` draws runs as font traits and underline;
+   `applyMark` toggles a run instead of inserting marks. iOS follows.
+5. **Export** — unchanged for Fountain/FDX because the engine writes marks;
+   plain text drops them.
+
+Not to be done by hiding marks in the text view: the planner's ranges are the
+storage's, and characters that exist but do not draw broke the reveal twice
+already (HANDOFF §5).
+
 ## 2. Definition of done, every milestone
 
 1. All three suites green (§0).
@@ -392,7 +482,7 @@ driven to Open that file; the import path calls the same extract.
 
 None blocking. Two worth a decision when convenient:
 
-1. **`apple/` layout (M0.6)** — do it now while the tree is churning, or later?
+1. **`apple/` layout (M0.6)** — do it now while the tree is churning, or later? *Answered 2026-09-08: done.*
    Recommendation: now.
 2. **Mac App Store vs direct + notarised** — affects sandbox entitlements for
    iCloud and scanning-adjacent features. Recommendation: sandboxed and
@@ -409,7 +499,7 @@ None blocking. Two worth a decision when convenient:
 | 2026-09-06 | **Reversed: two panes.** The writer never formats, so a properties pane has nothing continuous to hold. | Pages' inspector is open *while you work*. Title, scene length and a rename are transient — a sheet or a Cast destination, not a column that clips the page. The right pane is reserved for comments/notes alongside the page. |
 | 2026-09-05 | Modularise before writing Mac code | 2,155 lines are portable but trapped in an app target. |
 | 2026-09-05 | No Catalyst, no Electron | Catalyst would ship iOS compromises to a desktop whose whole point is not having them. |
-| 2026-09-05 | Packages sit at `ios/EDraftCore` and `ios/EDraftUI` for now | The `apple/` move (M0.6) is still worth doing, but not while three other steps were in flight. |
+| 2026-09-05 | Packages sit at `apple/EDraftCore` and `apple/EDraftUI` for now | The `apple/` move (M0.6) is still worth doing, but not while three other steps were in flight. |
 | 2026-09-05 | Core and UI packages are main-actor-by-default; their **test** targets are not | Matches the app targets exactly, and XCTestCase cannot inherit main-actor isolation. |
 | 2026-09-05 | PDF via `CGPDFContext` + hex stamp; print is that PDF | `kCGPDFContextKeywords` writes a PDF string the extractor will not read. `NSPrintOperation` over a view would paginate twice. |
 | 2026-09-05 | **Reversed:** `/Keywords` is a PDF literal in the Info dict, not a `%%EOF` stamp | Measured: `(hex)` survives `PDFDocument` rewrite at 500KB. Trailing junk does not survive a re-save. Extractor widened in both engines. |
@@ -418,13 +508,14 @@ None blocking. Two worth a decision when convenient:
 | 2026-09-06 | The touch surface holds the page only; the Mac surface holds its window too | The iPad's chrome will not be the iPhone's. Inventing a shared one before the iPad exists produces a third that fits neither. |
 | 2026-09-06 | **Reversed:** the model capitalises ß to SS, as the engine always has | The refusal was a text view's UTF-16 arithmetic wearing a model's clothes, and three tests wrote it down — one saying outright that the model must follow the storage. Once the Mac shouted at the input boundary it cost a divergence: one keystroke, two files. |
 | 2026-09-06 | A character's thread is a column between Navigator and page, not a pushed destination | It is something to read *alongside* the page — the test §3 sets for a column — and it costs width only while a character is selected. Notes' shape, not Pages'. |
+| 2026-09-08 | The Mac's document window is `NSDocument` + `NSWindowController`, not `DocumentGroup` | Measured, not reasoned: the toolbar's glass adapts to the page only in a window AppKit created with an `NSSplitViewController` as its content — never in a SwiftUI window, whatever the split view, toolbar or style. The complexity the plan deferred was paid for by that one measurement, and Save, Duplicate, Rename, Versions, Open Recent and tabs came with it. |
 
 ---
 
 ## 4a. Building and running the Mac app
 
 ```bash
-xcodebuild build -project ios/eDraft.xcodeproj -scheme 'eDraft (macOS)' -configuration Debug
+xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' -configuration Debug
 ```
 
 **One environmental note.** Signing with the Developer identity asks the

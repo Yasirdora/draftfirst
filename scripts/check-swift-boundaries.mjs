@@ -19,33 +19,39 @@ import { join } from 'node:path';
 const LAYERS = [
 	{
 		name: 'EDraftEngine',
-		root: 'ios/eDraftEngine/Sources',
+		root: 'apple/eDraftEngine/Sources',
 		banned: ['UIKit', 'AppKit', 'SwiftUI', 'EDraftCore', 'EDraftUI'],
 		because: 'the rules of the craft are pure Foundation, and are pinned to the TypeScript engine'
 	},
 	{
 		name: 'EDraftCore',
-		root: 'ios/EDraftCore/Sources',
+		root: 'apple/EDraftCore/Sources',
 		banned: ['UIKit', 'AppKit', 'SwiftUI', 'EDraftUI'],
 		because: 'the app’s mind must compile for any surface, and must not draw'
 	},
 	{
 		name: 'EDraftUI',
-		root: 'ios/EDraftUI/Sources',
+		root: 'apple/EDraftUI/Sources',
 		banned: ['UIKit', 'AppKit'],
 		because: 'a shared panel that reaches for one platform’s views is no longer shared'
 	},
 	{
 		name: 'EDraftMacSurface',
-		root: 'ios/EDraftMacSurface/Sources',
+		root: 'apple/EDraftMacSurface/Sources',
 		banned: ['UIKit'],
 		because: 'the Mac surface is the one place AppKit belongs, and UIKit never does'
 	},
 	{
 		name: 'EDraftUIKitSurface',
-		root: 'ios/EDraftUIKitSurface/Sources',
+		root: 'apple/EDraftUIKitSurface/Sources',
 		banned: ['AppKit'],
 		because: 'the touch surface serves an iPhone and an iPad, and AppKit compiles for neither'
+	},
+	{
+		name: 'SplitWindowKit',
+		root: 'apple/SplitWindowKit/Sources',
+		banned: ['UIKit', 'EDraftEngine', 'EDraftCore', 'EDraftUI'],
+		because: 'the window kit is for any app; the moment it knows what a screenplay is, it stops being portable'
 	}
 ];
 

@@ -4,7 +4,9 @@
 For whoever picks this up next — human or otherwise.*
 
 Read this file first, then [MACOS-EXECUTION.md](MACOS-EXECUTION.md), which is
-the live working document with the milestone checkboxes. Everything below is
+the live working document with the milestone checkboxes, and
+[APPLE-PLATFORM-GUIDE.md](APPLE-PLATFORM-GUIDE.md) before touching a window,
+a toolbar or a text view on any Apple platform. Everything below is
 either state you need or a trap that has already cost someone hours.
 
 ---
@@ -38,8 +40,8 @@ reading a number, not by reasoning about what ought to happen.
 |---|---|
 | Branch | `rename/edraft` |
 | iOS app | Feature-complete for its own plan; ships |
-| macOS app | Greets on launch, page card, types, ghosts, finds, exports, prints. Title page is a sheet; Cast opens the character thread. Notes live in the margin. View modes and statistics still M3 |
-| Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface`, `EDraftUIKitSurface` |
+| macOS app | An AppKit document window (`NSDocument`, `ScriptWindowController`) around the SwiftUI panels, one window at a time with a launch gallery behind it: page card, types, ghosts, finds, exports, prints, format bar over a selection; the toolbar's glass turns light over the page, as Pages' does. Title page is a sheet; Cast opens the character thread and the page refits. Notes live in the margin. **Next: WYSIWYG emphasis (M5), view modes, statistics** |
+| Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface`, `EDraftUIKitSurface`, `SplitWindowKit` |
 | Xcode targets | `eDraft`, `eDraftTests`, `eDraft (macOS)` |
 
 **The green baseline.** Run all of it before you start and after every step. If
@@ -47,14 +49,14 @@ a number drops, you broke something.
 
 ```bash
 npm test                                              # 425 TypeScript
-swift test --package-path ios/eDraftEngine            # 112 engine
-swift test --package-path ios/EDraftCore              # 142 core        (macOS)
-swift test --package-path ios/EDraftUI                #  24 document    (macOS)
-swift test --package-path ios/EDraftMacSurface        # 147 Mac surface (macOS)
+swift test --package-path apple/eDraftEngine            # 112 engine
+swift test --package-path apple/EDraftCore              # 142 core        (macOS)
+swift test --package-path apple/EDraftUI                #  24 document    (macOS)
+swift test --package-path apple/EDraftMacSurface        # 147 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
-xcodebuild test -project ios/eDraft.xcodeproj -scheme eDraft \
+xcodebuild test -project apple/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 105 app
-xcodebuild build -project ios/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
+xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   -configuration Debug CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
   DEVELOPMENT_TEAM=""                                        # the Mac app
 ```
@@ -96,8 +98,14 @@ view, ScriptSurfaceView.            EDraftMacSurface  NSTextView layout and page
       ▲                                              and the window that
 eDraft (iOS)                                         arranges the panels
 nav-bar chrome, scanning,                 ▲
-keyboard bar, the panels            eDraft (macOS)   menus, document plumbing
+keyboard bar, the panels            eDraft (macOS)   NSDocument, the menu bar
 ```
+
+`EDraftMacSurface` stands on one more package, `SplitWindowKit`: the AppKit
+window that hosts SwiftUI columns under a unified toolbar. It knows nothing
+about screenplays — the boundary check forbids it importing any eDraft package
+— because it is the piece the next app takes. Its comment carries the
+measurement that made the Mac go AppKit for its window.
 
 The two surfaces sit at different heights on purpose: the Mac's holds the
 window, so it is above `EDraftUI`; the phone's holds only the page, because the
@@ -124,7 +132,7 @@ prevent.**
    mentions a view, the rule is in the wrong place.
 2. **TypeScript is the source of truth for engine behaviour.** Change
    `packages/edraft/src/*`, then `npm run package:build && npm run
-   engine:conformance` to regenerate `ios/eDraftEngine/Fixtures/`, then make the
+   engine:conformance` to regenerate `apple/eDraftEngine/Fixtures/`, then make the
    Swift port match. Never the other way round.
 3. **`EDraftCore` may not import SwiftUI, UIKit or AppKit.** Enforced —
    `npm run check:boundaries`, wired into `npm run quality`.
@@ -136,6 +144,13 @@ prevent.**
 ## 4. What to do next
 
 The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
+
+0. **WYSIWYG emphasis — M5, planned and not begun.** The owner's requirement:
+   bold, italic and underline drawn as type on the page, marks only in files.
+   The model has no inline runs today, so it is engine-first (TypeScript, then
+   the Swift port and its corpus, then core, then both surfaces). The order
+   and the trap to avoid are written under M5. Do not hide marks in the text
+   view instead.
 
 1. **Notes on iPhone.** The document half is done and shared — `ScriptNotes`
    splits them off the page, `EditorState` owns them, FDX and Fountain both
@@ -149,7 +164,7 @@ The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
    pane has nothing continuous to hold. Format → Element, Scene Numbers,
    File → Title Page, and the Cast thread are done.
 3. **Writing-assistance settings**, shared with iOS.
-4. **M0.6**, optional: move to an `apple/` directory layout. The `ios/` name is
+4. **M0.6**, optional: move to an `apple/` directory layout. The `apple/` name is
    now wrong for a tree with a Mac app in it.
 
 Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
@@ -170,7 +185,7 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
   CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=""`.
 - **`swift test` failing every package with `missing required module 'SwiftShims'`**
   is a stale `.build` from when this repo lived at another path, not a broken
-  floor. `rm -rf ios/*/.build` and run again.
+  floor. `rm -rf apple/*/.build` and run again.
 - **When the Mac's screen is locked**, `screencapture` returns black and the
   accessibility API reports zero windows. Neither means the app is broken. Use
   `CGWindowListCopyWindowInfo` to see what really exists — there is a working
@@ -183,11 +198,32 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
   swaps Y and Z. Typing "DAY" into the simulator produces "DAZ". This was once
   reported as a text-corruption bug in the app; it was the harness.
 - **Xcode is not being driven interactively.** New files must be added to
-  `ios/eDraft.xcodeproj/project.pbxproj` by hand: a `PBXBuildFile`, a
+  `apple/eDraft.xcodeproj/project.pbxproj` by hand: a `PBXBuildFile`, a
   `PBXFileReference`, a group child, and a Sources entry. There are several
   worked examples in the git history — copy one.
 
+- **`pgrep -f` and `pkill -f` take a regex.** `eDraft (macOS)` matches nothing
+  until the parentheses are escaped; a capture script that "finds no process"
+  is usually this. Launch the built app with `open -n -a`, then find it by pid.
+
 **Code**
+
+- **A SwiftUI window never lets the toolbar's glass adapt to the page.** Measured
+  on macOS 26.5 with real scroll events: `NavigationSplitView` in every style,
+  with or without its sidebar toggle, and with an `NSToolbar` installed on the
+  SwiftUI window — the chips stay dark over white paper. An `NSSplitViewController`
+  hosted *inside* a SwiftUI window loses the full-height sidebar and the toggle.
+  Only a window AppKit created, with the split view controller as its content,
+  does it all — which is what `SplitWindowController` is, and why the Mac app
+  is `NSDocument`-based. Do not put `NavigationSplitView` back.
+- **Setting `contentViewController` resizes the window** to the controller's
+  view — a fresh `NSSplitViewController` gave 1093×500 for a window created
+  at 1280×860. State the size again after assigning it.
+- **`ScriptLayout.boundingRect` is already in view coordinates.** It adds
+  `textContainerOrigin`, which is the inset. Adding `textContainerInset` again
+  moved the reveal mark, the find bar's highlight and the format bar one line
+  low — the inset is exactly one line of glyph headroom — and nothing in 147
+  tests noticed until a screenshot did. `RevealMarkPlacementTests` now looks.
 
 - **Geometry read from a text view is a *result* of laying out.** `contentSize`
   on iOS, and the text view's own height on macOS, are not recomputed when the
@@ -266,7 +302,7 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
   typing regression.** It compiles under `EDITOR_PREVIEW` and asserts with
   `precondition()`, so a violation crashes the app:
   ```bash
-  xcodebuild build -project ios/eDraft.xcodeproj -scheme eDraft \
+  xcodebuild build -project apple/eDraft.xcodeproj -scheme eDraft \
     -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
     SWIFT_ACTIVE_COMPILATION_CONDITIONS='DEBUG EDITOR_PREVIEW'
   # then install and launch with one of:
