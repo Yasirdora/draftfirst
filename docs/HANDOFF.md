@@ -48,11 +48,11 @@ reading a number, not by reasoning about what ought to happen.
 a number drops, you broke something.
 
 ```bash
-npm test                                              # 425 TypeScript
-swift test --package-path apple/eDraftEngine            # 112 engine
-swift test --package-path apple/EDraftCore              # 142 core        (macOS)
-swift test --package-path apple/EDraftUI                #  24 document    (macOS)
-swift test --package-path apple/EDraftMacSurface        # 147 Mac surface (macOS)
+npm test                                              # 428 TypeScript
+swift test --package-path apple/eDraftEngine          # 112 engine
+swift test --package-path apple/EDraftCore            # 149 core        (macOS)
+swift test --package-path apple/EDraftUI              #  24 document    (macOS)
+swift test --package-path apple/EDraftMacSurface      # 153 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project apple/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 105 app
@@ -152,20 +152,30 @@ The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
    and the trap to avoid are written under M5. Do not hide marks in the text
    view instead.
 
-1. **Notes on iPhone.** The document half is done and shared — `ScriptNotes`
+1. **The outline has no home.** `Outline 1/2/3` and `Summary` now read as
+   sections and synopses instead of printing as stage directions, and
+   `ScriptAsides` keeps them off the page — so a Final Draft file opens
+   looking the way it does with the Outline Editor toggled off, and its page
+   count is right at last. What is missing is the toggle's other position:
+   nowhere in the app shows a writer their own act structure. The Navigator
+   is the home (a third tab beside Scenes and Cast), not a mode of the page —
+   Final Draft's Outline Editor is a panel for the same reason.
+2. **Notes on iPhone.** The document half is done and shared — `ScriptAsides`
    splits them off the page, `EditorState` owns them, FDX and Fountain both
    carry them. What the phone has no UI for yet is seeing or leaving one:
    a mark in the margin is a Mac affordance, and the phone's answer is the
    selection context menu ("Add Note") plus somewhere to read them. Until
    that lands, a note opened on iPhone is invisible — preserved on save, but
-   invisible, which is the gap to close first.
-2. **View modes** (Page · Typewriter · Focus) and statistics in the
+   invisible.
+
+   Both of these are the same shape, and it is worth naming: the document
+   half of a feature is cheap to land and invisible when it is wrong. A
+   writer cannot tell a note that saved from one that vanished.
+3. **View modes** (Page · Typewriter · Focus) and statistics in the
    status area — remaining M3. The inspector was retired: a properties
    pane has nothing continuous to hold. Format → Element, Scene Numbers,
    File → Title Page, and the Cast thread are done.
-3. **Writing-assistance settings**, shared with iOS.
-4. **M0.6**, optional: move to an `apple/` directory layout. The `apple/` name is
-   now wrong for a tree with a Mac app in it.
+4. **Writing-assistance settings**, shared with iOS.
 
 Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
 `EDraftCore.ScreenplayPageLayout`; each surface draws the runs. A second
@@ -265,6 +275,15 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
 - **`osascript` is not allowed assistive access** in this environment.
   System Events cannot read the menu bar or type. `CGWindowListCopyWindowInfo`
   still sees windows. Do not report a UI confirmation you could not drive.
+
+  It does not fail cleanly, which is what makes it expensive. `keystroke`
+  partly lands: measured on 2026-09-09, typing into a note's popover put the
+  characters into the *script* instead and left `ACEINT. LAB - DAY` in the
+  document, and reading the window list with System Events pressed a note
+  marker's accessibility action and opened its card. Both were then chased as
+  app bugs. If a UI needs driving, synthesise `CGEvent` clicks at coordinates
+  read from `CGWindowListCopyWindowInfo`, and read the result from a
+  screenshot — never from AppleScript.
 - **`NSTextView.replaceCharacters(in:with:)` does not go through
   `shouldChangeTextIn`.** Find's Replace would desync the model. The Mac
   find bar is the system one with Replace disabled (`FindBarClient.isEditable

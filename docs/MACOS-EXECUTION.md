@@ -433,6 +433,62 @@ chips dark) for what it looks like.
 - [ ] **Owed.** Hand-QA Versions, Rename and Duplicate on a saved `.draft`,
       iCloud Drive, and the one-window flow with an already-open script.
 
+### M4.5 — Notes and the outline · *2026-09-07/09*
+
+What a Final Draft file carries beside the script, and what the app was doing
+with it. Both halves were found the same way: opening the owner's two
+production drafts and counting.
+
+- [x] **A Note is a line that does not print.** `Type="Note"` had no entry in
+      the FDX map, so every one fell through to General — and General prints.
+      Six across the two features, set in Courier among the stage directions.
+      Mapped to the `note` the model already had and to Fountain's `[[ ]]`,
+      both directions. *Measured:* six in, six read, six through the Fountain
+      a `.draft` is stored as, six written back, no-edit resave still
+      byte-identical. *Done 2026-09-07,* `c5e015f`.
+- [x] **A note is beside the page, not on it.** A mark in the right margin —
+      the marks margin, where revision asterisks go — beside a line washed in
+      the same yellow, and a card on click: the words, Delete at the head,
+      and at the foot either the way through the others or Done. Pages'
+      comment minus the half that makes it a conversation; there is no author,
+      date or Reply because none of the three formats has anywhere to put one.
+      *Done 2026-09-07,* `284be2e`.
+
+      Three things measured rather than reasoned about:
+      **SwiftUI's `onDisappear` does not reliably run when an `NSPopover`
+      closes** — a note edited and dismissed kept its old text on disk; the
+      card reports every keystroke and `popoverDidClose` writes it.
+      **An SF Symbol takes its colour from the view that hosts it**, so
+      `NSColor.set()` before `NSImage.draw(in:)` is ignored and the mark came
+      out black; `NSImageView.contentTintColor` is the mechanism.
+      **Stepping to the next note revealed its line unconditionally**, which
+      scrolled it to the top and took the caret with it — it now scrolls only
+      when the mark is off screen.
+- [x] **The outline is a writer's structure, not stage directions.**
+      `Outline 1/2/3` and `Summary` had no entries either, so 82 headings and
+      57 summaries printed as action — and took the page count with them,
+      because a section does not paginate and General does. Mapped to the
+      `section` (with its level) and `synopsis` the model already had, which
+      is what Fountain's `#`/`##`/`###` and `=` mean, and they now export back
+      as themselves; a page break is the only thing FDX has no paragraph for.
+      *Measured on the owner's files:* unknown paragraph types 99 → 0 and
+      33 → 0, pages 32 → 28 and 28 → 27, resave still byte-identical.
+      Final Draft lets a writer rename the levels — the same writer sent both
+      `Outline 1` and `Outline 1 (Acts)` — so the number rules and the name in
+      brackets is ignored. *Done 2026-09-09,* `ebe81aa`.
+- [x] **One seam for everything that is not on the page.** The outline
+      mapping immediately broke the page: a section stopped paginating while
+      the surface still rendered it, so the text view was four pages taller
+      than the count it was drawn against. `ScriptNotes` — written for notes
+      alone — became `ScriptAsides`, and the rule became total: **the page is
+      the printing elements**, asked of `ScreenplayKind.isPrinting`, which
+      asks the engine. An aside carries its whole element, which is what lets
+      a section keep its level. *Done 2026-09-09,* `08cffc8`.
+- [ ] **Owed: the outline has no home.** It is preserved, exported and off the
+      page, and invisible — see HANDOFF §4. A third Navigator tab beside
+      Scenes and Cast, not a mode of the page.
+- [ ] **Owed: notes on iPhone.** Same shape, same reason.
+
 ### M5 — WYSIWYG emphasis · *planned 2026-09-08, not begun*
 
 The owner's requirement: the page shows bold, italic and underline as type,
