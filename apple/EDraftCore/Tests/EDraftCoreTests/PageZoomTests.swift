@@ -82,6 +82,32 @@ final class PageZoomTests: XCTestCase {
         XCTAssertEqual(PageZoom.stepped(from: 1.83, .actualSize), 1, accuracy: 0.001)
     }
 
+    // MARK: - Where a pinch comes to rest
+
+    /// The behaviour the writer meets: 102% drifts down to a hundred,
+    /// 103% on to a five.
+    func testAPinchSettlesToTheNearestFivePoints() {
+        XCTAssertEqual(PageZoom.settled(1.02), 1, accuracy: 0.001)
+        XCTAssertEqual(PageZoom.settled(1.03), 1.05, accuracy: 0.001)
+        XCTAssertEqual(PageZoom.settled(1.62), 1.6, accuracy: 0.001)
+        XCTAssertEqual(PageZoom.settled(1.63), 1.65, accuracy: 0.001)
+    }
+
+    /// A size already on the grid is left alone, so the settle never
+    /// moves a page the writer is already happy with.
+    func testAPinchThatLandsOnTheGridStaysPut() {
+        XCTAssertEqual(PageZoom.settled(1.5), 1.5, accuracy: 0.001)
+        XCTAssertEqual(PageZoom.settled(1), 1, accuracy: 0.001)
+        XCTAssertEqual(PageZoom.settled(2), 2, accuracy: 0.001)
+    }
+
+    /// The rubber-band can leave the magnification past a limit when the
+    /// fingers lift; where it comes to rest is still inside the bounds.
+    func testASettleNeverLeavesTheBounds() {
+        XCTAssertEqual(PageZoom.settled(2.04), PageZoom.maximum, accuracy: 0.001)
+        XCTAssertEqual(PageZoom.settled(0.97), PageZoom.actualSize, accuracy: 0.001)
+    }
+
     // MARK: - What the menu can say
 
     func testAMenuCanTellTheWriterWhenNothingWouldHappen() {

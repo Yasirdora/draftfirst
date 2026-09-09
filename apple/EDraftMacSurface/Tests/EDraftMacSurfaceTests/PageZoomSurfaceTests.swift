@@ -277,6 +277,122 @@ extension PinchToZoomTests {
 
 extension PinchToZoomTests {
 
+    /// Reported as "pinch-to-zoom takes several attempts to work". The pinch
+    /// sets the scroll view's magnification directly, and a SwiftUI update
+    /// landing mid-gesture — the readout changing is enough to cause one —
+    /// used to reach `remeasure` and set the *old* preference back: the page
+    /// snapped out from under the fingers and the gesture had to be retried.
+    func testAnUpdateMidPinchDoesNotSetTheSizeBack() {
+        let (editor, surface) = windowed(1200)
+
+        NotificationCenter.default.post(
+            name: NSScrollView.willStartLiveMagnifyNotification, object: surface.scrollView
+        )
+        surface.scrollView.magnification = 1.7
+        // The update pass, as ScriptPageView.updateNSView would run it.
+        surface.remeasure(to: 1200, elements: editor.screenplay.elements)
+
+        XCTAssertEqual(
+            surface.scrollView.magnification, 1.7, accuracy: 0.01,
+            "a re-measure mid-pinch set the magnification back to the old preference"
+        )
+
+        NotificationCenter.default.post(
+            name: NSScrollView.didEndLiveMagnifyNotification, object: surface.scrollView
+        )
+        XCTAssertEqual(
+            surface.scrollView.magnification, 1.7, accuracy: 0.01,
+            "170% is on the grid: nothing left to settle"
+        )
+        withExtendedLifetime(editor) {}
+    }
+
+    /// The gesture lands where the fingers stop; the page comes to rest on
+    /// the nearest five points. The harness has no window, so the drift
+    /// lands directly rather than animating.
+    func testAPinchBetweenStopsDriftsToTheGridWhenTheFingersLift() {
+        let (editor, surface) = windowed(1200)
+
+        NotificationCenter.default.post(
+            name: NSScrollView.willStartLiveMagnifyNotification, object: surface.scrollView
+        )
+        surface.scrollView.magnification = 1.62
+        NotificationCenter.default.post(
+            name: NSScrollView.didEndLiveMagnifyNotification, object: surface.scrollView
+        )
+
+        XCTAssertEqual(
+            surface.scrollView.magnification, 1.6, accuracy: 0.01,
+            "a pinch never lands on a number; it comes to rest on the grid"
+        )
+        XCTAssertEqual(editor.zoom, 1.6, accuracy: 0.01)
+        withExtendedLifetime(editor) {}
+    }
+
+    /// The preference the gesture leaves behind is the grid point: the
+    /// percentage button's way back, and what a resize must not undo.
+    func testTheSettledSizeIsTheWritersChoice() {
+        let (_, surface) = windowed(1200)
+        pinch(surface, to: 1.62)
+
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
+        surface.applyZoom(.toggleActualSize)
+        XCTAssertEqual(
+            surface.scrollView.magnification, 1.6, accuracy: 0.01,
+            "the button went back to the raw landing rather than the settled size"
+        )
+    }
+
+    /// The readout displays whole percentage points; reporting at any finer
+    /// granularity re-renders the glass capsule dozens of times a second for
+    /// a change nobody can read.
+    func testTheReadoutMovesAtTheGranularityItDisplays() {
+        let (editor, surface) = windowed(1200)
+
+        NotificationCenter.default.post(
+            name: NSScrollView.willStartLiveMagnifyNotification, object: surface.scrollView
+        )
+        surface.scrollView.magnification = 1.504
+        XCTAssertEqual(
+            editor.zoom, PageZoom.opening, accuracy: 0.0001,
+            "a change too small to display re-rendered the capsule anyway"
+        )
+
+        surface.scrollView.magnification = 1.52
+        XCTAssertEqual(
+            editor.zoom, 1.52, accuracy: 0.0001,
+            "a change that crosses a whole point is shown"
+        )
+
+        NotificationCenter.default.post(
+            name: NSScrollView.didEndLiveMagnifyNotification, object: surface.scrollView
+        )
+        withExtendedLifetime(editor) {}
+    }
+
+    /// A window that goes away mid-pinch never sends didEnd. The next pinch
+    /// still works — and so does everything the live flag would otherwise
+    /// have refused forever.
+    func testAnInterruptedGestureDoesNotDeadlockTheZoom() {
+        let (_, surface) = windowed(1200)
+
+        NotificationCenter.default.post(
+            name: NSScrollView.willStartLiveMagnifyNotification, object: surface.scrollView
+        )
+        // The window goes away with the fingers still down.
+        surface.canvas.onLeaveWindow?()
+
+        surface.applyZoom(.zoomIn)
+        XCTAssertEqual(
+            surface.scrollView.magnification, 1.75, accuracy: 0.01,
+            "a missed didEnd left the surface refusing to change the size"
+        )
+    }
+}
+
+extension PinchToZoomTests {
+
     /// Nothing must move under the fingers while a pinch is in progress.
     ///
     /// A pinch is dozens of magnification changes a second, and AppKit

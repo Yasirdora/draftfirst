@@ -2,6 +2,7 @@ import AppKit
 import EDraftCore
 import EDraftEngine
 import Foundation
+import QuartzCore
 import SwiftUI
 
 /// The page, on a Mac.
@@ -171,6 +172,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             self?.takeInitialFocus()
             self?.applyZoomForCurrentSize()
         }
+        // A window that goes away mid-pinch never sends didEnd: without a
+        // reset, the surface would go on refusing to touch the magnification
+        // as though the fingers were still down.
+        canvas.onLeaveWindow = { [weak self] in
+            self?.recoverFromInterruptedGesture()
+        }
         // How large the page is drawn depends on the clip view's *frame* — the
         // visible width in screen points. `remeasureIfNeeded` watches its
         // bounds instead, which are already divided by the magnification, so
@@ -197,8 +204,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
-                    self.isLiveMagnifying = live
-                    if !live { self.settleAfterGesture() }
+                    if live {
+                        // A new pinch takes the page back, mid-settle or
+                        // otherwise: the drift stops where it is and the
+                        // fingers own the size from there.
+                        self.cancelSettle()
+                        self.isLiveMagnifying = true
+                    } else {
+                        self.isLiveMagnifying = false
+                        self.settleAfterGesture()
+                    }
                 }
             })
         }
@@ -452,14 +467,21 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// Both modes ask the same question of the same laid-out text, so a
     /// marker cannot land anywhere but on the line the engine says starts
     /// that page.
-    private func pageBreakPositions() -> [CGFloat] {
+    private func pageBreakPositions() -> [PageCanvasView.PageBreak] {
         guard let pages = ScreenplayExporter.paginate(Screenplay(elements: lastLaidElements)),
               pages.count > 1 else { return [] }
         let locations = ScreenplayPageLayout.pageStartLocations(
             elements: lastLaidElements, pages: pages
         )
-        return locations.dropFirst().compactMap { location in
-            boundingRect(atCharacter: location).map { canvas.convert($0, from: textView).minY }
+        // Numbered from the pagination, before anything is dropped. The
+        // engine says this location begins page four; whether its rectangle
+        // resolves decides only whether a mark is drawn, never what the marks
+        // below it are called.
+        return locations.enumerated().dropFirst().compactMap { index, location in
+            guard let rect = boundingRect(atCharacter: location) else { return nil }
+            return PageCanvasView.PageBreak(
+                page: index + 1, y: canvas.convert(rect, from: textView).minY
+            )
         }
     }
 
@@ -541,9 +563,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// much room there is now. Cheap to call often: magnification is a no-op
     /// unless it actually moved. The opening pin still runs, once.
     func applyZoomForCurrentSize() {
-        // Never mid-pinch: setting the magnification while AppKit is animating
-        // its own is what made the page shrink and bounce.
-        guard !isLiveMagnifying, scrollView.contentView.frame.width > 1 else { return }
+        // Never while the magnification is moving on its own: a pinch owns
+        // it between willStart and didEnd, the settle until it lands on the
+        // grid. Setting it from here is what made the page shrink and bounce.
+        guard !isLiveMagnifying, !isAnimatingSettle,
+              scrollView.contentView.frame.width > 1 else { return }
         if applyPreferredMagnification() {
             layOut()
             updateGhost()
@@ -580,6 +604,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private var atActualSize = false
 
     func applyZoom(_ command: PageZoom.Command) {
+        // A command that arrives mid-settle means the writer has somewhere
+        // else to be: stop the drift where it is and answer from there.
+        cancelSettle()
         switch command {
         case .fit:
             preference = .fit
@@ -602,9 +629,18 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     /// Sets the magnification the current preference asks for, and says
     /// whether it moved — the caller re-centres the canvas when it did.
+    ///
+    /// Never while something else owns the magnification: a pinch owns it
+    /// between willStart and didEnd, and the settle owns it until it lands
+    /// on the grid. The guard lives here rather than at the callers because
+    /// here is the one place every path passes through — a SwiftUI update
+    /// arriving mid-gesture used to reach this point via `remeasure` and
+    /// set the *old* preference back, snapping the page out from under the
+    /// fingers. That is why a pinch used to take several attempts to stick.
     @discardableResult
     private func applyPreferredMagnification() -> Bool {
-        magnify(to: atActualSize ? PageZoom.actualSize : preferredMagnification())
+        guard !isLiveMagnifying, !isAnimatingSettle else { return false }
+        return magnify(to: atActualSize ? PageZoom.actualSize : preferredMagnification())
     }
 
     private func preferredMagnification() -> CGFloat {
@@ -649,20 +685,37 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// the preference — otherwise the next window resize would take it away
     /// again while the page was "fitting".
     private func magnificationChanged(to value: CGFloat, fromGesture: Bool) {
-        editor?.reportZoom(value)
+        reportZoom(value)
         // While the fingers are still down, the readout above is all that
         // moves. AppKit is mid-gesture and settling its own rubber-band;
-        // anything else here is two hands on the same wheel.
-        guard fromGesture, !isLiveMagnifying else { return }
+        // anything else here is two hands on the same wheel. The settle's
+        // frames arrive here too — each one writes the magnification, and
+        // each looks like a fresh gesture unless it is named as ours.
+        guard fromGesture, !isLiveMagnifying, !isAnimatingSettle else { return }
         settleAfterGesture()
     }
 
-    /// The size the gesture left behind becomes the writer's choice, and the
-    /// canvas is measured for it.
+    /// Tells the model — and so the readout in the corner — how large the
+    /// page is drawn. A pinch and a settle both move the size at frame
+    /// rate, and the readout displays whole percentage points: reported at
+    /// that granularity, the glass capsule re-renders only when the number
+    /// it shows actually changes, rather than dozens of times a second.
+    private func reportZoom(_ value: CGFloat) {
+        if (isLiveMagnifying || isAnimatingSettle), let editor,
+           PageZoom.displayedPercentage(editor.zoom) == PageZoom.displayedPercentage(value) {
+            return
+        }
+        editor?.reportZoom(value)
+    }
+
+    /// The size the gesture left behind becomes the writer's choice — the
+    /// grid point it drifts to, not the raw landing — and the canvas is
+    /// measured for it.
     private func settleAfterGesture() {
-        preference = .fixed(scrollView.magnification)
+        let landed = scrollView.magnification
+        let target = PageZoom.settled(landed)
+        preference = .fixed(target)
         atActualSize = false
-        editor?.reportZoom(scrollView.magnification)
         // The canvas is measured in document coordinates, which a pinch
         // changes: zooming out widens the viewport and the card has to be
         // re-centred in it, or the page sits where it was — against the left
@@ -677,7 +730,95 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // magnification, and `CentringClipView` keeps it in the middle of the
         // window — so the page is centred throughout the gesture rather than
         // arriving there in a jump when the fingers lift.
+        if abs(target - landed) > 0.001 {
+            drift(to: target)
+        } else {
+            reportZoom(landed)
+        }
         updateGhost()
+    }
+
+    // MARK: - The drift to the grid
+
+    /// True while the drift is walking the magnification to the grid. Each
+    /// of its frames changes the magnification, so everywhere the live
+    /// pinch is guarded, this is too.
+    private var isAnimatingSettle = false
+    private var settleLink: CADisplayLink?
+    private var settleFrom: CGFloat = 0
+    private var settleTo: CGFloat = 0
+    private var settleBegan: CFTimeInterval = 0
+
+    /// How long the drift takes. Slow enough to read as a drift rather than
+    /// a jump, quick enough that the page is never still moving after the
+    /// writer has left it.
+    private static let settleDuration: CFTimeInterval = 0.28
+
+    /// Walks the magnification from where the fingers left it to the stop
+    /// they were nearest.
+    ///
+    /// Driven by a display link rather than handed to an animator proxy:
+    /// the curve is the whole feature — a monotonic ease, explicitly *not*
+    /// a bounce — and a link keeps the curve, the readout and interruption
+    /// all explicit. The link is the scroll view's own, so it keeps time
+    /// with the display the window is actually on and suspends itself when
+    /// the window is off one. A new pinch or a zoom command cancels it
+    /// mid-flight and takes the page from wherever the drift has reached;
+    /// nothing jumps.
+    private func drift(to target: CGFloat) {
+        // A surface with no window is the test harness: land on the stop
+        // directly — there is no screen to drift on.
+        guard scrollView.window != nil else {
+            magnify(to: target)
+            return
+        }
+        cancelSettle()
+        isAnimatingSettle = true
+        settleFrom = scrollView.magnification
+        settleTo = target
+        settleBegan = CACurrentMediaTime()
+        let link = scrollView.displayLink(
+            target: SettleRelay(self), selector: #selector(SettleRelay.tick(_:))
+        )
+        link.add(to: .main, forMode: .common)
+        settleLink = link
+    }
+
+    /// One frame of the drift. The ease is a smoothstep — zero velocity at
+    /// both ends and never past the target — so the page glides onto the
+    /// stop the way the rubber-band returns at the limits, minus the bounce.
+    fileprivate func settleFrame() {
+        let t = min(max((CACurrentMediaTime() - settleBegan) / Self.settleDuration, 0), 1)
+        guard t < 1 else {
+            let target = settleTo
+            cancelSettle()
+            magnify(to: target)
+            return
+        }
+        let eased = t * t * (3 - 2 * t)
+        // Written directly rather than through `magnify`: each frame is
+        // reported by the magnification observer like a gesture is, and
+        // `isAnimatingSettle` is what tells the two apart.
+        scrollView.magnification = settleFrom + (settleTo - settleFrom) * eased
+    }
+
+    /// Stops the drift wherever it has got to — never by jumping to the
+    /// target. The page is already on its way there; what takes over (a
+    /// pinch, a button, a keystroke) starts from the size on screen.
+    private func cancelSettle() {
+        guard isAnimatingSettle else { return }
+        settleLink?.invalidate()
+        settleLink = nil
+        isAnimatingSettle = false
+    }
+
+    /// A pinch whose didEnd never arrived — the window closed or was torn
+    /// down mid-gesture. Without this the surface would go on believing the
+    /// fingers are still down: every later attempt to set the magnification
+    /// would be refused as "mid-pinch", and the corner buttons would go dead.
+    private func recoverFromInterruptedGesture() {
+        cancelSettle()
+        isLiveMagnifying = false
     }
 
     /// The writer changed what the page is made of.
@@ -794,6 +935,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// Where the lines between the sheets are, for a test that has to know
     /// there is something to press.
     public var breakMarkerFrames: [CGRect] { canvas.breakMarkerFrames }
+    public var breakMarkerPageNumbers: [Int] { canvas.breakMarkerPageNumbers }
 
     /// What is currently laid out, so a test can ask the engine whether the
     /// page boundaries moved rather than trusting that they did not.
@@ -818,6 +960,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// preference and re-measuring the canvas on every one of those fights the
     /// gesture — the page shrinks, snaps and bounces under the fingers. So the
     /// readout follows live and nothing else moves until the fingers lift.
+    /// The settle that follows owns the magnification the same way; see
+    /// `isAnimatingSettle`.
     private var isLiveMagnifying = false
     private var liveMagnifyObservers: [any NSObjectProtocol] = []
     private var hasTakenInitialFocus = false
@@ -877,17 +1021,30 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     }
 
     /// Where each note's mark goes, in canvas coordinates.
+    ///
+    /// Several notes may belong to one line — Final Draft allows it and the
+    /// two production drafts use it — and they were all given that line's
+    /// rectangle, so they landed on top of each other and read as one note.
+    /// The card's "2 of 3" said otherwise, which is worse than either.
+    /// `column` fans them across the margin; the canvas decides how far.
     private func notePlacements() -> [PageCanvasView.NotePlacement] {
         guard let editor else { return [] }
         let byElement = Dictionary(ranges.map { ($0.id, $0.range) }) { first, _ in first }
+        var perLine: [Int: Int] = [:]
         return editor.notes.compactMap { note -> PageCanvasView.NotePlacement? in
             // A note anchored to nothing trails the script, and belongs
             // beside its last line — which is where the writer left it.
             let range = note.anchor.flatMap { byElement[$0] } ?? ranges.last?.range
             guard let range, let rect = boundingRect(atCharacter: range.location) else { return nil }
             let inCanvas = canvas.convert(rect, from: textView)
+            // Keyed on the line, not the anchor: a wrapped element is one
+            // element and several lines, and two notes on it belong beside
+            // the line they were left on.
+            let line = Int(inCanvas.minY.rounded())
+            let column = perLine[line, default: 0]
+            perLine[line] = column + 1
             return PageCanvasView.NotePlacement(
-                id: note.id, lineTop: inCanvas.minY, lineHeight: inCanvas.height
+                id: note.id, lineTop: inCanvas.minY, lineHeight: inCanvas.height, column: column
             )
         }
     }
@@ -961,6 +1118,22 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         placeNoteMarkers()
         washNotedLines()
         popover.show(relativeTo: marker.bounds, of: marker, preferredEdge: .maxX)
+
+        // The card opens ready to be written in.
+        //
+        // `NSPopover` puts its content in a window of its own and does not
+        // make it key, so SwiftUI's `@FocusState` had nothing to focus into:
+        // the card opened with no caret and read as an empty box with no
+        // indication that typing would do anything. Asking the popover's own
+        // window to take key and putting first responder on the hosting view
+        // is what gives the text editor a caret. On the next turn, because
+        // the window does not exist until the popover has finished showing.
+        DispatchQueue.main.async { [weak popover] in
+            guard let content = popover?.contentViewController?.view,
+                  let window = content.window else { return }
+            window.makeKeyAndOrderFront(nil)
+            window.makeFirstResponder(content)
+        }
     }
 
     /// However the card ends — clicked away from, replaced, or closed with
@@ -2035,4 +2208,24 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     }
 
 
+}
+
+/// `CADisplayLink` retains its target; aimed at the surface, a running
+/// drift would keep the whole editor — text storage, undo history and all
+/// — alive. The relay is the weightless thing the link holds instead, and
+/// it invalidates the link itself if the surface has already gone.
+private final class SettleRelay: NSObject {
+    private weak var surface: ScriptSurface?
+
+    init(_ surface: ScriptSurface) { self.surface = surface }
+
+    @objc func tick(_ link: CADisplayLink) {
+        MainActor.assumeIsolated {
+            guard let surface else {
+                link.invalidate()
+                return
+            }
+            surface.settleFrame()
+        }
+    }
 }

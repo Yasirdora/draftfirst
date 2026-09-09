@@ -45,8 +45,13 @@ public struct ScriptPageView: NSViewRepresentable {
         /// A resized window recentres the page card. Ignored until the window
         /// has a width at all, so the first layout pass does not centre a
         /// card on a zero-width canvas.
+        ///
+        /// Measured on the clip view's *frame* — the visible width in screen
+        /// points. The bounds are already divided by the magnification, so
+        /// reading them here made every frame of a pinch look like a resize:
+        /// a re-measure per frame, mid-gesture, fighting the hand.
         func remeasureIfNeeded(_ editor: EditorState, in scrollView: NSScrollView) {
-            let width = scrollView.contentView.bounds.width
+            let width = scrollView.contentView.frame.width
             guard width > 1, abs(width - measure) > 0.5 else { return }
             measure = width
             surface.remeasure(to: width, elements: editor.screenplay.elements)

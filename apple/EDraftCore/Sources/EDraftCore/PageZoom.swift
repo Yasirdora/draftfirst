@@ -38,9 +38,31 @@ public nonisolated enum PageZoom {
     /// a size wants a different size, not a nudge.
     public static let stops: [CGFloat] = [1, 1.1, 1.25, 1.5, 1.75, 2]
 
+    /// The grid a pinch settles onto: every five points. Every stop above
+    /// already stands on it, so a size arrived at by hand and a size arrived
+    /// at by keyboard are the same sizes.
+    public static let snapIncrement: CGFloat = 0.05
+
+    /// Where a pinch that let go at `zoom` comes to rest: the nearest five
+    /// points, within the same bounds as everything else.
+    ///
+    /// A gesture never lands on a number, and a page left at 103% is a page
+    /// forever between stops — the size drifts to the grid rather than
+    /// staying wherever the fingers happened to lift. A tie goes up: 102.5%
+    /// has been dragged past the hundred, not back to it.
+    public static func settled(_ zoom: CGFloat) -> CGFloat {
+        clamped((zoom / snapIncrement).rounded() * snapIncrement)
+    }
+
     /// How the control says it: 152%, not 1.52.
     public static func percentage(_ zoom: CGFloat) -> String {
-        "\(Int((zoom * 100).rounded()))%"
+        "\(displayedPercentage(zoom))%"
+    }
+
+    /// The whole points the readout displays, for comparing two sizes at
+    /// the granularity the writer sees rather than the floating point's.
+    public static func displayedPercentage(_ zoom: CGFloat) -> Int {
+        Int((zoom * 100).rounded())
     }
 
     /// What the writer asked for.

@@ -40,6 +40,7 @@ final class PageCanvasView: NSView {
     private var noteMarkers: [NoteMarker] = []
 
     var breakMarkerFrames: [CGRect] { breakMarkers.map(\.frame) }
+    var breakMarkerPageNumbers: [Int] { breakMarkers.compactMap(\.pageNumber) }
     var noteMarkerFrames: [CGRect] { noteMarkers.map(\.frame) }
 
     /// The first sheet — what callers mean by "the page" when they ask
@@ -76,10 +77,15 @@ final class PageCanvasView: NSView {
     /// window, which is the first moment a caret has anywhere to go.
     var onMoveToWindow: (() -> Void)?
 
+    /// The counterpart: the view left its window — closed, or torn down.
+    /// A pinch in flight at that moment never sends its `didEnd`, and the
+    /// surface needs to hear that or it goes on believing the fingers are
+    /// still down.
+    var onLeaveWindow: (() -> Void)?
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        guard window != nil else { return }
-        onMoveToWindow?()
+        if window != nil { onMoveToWindow?() } else { onLeaveWindow?() }
     }
 
     /// N letter-sized sheets with desk between them. `textHeight` is the
@@ -157,34 +163,50 @@ final class PageCanvasView: NSView {
     /// them twice is how the type and the paper come to disagree. The page
     /// number is drawn only in `continuous`, where the marker is the only
     /// thing saying a page ended — in `pages` the sheets' own edges say it.
-    func showBreaks(at positions: [CGFloat]) {
-        while breakMarkers.count < positions.count {
+    /// Where a page begins, and which page it is.
+    ///
+    /// The two travel together on purpose. The number used to be the marker's
+    /// index in this array plus two, and the array was built with a
+    /// `compactMap` — so a page start whose rectangle did not resolve did not
+    /// merely lose its own mark, it renamed every mark below it. A page
+    /// number a production schedules against, wrong by one, and wrong by more
+    /// the further down the script you read.
+    struct PageBreak: Equatable {
+        let page: Int
+        let y: CGFloat
+    }
+
+    func showBreaks(at breaks: [PageBreak]) {
+        while breakMarkers.count < breaks.count {
             let marker = PageBreakMarker(frame: .zero)
             breakMarkers.append(marker)
             addSubview(marker, positioned: .above, relativeTo: textView)
         }
-        while breakMarkers.count > positions.count {
+        while breakMarkers.count > breaks.count {
             breakMarkers.removeLast().removeFromSuperview()
         }
 
         let format = PageFormat.current
         let x = ((frame.width - format.pageRect.width) / 2).rounded(.down)
-        for (index, y) in positions.enumerated() {
-            breakMarkers[index].pageNumber = index + 2
-            breakMarkers[index].frame = CGRect(
+        for (marker, item) in zip(breakMarkers, breaks) {
+            marker.pageNumber = item.page
+            marker.frame = CGRect(
                 x: x,
-                y: y - PageBreakMarker.height / 2,
+                y: item.y - PageBreakMarker.height / 2,
                 width: format.pageRect.width,
                 height: PageBreakMarker.height
             )
         }
     }
 
-    /// Where a note sits: its id, and the top of the line it is about.
+    /// Where a note sits: its id, the top of the line it is about, and which
+    /// mark it is among the ones sharing that line.
     struct NotePlacement: Equatable {
         let id: UUID
         let lineTop: CGFloat
         let lineHeight: CGFloat
+        /// 0 for the first note on a line, 1 for the second, and so on.
+        var column: Int = 0
     }
 
     /// Puts a marker in the right margin beside each note's line.
@@ -218,6 +240,17 @@ final class PageCanvasView: NSView {
             + ScreenplayPageLayout.textLeft
             + ScreenplayPageLayout.textBlockWidth(format)
             + Self.noteMarkerGap
+        // What the margin has left for a second, third and fourth mark. Past
+        // that they fan closer together like a dealt hand rather than walking
+        // off the sheet — every one still says "there are more here", and the
+        // card's own pager reaches the ones that overlap.
+        let room = max(0, pageLeft + format.pageRect.width - Self.noteMarkerEdgeInset
+                          - (x + NoteMarker.size.width))
+        let widest = placements.map(\.column).max() ?? 0
+        let step = widest == 0
+            ? 0
+            : min(NoteMarker.size.width + 2, room / CGFloat(widest))
+
         for (marker, placement) in zip(noteMarkers, placements) {
             marker.noteID = placement.id
             marker.isActive = placement.id == active
@@ -225,13 +258,16 @@ final class PageCanvasView: NSView {
             // Centred on the line rather than sitting on its baseline: a mark
             // beside a line should look level with it.
             marker.frame = CGRect(
-                x: x.rounded(),
+                x: (x + step * CGFloat(placement.column)).rounded(),
                 y: (placement.lineTop + (placement.lineHeight - NoteMarker.size.height) / 2).rounded(),
                 width: NoteMarker.size.width,
                 height: NoteMarker.size.height
             )
         }
     }
+
+    /// Air kept at the sheet's right edge, so a fanned mark never sits on it.
+    private static let noteMarkerEdgeInset: CGFloat = 6
 
     /// The view a note's card should point at, so the popover's arrow lands
     /// on the mark the writer clicked rather than on the page.
