@@ -596,54 +596,58 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let format = PageFormat.current
         // One sheet to the next: the whole page and the gap between sheets.
         let pitch = format.pageRect.height + PageCanvasView.pageGap
+        let line = ScreenplayPageLayout.lineHeight
+
+        // Every space computed from one layout, and the paths set once.
+        //
+        // What was here measured between each boundary and the next, which
+        // reads well and is quadratic: assigning `exclusionPaths` invalidates
+        // the whole container, so each measurement re-laid out the entire
+        // script. Timed on a synthetic feature — 8 pages 42ms, 28 pages
+        // 610ms, 82 pages 8.0 seconds, against 299ms for the same script in
+        // `continuous`. A hundred-page draft stopped responding.
+        //
+        // Nothing needs measuring in between, because the text system's
+        // answer turns out to be exact. An exclusion of height *h* placed at
+        // a line's own top moves that line by *h plus one line* — measured at
+        // 40, 100, 132 and 797 points, the surplus was 12.0 every time, which
+        // is the leading the pushed line brings with it. Knowing that, where
+        // each page will land is arithmetic: where it sits with no exclusions
+        // at all, plus everything inserted above it.
+        let ungapped = locations.map { pageStartY($0, in: layoutManager) }
+        let base = ungapped[0]
 
         var paths: [NSBezierPath] = []
-        var previous = pageStartY(locations[0], in: layoutManager)
-        var starts: [CGFloat] = [previous]
-        for location in locations.dropFirst() {
-            let here = pageStartY(location, in: layoutManager)
-            // Whatever it takes to land this page's first line exactly one
-            // sheet below the last one's — measured now, against where the
-            // text actually is, not predicted from where it was before any
-            // of this was inserted.
-            //
-            // A fixed amount was tried and is what made the gaps between
-            // sheets uneven: the space between two page starts is then the
-            // page's own text height, so a page the text view set one line
-            // longer than the paginator counted showed a gap one line wider.
-            // The disagreement was being displayed as paper.
-            let space = previous + pitch - here
-            guard space > 0.5 else {
-                starts.append(here)
-                previous = here
-                continue
+        var placed: CGFloat = 0
+        var sheet = 0
+        for index in 1..<ungapped.count {
+            let here = ungapped[index] + placed
+            sheet += 1
+            var target = base + CGFloat(sheet) * pitch
+            // A page the text view sets longer than a whole sheet takes the
+            // next one rather than being crushed onto this. This is the case
+            // the old arithmetic met with a negative space and answered by
+            // skipping the break altogether, which is how a page came to
+            // begin thirty-five lines down its own paper.
+            while target - here < line {
+                sheet += 1
+                target += pitch
             }
-            paths.append(NSBezierPath(rect: CGRect(
-                x: 0, y: here, width: container.size.width, height: space
-            )))
-            container.exclusionPaths = paths
-            layoutManager.ensureLayout(for: container)
-            var landed = pageStartY(location, in: layoutManager)
-
-            // An exclusion pushes the line *below* it, and a line lands on
-            // the leading grid — so asking for `space` can move the text as
-            // much as a line further than asked. Take the overshoot back off
-            // the path and let it settle again. One pass is enough: the
-            // second placement is already on the grid.
-            let overshoot = landed - (previous + pitch)
-            if abs(overshoot) > 0.5, let last = paths.indices.last {
-                let corrected = max(0, space - overshoot)
-                paths[last] = NSBezierPath(rect: CGRect(
-                    x: 0, y: here, width: container.size.width, height: corrected
-                ))
-                container.exclusionPaths = paths
-                layoutManager.ensureLayout(for: container)
-                landed = pageStartY(location, in: layoutManager)
+            let space = target - here - line
+            if space > 0.5 {
+                paths.append(NSBezierPath(rect: CGRect(
+                    x: 0, y: here, width: container.size.width, height: space
+                )))
             }
-            starts.append(landed)
-            previous = landed
+            placed += space + line
         }
-        return starts
+
+        container.exclusionPaths = paths
+        layoutManager.ensureLayout(for: container)
+        // Where they actually landed. The sheets are laid under these, so a
+        // line resting a fraction below its exclusion carries its paper with
+        // it rather than being left off the top of it.
+        return locations.map { pageStartY($0, in: layoutManager) }
     }
 
     /// Where the line beginning at `location` sits, in the text view's own
