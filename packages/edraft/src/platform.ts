@@ -31,6 +31,7 @@ interface InflateSession {
 	readable: {
 		getReader(): {
 			read(): Promise<{ done: boolean; value?: Uint8Array }>;
+			cancel(): Promise<void>;
 		};
 	};
 }
@@ -74,6 +75,17 @@ export async function inflateRaw(data: Uint8Array, expectedSize: number): Promis
 		if (value) {
 			chunks.push(value);
 			length += value.length;
+			if (length > expectedSize) {
+				/* The archive's own record said how big this entry is, so more
+				   bytes than that is a lie in progress — a bomb declares
+				   kilobytes and inflates gigabytes. Stop at the record, not at
+				   the OOM killer. Cancelling the reader fails the write side,
+				   so settle it quietly: the lie, not the teardown, is the
+				   error worth throwing. */
+				await reader.cancel().catch(() => undefined);
+				await written.catch(() => undefined);
+				throw new Error(`corrupt archive entry: declared ${expectedSize} bytes, inflated past that`);
+			}
 		}
 	}
 	await written;

@@ -28,9 +28,14 @@ export const PDF_MARKER_VERSION = '1';
  * old name still carries it, and those files are writers' backups — so we
  * read it forever and never write it again. A rename is our problem, never
  * theirs.
+ *
+ * This string must never appear in a find-and-replace: the day the product
+ * was renamed, a blanket rewrite of the sources changed this entry to the
+ * NEW prefix, and every pre-rename PDF went unread until it was restored.
+ * Whatever the product is called next, `DRAFT_FIRST_FOUNTAIN` stays.
  */
 export const LEGACY_PDF_MARKER_PREFIXES: readonly string[] = Object.freeze([
-	'EDRAFT_FOUNTAIN'
+	'DRAFT_FIRST_FOUNTAIN'
 ]);
 
 function isKnownMarkerPrefix(prefix: string): boolean {

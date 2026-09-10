@@ -79,4 +79,17 @@ describe('readZipEntries', () => {
 		const zip = await buildZip([{ name: 'a.txt', data: textBytes('some content'), method: 0 }]);
 		await expect(readZipEntries(zip, { maxTotalBytes: 2 })).rejects.toThrow(/expands past/);
 	});
+
+	it('stops inflating the moment an entry outgrows its declared size', async () => {
+		/* A bomb in miniature: four megabytes of zeros deflate to kilobytes,
+		   and the central directory lies that they inflate to one. The reader
+		   must die at the declared size — the message below only exists on the
+		   early-abort path; the old accumulate-everything code threw a
+		   different, post-hoc one after the memory was already spent. */
+		const data = new Uint8Array(4 * 1024 * 1024);
+		const zip = await buildZip([{ name: 'bomb.xml', data }]);
+		const view = new DataView(zip.buffer);
+		view.setUint32(centralDirectoryAt(zip) + 24, 1024, true);
+		await expect(readZipEntries(zip)).rejects.toThrow(/inflated past that/);
+	});
 });

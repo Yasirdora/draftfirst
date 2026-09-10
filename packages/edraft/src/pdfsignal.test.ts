@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	encodePdfPayload,
 	extractPdfPayload,
+	LEGACY_PDF_MARKER_PREFIXES,
 	PDF_MARKER_PREFIX,
 	PDF_MARKER_VERSION
 } from './pdfsignal.js';
@@ -79,7 +80,7 @@ describe('encodePdfPayload / extractPdfPayload', () => {
  */
 describe('pre-rename PDFs', () => {
 	const legacyPayload = (fountain: string): string => {
-		const bytes = encodeUtf8(`EDRAFT_FOUNTAIN:1\n${fountain}`);
+		const bytes = encodeUtf8(`DRAFT_FIRST_FOUNTAIN:1\n${fountain}`);
 		let hex = '';
 		for (let i = 0; i < bytes.length; i++) hex += bytes[i]!.toString(16).padStart(2, '0');
 		return hex;
@@ -88,6 +89,14 @@ describe('pre-rename PDFs', () => {
 	it('still recovers the source from a PDF stamped before the rename', () => {
 		const fountain = 'INT. KITCHEN - DAY\n\nA kettle screams.\n';
 		expect(extractPdfPayload(fakePdfWithKeywords(legacyPayload(fountain)))).toBe(fountain);
+	});
+
+	it('keeps the legacy list honest: the old marker, never the current one', () => {
+		/* A blanket find-and-replace once rewrote this list to the CURRENT
+		   prefix, and pre-rename PDFs silently stopped opening. Pin both
+		   halves of the promise so a rename can never do that again. */
+		expect(LEGACY_PDF_MARKER_PREFIXES).toContain('DRAFT_FIRST_FOUNTAIN');
+		expect(LEGACY_PDF_MARKER_PREFIXES).not.toContain(PDF_MARKER_PREFIX);
 	});
 
 	it('writes only the current prefix', () => {

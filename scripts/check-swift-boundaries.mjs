@@ -66,7 +66,12 @@ function swiftFiles(dir) {
 	return out;
 }
 
-const IMPORT = /^\s*(?:@\w+\s+)?import\s+([A-Za-z_][A-Za-z0-9_]*)/;
+/* Swift can import one declaration kind out of a module —
+   `import struct UIKit.NSView` — and a capture that reads the kind token as
+   the module name lets every ban list sail through. Skip the kind, keep the
+   module. The kinds are the language's own: typealias, struct, class, enum,
+   protocol, let, var, func. */
+const IMPORT = /^\s*(?:@\w+\s+)?import\s+(?:(?:typealias|struct|class|enum|protocol|let|var|func)\s+)?([A-Za-z_][A-Za-z0-9_]*)/;
 
 let failed = 0;
 for (const layer of LAYERS) {
