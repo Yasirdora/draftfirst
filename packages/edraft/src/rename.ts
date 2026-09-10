@@ -7,14 +7,21 @@
  * exactly as they were. Pure: the input is never mutated.
  */
 
-import { CUE_EXTENSION_RE, stripCueExtensions } from './smarttype.js';
 import type { Screenplay, ScreenplayElement } from './types.js';
 
-/** Canonical cue-name form: an open paren begins an extension, so the name
-   ends before it; whitespace collapses, case canonicalises. "  mara jane " →
-   "MARA JANE"; "Mary (O.S.)" → "MARY". Empty result means no name carried. */
+/** A cue's trailing parenthetical run — " (O.S.)", " (WHISPERING)",
+   " (V.O.) (PRE-LAP)" — is its extension tail, whatever words it carries;
+   the name ends before it. ONE rule, shared by matching and by preserving,
+   and the same rule the Mac canonicalises with (EditorState's
+   canonicalCharacterName): MARA (WHISPERING) is renamable, and the two
+   sides can never disagree about who that means. */
+const EXTENSION_TAIL_RE = /(?:\s*\([^)]*\))+\s*$/;
+
+/** Canonical cue-name form: the extension tail comes off, whitespace
+   collapses, case canonicalises. "  mara jane " → "MARA JANE";
+   "Mary (O.S.)" → "MARY". Empty result means no name carried. */
 export function normalizeCueName(name: string): string {
-	return name.replace(/\(.*/, '').replace(/\s+/g, ' ').trim().toUpperCase();
+	return name.replace(EXTENSION_TAIL_RE, '').replace(/\s+/g, ' ').trim().toUpperCase();
 }
 
 export interface RenameResult {
@@ -24,11 +31,10 @@ export interface RenameResult {
 	changed: number;
 }
 
-/** The cue's extension tail in reading form — " (O.S.) (PRE-LAP)" — or ''. */
+/** The cue's extension tail exactly as written — " (O.S.) (PRE-LAP)" — or ''. */
 function cueExtensions(cue: string): string {
-	const matches = cue.match(CUE_EXTENSION_RE);
-	if (!matches) return '';
-	return matches.map((m) => ` ${m.trim()}`).join('');
+	const match = EXTENSION_TAIL_RE.exec(cue.trim());
+	return match ? match[0] : '';
 }
 
 /** Rename one character across the whole document. Matching is by base name
@@ -47,8 +53,8 @@ export function renameCharacter(script: Screenplay, from: string, to: string): R
 	for (let i = 0; i < elements.length; i++) {
 		const el = elements[i];
 		if (el.type !== 'character') continue;
-		const base = stripCueExtensions(el.text);
-		if (base === '' || base.toUpperCase() !== target) continue;
+		const base = normalizeCueName(el.text);
+		if (base === '' || base !== target) continue;
 		if (changed === 0) elements = elements.slice(); /* copy on first write — no match, no new array */
 		elements[i] = { ...el, text: next + cueExtensions(el.text) };
 		changed += 1;

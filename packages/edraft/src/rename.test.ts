@@ -16,9 +16,15 @@ describe('normalizeCueName', () => {
 	it('trims, uppercases, and collapses whitespace', () => {
 		expect(normalizeCueName('  mara   jane ')).toBe('MARA JANE');
 	});
-	it('treats anything from an open paren on as an extension', () => {
+	it('treats a trailing parenthetical run as the extension tail', () => {
 		expect(normalizeCueName('Mary (O.S.)')).toBe('MARY');
 		expect(normalizeCueName("(cont'd)")).toBe('');
+	});
+	it('takes the tail off however it is spelled — one base rule, both sides', () => {
+		/* The rule the Mac app canonicalises with: an extension the fixed list
+		   doesn't know is still a tail, never a second, unrenamable name. */
+		expect(normalizeCueName('Mara (Whispering)')).toBe('MARA');
+		expect(normalizeCueName('Mara (V.O.) (Pre-Lap)')).toBe('MARA');
 	});
 	it('returns empty for empty input', () => {
 		expect(normalizeCueName('   ')).toBe('');
@@ -77,6 +83,24 @@ describe('renameCharacter', () => {
 		const s = script([el('character', 'MARA', { dual: true })]);
 		const r = renameCharacter(s, 'MARA', 'MARY');
 		expect(r.elements[0]).toEqual({ type: 'character', text: 'MARY', dual: true });
+	});
+
+	it('renames a cue with an unknown parenthetical, keeping its tail', () => {
+		/* The review's case: MARA (WHISPERING) was unrenamable — the base-name
+		   rules disagreed, so matching skipped her and targeting collapsed to
+		   plain MARA. One rule now; the tail survives verbatim. */
+		const s = script([el('character', 'MARA'), el('character', 'MARA (WHISPERING)')]);
+		const r = renameCharacter(s, 'MARA', 'MARY');
+		expect(r.changed).toBe(2);
+		expect(r.elements[0].text).toBe('MARY');
+		expect(r.elements[1].text).toBe('MARY (WHISPERING)');
+	});
+
+	it('an extension typed into the from field changes nothing about matching', () => {
+		const s = script([el('character', 'MARA (WHISPERING)')]);
+		const r = renameCharacter(s, 'Mara (Whispering)', 'MARY');
+		expect(r.changed).toBe(1);
+		expect(r.elements[0].text).toBe('MARY (WHISPERING)');
 	});
 
 	it('renaming into an existing name merges the two casts', () => {
