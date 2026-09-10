@@ -165,7 +165,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             width: 0, height: ScreenplayPageLayout.glyphOverflow
         )
         self.canvas = canvas
-        formatBar.attach(to: canvas)
 
         let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: measure, height: 480))
         scrollView.hasVerticalScroller = true
@@ -189,6 +188,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         scrollView.drawsBackground = true
         scrollView.backgroundColor = .screenplayDesk
         self.scrollView = scrollView
+
+        // The bar floats in the scroll view's own space, above the clip
+        // view — chrome, not content, so the magnification transform never
+        // touches it. Placement is reasoned about in the canvas's
+        // coordinates. See `SelectionFormatBar`.
+        formatBar.attach(to: scrollView, canvas: canvas)
 
         let findClient = FindBarClient(textView: textView)
         self.findClient = findClient
@@ -227,6 +232,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 guard let self, !self.isSettingMagnification else { return }
                 self.magnificationChanged(to: scrollView.magnification, fromGesture: true)
             }
+        }
+        // The bar floats over the page, and the page moves under it on every
+        // scroll tick, resize and pinch frame. One observer hears all three:
+        // the clip view's bounds is the scroll view's name for all of them.
+        scrollView.contentView.postsBoundsChangedNotifications = true
+        clipBoundsObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.repositionFormatBar() }
         }
         for (name, live) in [
             (NSScrollView.willStartLiveMagnifyNotification, true),
@@ -1330,6 +1345,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// observer can tell the writer's pinch from our own setting.
     private var isSettingMagnification = false
     private var magnificationObserver: NSKeyValueObservation?
+    /// Scroll, resize and zoom, heard as one signal — the bar's cue to
+    /// follow the selection. See `repositionFormatBar`.
+    private var clipBoundsObserver: (any NSObjectProtocol)?
     /// True between `willStartLiveMagnify` and `didEndLiveMagnify`.
     ///
     /// A pinch is not one change of size, it is dozens a second, and AppKit
@@ -2004,13 +2022,31 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         guard !applyingModel else { return }
         updateSelection()
         updateTypingAttributes()
-        let selection = textView.selectedRange()
-        formatBar.update(
-            selection: selection, in: textView, canvas: canvas,
-            active: styleCoverage(at: selection)
-        )
+        refreshFormatBar(selection: textView.selectedRange())
         updateGhost()
     }
+
+    /// What is lit on the bar, and where it floats.
+    private func refreshFormatBar(selection: NSRange) {
+        formatBar.update(
+            selection: selection, in: textView, active: styleCoverage(at: selection)
+        )
+    }
+
+    /// Moves the bar to the selection's current screen position — the clip
+    /// view's bounds changes are scroll, resize and zoom in one signal.
+    private func repositionFormatBar() {
+        formatBar.reposition(selection: textView.selectedRange(), in: textView)
+    }
+
+    /// The bar's frame in the scroll view's coordinates, for tests; nil
+    /// while the bar is hidden.
+    var formatBarFrame: CGRect? {
+        formatBar.isVisible ? formatBar.frame : nil
+    }
+
+    /// The bar's view, for hit-testing and responder questions in tests.
+    var formatBarHostView: NSView { formatBar.hostView }
 
     // MARK: - Incremental edits
 
@@ -2182,10 +2218,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         registerModelUndo(previousState, actionName: actionName)
         render(elements) { [self] in
             restoreSelection(selection)
-            formatBar.update(
-                selection: selection, in: textView, canvas: canvas,
-                active: styleCoverage(at: selection)
-            )
+            refreshFormatBar(selection: selection)
         }
         renderedRevision = editor.revision
         updateTypingAttributes()
@@ -2331,10 +2364,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         )
         render(state.elements) { [self] in
             restoreSelection(state.selection)
-            formatBar.update(
-                selection: state.selection, in: textView, canvas: canvas,
-                active: styleCoverage(at: state.selection)
-            )
+            refreshFormatBar(selection: state.selection)
         }
         renderedRevision = editor.revision
         updateTypingAttributes()
