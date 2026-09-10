@@ -157,9 +157,12 @@ final class SelectionFormatBarTests: XCTestCase {
     // MARK: - The bar as chrome
 
     /// The bar is chrome, not content: it never joins the magnification
-    /// transform, so it keeps one size and stays put over its selection at
-    /// 200% exactly as at 100% — the right-click menu's behaviour.
-    func testTheBarKeepsOneSizeAndItsSelectionAtEveryMagnification() {
+    /// transform, so it stays crisp at any zoom. But a bar pinned to one
+    /// size reads as *shrinking* beside a growing page, so it breathes with
+    /// the zoom at the square root of it (`PageZoom.chromeScale`): the page
+    /// doubles at 200% while the bar rises 41% — and it never leaves its
+    /// selection.
+    func testTheBarScalesWithTheZoomButSlowerThanThePage() {
         let tall = (1...200).map { "Line \($0) of action and a few more words." }
             .joined(separator: "\n\n")
         let (_, surface) = surface("INT. LAB - DAY\n\n" + tall)
@@ -200,7 +203,12 @@ final class SelectionFormatBarTests: XCTestCase {
         guard let zoomed = surface.formatBarFrame else {
             return XCTFail("a centred selection stays on screen through a zoom, bar included")
         }
-        XCTAssertEqual(zoomed.size, before.size, "one size at every magnification")
+        let growth = PageZoom.chromeScale(at: 2) / PageZoom.chromeScale(at: 1)
+        XCTAssertEqual(zoomed.width, before.width * growth, accuracy: 1.5,
+                       "the bar breathes with the zoom at its square root")
+        XCTAssertEqual(zoomed.height, before.height * growth, accuracy: 1.5)
+        XCTAssertGreaterThan(zoomed.width, before.width, "a pinned size reads as shrinking")
+        XCTAssertLessThan(zoomed.width, before.width * 2, "and the bar never outruns the page")
         XCTAssertEqual(
             zoomed.midX, placed().midX, accuracy: 1.5,
             "still centred on the selection after the page moved under it"

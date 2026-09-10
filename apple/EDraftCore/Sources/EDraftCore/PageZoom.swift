@@ -81,6 +81,21 @@ public nonisolated enum PageZoom {
         0.16 + 0.24 * sqrt(min(max(distance, 0), 1))
     }
 
+    /// How large floating chrome — the selection's format bar — is drawn at
+    /// a magnification.
+    ///
+    /// Chrome is not the page. Grown one-for-one with the zoom, a palette
+    /// meant to mark the text ends up covering it; pinned at one size it
+    /// reads as *shrinking* the further in the page goes — the same points
+    /// measured against ever-larger type. Perceived size runs on a power
+    /// law rather than a linear one, so the bar follows the square root of
+    /// the zoom: the page doubles at 200% while the bar rises 41%, and at
+    /// the 125% opening it is a barely-felt 12% up. The page shouts; the
+    /// chrome nods.
+    public static func chromeScale(at magnification: CGFloat) -> CGFloat {
+        sqrt(min(max(magnification, actualSize), maximum))
+    }
+
     /// How the control says it: 152%, not 1.52.
     public static func percentage(_ zoom: CGFloat) -> String {
         "\(displayedPercentage(zoom))%"

@@ -182,4 +182,25 @@ final class PageZoomTests: XCTestCase {
         XCTAssertFalse(PageZoom.percentageShowsMenu(at: 1.1))
         XCTAssertFalse(PageZoom.percentageShowsMenu(at: 2))
     }
+
+    // MARK: - Floating chrome
+
+    /// Chrome follows the square root of the zoom: actual size leaves it at
+    /// its drawn size, the 200% ceiling lifts it 41% rather than doubling
+    /// it, and the 125% opening is a barely-felt notch.
+    func testChromeScalesWithTheSquareRootOfTheZoom() {
+        XCTAssertEqual(PageZoom.chromeScale(at: 1), 1, accuracy: 0.0001)
+        XCTAssertEqual(PageZoom.chromeScale(at: PageZoom.opening), sqrt(1.25), accuracy: 0.0001)
+        XCTAssertEqual(PageZoom.chromeScale(at: 2), sqrt(2), accuracy: 0.0001)
+    }
+
+    /// Slower than the page in both directions, and clamped with the range:
+    /// the bar never outruns the zoom above it nor shrinks past its drawn
+    /// size below it.
+    func testChromeScaleIsDampedAndClamped() {
+        XCTAssertLessThan(PageZoom.chromeScale(at: 1.75), 1.75)
+        XCTAssertGreaterThan(PageZoom.chromeScale(at: 1.75), 1)
+        XCTAssertEqual(PageZoom.chromeScale(at: 0.5), 1, accuracy: 0.0001)
+        XCTAssertEqual(PageZoom.chromeScale(at: 3), sqrt(2), accuracy: 0.0001)
+    }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import EDraftCore
 import EDraftEngine
 import SwiftUI
 
@@ -71,6 +72,22 @@ private final class FormatBarHost: NSHostingView<FormatBarView> {
         guard !isHidden, let superview else { return nil }
         return bounds.contains(convert(point, from: superview)) ? self : nil
     }
+
+    /// The arrow, not the I-beam: over chrome the cursor says "press me",
+    /// not "type here". Re-asked on hide and show, so a bar that is not on
+    /// screen claims no cursor.
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard !isHidden else { return }
+        addCursorRect(bounds, cursor: .arrow)
+    }
+
+    override var isHidden: Bool {
+        didSet {
+            guard isHidden != oldValue else { return }
+            window?.invalidateCursorRects(for: self)
+        }
+    }
 }
 
 /// The emphasis controls floating over a selection.
@@ -94,9 +111,11 @@ final class SelectionFormatBar {
     /// The document the bar floats over. Placement is reasoned about in its
     /// coordinates; see `reposition`.
     private weak var canvas: NSView?
-    /// What the bar is showing as lit, so a re-place does not rebuild the
-    /// SwiftUI tree — only a change of what the selection wears does.
+    /// What the bar is showing as lit, and at what scale — the two things a
+    /// rebuild spends. A re-place that changes neither leaves the SwiftUI
+    /// tree alone.
     private var lit: Set<FormatMark> = []
+    private var appliedScale: CGFloat = 1
 
     init() {
         host = FormatBarHost(rootView: FormatBarView(active: []) { _ in })
@@ -106,10 +125,14 @@ final class SelectionFormatBar {
     func attach(to scrollView: NSScrollView, canvas: NSView) {
         self.scrollView = scrollView
         self.canvas = canvas
-        host.rootView = FormatBarView(active: []) { [weak self] mark in
+        rebuild()
+        scrollView.addSubview(host, positioned: .above, relativeTo: scrollView.contentView)
+    }
+
+    private func rebuild() {
+        host.rootView = FormatBarView(active: lit, scale: appliedScale) { [weak self] mark in
             self?.onApply?(mark)
         }
-        scrollView.addSubview(host, positioned: .above, relativeTo: scrollView.contentView)
     }
 
     /// What is lit, and where the bar floats. `active` is the set of marks
@@ -118,9 +141,7 @@ final class SelectionFormatBar {
     func update(selection: NSRange, in textView: NSTextView, active: Set<FormatMark>) {
         if active != lit {
             lit = active
-            host.rootView = FormatBarView(active: active) { [weak self] mark in
-                self?.onApply?(mark)
-            }
+            rebuild()
         }
         reposition(selection: selection, in: textView)
     }
@@ -148,6 +169,16 @@ final class SelectionFormatBar {
         guard placed.intersects(viewport) else {
             host.isHidden = true
             return
+        }
+
+        // The bar breathes with the zoom at the square root of it — see
+        // `PageZoom.chromeScale` — growing a shade slower than the page
+        // rather than reading as shrinking beside it. Applied before the
+        // size is measured: the fitting size is the scaled layout's.
+        let scale = PageZoom.chromeScale(at: scrollView.magnification)
+        if scale != appliedScale {
+            appliedScale = scale
+            rebuild()
         }
 
         let size = host.fittingSize
@@ -203,23 +234,31 @@ final class SelectionFormatBar {
 }
 
 /// The bar itself: the marks in one small piece of glass.
+///
+/// Laid out at `scale` — the zoom's square root (`PageZoom.chromeScale`) —
+/// so it grows with the page a shade slower than the page does, rather than
+/// reading as shrinking beside it. Real layout scaling, not a transform: the
+/// glyphs are set at the scaled point size, so the bar stays crisp instead
+/// of being bitmap-stretched, and the frame the host measures is the frame
+/// the writer clicks in.
 struct FormatBarView: View {
     let active: Set<FormatMark>
+    var scale: CGFloat = 1
     let apply: (FormatMark) -> Void
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(FormatMark.allCases, id: \.self) { mark in
                 if mark.opensGroup {
-                    Divider().frame(height: 12).padding(.horizontal, 3)
+                    Divider().frame(height: 12 * scale).padding(.horizontal, 3 * scale)
                 }
                 Button {
                     apply(mark)
                 } label: {
                     Image(systemName: mark.symbol)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 11 * scale, weight: .medium))
                         .foregroundStyle(active.contains(mark) ? Color.accentColor : .primary)
-                        .frame(width: 22, height: 22)
+                        .frame(width: 22 * scale, height: 22 * scale)
                         .background {
                             if active.contains(mark) {
                                 Capsule().fill(Color.accentColor.opacity(0.18))
@@ -233,11 +272,12 @@ struct FormatBarView: View {
                 .accessibilityValue(active.contains(mark) ? "On" : "")
             }
         }
-        .padding(.horizontal, 5)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 5 * scale)
+        .padding(.vertical, 2 * scale)
         .glassEffect(.regular.interactive(), in: .capsule)
+        // The shadow is a screen-space effect: it does not zoom.
         .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
-        .padding(4)
+        .padding(4 * scale)
     }
 }
 
