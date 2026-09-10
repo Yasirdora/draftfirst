@@ -3,7 +3,14 @@
 /// <reference lib="webworker" />
 /// <reference types="@sveltejs/kit" />
 
-/** Precaches application assets for offline editing after the first visit. */
+/** Precaches application assets for offline editing after the first visit.
+ *
+ *  The update policy, decided — not defaulted: a writing tool's tabs live
+ *  for weeks, and a worker that waits for every tab to close never ships.
+ *  So a new worker activates as soon as its precache lands. An open tab
+ *  keeps running the code it loaded and still asks for ITS build's hashed
+ *  assets, which only that build's cache can answer — so activation keeps
+ *  one predecessor cache and lets the rest go. */
 
 import { build, files, version } from '$service-worker';
 
@@ -16,16 +23,24 @@ sw.addEventListener('install', (event) => {
 		const cache = await caches.open(CACHE);
 		await cache.addAll(ASSETS);
 	}
-	event.waitUntil(addFilesToCache());
+	/* Waiting until the precache has landed, then past the old worker — the
+	   order matters: activating first would serve requests the cache cannot
+	   answer yet. */
+	event.waitUntil(addFilesToCache().then(() => sw.skipWaiting()));
 });
 
 sw.addEventListener('activate', (event) => {
-	async function deleteOldCaches() {
-		for (const key of await caches.keys()) {
-			if (key !== CACHE) await caches.delete(key);
+	async function activate() {
+		/* caches.keys() is creation order: the newest key that is not this
+		   build is the one predecessor worth keeping. */
+		const keys = await caches.keys();
+		const predecessor = keys.filter((key) => key !== CACHE).at(-1);
+		for (const key of keys) {
+			if (key !== CACHE && key !== predecessor) await caches.delete(key);
 		}
+		await sw.clients.claim();
 	}
-	event.waitUntil(deleteOldCaches());
+	event.waitUntil(activate());
 });
 
 sw.addEventListener('fetch', (event) => {
