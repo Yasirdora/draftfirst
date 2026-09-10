@@ -267,14 +267,28 @@ final class LaunchWindowController: NSWindowController, NSSearchFieldDelegate {
         }
     }
 
-    /// The document takes this window's frame and this window goes: to the
-    /// writer, the library became the script. Back does the reverse — see
-    /// `MacAppDelegate.showLaunchWindow(replacing:)`.
+    /// The document takes this window's place and this window goes: to the
+    /// writer, the library became the script. The library hands over its
+    /// *place*, not its size — the document window computed the width its
+    /// page needs at the opening zoom, and the library's narrower frame
+    /// would crop the sheet the writer came for. The library's top-left
+    /// corner anchors the swap, so the title bar stays where the eye left
+    /// it, and the screen's visible frame holds the result on screen.
     private func hand(over document: NSDocument) {
         if document.windowControllers.isEmpty {
             document.makeWindowControllers()
             if let frame = window?.frame, let target = document.windowControllers.first?.window {
-                target.setFrame(frame, display: false)
+                var fitted = target.frame
+                fitted.origin.x = frame.origin.x
+                fitted.origin.y = frame.maxY - fitted.height
+                if let screen = target.screen ?? NSScreen.main {
+                    let visible = screen.visibleFrame
+                    if fitted.maxX > visible.maxX { fitted.origin.x = visible.maxX - fitted.width }
+                    if fitted.maxY > visible.maxY { fitted.origin.y = visible.maxY - fitted.height }
+                    if fitted.origin.x < visible.minX { fitted.origin.x = visible.minX }
+                    if fitted.origin.y < visible.minY { fitted.origin.y = visible.minY }
+                }
+                target.setFrame(fitted, display: false)
             }
         }
         document.showWindows()
