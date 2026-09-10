@@ -250,15 +250,15 @@ struct FormatBarView: View {
         HStack(spacing: 0) {
             ForEach(FormatMark.allCases, id: \.self) { mark in
                 if mark.opensGroup {
-                    Divider().frame(height: 12 * scale).padding(.horizontal, 3 * scale)
+                    Divider().frame(height: 14 * scale).padding(.horizontal, 4 * scale)
                 }
                 Button {
                     apply(mark)
                 } label: {
                     Image(systemName: mark.symbol)
-                        .font(.system(size: 11 * scale, weight: .medium))
+                        .font(.system(size: 13 * scale, weight: .medium))
                         .foregroundStyle(active.contains(mark) ? Color.accentColor : .primary)
-                        .frame(width: 22 * scale, height: 22 * scale)
+                        .frame(width: 26 * scale, height: 26 * scale)
                         .background {
                             if active.contains(mark) {
                                 Capsule().fill(Color.accentColor.opacity(0.18))
@@ -272,12 +272,12 @@ struct FormatBarView: View {
                 .accessibilityValue(active.contains(mark) ? "On" : "")
             }
         }
-        .padding(.horizontal, 5 * scale)
-        .padding(.vertical, 2 * scale)
+        .padding(.horizontal, 6 * scale)
+        .padding(.vertical, 3 * scale)
         .glassEffect(.regular.interactive(), in: .capsule)
         // The shadow is a screen-space effect: it does not zoom.
         .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
-        .padding(4 * scale)
+        .padding(5 * scale)
     }
 }
 
