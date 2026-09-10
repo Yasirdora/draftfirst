@@ -129,11 +129,13 @@
 	);
 
 	let toastTimer: ReturnType<typeof setTimeout> | null = null;
-	function showToast(type: 'success' | 'caution' | 'info' | 'error', msg: string) {
+	function showToast(type: 'success' | 'caution' | 'info' | 'error', msg: string, sticky = false) {
 		if (toastTimer) clearTimeout(toastTimer);
 		toast = { type, msg };
 		/* An error carries instructions; three seconds is enough to see that
-		   something went wrong, not to read what to do about it. */
+		   something went wrong, not to read what to do about it. A sticky
+		   toast does not leave until its cause does. */
+		if (sticky) return;
 		toastTimer = setTimeout(() => (toast = null), type === 'error' ? 7000 : 3000);
 	}
 	const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -1431,11 +1433,37 @@
 
 	/* ---- autosave + boot ---------------------------------------------------- */
 
+	/* A save must never fail silently: localStorage fills (a feature script
+	   with notes reaches the ~5 MB quota) or is blocked outright, and a
+	   writer who is not told keeps typing into a draft that is not being
+	   kept. While a save is owed the fact stays on screen, and closing the
+	   tab meets the platform's own "leave without saving" dialog. */
+	const SAVE_FAILURE_MSG =
+		"Not saving — this browser's storage is full or blocked. Export a copy (File → Export) before closing this tab.";
+	let saveFailed = $state(false);
+
+	function persist(script: ReturnType<typeof currentScript>): boolean {
+		try {
+			localStorage.setItem(STORAGE_KEY, serialiseFountain(script));
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	let saveTimer: ReturnType<typeof setTimeout> | null = null;
 	function autosave(script: ReturnType<typeof currentScript>) {
 		if (saveTimer) clearTimeout(saveTimer);
 		saveTimer = setTimeout(() => {
-			try { localStorage.setItem(STORAGE_KEY, serialiseFountain(script)); } catch { /* keep typing */ }
+			if (persist(script)) {
+				if (saveFailed) {
+					saveFailed = false;
+					showToast('success', 'Saving again.');
+				}
+			} else {
+				saveFailed = true;
+				if (toast?.msg !== SAVE_FAILURE_MSG) showToast('error', SAVE_FAILURE_MSG, true);
+			}
 		}, 800);
 	}
 
@@ -1444,7 +1472,14 @@
 	function flushSave() {
 		if (!sheet) return;
 		if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-		try { localStorage.setItem(STORAGE_KEY, serialiseFountain(currentScript())); } catch { /* leaving anyway */ }
+		if (!persist(currentScript())) saveFailed = true;
+	}
+
+	/** Closing with the draft unsaved earns the browser's own warning; a clean
+	   draft never holds anyone hostage. */
+	function guardClose(event: BeforeUnloadEvent) {
+		flushSave();
+		if (saveFailed) event.preventDefault();
 	}
 
 	onDestroy(() => {
@@ -1560,7 +1595,7 @@
 <svelte:window
 	onmousedown={onWindowDown}
 	onkeydown={onGlobalKey}
-	onbeforeunload={flushSave}
+	onbeforeunload={guardClose}
 	ondragover={(e) => {
 		if (e.dataTransfer?.types.includes('Files')) e.preventDefault();
 	}}
