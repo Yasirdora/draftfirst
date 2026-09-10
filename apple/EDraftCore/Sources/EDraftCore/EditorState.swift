@@ -356,6 +356,23 @@ public final class EditorState {
         }
     }
 
+    /// The scene the writer is in — the Navigator's "you are here" mark.
+    ///
+    /// A scene owns everything from its heading down to the next heading, so
+    /// the answer is the last row whose heading sits at or before the active
+    /// element — never the active element's own type, which is dialogue or
+    /// action far more often than it is a slug. Nil above the first heading,
+    /// where the script has a title page and a FADE IN but no scene yet.
+    ///
+    /// Derived here rather than in the list so the rule has one home: a row
+    /// that jumps the caret into a scene lights up because the caret landed,
+    /// and the mark follows the caret however it moves — click, keys, or a
+    /// Navigator row.
+    public var activeSceneID: UUID? {
+        guard let activeIndex = activeElementIndex else { return nil }
+        return scenes.last(where: { $0.elementIndex <= activeIndex })?.id
+    }
+
     public var cast: [CastRow] {
         var counts: [String: Int] = [:]
         var firstCue: [String: UUID] = [:]

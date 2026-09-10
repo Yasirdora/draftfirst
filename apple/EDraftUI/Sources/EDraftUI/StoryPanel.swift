@@ -319,7 +319,9 @@ public struct StoryList: View {
                 )
             } else {
                 ForEach(visible) { scene in
-                    SceneListRow(scene: scene) { open(scene.id) }
+                    SceneListRow(scene: scene, isCurrent: scene.id == editor.activeSceneID) {
+                        open(scene.id)
+                    }
                 }
             }
 
@@ -395,6 +397,12 @@ public struct StoryList: View {
 /// A scene, its address, and where to turn to find it.
 private struct SceneListRow: View {
     let scene: SceneRow
+    /// Whether the caret sits inside this scene — the "you are here" mark,
+    /// drawn as a quiet grey wash rather than the accent a *chosen* thing
+    /// wears (the cast tab's open thread). Choosing a row moves the caret
+    /// into the scene, so the mark lands on the chosen row by itself, and
+    /// follows the caret however it moves afterwards.
+    let isCurrent: Bool
     let open: () -> Void
 
     public var body: some View {
@@ -411,11 +419,12 @@ private struct SceneListRow: View {
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 18, alignment: .trailing)
 
-                // A heading that wraps must wrap like a heading: both lines
-                // starting at the same left edge, under the scene number that
-                // introduces them. Taking the full width also pins the page
-                // number to the right margin, so the trailing column lines up
-                // down the list whatever the headings do.
+                // One line per scene, always. The list is a map of the
+                // script, and a map reads by rows of even height — a heading
+                // that wraps bends every row beneath it out of step. What
+                // cannot fit ends in an ellipsis; the full text is a hover
+                // away, and the page number keeps the right margin, so the
+                // trailing column still lines up down the list.
                 // Master scenes are the spine; a secondary slug names
                 // somewhere inside one. Indented and a shade lighter, so a
                 // reader running down the list sees the setups first and the
@@ -426,10 +435,11 @@ private struct SceneListRow: View {
                 Text(scene.title)
                     .font(scene.isSecondary ? .subheadline : .body.weight(.medium))
                     .foregroundStyle(scene.isSecondary ? .secondary : .primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                     .padding(.leading, scene.isSecondary ? 14 : 0)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .help(scene.title)
 
                 // Where it falls, at the paper size currently set — read out
                 // of the same pagination the PDF prints, so the two can never
@@ -446,13 +456,16 @@ private struct SceneListRow: View {
         // centres its label — which is why a heading long enough to wrap came
         // out looking like a title card. The cast row already says this.
         .buttonStyle(.plain)
+        .listRowBackground(isCurrent ? Color.primary.opacity(0.12) : Color.clear)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Moves the insertion point to this scene")
     }
 
     private var accessibilityLabel: String {
-        guard let page = scene.page else { return "Scene \(scene.label), \(scene.title)" }
-        return "Scene \(scene.label), \(scene.title), page \(page)"
+        var label = "Scene \(scene.label), \(scene.title)"
+        if let page = scene.page { label += ", page \(page)" }
+        if isCurrent { label += ", current scene" }
+        return label
     }
 }
 
