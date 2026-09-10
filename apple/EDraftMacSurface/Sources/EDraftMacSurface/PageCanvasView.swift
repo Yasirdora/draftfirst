@@ -105,12 +105,36 @@ final class PageCanvasView: NSView {
     /// that begins thirty-five lines down it.
     func layoutPages(pageStarts: [CGFloat], textHeight: CGFloat, viewport: CGSize) {
         let starts = pageStarts.isEmpty ? [0] : pageStarts
+        // Re-framing a feature's worth of sheets because the window breathed
+        // is real work — nine hundred subviews moved on a 910-page draft —
+        // and the same words in the same mode land on the same paper.
+        let signature = PagesSignature(
+            mode: layoutMode, starts: starts, textHeight: textHeight,
+            viewport: viewport, padding: canvasPadding
+        )
+        if signature == laidSignature {
+            applyAppearance()
+            return
+        }
+        laidSignature = signature
         layoutPages(pageCount: starts.count, textHeight: textHeight, viewport: viewport,
                     starts: starts)
     }
 
+    /// What the last `layoutPages` pass was asked for; a repeat is a no-op.
+    private struct PagesSignature: Equatable {
+        let mode: PageLayoutMode
+        let starts: [CGFloat]
+        let textHeight: CGFloat
+        let viewport: CGSize
+        let padding: CGFloat
+    }
+    private var laidSignature: PagesSignature?
+
     func layoutPages(pageCount: Int, textHeight: CGFloat, viewport: CGSize,
                      starts: [CGFloat]? = nil) {
+        // Called directly, this is not the pass the signature remembers.
+        laidSignature = nil
         let format = PageFormat.current
         let pageSize = format.pageRect.size
         let desk = canvasPadding
@@ -207,9 +231,16 @@ final class PageCanvasView: NSView {
         // while an emoji's ascent has somewhere to go instead of being cut off
         // by the view's own edge. On every other line the room is the line
         // above; on the first there is none.
+        //
+        // Assigned only when it moves: setting the inset invalidates the
+        // whole container, and the value is a constant — the assignment used
+        // to buy a full re-layout of the script on every pass.
         let lastTextBottom =
             CGFloat(pages - 1) * (pageSize.height + Self.pageGap) + textBlock
-        textView?.textContainerInset = NSSize(width: 0, height: slack)
+        let inset = NSSize(width: 0, height: slack)
+        if let textView, textView.textContainerInset != inset {
+            textView.textContainerInset = inset
+        }
         textView?.frame = CGRect(
             x: x + ScreenplayPageLayout.textLeft,
             y: desk + format.textTop - slack,

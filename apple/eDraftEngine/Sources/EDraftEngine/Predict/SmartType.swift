@@ -39,7 +39,14 @@ public enum SmartType {
     /// Strip cue extensions — (V.O.), (O.S.), (O.C.), (CONT'D), (SUBTITLE)…
     /// Case-insensitive; accepts curly apostrophes, matching the JS regex.
     public static func stripCueExtensions(_ cue: String) -> String {
-        // Local: `Regex` is not `Sendable` and cannot be a static.
+        /* Every alternative sits inside a literal `\(...\)`, so a cue with
+           no parenthesis cannot match. Building the regex is the expensive
+           part — it is not `Sendable`, so it cannot be shared — and the
+           paginator asks this question of every dialogue block on every
+           pass. Answer the common case without paying for it. */
+        guard cue.contains("(") else {
+            return cue.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         let pattern = #/(?i)\s*\((?:V\.?O\.?|O\.?S\.?|O\.?C\.?|CONT['’]?D|SUBTITLE|PRE-?LAP|FILTERED|INTO (?:PHONE|RADIO|COMMS?)[^)]*)\)\s*/#
         return cue.replacing(pattern, with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)

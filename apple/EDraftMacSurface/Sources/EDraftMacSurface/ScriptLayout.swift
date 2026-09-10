@@ -263,13 +263,12 @@ public enum ScriptLayout {
     public static func boundingRect(of range: NSRange, in view: NSTextView) -> CGRect? {
         if let layoutManager = view.layoutManager, let container = view.textContainer {
             // TextKit 1: the same arithmetic the iPhone's surface uses.
-            // Lay the whole container out first. Laying out only the glyphs of
-            // the range asked for is enough for a line that has glyphs, and
-            // silently is not for one that does not: the extra line fragment an
-            // empty last line lives in only exists once the text system has
-            // finished the container.
-            layoutManager.ensureLayout(for: container)
+            // Lay out the glyphs asked for — never the whole container, which
+            // this used to do: a whole-container ensure costs about a
+            // millisecond even when the layout is already valid, and a page
+            // boundary walk on a feature asks it nine hundred times.
             let glyphs = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+            layoutManager.ensureLayout(forGlyphRange: glyphs)
             let measured = layoutManager.boundingRect(forGlyphRange: glyphs, in: container)
             if measured.height > 0 {
                 return inView(widened(measured, toAtLeast: container), view)
@@ -279,7 +278,12 @@ public enum ScriptLayout {
             // the blank line a writer is about to type into, and a reader can
             // be sent to it. An empty line in the body borrows the fragment it
             // sits in; an empty line at the very end has none, and lives in the
-            // extra fragment the text system keeps for exactly that case.
+            // extra fragment the text system keeps for exactly that case. The
+            // extra fragment exists only once the container is finished — the
+            // one place a whole-container ensure is still bought.
+            if NSMaxRange(range) >= (view.string as NSString).length {
+                layoutManager.ensureLayout(for: container)
+            }
             let length = layoutManager.numberOfGlyphs
             let fallback = glyphs.location >= length
                 ? layoutManager.extraLineFragmentUsedRect

@@ -215,16 +215,16 @@ public enum Paginator {
 
     // MARK: - Block building
 
-    private struct FlowLine {
+    struct FlowLine {
         var text: String
         var type: ElementKind
         var indent: Int
         var element: Int
     }
 
-    private enum BlockKind { case scene, flow, simple }
+    enum BlockKind { case scene, flow, simple }
 
-    private struct Block {
+    struct Block {
         var kind: BlockKind
         var before: Int
         var lines: [FlowLine]
@@ -235,7 +235,7 @@ public enum Paginator {
         var continuationEligible: Bool? = nil
     }
 
-    private enum BuildItem {
+    enum BuildItem {
         case block(Block)
         case pagebreak
     }
@@ -245,7 +245,7 @@ public enum Paginator {
         .character, .parenthetical, .dialogue, .lyrics,
     ]
 
-    private static func buildBlocks(_ script: Screenplay) -> [BuildItem] {
+    static func buildBlocks(_ script: Screenplay) -> [BuildItem] {
         var items: [BuildItem] = []
         var flow: Block? = nil
 
@@ -459,18 +459,26 @@ public enum Paginator {
                (MORE)/NAME (CONT'D) across as many pages as it needs. */
             if block.kind == .flow {
                 let lines = block.lines
-                let head = flowHeadLength(lines)
-                let base = SmartType.stripCueExtensions(block.cueName ?? "")
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                let continuationEligible = block.continuationEligible == true
-                    && !base.isEmpty
-                    && lines.contains(where: { $0.type == .dialogue })
-                    && !lines.contains(where: { $0.type == .lyrics })
 
+                /* The common case first: a block that fits whole needs no
+                   cue surgery at all. */
                 if before + lines.count <= spaceLeft() {
                     blanks(before, element: lines[0].element)
                     emitRange(lines, 0, lines.count)
                     continue
+                }
+
+                let head = flowHeadLength(lines)
+                /* Cheap shape checks before the cue name is touched: a block
+                   that cannot legally continue never pays for the strip. */
+                var continuationEligible = block.continuationEligible == true
+                    && lines.contains(where: { $0.type == .dialogue })
+                    && !lines.contains(where: { $0.type == .lyrics })
+                var base = ""
+                if continuationEligible {
+                    base = SmartType.stripCueExtensions(block.cueName ?? "")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    continuationEligible = !base.isEmpty
                 }
 
                 if !continuationEligible {
@@ -555,7 +563,7 @@ public enum Paginator {
     /// closing page carries (CONTINUED) at the bottom and the opening page
     /// CONTINUED: at the top. Markers live in the margins — they never
     /// consume body lines, so adding them cannot shift a page break.
-    private static func markSceneContinues(_ script: Screenplay, _ pages: inout [ScriptPage]) {
+    static func markSceneContinues(_ script: Screenplay, _ pages: inout [ScriptPage]) {
         /* scene index per element: -1 before the first heading */
         var sceneOf: [Int] = []
         sceneOf.reserveCapacity(script.elements.count)

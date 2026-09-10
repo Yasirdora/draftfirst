@@ -36,6 +36,32 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     let canvas: PageCanvasView
 
     private var ranges: [ScriptLayout.ElementRange] = []
+
+    /// The engine's reading of the text last laid out: its pages, and where
+    /// each begins in the flattened text. Paginating a feature is not cheap
+    /// — measured 1.2 seconds on a synthetic 910-page draft — and the breaks
+    /// and the markers both need it, so it is computed once per version of
+    /// the text rather than once per question asked of it.
+    private struct Pagination {
+        let elements: [ScriptElement]
+        let format: PageFormat
+        let pages: [EDraftEngine.ScriptPage]?
+        let locations: [Int]
+    }
+    private var cachedPagination: Pagination?
+
+    /// The breaks last measured onto the container, with the text and mode
+    /// they belong to. A re-layout of the same words — a window resize, a
+    /// second pass while the window opens — reuses them: clearing the
+    /// exclusion paths to measure again invalidates the whole container,
+    /// which buys a full TextKit layout with a single assignment.
+    private struct BreaksPlacement {
+        let elements: [ScriptElement]
+        let format: PageFormat
+        let mode: PageLayoutMode
+        let starts: [CGFloat]
+    }
+    private var breaksPlacement: BreaksPlacement?
     let highlight = RevealHighlightViewMac()
     private let ghost = GhostTextOverlay()
 
@@ -87,7 +113,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let textWidth = ScriptLayout.pageMeasure
         self.measure = textWidth
 
-        let container = NSTextContainer(
+        let container = PageGapContainer(
             size: CGSize(width: textWidth, height: .greatestFiniteMagnitude)
         )
         // The page is paper, not the window: tracking the clip view would
@@ -131,6 +157,13 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
         let canvas = PageCanvasView()
         canvas.attach(textView)
+        // The headroom a tall glyph gets is a constant (see
+        // `PageCanvasView.layoutPages`), so set it once, here: assigning the
+        // inset invalidates the whole container, and doing it after the
+        // first layout bought a second full one on every open.
+        textView.textContainerInset = NSSize(
+            width: 0, height: ScreenplayPageLayout.glyphOverflow
+        )
         self.canvas = canvas
         formatBar.attach(to: canvas)
 
@@ -380,12 +413,18 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// view does not display them. See `testTheLastElementLandsOnTheCard`.
     private func layOut() {
         var pageStarts: [CGFloat] = [0]
-        if let layoutManager = textView.layoutManager, let container = textView.textContainer {
+        let pagination = pagination(for: lastLaidElements)
+        if let layoutManager = textView.layoutManager,
+           let container = textView.textContainer as? PageGapContainer {
             container.size = CGSize(width: measure, height: .greatestFiniteMagnitude)
             pageStarts = applyPageBreaks(
-                in: layoutManager, container: container, elements: lastLaidElements
+                in: layoutManager, container: container,
+                elements: lastLaidElements, pagination: pagination
             )
-            layoutManager.ensureLayout(for: container)
+            // No ensureLayout of our own here: applyPageBreaks leaves the
+            // container laid out, and `usedRect` below forces the end of it
+            // anyway — a third ensure would only repeat the question.
+            //
             // sizeToFit uses usedRect, which is shorter than the glyph
             // bounding boxes (Courier's descent sits a couple of points
             // past the used rect). A view sized to usedRect clips the last
@@ -418,7 +457,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // ended. In `pages` the gap between the sheets and their own edges
         // already say it, and a rule as well is a third mark for one
         // boundary.
-        canvas.showBreaks(at: canvas.layoutMode == .continuous ? pageBreakPositions() : [])
+        canvas.showBreaks(at: canvas.layoutMode == .continuous ? pageBreakPositions(pagination) : [])
         placeNoteMarkers()
         washNotedLines()
         scrollView.layoutSubtreeIfNeeded()
@@ -518,23 +557,40 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         return ScriptLayout.boundingRect(of: probe, in: textView)
     }
 
+    /// The engine's reading of `elements`, computed once per version of the
+    /// text. Everything else that needs it this pass — the breaks, the
+    /// markers — takes it from here.
+    private func pagination(for elements: [ScriptElement]) -> Pagination {
+        let format = PageFormat.current
+        if let cached = cachedPagination,
+           cached.elements == elements, cached.format == format {
+            return cached
+        }
+        let pages = ScreenplayExporter.paginate(Screenplay(elements: elements))
+        let locations: [Int]
+        if let pages, pages.count > 1 {
+            locations = ScreenplayPageLayout.pageStartLocations(elements: elements, pages: pages)
+        } else {
+            locations = []
+        }
+        let fresh = Pagination(elements: elements, format: format, pages: pages, locations: locations)
+        cachedPagination = fresh
+        return fresh
+    }
+
     /// Where each page after the first actually begins, in canvas
     /// coordinates, measured after the layout rather than predicted from it.
     ///
     /// Both modes ask the same question of the same laid-out text, so a
     /// marker cannot land anywhere but on the line the engine says starts
     /// that page.
-    private func pageBreakPositions() -> [PageCanvasView.PageBreak] {
-        guard let pages = ScreenplayExporter.paginate(Screenplay(elements: lastLaidElements)),
-              pages.count > 1 else { return [] }
-        let locations = ScreenplayPageLayout.pageStartLocations(
-            elements: lastLaidElements, pages: pages
-        )
+    private func pageBreakPositions(_ pagination: Pagination) -> [PageCanvasView.PageBreak] {
+        guard let pages = pagination.pages, pages.count > 1 else { return [] }
         // Numbered from the pagination, before anything is dropped. The
         // engine says this location begins page four; whether its rectangle
         // resolves decides only whether a mark is drawn, never what the marks
         // below it are called.
-        return locations.enumerated().dropFirst().compactMap { index, location in
+        return pagination.locations.enumerated().dropFirst().compactMap { index, location in
             guard let rect = boundingRect(atCharacter: location) else { return nil }
             return PageCanvasView.PageBreak(
                 page: index + 1, y: canvas.convert(rect, from: textView).minY
@@ -577,20 +633,41 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     @discardableResult
     private func applyPageBreaks(
         in layoutManager: NSLayoutManager,
-        container: NSTextContainer,
-        elements: [ScriptElement]
+        container: PageGapContainer,
+        elements: [ScriptElement],
+        pagination: Pagination
     ) -> [CGFloat] {
-        container.exclusionPaths = []
+        // The same text in the same mode lands on the same breaks. Reuse
+        // them: clearing the bands to measure again invalidates the whole
+        // container — a full layout bought with one assignment.
+        if let placed = breaksPlacement,
+           placed.elements == elements, placed.format == pagination.format,
+           placed.mode == canvas.layoutMode {
+            return placed.starts
+        }
+        // Assigning the bands invalidates the container even when it holds
+        // none, so clear only when there is something to clear.
+        if !container.gapBands.isEmpty { container.gapBands = [] }
         layoutManager.ensureLayout(for: container)
-        guard let pages = ScreenplayExporter.paginate(Screenplay(elements: elements)),
-              pages.count > 1
-        else { return [0] }
+        guard let pages = pagination.pages, pages.count > 1
+        else {
+            breaksPlacement = BreaksPlacement(
+                elements: elements, format: pagination.format,
+                mode: canvas.layoutMode, starts: [0]
+            )
+            return [0]
+        }
 
-        let locations = ScreenplayPageLayout.pageStartLocations(elements: elements, pages: pages)
+        let locations = pagination.locations
         guard canvas.layoutMode == .pages else {
             // `continuous` opens nothing. The marks still need to know where
             // each page begins, which is wherever the text put it.
-            return locations.map { pageStartY($0, in: layoutManager) }
+            let starts = locations.map { pageStartY($0, in: layoutManager) }
+            breaksPlacement = BreaksPlacement(
+                elements: elements, format: pagination.format,
+                mode: canvas.layoutMode, starts: starts
+            )
+            return starts
         }
 
         let format = PageFormat.current
@@ -598,7 +675,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let pitch = format.pageRect.height + PageCanvasView.pageGap
         let line = ScreenplayPageLayout.lineHeight
 
-        // Every space computed from one layout, and the paths set once.
+        // Every space computed from one layout, and the bands set once.
         //
         // What was here measured between each boundary and the next, which
         // reads well and is quadratic: assigning `exclusionPaths` invalidates
@@ -608,16 +685,22 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // `continuous`. A hundred-page draft stopped responding.
         //
         // Nothing needs measuring in between, because the text system's
-        // answer turns out to be exact. An exclusion of height *h* placed at
-        // a line's own top moves that line by *h plus one line* — measured at
+        // answer turns out to be exact. A gap of height *h* placed at a
+        // line's own top moves that line by *h plus one line* — measured at
         // 40, 100, 132 and 797 points, the surplus was 12.0 every time, which
         // is the leading the pushed line brings with it. Knowing that, where
-        // each page will land is arithmetic: where it sits with no exclusions
-        // at all, plus everything inserted above it.
+        // each page will land is arithmetic: where it sits with no gaps at
+        // all, plus everything inserted above it.
+        //
+        // The bands are the container's own (`PageGapContainer`), not
+        // exclusion paths: AppKit checks every path against every line, which
+        // measured 4.8 seconds against 0.3 for the same 910-page draft laid
+        // out bare. The band lookup is a binary search, and the lines land
+        // exactly where the paths put them — that equivalence is tested.
         let ungapped = locations.map { pageStartY($0, in: layoutManager) }
         let base = ungapped[0]
 
-        var paths: [NSBezierPath] = []
+        var bands: [CGRect] = []
         var placed: CGFloat = 0
         var sheet = 0
         for index in 1..<ungapped.count {
@@ -635,19 +718,23 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             }
             let space = target - here - line
             if space > 0.5 {
-                paths.append(NSBezierPath(rect: CGRect(
+                bands.append(CGRect(
                     x: 0, y: here, width: container.size.width, height: space
-                )))
+                ))
             }
             placed += space + line
         }
 
-        container.exclusionPaths = paths
+        container.gapBands = bands
         layoutManager.ensureLayout(for: container)
         // Where they actually landed. The sheets are laid under these, so a
         // line resting a fraction below its exclusion carries its paper with
         // it rather than being left off the top of it.
-        return locations.map { pageStartY($0, in: layoutManager) }
+        let starts = locations.map { pageStartY($0, in: layoutManager) }
+        breaksPlacement = BreaksPlacement(
+            elements: elements, format: format, mode: .pages, starts: starts
+        )
+        return starts
     }
 
     /// Where the line beginning at `location` sits, in the text view's own
@@ -660,80 +747,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             : NSRange(location: max(0, length - 1), length: 0)
         return (ScriptLayout.boundingRect(of: probe, in: textView)
             ?? layoutManager.extraLineFragmentUsedRect).minY
-    }
-
-    /// Puts whatever runs past the last counted page onto paper of its own.
-    ///
-    /// The exclusion paths above are built from the engine's page starts, so
-    /// they stop at the last one. The engine counts pages by wrapping at
-    /// sixty characters and the text view lays out by measuring glyphs, and
-    /// where the two differ the type outlasts the pages: measured on a real
-    /// draft, five lines past the final page start ran down the foot of the
-    /// last sheet, across the gap and into the top margin of the next one —
-    /// which is where a writer found a character cue stranded from its
-    /// dialogue.
-    ///
-    /// So the placing continues past the count: while any line still begins
-    /// below the current sheet's text block, it is pushed to the top of the
-    /// next sheet, exactly as a counted page break would have pushed it.
-    /// `PageCanvasView` has already laid out enough sheets to receive them.
-    private func placeOverflowOnFreshSheets(
-        after countedPages: Int,
-        in layoutManager: NSLayoutManager,
-        container: NSTextContainer,
-        paths: inout [NSBezierPath]
-    ) {
-        let format = PageFormat.current
-        let pitch = format.pageRect.height + PageCanvasView.pageGap
-        let block = ScreenplayPageLayout.textBlockHeight(format)
-        var sheet = max(1, countedPages)
-
-
-        // Bounded: each turn places at least one sheet's worth, and a script
-        // cannot need more sheets than it has lines. The cap is a guard
-        // against a layout that refuses to settle, not an expected exit.
-        for _ in 0..<64 {
-            layoutManager.ensureLayout(for: container)
-            let blockBottom = CGFloat(sheet - 1) * pitch + block
-            guard let overflowTop = firstLineTop(below: blockBottom, in: layoutManager) else {
-                return
-            }
-            let target = CGFloat(sheet) * pitch
-            let push = target - overflowTop
-            guard push > 0.5 else { return }
-            paths.append(NSBezierPath(rect: CGRect(
-                x: 0, y: overflowTop, width: container.size.width, height: push
-            )))
-            container.exclusionPaths = paths
-            sheet += 1
-        }
-    }
-
-    /// The top of the first line carrying words that begins at or below `y`.
-    ///
-    /// Blank lines are skipped on purpose. The spacing after a page's last
-    /// element is drawn below the text block and is nothing a reader can see;
-    /// pushing a fresh sheet for it would open a page for a blank.
-    private func firstLineTop(below y: CGFloat, in layoutManager: NSLayoutManager) -> CGFloat? {
-        guard let container = textView.textContainer else { return nil }
-        let text = textView.string as NSString
-        var found: CGFloat?
-        layoutManager.enumerateLineFragments(
-            forGlyphRange: NSRange(location: 0, length: layoutManager.numberOfGlyphs)
-        ) { _, used, _, glyphRange, stop in
-            guard used.minY >= y - 0.5 else { return }
-            let characters = layoutManager.characterRange(
-                forGlyphRange: glyphRange, actualGlyphRange: nil
-            )
-            guard characters.location + characters.length <= text.length,
-                  !text.substring(with: characters)
-                    .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            else { return }
-            found = used.minY
-            stop.pointee = true
-        }
-        _ = container
-        return found
     }
 
     /// Recentres the page card in a resized window. The script's measure is
