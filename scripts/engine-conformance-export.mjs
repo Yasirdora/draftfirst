@@ -15,6 +15,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseFountain, serialiseFountain } from '../packages/edraft/dist/index.js';
+import { parseEmphasis, synthesiseEmphasis } from '../packages/edraft/dist/style.js';
 import { parseFdx, writeFdxWithDiagnostics } from '../packages/edraft/dist/fdx.js';
 import { estimateRuntime, paginate, printedLineCount } from '../packages/edraft/dist/layout.js';
 import {
@@ -319,6 +320,30 @@ for (const { name, source } of SCRIPTS) {
 	});
 }
 
+/* Styled pagination must be identical to the plain twin — the paginator
+   measures content, and Courier's fixed advance means style never changes
+   geometry. The expected values are computed from the PLAIN twin so the
+   corpus itself carries the assertion. */
+{
+	const styled = parseFountain(
+		'INT. LAB - DAY\n\nA **quiet** _room_ for the ages, ~~really~~.\n\nMARA\n*Yes.* She **meant** it.',
+		{ emphasis: 'runs' }
+	);
+	const plainTwin = parseFountain(
+		'INT. LAB - DAY\n\nA quiet room for the ages, really.\n\nMARA\nYes. She meant it.'
+	);
+	const twinPages = paginate(plainTwin);
+	paginateFixture.push({
+		name: 'styled-equals-plain',
+		screenplay: styled,
+		expected: {
+			pages: twinPages,
+			runtime: estimateRuntime(twinPages),
+			printedLines: printedLineCount(twinPages)
+		}
+	});
+}
+
 /* Prediction contexts against the sample document, the feature, and the
    torture script — the shapes a writer actually meets: a fresh scene, a
    deep document, and hostile real-world text. */
@@ -358,6 +383,136 @@ writeFixture('parse.json', parseFixture);
 writeFixture('serialise.json', serialiseFixture);
 writeFixture('paginate.json', paginateFixture);
 writeFixture('predict.json', predictFixture);
+
+/* ------------------------------------------------------------------ */
+/* emphasis.json / emphasis-synthesise.json — runs-in-model (RFC v2.1) */
+/* ------------------------------------------------------------------ */
+
+/* Parse: the Fountain spec's Emphasis section verbatim (flanking, escapes,
+   nesting), plus the engine's pinned rules beyond the spec — delimiter-run
+   lengths, the ~~ strikeout extension, UTF-16 coordinates, JS \s flanking. */
+const EMPHASIS_PARSE_INPUTS = [
+	'*italics*',
+	'**bold**',
+	'***bold italics***',
+	'_underline_',
+	'~~strikeout~~',
+	'_Steel’s face FILLS the *Leupold Mark 4* scope_.',
+	'**\\*9765\\***',
+	'He dialed *69 and then *23, and then hung up.',
+	'He dialed *69 and then 23*, and then hung up.',
+	'He dialed *69 and then 23\\*, and then hung up.',
+	'As he rattles off the list, Brick and Steel *share a look.',
+	'****',
+	'__x__',
+	'a ~ b',
+	'*a**b*',
+	'***a*b**c***',
+	'**_**',
+	'a*b*c',
+	'*a* and *b*',
+	'**_x_**',
+	'**the \u{1F469}\u200D\u{1F680} console**',
+	'*a\u0085*',
+	'*a\uFEFF*',
+	'a\\nb',
+	'ends \\',
+	'_**BRICK & STEEL**_',
+	'A *little* **strongly** ~~struck~~ _**nested**_ mix.',
+	' bold ',
+	'* spaced * opener',
+	'closers *spaced * too'
+];
+writeFixture(
+	'emphasis.json',
+	EMPHASIS_PARSE_INPUTS.map((input) => ({ input, expected: parseEmphasis(input) }))
+);
+
+/* Synthesise: canonical emission, escapes, merging, whitespace tightening,
+   the Fountain-less styles (AllCaps/HiddenText) dropping, and the recorded
+   loss for crossing (non-laminar) coverage. roundTrip entries pin the full
+   parse → synthesise → parse path, including the fixed point. */
+const EMPHASIS_SYNTH_CASES = [
+	{ text: 'plain text', runs: [] },
+	{ text: 'bold words', runs: [{ start: 0, end: 4, styles: ['Bold'] }] },
+	{
+		text: 'x',
+		runs: [{ start: 0, end: 1, styles: ['Bold', 'Italic', 'Underline', 'Strikeout'] }]
+	},
+	{ text: 'abc', runs: [{ start: 0, end: 3, styles: ['AllCaps'] }] },
+	{ text: 'abc', runs: [{ start: 0, end: 3, styles: ['HiddenText'] }] },
+	{ text: 'a*b', runs: [{ start: 0, end: 3, styles: ['Bold'] }] },
+	{
+		text: 'abcd',
+		runs: [
+			{ start: 0, end: 2, styles: ['Bold'] },
+			{ start: 2, end: 4, styles: ['Bold'] }
+		]
+	},
+	{ text: ' bold ', runs: [{ start: 0, end: 5, styles: ['Bold'] }] },
+	{ text: '  ', runs: [{ start: 0, end: 2, styles: ['Bold'] }] },
+	{ text: '2 * 3 or 4_5 \\ 6', runs: [] },
+	{ text: 'a ~~ b', runs: [] },
+	{
+		text: 'two  spans',
+		runs: [
+			{ start: 0, end: 3, styles: ['Italic'] },
+			{ start: 5, end: 10, styles: ['Bold'] }
+		]
+	},
+	{
+		text: 'Steel FILLS the Leupold scope',
+		runs: [
+			{ start: 0, end: 16, styles: ['Underline'] },
+			{ start: 16, end: 23, styles: ['Italic', 'Underline'] },
+			{ start: 23, end: 29, styles: ['Underline'] }
+		]
+	},
+	{
+		text: 'ab',
+		runs: [{ start: 0, end: 2, styles: ['Bold'], revisionID: 3, tagNumbers: [1] }]
+	},
+	/* Crossing (non-laminar) coverage cannot be expressed with properly
+	   nested markers: the emitter degrades deterministically instead of
+	   corrupting — the expected string pins exactly what is lost. */
+	{
+		text: 'abcdef',
+		runs: [
+			{ start: 0, end: 4, styles: ['Bold'] },
+			{ start: 2, end: 6, styles: ['Italic'] }
+		]
+	}
+];
+writeFixture(
+	'emphasis-synthesise.json',
+	EMPHASIS_SYNTH_CASES.map(({ text, runs }) => ({
+		input: { text, runs },
+		expected: synthesiseEmphasis(text, runs)
+	}))
+);
+
+/* Round-trip gates: foreign/natural spellings in, canonical runs out, and
+   back. `synthesised` is the canonical re-emission; `fixedPoint` is the
+   second pass — for a clean canonical spelling it equals `synthesised`. */
+const EMPHASIS_ROUND_TRIP_SOURCES = [
+	'*italics*',
+	'**bold** and _under_ with ~~strike~~',
+	'_Steel FILLS the *Leupold* scope_',
+	'He dialed *69 and then *23, hung up.',
+	'**\\*9765\\***',
+	'_**BRICK & STEEL**_'
+];
+const roundTripFixture = EMPHASIS_ROUND_TRIP_SOURCES.map((source) => {
+	const first = parseEmphasis(source);
+	const synthesised = synthesiseEmphasis(first.text, first.runs);
+	const second = parseEmphasis(synthesised);
+	return {
+		source,
+		expected: { text: first.text, runs: first.runs, synthesised, fixedPoint: second }
+	};
+});
+writeFixture('emphasis-roundtrip.json', roundTripFixture);
+
 
 /* ------------------------------------------------------------------ */
 /* ghostSuffix.json — the completion math behind every ghost           */

@@ -1,0 +1,214 @@
+[
+  {
+    "source": "*italics*",
+    "expected": {
+      "text": "italics",
+      "runs": [
+        {
+          "start": 0,
+          "end": 7,
+          "styles": [
+            "Italic"
+          ]
+        }
+      ],
+      "synthesised": "*italics*",
+      "fixedPoint": {
+        "text": "italics",
+        "runs": [
+          {
+            "start": 0,
+            "end": 7,
+            "styles": [
+              "Italic"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source": "**bold** and _under_ with ~~strike~~",
+    "expected": {
+      "text": "bold and under with strike",
+      "runs": [
+        {
+          "start": 0,
+          "end": 4,
+          "styles": [
+            "Bold"
+          ]
+        },
+        {
+          "start": 9,
+          "end": 14,
+          "styles": [
+            "Underline"
+          ]
+        },
+        {
+          "start": 20,
+          "end": 26,
+          "styles": [
+            "Strikeout"
+          ]
+        }
+      ],
+      "synthesised": "**bold** and _under_ with ~~strike~~",
+      "fixedPoint": {
+        "text": "bold and under with strike",
+        "runs": [
+          {
+            "start": 0,
+            "end": 4,
+            "styles": [
+              "Bold"
+            ]
+          },
+          {
+            "start": 9,
+            "end": 14,
+            "styles": [
+              "Underline"
+            ]
+          },
+          {
+            "start": 20,
+            "end": 26,
+            "styles": [
+              "Strikeout"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source": "_Steel FILLS the *Leupold* scope_",
+    "expected": {
+      "text": "Steel FILLS the Leupold scope",
+      "runs": [
+        {
+          "start": 0,
+          "end": 16,
+          "styles": [
+            "Underline"
+          ]
+        },
+        {
+          "start": 16,
+          "end": 23,
+          "styles": [
+            "Italic",
+            "Underline"
+          ]
+        },
+        {
+          "start": 23,
+          "end": 29,
+          "styles": [
+            "Underline"
+          ]
+        }
+      ],
+      "synthesised": "_Steel FILLS the *Leupold* scope_",
+      "fixedPoint": {
+        "text": "Steel FILLS the Leupold scope",
+        "runs": [
+          {
+            "start": 0,
+            "end": 16,
+            "styles": [
+              "Underline"
+            ]
+          },
+          {
+            "start": 16,
+            "end": 23,
+            "styles": [
+              "Italic",
+              "Underline"
+            ]
+          },
+          {
+            "start": 23,
+            "end": 29,
+            "styles": [
+              "Underline"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source": "He dialed *69 and then *23, hung up.",
+    "expected": {
+      "text": "He dialed *69 and then *23, hung up.",
+      "runs": [],
+      "synthesised": "He dialed \\*69 and then \\*23, hung up.",
+      "fixedPoint": {
+        "text": "He dialed *69 and then *23, hung up.",
+        "runs": []
+      }
+    }
+  },
+  {
+    "source": "**\\*9765\\***",
+    "expected": {
+      "text": "*9765*",
+      "runs": [
+        {
+          "start": 0,
+          "end": 6,
+          "styles": [
+            "Bold"
+          ]
+        }
+      ],
+      "synthesised": "**\\*9765\\***",
+      "fixedPoint": {
+        "text": "*9765*",
+        "runs": [
+          {
+            "start": 0,
+            "end": 6,
+            "styles": [
+              "Bold"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "source": "_**BRICK & STEEL**_",
+    "expected": {
+      "text": "BRICK & STEEL",
+      "runs": [
+        {
+          "start": 0,
+          "end": 13,
+          "styles": [
+            "Bold",
+            "Underline"
+          ]
+        }
+      ],
+      "synthesised": "**_BRICK & STEEL_**",
+      "fixedPoint": {
+        "text": "BRICK & STEEL",
+        "runs": [
+          {
+            "start": 0,
+            "end": 13,
+            "styles": [
+              "Bold",
+              "Underline"
+            ]
+          }
+        ]
+      }
+    }
+  }
+]

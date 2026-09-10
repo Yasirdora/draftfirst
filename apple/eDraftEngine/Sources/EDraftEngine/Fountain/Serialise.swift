@@ -27,47 +27,61 @@ extension Fountain {
     /// Render one element as its Fountain source line
     /// (TypeScript `elementToFountain`).
     public static func elementToFountain(_ element: ScreenplayElement) -> String {
+        /* Classification reads element.text — marker-free content — so
+           markers can never hijack an element type; emission uses body,
+           content with its style runs synthesised back into boundary
+           markers. Known limit: a scene that needs the forcing `.` AND
+           starts with a styled character cannot round-trip (Fountain
+           requires an alphanumeric after the dot) — recorded as an
+           accepted Fountain-boundary loss. */
+        let body: String
+        if let runs = element.runs, !runs.isEmpty {
+            body = Emphasis.synthesise(element.text, runs)
+        } else {
+            body = element.text
+        }
         switch element.type {
         case .scene:
             let number = element.sceneNumber.map { " #\($0)#" } ?? ""
             /* Force scene headings the standard detector cannot recognize. */
             let head = FountainDetect.isSceneHeading(element.text)
-                ? element.text
-                : "." + element.text
+                ? body
+                : "." + body
             return head + number
 
         case .character:
-            let cue = element.text + (element.dual == true ? " ^" : "")
+            let cue = body + (element.dual == true ? " ^" : "")
             return mustForceCharacter(element.text) ? "@" + cue : cue
 
         case .dialogue:
             /* Fountain's connected blank dialogue line is exactly two spaces. */
-            return element.text.isEmpty ? "  " : element.text
+            return element.text.isEmpty ? "  " : body
 
         case .parenthetical:
-            return element.text
+            return body
 
         case .transition:
             let recognized = FountainDetect.isTransition(element.text)
                 || FountainDetect.isFadeOpener(element.text)
             return recognized && FountainDetect.isUpper(element.text)
-                ? element.text
-                : "> " + escapeForcedTransition(element.text)
+                ? body
+                : "> " + escapeForcedTransition(body)
 
         case .centered:
-            return "> \(element.text) <"
+            return "> \(body) <"
 
         case .lyrics:
-            return "~ \(element.text)"
+            return "~ \(body)"
 
         case .shot:
             /* Fountain has no shot type. eDraft recognises isolated
                uppercase shot phrases; `!` stays exclusively for Action. */
-            return FountainDetect.expandTabs(element.text)
+            return FountainDetect.expandTabs(body)
 
         case .general, .action:
-            let text = FountainDetect.expandTabs(element.text)
-            let classified = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let text = FountainDetect.expandTabs(body)
+            let classified = FountainDetect.expandTabs(element.text)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
             /* Force action when the plain line would parse as another element. */
             let risky = FountainDetect.isSceneHeading(classified)
                 || FountainDetect.isUpper(classified)
@@ -77,14 +91,14 @@ extension Fountain {
             return risky ? "!" + text : text
 
         case .note:
-            return "[[\(element.text)]]"
+            return "[[\(body)]]"
 
         case .section:
             let depth = max(1, element.depth ?? 1)
-            return String(repeating: "#", count: depth) + " " + element.text
+            return String(repeating: "#", count: depth) + " " + body
 
         case .synopsis:
-            return "= " + element.text
+            return "= " + body
 
         case .pagebreak:
             return "==="

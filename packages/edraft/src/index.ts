@@ -2,13 +2,25 @@
 
 export type {
 	AnyElementType,
+	ContentIndex,
 	ElementType,
+	FountainIndex,
 	Screenplay,
 	ScreenplayElement,
 	StructuralType,
+	StyleRun,
+	StyleToken,
 	TitlePageEntry
 } from './types.js';
-export { isPrinting } from './types.js';
+export { contentIndex, fountainIndex, isPrinting } from './types.js';
+
+export {
+	escapeFountainContent,
+	normaliseRuns,
+	parseEmphasis,
+	STYLE_ORDER,
+	synthesiseEmphasis
+} from './style.js';
 
 export type {
 	DiagnosticSeverity,

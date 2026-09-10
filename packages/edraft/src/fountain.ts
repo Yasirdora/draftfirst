@@ -14,6 +14,13 @@ export {
 	serialiseFountain as serializeFountain
 } from './serialise.js';
 export {
+	escapeFountainContent,
+	normaliseRuns,
+	parseEmphasis,
+	STYLE_ORDER,
+	synthesiseEmphasis
+} from './style.js';
+export {
 	looksLikeCue,
 	normalizeCue,
 	normalizeElementText,

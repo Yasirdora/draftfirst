@@ -26,10 +26,19 @@ import type {
 	ScreenplayElement,
 	TitlePageEntry
 } from './types.js';
+import { parseEmphasis } from './style.js';
 
 export interface FountainParseOptions {
 	/** Maximum UTF-16 code units accepted from one document. Default: 16 MiB. */
 	maxSourceCharacters?: number;
+	/**
+	 * 'preserve' (default): marker characters stay in element text — the
+	 * historical behaviour. 'runs': emphasis becomes style runs on the
+	 * element and text is marker-free content (RFC v2.1). Transitional:
+	 * the viewport work (Phase A) flips the app to 'runs'; the option is
+	 * removed once no caller preserves.
+	 */
+	emphasis?: 'preserve' | 'runs';
 }
 
 export const DEFAULT_MAX_FOUNTAIN_SOURCE_CHARACTERS: number = 16 * 1024 * 1024;
@@ -290,8 +299,21 @@ export function parseFountain(source: string, options: FountainParseOptions = {}
 
 	const elements: ScreenplayElement[] = [];
 
+	/* Emphasis is parsed at the single funnel every element passes through,
+	   AFTER the type-specific transforms above (uppercasing, trims, dual
+	   carets), so runs always index the final content text. */
+	const emphasisRuns = options.emphasis === 'runs';
 	const push = (type: AnyElementType, text: string, extra?: Partial<ScreenplayElement>) => {
-		elements.push({ type, text, ...extra });
+		if (emphasisRuns) {
+			const parsed = parseEmphasis(text);
+			elements.push(
+				parsed.runs.length > 0
+					? { type, text: parsed.text, runs: parsed.runs, ...extra }
+					: { type, text: parsed.text, ...extra }
+			);
+		} else {
+			elements.push({ type, text, ...extra });
+		}
 	};
 
 	/* attach standalone notes captured during line splitting */

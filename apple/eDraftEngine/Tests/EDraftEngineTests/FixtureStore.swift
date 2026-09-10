@@ -151,8 +151,38 @@ enum GhostSuffixCorpus {
     }
 }
 
-enum FdxCorpus {
-    struct Root: Decodable {
+enum EmphasisCorpus {
+    struct ParseCase: Decodable {
+        let input: String
+        let expected: Parsed
+    }
+    struct Parsed: Decodable {
+        let text: String
+        let runs: [StyleRun]
+    }
+    struct SynthesiseCase: Decodable {
+        let input: Input
+        let expected: String
+
+        struct Input: Decodable {
+            let text: String
+            let runs: [StyleRun]
+        }
+    }
+    struct RoundTripCase: Decodable {
+        let source: String
+        let expected: Expected
+
+        struct Expected: Decodable {
+            let text: String
+            let runs: [StyleRun]
+            let synthesised: String
+            let fixedPoint: Parsed
+        }
+    }
+}
+
+enum FdxCorpus {    struct Root: Decodable {
         let importCases: [ImportCase]
         let exportCases: [ExportCase]
 

@@ -122,6 +122,12 @@ public nonisolated struct ScriptElement: Identifiable, Codable, Equatable, Senda
     public var id: UUID
     public var type: ScreenplayKind
     public var text: String
+    /// Styled spans of `text` — emphasis as data, never marker characters
+    /// (RFC v2.1 Phase 0). Nil when the element carries no styling, which is
+    /// most elements; `text` is marker-free either way. The engine's
+    /// canonical invariants (sorted, non-overlapping, clamped, merged only
+    /// when every property matches) hold for any array stored here.
+    public var runs: [StyleRun]?
     public var dual: Bool?
     public var sceneNumber: String?
     /// Section depth (`#` count). Carried losslessly even though the editor
@@ -133,6 +139,7 @@ public nonisolated struct ScriptElement: Identifiable, Codable, Equatable, Senda
         id: UUID = UUID(),
         type: ScreenplayKind,
         text: String,
+        runs: [StyleRun]? = nil,
         dual: Bool? = nil,
         sceneNumber: String? = nil,
         depth: Int? = nil
@@ -140,13 +147,14 @@ public nonisolated struct ScriptElement: Identifiable, Codable, Equatable, Senda
         self.id = id
         self.type = type
         self.text = text
+        self.runs = runs
         self.dual = dual
         self.sceneNumber = sceneNumber
         self.depth = depth
     }
 
     private enum CodingKeys: String, CodingKey {
-        case type, text, dual, sceneNumber, depth
+        case type, text, runs, dual, sceneNumber, depth
     }
 
     public init(from decoder: Decoder) throws {
@@ -154,10 +162,26 @@ public nonisolated struct ScriptElement: Identifiable, Codable, Equatable, Senda
         id = UUID()
         type = try container.decode(ScreenplayKind.self, forKey: .type)
         text = try container.decode(String.self, forKey: .text)
+        runs = try container.decodeIfPresent([StyleRun].self, forKey: .runs)
         dual = try container.decodeIfPresent(Bool.self, forKey: .dual)
         sceneNumber = try container.decodeIfPresent(String.self, forKey: .sceneNumber)
         depth = try container.decodeIfPresent(Int.self, forKey: .depth)
     }
+}
+
+/// Offset in the editor's flattened storage — the text view's string as
+/// `ScreenplayEditPlanner.flattenedText` builds it (RFC v2.1 §2).
+/// `ScreenplayEditPlanner.ElementRange` is the map between DocumentIndex
+/// and (element, ContentIndex), so a selection in the text view and a style
+/// run in the model can never silently mean the same number in different
+/// coordinate spaces.
+///
+/// Declared now so both surfaces share the one type; the NSRange-based call
+/// sites convert as the viewport phase reaches them.
+public struct DocumentIndex: Comparable, Codable, Equatable, Sendable {
+    public let value: Int
+    public init(_ value: Int) { self.value = value }
+    public static func < (lhs: DocumentIndex, rhs: DocumentIndex) -> Bool { lhs.value < rhs.value }
 }
 
 public struct TitlePageEntry: Codable, Equatable, Sendable {
@@ -218,7 +242,8 @@ public struct Screenplay: Codable, Equatable, Sendable {
 
 extension Screenplay {
     /// The engine package's identity-free model. Every field the engine
-    /// carries — dual, sceneNumber, section depth — round-trips losslessly.
+    /// carries — style runs, dual, sceneNumber, section depth — round-trips
+    /// losslessly.
     public var engineModel: EDraftEngine.Screenplay {
         EDraftEngine.Screenplay(
             titlePage: titlePage.map {
@@ -228,6 +253,7 @@ extension Screenplay {
                 EDraftEngine.ScreenplayElement(
                     type: $0.type.engineKind,
                     text: $0.text,
+                    runs: $0.runs,
                     dual: $0.dual,
                     sceneNumber: $0.sceneNumber,
                     depth: $0.depth
@@ -245,6 +271,7 @@ extension Screenplay {
                 ScriptElement(
                     type: ScreenplayKind(engineKind: $0.type),
                     text: $0.text,
+                    runs: $0.runs,
                     dual: $0.dual,
                     sceneNumber: $0.sceneNumber,
                     depth: $0.depth

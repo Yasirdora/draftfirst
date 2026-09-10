@@ -14,6 +14,7 @@
  */
 
 import type { AnyElementType, Screenplay, ScreenplayElement } from './types.js';
+import { synthesiseEmphasis } from './style.js';
 
 const SCENE_DETECT = /^(INT|EXT|EST|INT\.\/EXT|INT\/EXT|I\/E)([. ]|\.\/)/i;
 const TRANSITION_DETECT = /^[A-Z0-9 '()&.,/-]+ TO:$/;
@@ -63,40 +64,47 @@ function escapeForcedTransition(text: string): string {
 
 /** Render one element as its Fountain source line. */
 export function elementToFountain(el: ScreenplayElement): string {
+	/* Classification reads el.text — marker-free content — so markers can
+	   never hijack an element type; emission uses body, content with its
+	   style runs synthesised back into boundary markers. Known limit: a
+	   scene that needs the forcing `.` AND starts with a styled character
+	   cannot round-trip (Fountain requires an alphanumeric after the dot) —
+	   recorded as an accepted Fountain-boundary loss. */
+	const body = el.runs && el.runs.length > 0 ? synthesiseEmphasis(el.text, el.runs) : el.text;
 	switch (el.type) {
 		case 'scene': {
 			const num = el.sceneNumber ? ` #${el.sceneNumber}#` : '';
 			/* Force scene headings that the standard detector cannot recognize. */
-			const head = SCENE_DETECT.test(el.text) ? el.text : `.${el.text}`;
+			const head = SCENE_DETECT.test(el.text) ? body : `.${body}`;
 			return head + num;
 		}
 		case 'character': {
 			/* Force any cue that collides with another Fountain classifier. */
-			const cue = el.text + (el.dual ? ' ^' : '');
+			const cue = body + (el.dual ? ' ^' : '');
 			return mustForceCharacter(el.text) ? `@${cue}` : cue;
 		}
 		case 'dialogue':
 			/* Fountain's connected blank dialogue line is exactly two spaces. */
-			return el.text === '' ? '  ' : el.text;
+			return el.text === '' ? '  ' : body;
 		case 'parenthetical':
-			return el.text;
+			return body;
 		case 'transition': {
 			return (TRANSITION_DETECT.test(el.text) || FADE_OPENER.test(el.text)) && isUpper(el.text)
-				? el.text
-				: `> ${escapeForcedTransition(el.text)}`;
+				? body
+				: `> ${escapeForcedTransition(body)}`;
 		}
 		case 'centered':
-			return `> ${el.text} <`;
+			return `> ${body} <`;
 		case 'lyrics':
-			return `~ ${el.text}`;
+			return `~ ${body}`;
 		case 'shot':
 			/* Fountain has no shot type. eDraft recognises isolated uppercase
 			   shot phrases; keeping `!` exclusively for Action avoids ambiguity. */
-			return el.text.replace(/\t/g, '    ');
+			return body.replace(/\t/g, '    ');
 		case 'general':
 		case 'action': {
-			const text = el.text.replace(/\t/g, '    ');
-			const classified = text.trim();
+			const text = body.replace(/\t/g, '    ');
+			const classified = el.text.trim();
 			/* Force action when the plain line would parse as another element. */
 			const risky =
 				SCENE_DETECT.test(classified) ||
@@ -107,13 +115,13 @@ export function elementToFountain(el: ScreenplayElement): string {
 			return risky ? `!${text}` : text;
 		}
 		case 'note':
-			return `[[${el.text}]]`;
+			return `[[${body}]]`;
 		case 'section': {
 			const depth = Math.max(1, el.depth ?? 1);
-			return `${'#'.repeat(depth)} ${el.text}`;
+			return `${'#'.repeat(depth)} ${body}`;
 		}
 		case 'synopsis':
-			return `= ${el.text}`;
+			return `= ${body}`;
 		case 'pagebreak':
 			return '===';
 	}

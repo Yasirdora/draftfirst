@@ -295,9 +295,16 @@ public enum Fountain {
 
     /// Parse Fountain source into a `Screenplay`. Mirrors
     /// `parseFountain(source, options)` in the TypeScript engine.
+    ///
+    /// `emphasis` defaults to `.preserve` (markers stay in element text —
+    /// the historical behaviour); `.runs` converts emphasis to style runs
+    /// and marker-free content (RFC v2.1). Transitional: the viewport work
+    /// flips the app to `.runs`; the option is removed once no caller
+    /// preserves.
     public static func parse(
         _ source: String,
-        maxSourceCharacters: Int = defaultMaxSourceCharacters
+        maxSourceCharacters: Int = defaultMaxSourceCharacters,
+        emphasis: EmphasisMode = .preserve
     ) throws -> Screenplay {
         guard maxSourceCharacters > 0 else {
             throw FountainParseError.invalidLimit(maxSourceCharacters)
@@ -314,13 +321,26 @@ public enum Fountain {
         let (entries, consumed) = parseTitlePage(rawLines)
 
         var elements: [ScreenplayElement] = []
+        /* Emphasis is parsed at the single funnel every element passes
+           through, AFTER the type-specific transforms (uppercasing, trims,
+           dual carets), so runs always index the final content text. */
         func push(_ type: ElementKind, _ text: String, dual: Bool = false,
                   sceneNumber: String? = nil, depth: Int? = nil) {
-            elements.append(ScreenplayElement(
-                type: type, text: text,
-                dual: dual ? true : nil,
-                sceneNumber: sceneNumber, depth: depth
-            ))
+            if emphasis == .runs {
+                let parsed = Emphasis.parse(text)
+                elements.append(ScreenplayElement(
+                    type: type, text: parsed.text,
+                    runs: parsed.runs.isEmpty ? nil : parsed.runs,
+                    dual: dual ? true : nil,
+                    sceneNumber: sceneNumber, depth: depth
+                ))
+            } else {
+                elements.append(ScreenplayElement(
+                    type: type, text: text,
+                    dual: dual ? true : nil,
+                    sceneNumber: sceneNumber, depth: depth
+                ))
+            }
         }
 
         /* Standalone notes captured during line splitting, attached to the

@@ -17167,5 +17167,117 @@
       "runtime": "~36 minutes",
       "printedLines": 1351
     }
+  },
+  {
+    "name": "styled-equals-plain",
+    "screenplay": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT. LAB - DAY"
+        },
+        {
+          "type": "action",
+          "text": "A quiet room for the ages, really.",
+          "runs": [
+            {
+              "start": 2,
+              "end": 7,
+              "styles": [
+                "Bold"
+              ]
+            },
+            {
+              "start": 8,
+              "end": 12,
+              "styles": [
+                "Underline"
+              ]
+            },
+            {
+              "start": 27,
+              "end": 33,
+              "styles": [
+                "Strikeout"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "character",
+          "text": "MARA"
+        },
+        {
+          "type": "dialogue",
+          "text": "Yes. She meant it.",
+          "runs": [
+            {
+              "start": 0,
+              "end": 4,
+              "styles": [
+                "Italic"
+              ]
+            },
+            {
+              "start": 9,
+              "end": 14,
+              "styles": [
+                "Bold"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "expected": {
+      "pages": [
+        {
+          "number": 1,
+          "lines": [
+            {
+              "text": "INT. LAB - DAY",
+              "type": "scene",
+              "indent": 0,
+              "element": 0
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 1
+            },
+            {
+              "text": "A quiet room for the ages, really.",
+              "type": "action",
+              "indent": 0,
+              "element": 1
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 2
+            },
+            {
+              "text": "MARA",
+              "type": "character",
+              "indent": 22,
+              "element": 2
+            },
+            {
+              "text": "Yes. She meant it.",
+              "type": "dialogue",
+              "indent": 10,
+              "element": 3
+            }
+          ],
+          "continuedTop": false,
+          "continuedBottom": false
+        }
+      ],
+      "runtime": "~1 minute",
+      "printedLines": 4
+    }
   }
 ]

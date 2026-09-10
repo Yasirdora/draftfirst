@@ -36,10 +36,47 @@ const PRINTING_TYPES: ReadonlySet<string> = new Set<ElementType>([
 	'lyrics'
 ]);
 
+/** Offset within one element's marker-free content text, in UTF-16 code
+    units — the same coordinate space as `String.length` and `NSRange`, so
+    the web editor, both engines and TextKit share it exactly. Brand only;
+    JSON fixtures and the wire format carry plain numbers. */
+export type ContentIndex = number & { readonly __brand: 'content' };
+export const contentIndex = (value: number): ContentIndex => value as ContentIndex;
+
+/** Offset in Fountain source text. Exists transiently inside the parser and
+    serialiser; never stored and never crosses the engine boundary. */
+export type FountainIndex = number & { readonly __brand: 'fountain' };
+export const fountainIndex = (value: number): FountainIndex => value as FountainIndex;
+
+/** The complete Style vocabulary of the FDX corpus: the six tokens Final
+    Draft puts on a <Text> run. AllCaps is display casing — the text keeps
+    what the writer typed — and HiddenText is invisible on the printed page;
+    neither has a Fountain spelling (see style.ts). */
+export type StyleToken = 'Bold' | 'Italic' | 'Underline' | 'Strikeout' | 'AllCaps' | 'HiddenText';
+
+/** One span of content sharing identical presentation. `start`/`end` are a
+    half-open ContentIndex range into the owning element's marker-free text.
+    `revisionID` and `tagNumbers` live on the run because FDX puts
+    RevisionID and TagNumber on <Text> next to Style — one span mechanism,
+    and the model can never express a span the format cannot hear. */
+export interface StyleRun {
+	start: number;
+	end: number;
+	/** Canonical token order (see STYLE_ORDER in style.ts). */
+	styles: StyleToken[];
+	revisionID?: number;
+	tagNumbers?: number[];
+}
+
 export interface ScreenplayElement {
 	type: AnyElementType;
-	/** Plain text of the element. Emphasis markers are preserved raw for now. */
+	/** Plain text of the element — marker-free content when `runs` is
+	    present; emphasis markers are boundary artefacts, not model text. */
 	text: string;
+	/** Styled spans of `text`. Canonical: sorted, non-overlapping, merged
+	    where identical, clamped to the text, never empty. Absent when the
+	    element carries no styling. */
+	runs?: StyleRun[];
 	/** Dual-dialogue marker — character cue ending in `^` (Fountain). */
 	dual?: boolean;
 	/** Assigned scene number, e.g. "12" or "A12" (production scripts). */

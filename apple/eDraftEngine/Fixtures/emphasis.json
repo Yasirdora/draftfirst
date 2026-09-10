@@ -1,0 +1,411 @@
+[
+  {
+    "input": "*italics*",
+    "expected": {
+      "text": "italics",
+      "runs": [
+        {
+          "start": 0,
+          "end": 7,
+          "styles": [
+            "Italic"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "**bold**",
+    "expected": {
+      "text": "bold",
+      "runs": [
+        {
+          "start": 0,
+          "end": 4,
+          "styles": [
+            "Bold"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "***bold italics***",
+    "expected": {
+      "text": "bold italics",
+      "runs": [
+        {
+          "start": 0,
+          "end": 12,
+          "styles": [
+            "Bold",
+            "Italic"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "_underline_",
+    "expected": {
+      "text": "underline",
+      "runs": [
+        {
+          "start": 0,
+          "end": 9,
+          "styles": [
+            "Underline"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "~~strikeout~~",
+    "expected": {
+      "text": "strikeout",
+      "runs": [
+        {
+          "start": 0,
+          "end": 9,
+          "styles": [
+            "Strikeout"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "_Steel’s face FILLS the *Leupold Mark 4* scope_.",
+    "expected": {
+      "text": "Steel’s face FILLS the Leupold Mark 4 scope.",
+      "runs": [
+        {
+          "start": 0,
+          "end": 23,
+          "styles": [
+            "Underline"
+          ]
+        },
+        {
+          "start": 23,
+          "end": 37,
+          "styles": [
+            "Italic",
+            "Underline"
+          ]
+        },
+        {
+          "start": 37,
+          "end": 43,
+          "styles": [
+            "Underline"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "**\\*9765\\***",
+    "expected": {
+      "text": "*9765*",
+      "runs": [
+        {
+          "start": 0,
+          "end": 6,
+          "styles": [
+            "Bold"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "He dialed *69 and then *23, and then hung up.",
+    "expected": {
+      "text": "He dialed *69 and then *23, and then hung up.",
+      "runs": []
+    }
+  },
+  {
+    "input": "He dialed *69 and then 23*, and then hung up.",
+    "expected": {
+      "text": "He dialed 69 and then 23, and then hung up.",
+      "runs": [
+        {
+          "start": 10,
+          "end": 24,
+          "styles": [
+            "Italic"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "He dialed *69 and then 23\\*, and then hung up.",
+    "expected": {
+      "text": "He dialed *69 and then 23*, and then hung up.",
+      "runs": []
+    }
+  },
+  {
+    "input": "As he rattles off the list, Brick and Steel *share a look.",
+    "expected": {
+      "text": "As he rattles off the list, Brick and Steel *share a look.",
+      "runs": []
+    }
+  },
+  {
+    "input": "****",
+    "expected": {
+      "text": "****",
+      "runs": []
+    }
+  },
+  {
+    "input": "__x__",
+    "expected": {
+      "text": "__x__",
+      "runs": []
+    }
+  },
+  {
+    "input": "a ~ b",
+    "expected": {
+      "text": "a ~ b",
+      "runs": []
+    }
+  },
+  {
+    "input": "*a**b*",
+    "expected": {
+      "text": "ab",
+      "runs": [
+        {
+          "start": 0,
+          "end": 2,
+          "styles": [
+            "Italic"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "***a*b**c***",
+    "expected": {
+      "text": "abc***",
+      "runs": [
+        {
+          "start": 0,
+          "end": 1,
+          "styles": [
+            "Bold",
+            "Italic"
+          ]
+        },
+        {
+          "start": 1,
+          "end": 2,
+          "styles": [
+            "Bold"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "**_**",
+    "expected": {
+      "text": "_",
+      "runs": [
+        {
+          "start": 0,
+          "end": 1,
+          "styles": [
+            "Bold"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "a*b*c",
+    "expected": {
+      "text": "abc",
+      "runs": [
+        {
+          "start": 1,
+          "end": 2,
+          "styles": [
+            "Italic"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "*a* and *b*",
+    "expected": {
+      "text": "a and b",
+      "runs": [
+        {
+          "start": 0,
+          "end": 1,
+          "styles": [
+            "Italic"
+          ]
+        },
+        {
+          "start": 6,
+          "end": 7,
+          "styles": [
+            "Italic"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "**_x_**",
+    "expected": {
+      "text": "x",
+      "runs": [
+        {
+          "start": 0,
+          "end": 1,
+          "styles": [
+            "Bold",
+            "Underline"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "**the 👩‍🚀 console**",
+    "expected": {
+      "text": "the 👩‍🚀 console",
+      "runs": [
+        {
+          "start": 0,
+          "end": 17,
+          "styles": [
+            "Bold"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "*a*",
+    "expected": {
+      "text": "a",
+      "runs": [
+        {
+          "start": 0,
+          "end": 2,
+          "styles": [
+            "Italic"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "*a﻿*",
+    "expected": {
+      "text": "*a﻿*",
+      "runs": []
+    }
+  },
+  {
+    "input": "a\\nb",
+    "expected": {
+      "text": "a\\nb",
+      "runs": []
+    }
+  },
+  {
+    "input": "ends \\",
+    "expected": {
+      "text": "ends \\",
+      "runs": []
+    }
+  },
+  {
+    "input": "_**BRICK & STEEL**_",
+    "expected": {
+      "text": "BRICK & STEEL",
+      "runs": [
+        {
+          "start": 0,
+          "end": 13,
+          "styles": [
+            "Bold",
+            "Underline"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": "A *little* **strongly** ~~struck~~ _**nested**_ mix.",
+    "expected": {
+      "text": "A little strongly struck nested mix.",
+      "runs": [
+        {
+          "start": 2,
+          "end": 8,
+          "styles": [
+            "Italic"
+          ]
+        },
+        {
+          "start": 9,
+          "end": 17,
+          "styles": [
+            "Bold"
+          ]
+        },
+        {
+          "start": 18,
+          "end": 24,
+          "styles": [
+            "Strikeout"
+          ]
+        },
+        {
+          "start": 25,
+          "end": 31,
+          "styles": [
+            "Bold",
+            "Underline"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "input": " bold ",
+    "expected": {
+      "text": " bold ",
+      "runs": []
+    }
+  },
+  {
+    "input": "* spaced * opener",
+    "expected": {
+      "text": "* spaced * opener",
+      "runs": []
+    }
+  },
+  {
+    "input": "closers *spaced * too",
+    "expected": {
+      "text": "closers *spaced * too",
+      "runs": []
+    }
+  }
+]
