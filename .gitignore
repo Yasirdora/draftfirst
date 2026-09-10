@@ -41,3 +41,4 @@ vite.config.ts.timestamp-*
 # SwiftPM build products (hundreds of MB of object files and module caches)
 .build/
 .swiftpm/
+/apple/build-ios/

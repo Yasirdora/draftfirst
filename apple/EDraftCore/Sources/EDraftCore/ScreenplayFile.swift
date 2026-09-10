@@ -99,7 +99,7 @@ public nonisolated enum ScreenplayFile {
     /// screenplay that began life here, a whole file is written.
     public static func encode(_ source: String, as type: UTType, origin: String? = nil) throws -> Data {
         guard type.conforms(to: .finalDraftScreenplay) else { return try encode(source) }
-        let screenplay = try Fountain.parse(source)
+        let screenplay = try Fountain.parse(source, emphasis: .runs)
         guard let origin else { return try encode(Fdx.writeXml(screenplay)) }
         return try encode(Fdx.open(origin).rewrite(screenplay))
     }

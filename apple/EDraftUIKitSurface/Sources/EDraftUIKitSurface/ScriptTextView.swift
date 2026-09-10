@@ -1261,6 +1261,7 @@ struct ScriptTextView: UIViewRepresentable {
                 return false
             }
 
+            let elementOrigin = ranges[rangeIndex].range.location
             let delta = edit.insertedLength - edit.replacedRange.length
             let newLength = ranges[rangeIndex].range.length + delta
             guard newLength >= 0 else { return false }
@@ -1310,7 +1311,16 @@ struct ScriptTextView: UIViewRepresentable {
             let prefix = typed.substring(to: min(offset, typed.length))
             let caret = (EditorState.normalizedText(prefix, for: kind) as NSString).length
 
-            editor.applyLiveText(id: edit.elementID, text: text, selectionOffset: caret)
+            editor.applyLiveText(
+                id: edit.elementID,
+                text: text,
+                selectionOffset: caret,
+                replaced: NSRange(
+                    location: edit.replacedRange.location - elementOrigin,
+                    length: edit.replacedRange.length
+                ),
+                insertedLength: edit.insertedLength
+            )
 
             // The core has the last word on what an element says, and its
             // answer can be a different length than what is on the page. No

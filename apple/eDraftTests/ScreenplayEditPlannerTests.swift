@@ -744,10 +744,16 @@ final class EditorStateEditingTests: XCTestCase {
             ]
         )
 
-        editor.applyLiveText(id: characterID, text: "ELena", selectionOffset: 5)
+        editor.applyLiveText(
+            id: characterID, text: "ELena", selectionOffset: 5,
+            replaced: NSRange(location: 2, length: 0), insertedLength: 3
+        )
         XCTAssertEqual(editor.screenplay.elements[0].text, "ELENA")
 
-        editor.applyLiveText(id: actionID, text: "The door stays quiet.", selectionOffset: 21)
+        editor.applyLiveText(
+            id: actionID, text: "The door stays quiet.", selectionOffset: 21,
+            replaced: NSRange(location: 8, length: 0), insertedLength: 13
+        )
         XCTAssertEqual(editor.screenplay.elements[1].text, "The door stays quiet.")
     }
 
@@ -767,7 +773,10 @@ final class EditorStateEditingTests: XCTestCase {
             elements: [ScriptElement(id: characterID, type: .character, text: "")]
         )
 
-        editor.applyLiveText(id: characterID, text: "straße", selectionOffset: 6)
+        editor.applyLiveText(
+            id: characterID, text: "straße", selectionOffset: 6,
+            replaced: NSRange(location: 0, length: 0), insertedLength: 6
+        )
         XCTAssertEqual(editor.screenplay.elements[0].text, "STRASSE")
     }
 

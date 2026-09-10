@@ -1,14 +1,16 @@
 import AppKit
+import EDraftEngine
 import SwiftUI
 
-/// The marks a writer can put on a selection, in Fountain's own notation,
-/// plus the two things a selection is often the start of.
+/// The marks a writer can put on a selection, plus the two things a
+/// selection is often the start of.
 ///
-/// Fountain has emphasis as `*` and `**`, underline as `_`, and a centred line
-/// as `> <`. Strikethrough is not Fountain's: it travels as `~~` inside the
-/// text until M5 gives the model inline runs, and an exporter that cannot say
-/// it will write the marks as typed. A note is anchored to the element, not
-/// the selection — see `ScriptAsides`.
+/// Emphasis is data now, not notation (RFC v2.1): bold, italic, underline
+/// and strikethrough are style runs in the model, toggled through
+/// `ScriptSurface.toggleStyle`, and the file hears them exactly because the
+/// serialiser synthesises the markers at the boundary. A centred line is an
+/// element-level rewrite and a note is anchored to the element, not the
+/// selection — see `ScriptAsides`.
 enum FormatMark: CaseIterable {
     case bold, italic, underline, strikethrough, centered, note
 
@@ -34,14 +36,13 @@ enum FormatMark: CaseIterable {
         }
     }
 
-    /// The marker wrapped around a selection; nil for a mark that is not a
-    /// wrap at all.
-    var marker: String? {
+    /// The run style the mark commands; nil for a mark that is not a style.
+    var styleSet: StyleSet? {
         switch self {
-        case .bold: "**"
-        case .italic: "*"
-        case .underline: "_"
-        case .strikethrough: "~~"
+        case .bold: .bold
+        case .italic: .italic
+        case .underline: .underline
+        case .strikethrough: .strikeout
         case .centered, .note: nil
         }
     }
@@ -62,24 +63,27 @@ final class SelectionFormatBar {
     private let host: NSHostingView<FormatBarView>
 
     init() {
-        let view = FormatBarView(apply: { _ in })
+        let view = FormatBarView(active: [], apply: { _ in })
         host = NSHostingView(rootView: view)
         host.isHidden = true
     }
 
     func attach(to canvas: NSView) {
-        host.rootView = FormatBarView(apply: { [weak self] mark in self?.onApply?(mark) })
+        host.rootView = FormatBarView(active: []) { [weak self] mark in self?.onApply?(mark) }
         canvas.addSubview(host)
     }
 
     /// Shows the bar over `selection`, or hides it when there is nothing
-    /// selected or nothing laid out yet.
-    func update(selection: NSRange, in textView: NSTextView, canvas: NSView) {
+    /// selected or nothing laid out yet. `active` is the set of marks the
+    /// selection already wears — drawn lit, the way a pressed Bold button
+    /// reads in any editor.
+    func update(selection: NSRange, in textView: NSTextView, canvas: NSView, active: Set<FormatMark>) {
         guard selection.length > 0,
               let rect = ScriptLayout.boundingRect(of: selection, in: textView) else {
             host.isHidden = true
             return
         }
+        host.rootView = FormatBarView(active: active) { [weak self] mark in self?.onApply?(mark) }
         let placed = canvas.convert(rect, from: textView)
         let size = host.fittingSize
         // The canvas is flipped, so "above" is a smaller y.
@@ -95,6 +99,7 @@ final class SelectionFormatBar {
 
 /// The bar itself: the marks in one small piece of glass.
 struct FormatBarView: View {
+    let active: Set<FormatMark>
     let apply: (FormatMark) -> Void
 
     var body: some View {
@@ -108,12 +113,19 @@ struct FormatBarView: View {
                 } label: {
                     Image(systemName: mark.symbol)
                         .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(active.contains(mark) ? Color.accentColor : .primary)
                         .frame(width: 22, height: 22)
+                        .background {
+                            if active.contains(mark) {
+                                Capsule().fill(Color.accentColor.opacity(0.18))
+                            }
+                        }
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help(mark.title)
                 .accessibilityLabel(mark.title)
+                .accessibilityValue(active.contains(mark) ? "On" : "")
             }
         }
         .padding(.horizontal, 5)
@@ -126,37 +138,31 @@ struct FormatBarView: View {
 
 extension ScriptSurface {
 
-    /// Applies a text mark through the text view's own input path, so the
-    /// planner sees it exactly as it sees typing — undoable, and never behind
-    /// the model's back the way `replaceCharacters` would be. A note is not a
+    /// Routes a mark to its mechanism. A style run is toggled through the
+    /// model (`toggleStyle`); a centred line still travels through the text
+    /// view's own input path, so the planner sees it exactly as it sees
+    /// typing — undoable, and never behind the model's back. A note is not a
     /// text mark; the surface routes it to `addNoteAtCaret` itself.
     func applyMark(_ mark: FormatMark) {
+        if let style = mark.styleSet {
+            toggleStyle(style, named: mark.title)
+            return
+        }
+        guard mark == .centered else { return }
         let selection = textView.selectedRange()
         let text = textView.string as NSString
-        if let marker = mark.marker {
-            guard selection.length > 0 else { return }
-            let selected = text.substring(with: selection)
-            let wrapped = selected.hasPrefix(marker) && selected.hasSuffix(marker)
-                && selected.count >= marker.count * 2
-            let replacement = wrapped
-                ? String(selected.dropFirst(marker.count).dropLast(marker.count))
-                : marker + selected + marker
-            textView.insertText(replacement, replacementRange: selection)
-            textView.setSelectedRange(NSRange(location: selection.location, length: (replacement as NSString).length))
-        } else {
-            var line = text.lineRange(for: selection)
-            var content = text.substring(with: line)
-            if content.hasSuffix("\n") {
-                content.removeLast()
-                line.length -= 1
-            }
-            let trimmed = content.trimmingCharacters(in: .whitespaces)
-            let centred = trimmed.hasPrefix(">") && trimmed.hasSuffix("<")
-            let replacement = centred
-                ? String(trimmed.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
-                : "> \(trimmed) <"
-            textView.insertText(replacement, replacementRange: line)
-            textView.setSelectedRange(NSRange(location: line.location, length: (replacement as NSString).length))
+        var line = text.lineRange(for: selection)
+        var content = text.substring(with: line)
+        if content.hasSuffix("\n") {
+            content.removeLast()
+            line.length -= 1
         }
+        let trimmed = content.trimmingCharacters(in: .whitespaces)
+        let centred = trimmed.hasPrefix(">") && trimmed.hasSuffix("<")
+        let replacement = centred
+            ? String(trimmed.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
+            : "> \(trimmed) <"
+        textView.insertText(replacement, replacementRange: line)
+        textView.setSelectedRange(NSRange(location: line.location, length: (replacement as NSString).length))
     }
 }

@@ -40,6 +40,42 @@ public enum ScriptLayout {
 
     // MARK: - Setting the page
 
+    /// The styled faces of Courier 12, converted once by the font manager.
+    /// Bold and italic are traits of the same fixed-pitch advance, so a
+    /// styled run wraps exactly where its plain text would — pagination
+    /// cannot see emphasis.
+    private static let styledFaces: [Int: NSFont] = {
+        let manager = NSFontManager.shared
+        var faces: [Int: NSFont] = [:]
+        for styles: StyleSet in [.bold, .italic, [.bold, .italic]] {
+            var face = font(for: .action)
+            if styles.contains(.bold) { face = manager.convert(face, toHaveTrait: .boldFontMask) }
+            if styles.contains(.italic) { face = manager.convert(face, toHaveTrait: .italicFontMask) }
+            faces[styles.rawValue] = face
+        }
+        return faces
+    }()
+
+    /// The attributes a style run adds over its span. `allCaps` and
+    /// `hiddenText` have no Fountain spelling and no UI in this phase, so
+    /// they cannot enter the model here — should one arrive anyway (a file
+    /// from a future Final Draft), it stays in the model and is simply not
+    /// drawn: a style is a view concern; the text stays.
+    public static func styleAttributes(for styles: StyleSet) -> [NSAttributedString.Key: Any] {
+        var attributes: [NSAttributedString.Key: Any] = [:]
+        let face = styles.intersection([.bold, .italic])
+        if !face.isEmpty, let styled = styledFaces[face.rawValue] {
+            attributes[.font] = styled
+        }
+        if styles.contains(.underline) {
+            attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        }
+        if styles.contains(.strikeout) {
+            attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+        }
+        return attributes
+    }
+
     /// The flattened script, styled, with the map of element ranges.
     ///
     /// Elements are joined by newlines exactly as `ScreenplayEditPlanner`
@@ -60,10 +96,24 @@ public enum ScriptLayout {
                 for: element.type, measure: measure, spacingAfter: spacingAfter
             )
             result.append(NSAttributedString(string: element.text, attributes: style))
+            let length = (element.text as NSString).length
+            // Runs are canonical over the text (sorted, clamped,
+            // non-overlapping), so each one lands as an attribute range.
+            for run in element.runs ?? [] {
+                let start = min(max(0, run.start), length)
+                let end = min(max(start, run.end), length)
+                guard end > start else { continue }
+                let runAttributes = styleAttributes(for: run.styles)
+                guard !runAttributes.isEmpty else { continue }
+                result.addAttributes(
+                    runAttributes,
+                    range: NSRange(location: location + start, length: end - start)
+                )
+            }
             ranges.append(
                 ElementRange(
                     id: element.id,
-                    range: NSRange(location: location, length: (element.text as NSString).length)
+                    range: NSRange(location: location, length: length)
                 )
             )
             if index < elements.count - 1 {

@@ -557,13 +557,29 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         return ScriptLayout.boundingRect(of: probe, in: textView)
     }
 
+    /// What a layout pass can see of the text: everything but identity and
+    /// style runs. Emphasis redraws the ink inside the lines — Courier's
+    /// fixed advance means it cannot change how many lines there are — so a
+    /// bold toggle must never buy a 1.2 s repagination of a feature draft,
+    /// nor a re-placement of the breaks.
+    private static func layoutEquivalent(_ a: [ScriptElement], _ b: [ScriptElement]) -> Bool {
+        guard a.count == b.count else { return false }
+        for (lhs, rhs) in zip(a, b) {
+            guard lhs.type == rhs.type, lhs.text == rhs.text,
+                  lhs.dual == rhs.dual, lhs.sceneNumber == rhs.sceneNumber,
+                  lhs.depth == rhs.depth
+            else { return false }
+        }
+        return true
+    }
+
     /// The engine's reading of `elements`, computed once per version of the
     /// text. Everything else that needs it this pass — the breaks, the
     /// markers — takes it from here.
     private func pagination(for elements: [ScriptElement]) -> Pagination {
         let format = PageFormat.current
         if let cached = cachedPagination,
-           cached.elements == elements, cached.format == format {
+           Self.layoutEquivalent(cached.elements, elements), cached.format == format {
             return cached
         }
         let pages = ScreenplayExporter.paginate(Screenplay(elements: elements))
@@ -641,7 +657,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // them: clearing the bands to measure again invalidates the whole
         // container — a full layout bought with one assignment.
         if let placed = breaksPlacement,
-           placed.elements == elements, placed.format == pagination.format,
+           Self.layoutEquivalent(placed.elements, elements), placed.format == pagination.format,
            placed.mode == canvas.layoutMode {
             return placed.starts
         }
@@ -1789,6 +1805,61 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             }
         }
 
+        // A typed `*`, `_` or `~` may complete a marker pair (RFC v2.1 §3.3 —
+        // D6, an input transformation, never a display mode): the markers
+        // collapse into a style run and cease to exist as text. A `\` before
+        // the caret escapes the character instead — the backslash is consumed
+        // and the marker arrives literal, never collapsing.
+        if text == "*" || text == "_" || text == "~",
+           range.length == 0, let mapped, let index {
+            let element = editor.screenplay.elements[index]
+            let nsText = element.text as NSString
+            let p = max(0, min(range.location - mapped.range.location, nsText.length))
+            if p > 0, nsText.substring(with: NSRange(location: p - 1, length: 1)) == "\\" {
+                textView.insertText(
+                    text,
+                    replacementRange: NSRange(location: range.location - 1, length: 1)
+                )
+                return false
+            }
+            let typed = nsText.replacingCharacters(in: NSRange(location: p, length: 0), with: text)
+            if let collapse = Emphasis.liveCollapse(typed, insertedAt: p) {
+                // The pre-existing runs travel through the same three steps
+                // the text just took: the typed character arrives, then the
+                // marker spans leave — latest first, so the earlier offsets
+                // stay true — then the collapsed span joins as one run.
+                var length = (typed as NSString).length
+                var runs = Emphasis.propagate(
+                    element.runs ?? [], replacing: (p, p),
+                    insertedLength: 1, newLength: length
+                )
+                for span in collapse.removed.sorted(by: { $0.start > $1.start }) {
+                    length -= span.end - span.start
+                    runs = Emphasis.propagate(
+                        runs, replacing: (span.start, span.end),
+                        insertedLength: 0, newLength: length
+                    )
+                }
+                runs = Emphasis.normalise(
+                    runs + [collapse.run], textLength: (collapse.text as NSString).length
+                )
+
+                var elements = editor.screenplay.elements
+                elements[index].text = collapse.text
+                elements[index].runs = runs.isEmpty ? nil : runs
+                let caret = mapped.range.location + collapse.caret
+                pendingEdit = nil
+                applyModelEdit(
+                    elements,
+                    activeID: mapped.id,
+                    offset: collapse.caret,
+                    selection: NSRange(location: caret, length: 0),
+                    actionName: Self.styleActionName(collapse.run.styles)
+                )
+                return false
+            }
+        }
+
         let source = textView.string as NSString
         if ScreenplayEditPlanner.touchesParagraphBoundary(
             in: source,
@@ -1932,7 +2003,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     public func textViewDidChangeSelection(_ notification: Notification) {
         guard !applyingModel else { return }
         updateSelection()
-        formatBar.update(selection: textView.selectedRange(), in: textView, canvas: canvas)
+        updateTypingAttributes()
+        let selection = textView.selectedRange()
+        formatBar.update(
+            selection: selection, in: textView, canvas: canvas,
+            active: styleCoverage(at: selection)
+        )
         updateGhost()
     }
 
@@ -1944,6 +2020,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             return false
         }
 
+        let elementOrigin = ranges[rangeIndex].range.location
         let delta = edit.insertedLength - edit.replacedRange.length
         let newLength = ranges[rangeIndex].range.length + delta
         guard newLength >= 0 else { return false }
@@ -1967,7 +2044,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // A glyph taller than the line has to be brought into it, because
         // TextKit clips drawing to the line fragment — see `fitTallGlyphs`.
         ScriptLayout.fitTallGlyphs(storage, range: updatedRange)
-        editor.applyLiveText(id: edit.elementID, text: text, selectionOffset: offset)
+        editor.applyLiveText(
+            id: edit.elementID,
+            text: text,
+            selectionOffset: offset,
+            replaced: NSRange(
+                location: edit.replacedRange.location - elementOrigin,
+                length: edit.replacedRange.length
+            ),
+            insertedLength: edit.insertedLength
+        )
         return true
     }
 
@@ -2094,11 +2180,128 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             recordsUndo: false
         )
         registerModelUndo(previousState, actionName: actionName)
-        render(elements) { [self] in restoreSelection(selection) }
+        render(elements) { [self] in
+            restoreSelection(selection)
+            formatBar.update(
+                selection: selection, in: textView, canvas: canvas,
+                active: styleCoverage(at: selection)
+            )
+        }
         renderedRevision = editor.revision
         updateTypingAttributes()
         reportNativeUndoAvailability()
         updateGhost()
+    }
+
+    /// Toggles a style over the current selection — the format bar's verb.
+    ///
+    /// One decision for the whole selection — fully covered takes the style
+    /// off, anything else puts it on — then applied element by element
+    /// through the model, so undo, the file and the next writer of these
+    /// paragraphs all see the same edit. The separator newlines inside a
+    /// multi-element selection belong to no element and carry no style.
+    func toggleStyle(_ style: StyleSet, named actionName: String) {
+        guard let editor else { return }
+        let selection = textView.selectedRange()
+        guard selection.length > 0 else { return }
+
+        var touched: [(index: Int, range: NSRange)] = []
+        for (index, element) in editor.screenplay.elements.enumerated() {
+            guard let mapped = ranges.first(where: { $0.id == element.id }) else { continue }
+            let intersection = NSIntersectionRange(selection, mapped.range)
+            guard intersection.length > 0 else { continue }
+            touched.append((index, NSRange(
+                location: intersection.location - mapped.range.location,
+                length: intersection.length
+            )))
+        }
+        guard !touched.isEmpty else { return }
+
+        // One decision for the whole selection: fully covered takes the
+        // style off, anything else puts it on. Without it, a selection
+        // spanning a bold paragraph and a plain one would strip the first
+        // and embolden the second — the classic mixed-selection bug.
+        let covered = touched.allSatisfy { index, range in
+            Emphasis.isCovered(
+                editor.screenplay.elements[index].runs ?? [],
+                from: range.location, to: NSMaxRange(range), style: style
+            )
+        }
+        var elements = editor.screenplay.elements
+        for (index, range) in touched {
+            let current = elements[index].runs ?? []
+            if !covered,
+               Emphasis.isCovered(current, from: range.location, to: NSMaxRange(range), style: style) {
+                continue   // already wears it; adding elsewhere changes nothing here
+            }
+            let toggled = Emphasis.toggle(
+                current,
+                from: range.location, to: NSMaxRange(range),
+                style: style, textLength: (elements[index].text as NSString).length
+            )
+            elements[index].runs = toggled.isEmpty ? nil : toggled
+        }
+        applyModelEdit(
+            elements,
+            activeID: editor.activeElementID ?? elements[touched[0].index].id,
+            offset: editor.selectionOffset,
+            selection: selection,
+            actionName: actionName
+        )
+    }
+
+    /// The undo name for a collapsed marker pair, built from the run's
+    /// styles in the bar's own order: "Bold", "Bold Italic", "Underline"…
+    private static func styleActionName(_ styles: StyleSet) -> String {
+        let names = FormatMark.allCases.compactMap { mark -> String? in
+            guard let set = mark.styleSet, styles.contains(set) else { return nil }
+            return mark.title
+        }
+        return names.isEmpty ? "Format" : names.joined(separator: " ")
+    }
+
+    /// The marks every character of the selection already wears — the bar's
+    /// lit state. A caret answers for the next keystroke instead: the style
+    /// it would inherit by the donor rule (§4). Marks that are not styles
+    /// never light.
+    func styleCoverage(at selection: NSRange) -> Set<FormatMark> {
+        guard let editor else { return [] }
+
+        if selection.length == 0 {
+            guard let mapped = elementRange(at: selection.location),
+                  let element = editor.screenplay.elements.first(where: { $0.id == mapped.id })
+            else { return [] }
+            let length = (element.text as NSString).length
+            let caret = max(0, min(selection.location - mapped.range.location, length))
+            let donor = caret > 0
+                ? element.runs?.first(where: { $0.start <= caret - 1 && caret - 1 < $0.end })
+                : element.runs?.first(where: { $0.start <= caret && caret < $0.end })
+            guard let donor else { return [] }
+            return Set(FormatMark.allCases.filter {
+                $0.styleSet.map { donor.styles.contains($0) } ?? false
+            })
+        }
+
+        var touched: [(element: ScriptElement, range: NSRange)] = []
+        for element in editor.screenplay.elements {
+            guard let mapped = ranges.first(where: { $0.id == element.id }) else { continue }
+            let intersection = NSIntersectionRange(selection, mapped.range)
+            guard intersection.length > 0 else { continue }
+            touched.append((element, NSRange(
+                location: intersection.location - mapped.range.location,
+                length: intersection.length
+            )))
+        }
+        guard !touched.isEmpty else { return [] }
+        return Set(FormatMark.allCases.filter { mark in
+            guard let style = mark.styleSet else { return false }
+            return touched.allSatisfy { element, range in
+                Emphasis.isCovered(
+                    element.runs ?? [],
+                    from: range.location, to: NSMaxRange(range), style: style
+                )
+            }
+        })
     }
 
     private func registerModelUndo(_ state: ModelUndoState, actionName: String) {
@@ -2126,7 +2329,13 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             structural: true,
             recordsUndo: false
         )
-        render(state.elements) { [self] in restoreSelection(state.selection) }
+        render(state.elements) { [self] in
+            restoreSelection(state.selection)
+            formatBar.update(
+                selection: state.selection, in: textView, canvas: canvas,
+                active: styleCoverage(at: state.selection)
+            )
+        }
         renderedRevision = editor.revision
         updateTypingAttributes()
         reportNativeUndoAvailability()
@@ -2454,9 +2663,24 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// sees until the next full render.
     private func updateTypingAttributes() {
         guard let editor else { return }
-        textView.typingAttributes = ScriptLayout.attributes(
+        var attributes = ScriptLayout.attributes(
             for: editor.activeKind, measure: measure, spacingAfter: 0
         )
+        // The style under the caret travels with it by the platform's own
+        // rule (§4): the character before, or — at the very start of the
+        // element — the character after. Rebuilt from the base every time,
+        // so leaving a bold run drops bold from the next keystroke.
+        if let element = editor.screenplay.elements.first(where: { $0.id == editor.activeElementID }) {
+            let length = (element.text as NSString).length
+            let caret = max(0, min(editor.selectionOffset, length))
+            let donor = caret > 0
+                ? element.runs?.first(where: { $0.start <= caret - 1 && caret - 1 < $0.end })
+                : element.runs?.first(where: { $0.start <= caret && caret < $0.end })
+            if let donor {
+                attributes.merge(ScriptLayout.styleAttributes(for: donor.styles)) { _, new in new }
+            }
+        }
+        textView.typingAttributes = attributes
     }
 
     private func restoreSelection(_ requestedRange: NSRange) {

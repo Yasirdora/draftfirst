@@ -68,6 +68,9 @@ public enum Emphasis {
         var text: [UInt16] = []        // text pieces, escapes resolved
         var delim: DelimKind = .star
         var rawCount = 0
+        /// Where the run begins in the raw source — liveCollapse needs raw
+        /// coordinates to remove exactly the markers it paired.
+        var rawStart = 0
         var canOpen = false
         var canClose = false
         var closerConsumed = 0
@@ -89,15 +92,11 @@ public enum Emphasis {
         return .italic
     }
 
-    /// Parse one line of Fountain content into marker-free text plus
-    /// canonical style runs (TypeScript `parseEmphasis`). Per-line by
-    /// contract — emphasis never crosses element bounds.
-    public static func parse(_ source: String) -> ParseResult {
-        let units = Array(source.utf16)
+    /// Scan source into text/delimiter pieces: escapes resolved, delimiter
+    /// runs recognised, flanking judged from raw neighbours.
+    private static func scan(_ units: [UInt16]) -> [Piece] {
         var pieces: [Piece] = []
-        var spans: [StyleSpan] = []
 
-        /* ---- scan: escapes resolved, delimiter runs recognised -------- */
         var buffer: [UInt16] = []
         func flushText() {
             if !buffer.isEmpty {
@@ -125,6 +124,7 @@ public enum Emphasis {
                         kind: .delim,
                         delim: unit == 0x2A ? .star : unit == 0x5F ? .under : .tilde,
                         rawCount: count,
+                        rawStart: i,
                         /* Flanking reads the raw source neighbours; escapes
                            cannot hide whitespace (`\` escapes punctuation only). */
                         canOpen: !isWhitespace(end < units.count ? units[end] : nil),
@@ -140,9 +140,13 @@ public enum Emphasis {
             i += 1
         }
         flushText()
+        return pieces
+    }
 
-        /* ---- match: a closing run pairs with the nearest open run of its
-           kind, consuming leftmost-closer against rightmost-opener ------- */
+    /// Match spans: a closing run pairs with the nearest open run of its
+    /// kind, consuming leftmost-closer against rightmost-opener.
+    private static func match(_ pieces: inout [Piece]) -> [StyleSpan] {
+        var spans: [StyleSpan] = []
         var openStack: [Int] = []   // piece indices
         for pieceIndex in pieces.indices where pieces[pieceIndex].kind == .delim {
             if pieces[pieceIndex].canClose {
@@ -184,6 +188,16 @@ public enum Emphasis {
                 openStack.append(pieceIndex)
             }
         }
+        return spans
+    }
+
+    /// Parse one line of Fountain content into marker-free text plus
+    /// canonical style runs (TypeScript `parseEmphasis`). Per-line by
+    /// contract — emphasis never crosses element bounds.
+    public static func parse(_ source: String) -> ParseResult {
+        let units = Array(source.utf16)
+        var pieces = scan(units)
+        let spans = match(&pieces)
 
         /* ---- assemble: content string, then spans in content
            coordinates. A run's chars order as [closer-consumed][literal
@@ -274,6 +288,242 @@ public enum Emphasis {
             }
         }
         return out
+    }
+
+    // MARK: - edit arithmetic (RFC v2.1 §4 — runs under typing)
+
+    /// Re-seat runs after an element-local edit (TypeScript
+    /// `propagateRuns`): `replaced` (old coordinates) was swapped for
+    /// `insertedLength` new characters, yielding a text of `newLength`.
+    ///
+    /// Deleted text takes its runs with it; text after the edit shifts.
+    /// Inserted characters inherit their donor per the platform's own rule
+    /// (§4), so the model and the text view cannot disagree: the character
+    /// before the insertion point, or — at content position 0 — the
+    /// character after it. The donor's whole property set transfers, and
+    /// normalisation merges the new span back into the donor run when they
+    /// abut: "typing extends the bold run".
+    ///
+    /// Precondition: `runs` are canonical over the pre-edit text.
+    public static func propagate(
+        _ runs: [StyleRun],
+        replacing replaced: (start: Int, end: Int),
+        insertedLength: Int,
+        newLength: Int
+    ) -> [StyleRun] {
+        let (start, end) = replaced
+        let delta = insertedLength - (end - start)
+        let canonical = normalise(runs, textLength: Int.max)
+
+        let donor = start > 0
+            ? canonical.first(where: { $0.start <= start - 1 && start - 1 < $0.end })
+            : canonical.first(where: { $0.start <= end && end < $0.end })
+
+        var out: [StyleRun] = []
+        for run in canonical {
+            if run.start < start {
+                var before = run
+                before.end = min(run.end, start)
+                out.append(before)
+            }
+            if run.end > end {
+                var after = run
+                after.start = max(run.start, end) + delta
+                after.end = run.end + delta
+                out.append(after)
+            }
+        }
+        if insertedLength > 0, let donor {
+            out.append(StyleRun(
+                start: start, end: start + insertedLength, styles: donor.styles,
+                revisionID: donor.revisionID, tagNumbers: donor.tagNumbers
+            ))
+        }
+        return normalise(out, textLength: newLength)
+    }
+
+    /// The runs' coverage of `range`, rebased to 0 (TypeScript `sliceRuns`)
+    /// — the planner's head/tail extraction when an element splits.
+    /// Precondition: canonical.
+    public static func slice(_ runs: [StyleRun], _ range: Range<Int>) -> [StyleRun] {
+        runs.compactMap { run in
+            let start = max(run.start, range.lowerBound)
+            let end = min(run.end, range.upperBound)
+            guard end > start else { return nil }
+            var sliced = run
+            sliced.start = start - range.lowerBound
+            sliced.end = end - range.lowerBound
+            return sliced
+        }
+    }
+
+    /// Whether every offset in `[start, end)` carries `style` (TypeScript
+    /// `styleCovered`) — the format bar's toggle decision and active-state
+    /// query. Empty ranges cover nothing. Precondition: canonical runs.
+    public static func isCovered(
+        _ runs: [StyleRun],
+        from start: Int,
+        to end: Int,
+        style: StyleSet
+    ) -> Bool {
+        guard end > start else { return false }
+        var cursor = start
+        for run in runs {
+            if run.end <= start { continue }
+            if run.start >= end { break }
+            if run.start > cursor { return false }   // a gap inside the range
+            if !run.styles.contains(style) { return false }
+            cursor = max(cursor, run.end)
+            if cursor >= end { return true }
+        }
+        return cursor >= end
+    }
+
+    /// The format bar's verb (TypeScript `toggleStyle`). Fully covered takes
+    /// the style off (a run left with no styles but a revisionID or
+    /// tagNumbers survives — it is still a run); otherwise the style is
+    /// overlaid on the whole range and normalisation unions it with whatever
+    /// was there. Precondition: canonical.
+    public static func toggle(
+        _ runs: [StyleRun],
+        from start: Int,
+        to end: Int,
+        style: StyleSet,
+        textLength: Int
+    ) -> [StyleRun] {
+        let canonical = normalise(runs, textLength: textLength)
+        guard end > start else { return canonical }
+
+        guard isCovered(canonical, from: start, to: end, style: style) else {
+            return normalise(
+                canonical + [StyleRun(start: start, end: end, styles: style)],
+                textLength: textLength
+            )
+        }
+
+        var out: [StyleRun] = []
+        for run in canonical {
+            if run.end <= start || run.start >= end {
+                out.append(run)
+                continue
+            }
+            if run.start < start {
+                var before = run
+                before.end = start
+                out.append(before)
+            }
+            var inner = run
+            inner.start = max(run.start, start)
+            inner.end = min(run.end, end)
+            inner.styles.subtract(style)
+            if inner.end > inner.start,
+               !inner.styles.isEmpty || inner.revisionID != nil || !(inner.tagNumbers ?? []).isEmpty {
+                out.append(inner)
+            }
+            if run.end > end {
+                var after = run
+                after.start = end
+                out.append(after)
+            }
+        }
+        return normalise(out, textLength: textLength)
+    }
+
+    // MARK: - live collapse (RFC v2.1 §3.3 — D6, an input transformation)
+
+    public struct CollapseResult: Equatable, Sendable {
+        /// The line with the paired markers removed — all other text,
+        /// including any other delimiter characters, is verbatim.
+        public let text: String
+        /// The styled span the pair became, in the new text's coordinates.
+        public let run: StyleRun
+        /// The raw ranges removed from the input, ascending — the surface
+        /// propagates the element's pre-existing runs through these
+        /// deletions.
+        public let removed: [RemovedSpan]
+        /// Where the caret belongs afterwards: the end of the styled span.
+        public let caret: Int
+
+        public struct RemovedSpan: Equatable, Sendable {
+            public let start: Int
+            public let end: Int
+            public init(start: Int, end: Int) {
+                self.start = start
+                self.end = end
+            }
+        }
+    }
+
+    /// The typed character at `insertedAt` may complete a marker pair
+    /// (TypeScript `liveCollapse`). If it is part of a closing delimiter
+    /// that pairs — and the pair's delimiters serve no other span — the
+    /// markers collapse into a style run and cease to exist as text.
+    /// Otherwise nil: the character is literal and the edit proceeds
+    /// untouched.
+    ///
+    /// Sole-consumer restriction, deliberately: delimiter runs shared
+    /// between spans (`*a**b*`-style soup, reachable only from pasted marker
+    /// text) are left for the writer to see rather than half-converted by a
+    /// convenience. Whole delimiters only: a half-consumed `**` — the
+    /// grammar's literal-middle answer to `**word*` — would italicise the
+    /// word the moment the first closer key arrives, and typing `**word**`
+    /// would end italic, never bold. At the keyboard a pair waits for its
+    /// full delimiter or does not happen. Collapse is an input
+    /// transformation, never a parser second-guess.
+    public static func liveCollapse(_ text: String, insertedAt: Int) -> CollapseResult? {
+        let units = Array(text.utf16)
+        var pieces = scan(units)
+        let spans = match(&pieces)
+
+        for span in spans {
+            let opener = pieces[span.opener]
+            let closer = pieces[span.closer]
+            /* The typed character must be one of the closer's consumed
+               chars — they are the run's leftmost. */
+            guard insertedAt >= closer.rawStart,
+                  insertedAt < closer.rawStart + closer.closerConsumed else { continue }
+            /* Sole consumers only: a piece serving another span stays
+               literal. (A span always shares its own pieces with itself —
+               look for a DIFFERENT span holding one.) */
+            let sharedByAnother = spans.contains { other in
+                !(other.opener == span.opener && other.closer == span.closer) &&
+                    (other.opener == span.opener || other.opener == span.closer ||
+                        other.closer == span.opener || other.closer == span.closer)
+            }
+            if sharedByAnother { continue }
+            guard opener.rawCount == opener.openerConsumed,
+                  closer.rawCount == closer.closerConsumed else { continue }
+
+            /* Consumed chars: an opener's are its rightmost, a closer's its
+               leftmost — and the whole-delimiter rule above means there is
+               no surviving literal middle. */
+            let openerLiteral = opener.rawCount - opener.openerConsumed
+            let removedOpener = CollapseResult.RemovedSpan(
+                start: opener.rawStart + openerLiteral,
+                end: opener.rawStart + opener.rawCount
+            )
+            let removedCloser = CollapseResult.RemovedSpan(
+                start: closer.rawStart,
+                end: closer.rawStart + closer.closerConsumed
+            )
+
+            let start = opener.rawStart + openerLiteral
+            let end = start + (closer.rawStart - (opener.rawStart + opener.rawCount))
+            /* An empty match styles nothing — the markers stay literal. */
+            guard end > start else { continue }
+
+            let collapsed: [UInt16] =
+                Array(units[0..<removedOpener.start]) +
+                Array(units[removedOpener.end..<removedCloser.start]) +
+                Array(units[removedCloser.end...])
+            return CollapseResult(
+                text: string(collapsed),
+                run: StyleRun(start: start, end: end, styles: span.styles),
+                removed: [removedOpener, removedCloser],
+                caret: end
+            )
+        }
+        return nil
     }
 
     // MARK: - synthesise

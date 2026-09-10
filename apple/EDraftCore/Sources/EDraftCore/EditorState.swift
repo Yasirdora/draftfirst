@@ -216,8 +216,9 @@ public final class EditorState {
         self.lastKnownSource = source
         self.opensAtEnd = startsAtEnd
         /* Native Fountain parse; the naive parser remains only as the
-           guard-rail for sources beyond the engine's size limit. */
-        let parsed = (try? Fountain.parse(source)).map(Screenplay.init(engineModel:))
+           guard-rail for sources beyond the engine's size limit. Emphasis
+           arrives as runs, never marker characters (RFC v2.1). */
+        let parsed = (try? Fountain.parse(source, emphasis: .runs)).map(Screenplay.init(engineModel:))
             ?? Self.naiveParse(source)
         let split = ScriptAsides.split(parsed.elements)
         self.screenplay = Screenplay(titlePage: parsed.titlePage, elements: split.page)
@@ -610,10 +611,21 @@ public final class EditorState {
     public func replaceElementText(id: UUID, text: String, structural: Bool = false) {
         guard let index = screenplay.elements.firstIndex(where: { $0.id == id }) else { return }
         recordSnapshot(structural: structural)
-        screenplay.elements[index].text = Self.normalizedText(
-            text,
-            for: screenplay.elements[index].type
-        )
+        let previous = screenplay.elements[index]
+        let normalized = Self.normalizedText(text, for: previous.type)
+        screenplay.elements[index].text = normalized
+        if let runs = previous.runs,
+           let (range, inserted) = ScreenplayEditPlanner.replacementBetween(previous.text, normalized) {
+            // The diff is derived here, so the runs shift by exactly the
+            // change the text just went through.
+            let propagated = Emphasis.propagate(
+                runs,
+                replacing: (range.location, NSMaxRange(range)),
+                insertedLength: inserted.utf16.count,
+                newLength: normalized.utf16.count
+            )
+            screenplay.elements[index].runs = propagated.isEmpty ? nil : propagated
+        }
         activeElementID = id
         selectionOffset = screenplay.elements[index].text.utf16.count
         commitChange(liveTyping: !structural)
@@ -621,12 +633,37 @@ public final class EditorState {
 
     /// Mirrors a native UITextView edit without asking the surface to render
     /// back into itself. Persistence, pagination, and prediction are debounced.
-    public func applyLiveText(id: UUID, text: String, selectionOffset: Int) {
+    ///
+    /// `replaced` is the element-relative range the surface just replaced, and
+    /// `insertedLength` the length of what it inserted — together they let the
+    /// runs travel through the edit with the text.
+    public func applyLiveText(
+        id: UUID,
+        text: String,
+        selectionOffset: Int,
+        replaced: NSRange,
+        insertedLength: Int
+    ) {
         guard let index = screenplay.elements.firstIndex(where: { $0.id == id }) else { return }
-        screenplay.elements[index].text = Self.normalizedText(
-            text,
-            for: screenplay.elements[index].type
-        )
+        let previous = screenplay.elements[index]
+        let normalized = Self.normalizedText(text, for: previous.type)
+        screenplay.elements[index].text = normalized
+        if let runs = previous.runs {
+            if normalized.utf16.count == text.utf16.count {
+                let propagated = Emphasis.propagate(
+                    runs,
+                    replacing: (replaced.location, NSMaxRange(replaced)),
+                    insertedLength: insertedLength,
+                    newLength: normalized.utf16.count
+                )
+                screenplay.elements[index].runs = propagated.isEmpty ? nil : propagated
+            } else {
+                // Normalisation rewrote beyond the reported edit (ß→SS): no
+                // offset can be trusted, so the style is let go rather than
+                // pinned to the wrong words.
+                screenplay.elements[index].runs = nil
+            }
+        }
         activeElementID = id
         self.selectionOffset = max(0, selectionOffset)
         revision += 1
@@ -675,7 +712,7 @@ public final class EditorState {
         // stale model. Cancel the debounced write instead — last-writer-wins
         // is the document store's semantics, and the sync is the newer write.
         sourceTask?.cancel()
-        guard let parsed = try? Fountain.parse(source) else {
+        guard let parsed = try? Fountain.parse(source, emphasis: .runs) else {
             // Keeping our own copy is right; keeping quiet is not. The writer
             // has a device or a file somewhere holding something this app
             // cannot read, and only they can go and look at it.
@@ -871,6 +908,9 @@ public final class EditorState {
         else { return }
         var updated = asides
         updated[index].element.text = text
+        // The card is a plain-text editor and the change it reports is the
+        // whole string, not a range — no run offset survives it honestly.
+        updated[index].element.runs = nil
         applyAsides(updated)
     }
 

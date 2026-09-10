@@ -15,7 +15,14 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseFountain, serialiseFountain } from '../packages/edraft/dist/index.js';
-import { parseEmphasis, synthesiseEmphasis } from '../packages/edraft/dist/style.js';
+import {
+	liveCollapse,
+	parseEmphasis,
+	propagateRuns,
+	styleCovered,
+	synthesiseEmphasis,
+	toggleStyle
+} from '../packages/edraft/dist/style.js';
 import { parseFdx, writeFdxWithDiagnostics } from '../packages/edraft/dist/fdx.js';
 import { estimateRuntime, paginate, printedLineCount } from '../packages/edraft/dist/layout.js';
 import {
@@ -512,6 +519,205 @@ const roundTripFixture = EMPHASIS_ROUND_TRIP_SOURCES.map((source) => {
 	};
 });
 writeFixture('emphasis-roundtrip.json', roundTripFixture);
+
+/* ------------------------------------------------------------------ */
+/* style-edits.json — runs under editing (RFC v2.1 §4, Phase A)         */
+/* ------------------------------------------------------------------ */
+
+/* propagateRuns: the donor rule (preceding character; following at content
+   position 0), trailing-edge extension, deletion shrink, donor heal across
+   a replaced selection. `textLength` is the PRE-edit length; the expected
+   runs index the post-edit text. */
+const PROPAGATE_CASES = [
+	{
+		name: 'shift-after-untouched-before',
+		runs: [
+			{ start: 0, end: 2, styles: ['Bold'] },
+			{ start: 6, end: 8, styles: ['Bold'] }
+		],
+		replace: { start: 3, end: 3 },
+		insert: 1,
+		textLength: 8
+	},
+	{
+		name: 'interior-insertion-extends',
+		runs: [{ start: 1, end: 5, styles: ['Bold'] }],
+		replace: { start: 3, end: 3 },
+		insert: 2,
+		textLength: 6
+	},
+	{
+		name: 'trailing-edge-extends',
+		runs: [{ start: 0, end: 4, styles: ['Bold'] }],
+		replace: { start: 4, end: 4 },
+		insert: 1,
+		textLength: 4
+	},
+	{
+		name: 'leading-edge-does-not-extend',
+		runs: [{ start: 2, end: 6, styles: ['Bold'] }],
+		replace: { start: 2, end: 2 },
+		insert: 1,
+		textLength: 6
+	},
+	{
+		name: 'position-zero-inherits-following',
+		runs: [{ start: 0, end: 4, styles: ['Bold'] }],
+		replace: { start: 0, end: 0 },
+		insert: 2,
+		textLength: 4
+	},
+	{
+		name: 'between-runs-inherits-preceding',
+		runs: [
+			{ start: 0, end: 2, styles: ['Bold'] },
+			{ start: 2, end: 4, styles: ['Italic'] }
+		],
+		replace: { start: 2, end: 2 },
+		insert: 1,
+		textLength: 4
+	},
+	{
+		name: 'deletion-shrinks',
+		runs: [{ start: 0, end: 5, styles: ['Bold'] }],
+		replace: { start: 1, end: 4 },
+		insert: 0,
+		textLength: 5
+	},
+	{
+		name: 'deletion-drops-fully-covered',
+		runs: [{ start: 1, end: 4, styles: ['Bold'] }],
+		replace: { start: 1, end: 4 },
+		insert: 0,
+		textLength: 5
+	},
+	{
+		name: 'replacement-heals-from-donor',
+		runs: [{ start: 0, end: 5, styles: ['Bold'] }],
+		replace: { start: 2, end: 4 },
+		insert: 3,
+		textLength: 5
+	},
+	{
+		name: 'insert-carries-revision-and-tags',
+		runs: [{ start: 0, end: 4, styles: ['Bold'], revisionID: 2, tagNumbers: [7] }],
+		replace: { start: 4, end: 4 },
+		insert: 1,
+		textLength: 4
+	},
+	{
+		name: 'whole-text-replacement-styles-nothing',
+		runs: [{ start: 0, end: 4, styles: ['Bold'] }],
+		replace: { start: 0, end: 4 },
+		insert: 3,
+		textLength: 4
+	}
+];
+
+/* toggleStyle: the coverage rule (fully covered → off, otherwise on),
+   union on add, split on remove, revision-carrying runs surviving a style
+   removal, and merge-back. */
+const TOGGLE_CASES = [
+	{
+		name: 'add-unions-with-styled-middle',
+		runs: [{ start: 2, end: 4, styles: ['Italic'] }],
+		start: 0,
+		end: 6,
+		style: 'Bold',
+		textLength: 6
+	},
+	{
+		name: 'remove-splits-at-edges',
+		runs: [{ start: 0, end: 6, styles: ['Bold'] }],
+		start: 2,
+		end: 4,
+		style: 'Bold',
+		textLength: 6
+	},
+	{
+		name: 'remove-keeps-revision-carrying-run',
+		runs: [{ start: 0, end: 4, styles: ['Bold'], revisionID: 9 }],
+		start: 0,
+		end: 4,
+		style: 'Bold',
+		textLength: 4
+	},
+	{
+		name: 'remove-merges-identical-neighbours',
+		runs: [
+			{ start: 0, end: 2, styles: ['Bold'] },
+			{ start: 2, end: 4, styles: ['Bold', 'Italic'] },
+			{ start: 4, end: 6, styles: ['Bold'] }
+		],
+		start: 2,
+		end: 4,
+		style: 'Italic',
+		textLength: 6
+	},
+	{
+		name: 'covered-requires-every-offset',
+		runs: [{ start: 0, end: 4, styles: ['Bold'] }],
+		start: 0,
+		end: 5,
+		style: 'Bold',
+		textLength: 5
+	}
+];
+
+/* liveCollapse: collapse on the closing delimiter, every spelling, the
+   sole-consumer restriction, the whole-delimiter rule (a half-consumed `**`
+   waits — typing `**word**` must end bold, not italic), undisturbed
+   leftovers, and the null cases (nothing closes / typed char not the
+   consumed closer). */
+const COLLAPSE_CASES = [
+	{ name: 'bold', text: '**world**', at: 8 },
+	{ name: 'italic', text: '*x*', at: 2 },
+	{ name: 'bold-italic', text: '***x***', at: 6 },
+	{ name: 'underline', text: '_x_', at: 2 },
+	{ name: 'strikeout-second-tilde', text: '~~x~~', at: 4 },
+	{ name: 'nothing-to-close', text: 'a *b', at: 2 },
+	{ name: 'flanked-out', text: '2 * 3', at: 2 },
+	{ name: 'closer-without-opener', text: 'x*', at: 1 },
+	{ name: 'lone-tilde-literal', text: 'y ~', at: 2 },
+	{ name: 'typed-char-beyond-consumed', text: '*a**', at: 3 },
+	{ name: 'delimiter-soup-refused', text: '*a**b*', at: 5 },
+	{ name: 'literal-middle-refused', text: '**a*', at: 3 },
+	{ name: 'double-star-waits-for-its-closer', text: '**world*', at: 7 },
+	{ name: 'unclosed-leftover-undisturbed', text: '*keep **this**', at: 13 },
+	{ name: 'empty-pair-never-collapses', text: '****', at: 3 }
+];
+
+writeFixture('style-edits.json', {
+	propagate: PROPAGATE_CASES.map(({ name, runs, replace, insert, textLength }) => ({
+		name,
+		runs,
+		replace,
+		insert,
+		textLength,
+		expected: propagateRuns(
+			runs,
+			replace,
+			insert,
+			textLength - (replace.end - replace.start) + insert
+		)
+	})),
+	toggle: TOGGLE_CASES.map(({ name, runs, start, end, style, textLength }) => ({
+		name,
+		runs,
+		start,
+		end,
+		style,
+		textLength,
+		covered: styleCovered(runs, start, end, style),
+		expected: toggleStyle(runs, start, end, style, textLength)
+	})),
+	collapse: COLLAPSE_CASES.map(({ name, text, at }) => ({
+		name,
+		text,
+		at,
+		expected: liveCollapse(text, at)
+	}))
+});
 
 
 /* ------------------------------------------------------------------ */

@@ -114,6 +114,7 @@ public struct ScreenplayEditPlanner {
             var result = elements
             result[end.index].type = .action
             result[end.index].text = ""
+            result[end.index].runs = nil   // the style dies with the text
             let resultRanges = ranges(for: result)
             let caret = resultRanges[end.index].range.location
             return Plan(
@@ -150,11 +151,25 @@ public struct ScreenplayEditPlanner {
             // is lost, and nothing is left half-written.
             let keepsWhole = head.isEmpty
             var result = elements
+            let styleRuns = elements[start.index].runs
             result[start.index].text = keepsWhole ? elements[start.index].text : head
+            /* Runs ride surviving text. The normalisation helpers can trim
+               and re-bracket from either end, so propagate only when they
+               were the identity — offsets stay honest, or the style is let
+               go rather than pinned to the wrong words. */
+            if !keepsWhole, head != text.substring(to: cut) {
+                result[start.index].runs = nil
+            } else if !keepsWhole {
+                result[start.index].runs = Emphasis.slice(styleRuns ?? [], 0..<cut)
+            }
             let spoken = keepsWhole
                 ? ""
                 : Normalize.unwrapParenthetical(text.substring(from: cut))
-            let dialogue = ScriptElement(type: .dialogue, text: spoken)
+            var dialogue = ScriptElement(type: .dialogue, text: spoken)
+            if !keepsWhole, spoken == text.substring(from: cut) {
+                let sliced = Emphasis.slice(styleRuns ?? [], cut..<text.length)
+                dialogue.runs = sliced.isEmpty ? nil : sliced
+            }
             result.insert(dialogue, at: start.index + 1)
 
             let caret = ranges(for: result)[start.index + 1].range.location
@@ -204,7 +219,22 @@ public struct ScreenplayEditPlanner {
             && replacement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         let effectiveHead = discardsEmptyPlaceholder ? "" : head
         let effectiveTail = discardsEmptyPlaceholder ? "" : tail
+        let headLength = (effectiveHead as NSString).length
+        let replacementLength = (replacement as NSString).length
+        let tailStart = headLength + replacementLength
         let rawParts = (effectiveHead + replacement + effectiveTail).components(separatedBy: "\n")
+        // Each part's span in the composed source, so runs can be carried by
+        // span arithmetic rather than by matching text.
+        var partOffsets = Array(repeating: 0, count: rawParts.count)
+        for index in rawParts.indices.dropFirst() {
+            partOffsets[index] = partOffsets[index - 1] + (rawParts[index - 1] as NSString).length + 1
+        }
+        // Inserted text inherits its donor per the platform's own rule (§4):
+        // the style of the character before the caret, or — when nothing
+        // precedes it — of the character that followed the replaced range.
+        let donor: StyleRun? = headLength > 0
+            ? startElement.runs?.first(where: { $0.start <= headLength - 1 && headLength - 1 < $0.end })
+            : endElement.runs?.first(where: { $0.start <= end.offset && end.offset < $0.end })
         let rawCaret = positionInParts(
             at: (effectiveHead as NSString).length + (replacement as NSString).length,
             parts: rawParts
@@ -280,17 +310,34 @@ public struct ScreenplayEditPlanner {
         var result = Array(elements[..<start.index])
         for (partIndex, part) in parts.enumerated() {
             let element: ScriptElement
+            let sourceRange = partOffsets[part.rawIndex]..<(partOffsets[part.rawIndex] + (part.text as NSString).length)
             if let owner = owners[partIndex] {
                 var preserved = elements[owner]
-                preserved.text = preserved.type.uppercasesInput ? part.text.uppercased() : part.text
+                let finalText = preserved.type.uppercasesInput ? part.text.uppercased() : part.text
+                preserved.text = finalText
+                if finalText != elements[owner].text {
+                    // The text changed under this identity; re-derive the runs
+                    // from the spans they covered before the edit.
+                    preserved.runs = runsForPart(
+                        sourceRange: sourceRange, partText: part.text, finalText: finalText,
+                        headRuns: startElement.runs ?? [], headLength: headLength,
+                        tailRuns: endElement.runs ?? [], tailStart: tailStart,
+                        tailOffset: end.offset, donor: donor
+                    )
+                }
                 element = preserved
             } else {
                 let previous = result.last
                 let kind = kindForNewElement(previous, part.text)
-                element = ScriptElement(
-                    type: kind,
-                    text: kind.uppercasesInput ? part.text.uppercased() : part.text
+                let finalText = kind.uppercasesInput ? part.text.uppercased() : part.text
+                var created = ScriptElement(type: kind, text: finalText)
+                created.runs = runsForPart(
+                    sourceRange: sourceRange, partText: part.text, finalText: finalText,
+                    headRuns: startElement.runs ?? [], headLength: headLength,
+                    tailRuns: endElement.runs ?? [], tailStart: tailStart,
+                    tailOffset: end.offset, donor: donor
                 )
+                element = created
             }
             result.append(element)
         }
@@ -335,6 +382,68 @@ public struct ScreenplayEditPlanner {
             activeElementID: activeElement.id,
             activeOffset: min(activeOffset, resultRanges[activeIndex].range.length)
         )
+    }
+
+    /// Carries style runs across a rebuild by span arithmetic over the
+    /// composed source `head + replacement + tail` — never by matching text.
+    ///
+    /// Head offsets are start-element coordinates; tail offsets are rebased
+    /// out of the end element; inserted text takes the donor's whole property
+    /// set (§4). Returns nil when no run survives, or when casing changed the
+    /// text length (ß→SS) and no offset can be trusted.
+    private static func runsForPart(
+        sourceRange: Range<Int>,
+        partText: String,
+        finalText: String,
+        headRuns: [StyleRun],
+        headLength: Int,
+        tailRuns: [StyleRun],
+        tailStart: Int,
+        tailOffset: Int,
+        donor: StyleRun?
+    ) -> [StyleRun]? {
+        if finalText != partText, finalText.utf16.count != partText.utf16.count {
+            return nil
+        }
+        let partStart = sourceRange.lowerBound
+        let partEnd = sourceRange.upperBound
+        var out: [StyleRun] = []
+
+        // Head: S coordinates are the start element's own coordinates.
+        if partStart < headLength {
+            out += Emphasis.slice(headRuns, partStart..<min(partEnd, headLength))
+        }
+
+        // Replacement: inherits the donor's properties wholesale.
+        let donorStart = max(partStart, headLength)
+        let donorEnd = min(partEnd, tailStart)
+        if donorStart < donorEnd, let donor {
+            out.append(StyleRun(
+                start: donorStart - partStart,
+                end: donorEnd - partStart,
+                styles: donor.styles,
+                revisionID: donor.revisionID,
+                tagNumbers: donor.tagNumbers
+            ))
+        }
+
+        // Tail: slice in end-element coordinates, then shift into place.
+        let tailFrom = max(partStart, tailStart)
+        if tailFrom < partEnd {
+            let sliced = Emphasis.slice(
+                tailRuns,
+                (tailOffset + tailFrom - tailStart)..<(tailOffset + partEnd - tailStart)
+            )
+            out += sliced.map { run in
+                var shifted = run
+                shifted.start += tailFrom - partStart
+                shifted.end += tailFrom - partStart
+                return shifted
+            }
+        }
+
+        let normalised = Emphasis.normalise(out, textLength: finalText.utf16.count)
+        return normalised.isEmpty ? nil : normalised
     }
 
     private static func positionInParts(at requestedOffset: Int, parts: [String]) -> (index: Int, offset: Int) {

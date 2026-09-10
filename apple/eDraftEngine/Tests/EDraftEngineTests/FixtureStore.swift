@@ -182,6 +182,63 @@ enum EmphasisCorpus {
     }
 }
 
+/// Runs under editing (RFC v2.1 §4): propagation, the toggle verbs, and the
+/// live collapse. Pinned by `Fixtures/style-edits.json`.
+enum StyleEditsCorpus {
+    struct Root: Decodable {
+        let propagate: [PropagateCase]
+        let toggle: [ToggleCase]
+        let collapse: [CollapseCase]
+    }
+
+    struct PropagateCase: Decodable {
+        let name: String
+        let runs: [StyleRun]
+        let replace: Range
+        let insert: Int
+        /// The PRE-edit text length; expected runs index the post-edit text.
+        let textLength: Int
+        let expected: [StyleRun]
+
+        struct Range: Decodable {
+            let start: Int
+            let end: Int
+        }
+    }
+
+    struct ToggleCase: Decodable {
+        let name: String
+        let runs: [StyleRun]
+        let start: Int
+        let end: Int
+        /// A single Style token — the same spelling the StyleSet Codable
+        /// conformance uses, wrapped in an array for the decode.
+        let style: String
+        let textLength: Int
+        let covered: Bool
+        let expected: [StyleRun]
+    }
+
+    struct CollapseCase: Decodable {
+        let name: String
+        let text: String
+        let at: Int
+        let expected: Expected?
+
+        struct Expected: Decodable, Equatable {
+            let text: String
+            let run: StyleRun
+            let removed: [Removed]
+            let caret: Int
+
+            struct Removed: Decodable, Equatable {
+                let start: Int
+                let end: Int
+            }
+        }
+    }
+}
+
 enum FdxCorpus {    struct Root: Decodable {
         let importCases: [ImportCase]
         let exportCases: [ExportCase]

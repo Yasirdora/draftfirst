@@ -16,11 +16,17 @@ export { contentIndex, fountainIndex, isPrinting } from './types.js';
 
 export {
 	escapeFountainContent,
+	liveCollapse,
 	normaliseRuns,
 	parseEmphasis,
+	propagateRuns,
+	sliceRuns,
 	STYLE_ORDER,
-	synthesiseEmphasis
+	styleCovered,
+	synthesiseEmphasis,
+	toggleStyle
 } from './style.js';
+export type { LiveCollapse } from './style.js';
 
 export type {
 	DiagnosticSeverity,

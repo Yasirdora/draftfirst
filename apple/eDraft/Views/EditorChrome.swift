@@ -461,7 +461,7 @@ final class ChromeCoordinator {
             }
 
             guard let source, !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                  let parsed = try? Fountain.parse(source),
+                  let parsed = try? Fountain.parse(source, emphasis: .runs),
                   !parsed.elements.isEmpty else {
                 editor.showBanner("Nothing readable on those pages")
                 return

@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
 	escapeFountainContent,
+	liveCollapse,
 	normaliseRuns,
 	parseEmphasis,
-	synthesiseEmphasis
+	propagateRuns,
+	sliceRuns,
+	styleCovered,
+	synthesiseEmphasis,
+	toggleStyle
 } from './style.js';
 import type { StyleRun } from './types.js';
 import { parseFountain } from './parse.js';

@@ -1,9 +1,12 @@
+import EDraftEngine
 import XCTest
 import EDraftCore
 @testable import EDraftMacSurface
 
-/// Bold, italic, underline and centre go in through the input path, so the
-/// planner sees them exactly as it sees typing.
+/// Bold, italic, underline and strikethrough are style runs in the model
+/// now (RFC v2.1): the bar adjusts the runs directly, no marker character
+/// ever enters the text, and one undo step lifts the whole change. Centre
+/// still rewrites the line through the input path.
 @MainActor
 final class SelectionFormatBarTests: XCTestCase {
 
@@ -19,24 +22,116 @@ final class SelectionFormatBarTests: XCTestCase {
         surface.textView.setSelectedRange((surface.textView.string as NSString).range(of: text))
     }
 
-    func testBoldWrapsAndAgainUnwraps() {
+    func testBoldPaintsARunAndAgainLiftsIt() {
         let (editor, surface) = surface("INT. LAB - DAY\n\nDust hangs in the light.")
         select("hangs", in: surface)
 
         surface.applyMark(.bold)
-        XCTAssertTrue(surface.textView.string.contains("Dust **hangs** in"))
-        XCTAssertTrue(
-            editor.screenplay.elements.contains { $0.text.contains("**hangs**") },
-            "the planner saw the edit"
+        XCTAssertTrue(surface.textView.string.contains("Dust hangs in"))
+        XCTAssertFalse(
+            surface.textView.string.contains("**"),
+            "no marker characters enter the text"
         )
         XCTAssertEqual(
-            surface.textView.selectedRange().length, ("**hangs**" as NSString).length,
-            "the mark stays selected, so a second press takes it off"
+            editor.screenplay.elements.last?.runs,
+            [StyleRun(start: 5, end: 10, styles: .bold)],
+            "the model carries the style as data"
+        )
+        XCTAssertEqual(
+            surface.textView.selectedRange().length, ("hangs" as NSString).length,
+            "the word stays selected, so a second press takes it off"
         )
 
         surface.applyMark(.bold)
+        XCTAssertNil(editor.screenplay.elements.last?.runs)
         XCTAssertTrue(surface.textView.string.contains("Dust hangs in"))
-        XCTAssertFalse(surface.textView.string.contains("**"))
+    }
+
+    func testTheToggleIsOneNamedUndoStep() {
+        let (editor, surface) = surface("INT. LAB - DAY\n\nDust hangs in the light.")
+        select("hangs", in: surface)
+        surface.applyMark(.bold)
+        XCTAssertNotNil(editor.screenplay.elements.last?.runs)
+
+        editor.undo()
+        XCTAssertNil(
+            editor.screenplay.elements.last?.runs,
+            "one undo lifts the whole toggle"
+        )
+        editor.redo()
+        XCTAssertEqual(
+            editor.screenplay.elements.last?.runs,
+            [StyleRun(start: 5, end: 10, styles: .bold)]
+        )
+    }
+
+    func testAMixedSelectionOnlyAdds() {
+        // One paragraph already bold, one plain; selecting across both and
+        // pressing Bold must not strip the bold one — the global decision is
+        // "not all covered, so add".
+        let (editor, surface) = surface("plain\n\nworn")
+        select("worn", in: surface)
+        surface.applyMark(.bold)
+        XCTAssertEqual(
+            editor.screenplay.elements.last?.runs,
+            [StyleRun(start: 0, end: 4, styles: .bold)]
+        )
+
+        let whole = surface.textView.string as NSString
+        surface.textView.setSelectedRange(NSRange(location: 0, length: whole.length))
+        surface.applyMark(.bold)
+        XCTAssertEqual(
+            editor.screenplay.elements.first?.runs,
+            [StyleRun(start: 0, end: 5, styles: .bold)],
+            "the plain paragraph gains the style"
+        )
+        XCTAssertEqual(
+            editor.screenplay.elements.last?.runs,
+            [StyleRun(start: 0, end: 4, styles: .bold)],
+            "the styled paragraph keeps it — a mixed selection adds, never strips"
+        )
+
+        surface.applyMark(.bold)
+        XCTAssertNil(editor.screenplay.elements.first?.runs)
+        XCTAssertNil(editor.screenplay.elements.last?.runs)
+    }
+
+    func testTheBarReadsWhatTheSelectionWears() {
+        let (editor, surface) = surface("INT. LAB - DAY\n\nDust hangs in the light.")
+        select("hangs", in: surface)
+        surface.applyMark(.bold)
+
+        select("hangs", in: surface)
+        XCTAssertEqual(
+            surface.styleCoverage(at: surface.textView.selectedRange()),
+            [.bold],
+            "a covered selection lights its mark"
+        )
+        select("Dust", in: surface)
+        XCTAssertEqual(
+            surface.styleCoverage(at: surface.textView.selectedRange()),
+            [],
+            "a bare selection lights nothing"
+        )
+        _ = editor
+    }
+
+    func testACaretReadsTheNextKeystrokesStyle() {
+        let (editor, surface) = surface("INT. LAB - DAY\n\nDust hangs in the light.")
+        select("hangs", in: surface)
+        surface.applyMark(.bold)
+
+        // Caret inside the bold word: the donor rule says the next keystroke
+        // is bold, and the bar agrees.
+        let word = (surface.textView.string as NSString).range(of: "hangs")
+        surface.textView.setSelectedRange(NSRange(location: word.location + 2, length: 0))
+        XCTAssertEqual(surface.styleCoverage(at: surface.textView.selectedRange()), [.bold])
+
+        // Caret in the plain word beside it: nothing lights.
+        let plain = (surface.textView.string as NSString).range(of: "Dust")
+        surface.textView.setSelectedRange(NSRange(location: plain.location + 2, length: 0))
+        XCTAssertEqual(surface.styleCoverage(at: surface.textView.selectedRange()), [])
+        _ = editor
     }
 
     func testCentreMarksTheWholeLineAndAgainUnmarksIt() {
@@ -51,10 +146,11 @@ final class SelectionFormatBarTests: XCTestCase {
         XCTAssertFalse(surface.textView.string.contains("> The end. <"))
     }
 
-    func testAWrappingMarkNeedsASelection() {
-        let (_, surface) = surface("INT. LAB - DAY")
+    func testAStyleMarkNeedsASelection() {
+        let (editor, surface) = surface("INT. LAB - DAY")
         surface.textView.setSelectedRange(NSRange(location: 0, length: 0))
         surface.applyMark(.italic)
+        XCTAssertNil(editor.screenplay.elements.last?.runs)
         XCTAssertFalse(surface.textView.string.contains("*"))
     }
 }

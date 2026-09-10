@@ -78,10 +78,16 @@ public enum ScreenplayPageRenderer {
         if let pages = ScreenplayExporter.paginate(screenplay) {
             let showPageNumbers = UserDefaults.standard.object(forKey: "showPageNumbers") as? Bool ?? true
             let sceneNumbers = ScreenplayExporter.sceneNumberIndex(screenplay)
+            let elements = screenplay.engineModel.elements
+            // Where each element resumes on the next page — carried forward
+            // page by page, the same walk `pageStartLocations` makes.
+            var consumed: [Int: Int] = [:]
             for page in pages {
                 paint(
                     ScreenplayPageLayout.scriptPageRuns(
                         page,
+                        elements: elements,
+                        consumed: consumed,
                         sceneNumbers: sceneNumbers,
                         format: format,
                         showPageNumbers: showPageNumbers,
@@ -90,6 +96,7 @@ public enum ScreenplayPageRenderer {
                     in: context,
                     mediaBox: mediaBox
                 )
+                ScreenplayPageLayout.consumePrintedLines(of: page, into: &consumed)
             }
         }
 
@@ -128,7 +135,7 @@ public enum ScreenplayPageRenderer {
         let previous = NSGraphicsContext.current
         NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
         for run in runs {
-            drawFitted(run.text, at: run.origin, in: context)
+            drawFitted(run, in: context)
         }
         NSGraphicsContext.current = previous
         context.restoreGState()
@@ -140,26 +147,39 @@ public enum ScreenplayPageRenderer {
     /// to the line fragment, so the editor cannot let a tall glyph overflow
     /// while holding six lines to the inch — measured, and the PDF follows the
     /// screen so that one document is one document.
-    private static func drawFitted(_ string: String, at origin: CGPoint, in context: CGContext) {
-        var x = origin.x
-        (string as NSString).enumerateSubstrings(
-            in: NSRange(location: 0, length: (string as NSString).length),
+    ///
+    /// Style segments are attributes on the line's own attributed string,
+    /// read off per grapheme. Courier's fixed advance means a styled glyph
+    /// occupies the same width as a plain one — the `x` walk below is as
+    /// exact as it was before emphasis existed.
+    private static func drawFitted(_ run: ScreenplayPageLayout.Run, in context: CGContext) {
+        let attributed = NSMutableAttributedString(string: run.text, attributes: textAttributes)
+        for segment in run.segments {
+            let range = NSRange(location: segment.start, length: segment.length)
+            guard range.location >= 0, NSMaxRange(range) <= attributed.length else { continue }
+            attributed.addAttributes(ScriptLayout.styleAttributes(for: segment.styles), range: range)
+        }
+        var x = run.origin.x
+        (run.text as NSString).enumerateSubstrings(
+            in: NSRange(location: 0, length: attributed.length),
             options: .byComposedCharacterSequences
-        ) { substring, _, _, _ in
+        ) { substring, subrange, _, _ in
             guard let substring else { return }
-            let size = (substring as NSString).size(withAttributes: textAttributes)
-            let height = ScriptLayout.glyphPathHeight(substring, font: courier)
+            let attributes = attributed.attributes(at: subrange.location, effectiveRange: nil)
+            let font = (attributes[.font] as? NSFont) ?? courier
+            let size = (substring as NSString).size(withAttributes: attributes)
+            let height = ScriptLayout.glyphPathHeight(substring, font: font)
             let scale = ScreenplayPageLayout.scaleToFitLine(measuredHeight: height)
             if scale < 0.999 {
                 context.saveGState()
-                context.translateBy(x: x, y: origin.y)
+                context.translateBy(x: x, y: run.origin.y)
                 context.scaleBy(x: scale, y: scale)
-                (substring as NSString).draw(at: .zero, withAttributes: textAttributes)
+                (substring as NSString).draw(at: .zero, withAttributes: attributes)
                 context.restoreGState()
                 x += size.width * scale
             } else {
                 (substring as NSString).draw(
-                    at: CGPoint(x: x, y: origin.y), withAttributes: textAttributes
+                    at: CGPoint(x: x, y: run.origin.y), withAttributes: attributes
                 )
                 x += size.width
             }

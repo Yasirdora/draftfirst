@@ -29,10 +29,30 @@ public enum ScreenplayPageLayout {
     public struct Run: Equatable, Sendable {
         public var text: String
         public var origin: CGPoint
+        /// Styled spans of `text`, in the text's own UTF-16 offsets. Empty
+        /// for anything that is not screenplay content — page numbers,
+        /// CONTINUEDs, scene numbers, title-page lines.
+        public var segments: [StyleSegment]
 
-        public init(text: String, origin: CGPoint) {
+        public init(text: String, origin: CGPoint, segments: [StyleSegment] = []) {
             self.text = text
             self.origin = origin
+            self.segments = segments
+        }
+    }
+
+    /// A styled span of a `Run`'s text. Emphasis reaches the PDF without
+    /// re-measuring anything: Courier's advance is fixed, so a bolded word
+    /// stands exactly where its plain self stood.
+    public struct StyleSegment: Equatable, Sendable {
+        public var start: Int
+        public var length: Int
+        public var styles: StyleSet
+
+        public init(start: Int, length: Int, styles: StyleSet) {
+            self.start = start
+            self.length = length
+            self.styles = styles
         }
     }
 
@@ -113,6 +133,18 @@ public enum ScreenplayPageLayout {
         }
     }
 
+    /// Advances a running per-element line count past one page — the
+    /// caller's half of the `consumed` walk that tells `scriptPageRuns`
+    /// where a split element resumes.
+    public static func consumePrintedLines(
+        of page: EDraftEngine.ScriptPage,
+        into consumed: inout [Int: Int]
+    ) {
+        for line in page.lines where line.isPrintedElement {
+            consumed[line.element, default: 0] += 1
+        }
+    }
+
     /// Blank lines the paginator puts before this kind, as points of
     /// paragraph spacing — so the Mac page and the PDF keep the same
     /// vertical rhythm.
@@ -142,8 +174,16 @@ public enum ScreenplayPageLayout {
     /// Glyph positions for one paginated page. `widthOf` is the surface
     /// measuring the font it will draw with — Courier's pitch, or a
     /// fallback monospaced face's, so a missing Courier still lays out.
+    ///
+    /// `elements` and `consumed` are the style-run plumbing: the engine's
+    /// model, and how many printed lines of each element the pages before
+    /// this one consumed — the same walk `pageStartLocations` makes, carried
+    /// by the caller page over page. Defaults mean "unstyled": the phone's
+    /// renderer passes nothing until its PDF learns runs.
     public static func scriptPageRuns(
         _ page: EDraftEngine.ScriptPage,
+        elements: [EDraftEngine.ScreenplayElement] = [],
+        consumed: [Int: Int] = [:],
         sceneNumbers: [Int: String],
         format: PageFormat,
         showPageNumbers: Bool,
@@ -153,6 +193,11 @@ public enum ScreenplayPageLayout {
         let textTop = format.textTop
         let marks = ScreenplayExporter.sceneNumberMarks(for: page, numbers: sceneNumbers)
         var runs: [Run] = []
+        /// This page's own walk: where each element's next printed line
+        /// resumes, starting from the pages before this one.
+        var lineCursors = consumed
+        /// An element is wrapped at most once per page; pages repeat elements.
+        var wrapped: [Int: [Paginator.WrappedLine]] = [:]
 
         if page.number > 1, showPageNumbers {
             runs.append(rightAligned(
@@ -172,16 +217,50 @@ public enum ScreenplayPageLayout {
         for (index, line) in page.lines.enumerated() where line.type != .blank {
             let y = textTop + CGFloat(index) * lineHeight
             let text = ScreenplayExporter.renderedText(for: line)
+
+            // The runs this printed line carries, sliced out of the element
+            // at the offset the wrap walk says this line begins at. The
+            // rendered text can be shorter than the paginator's (a dual
+            // cue's ` ^` never prints); slicing clamps to what prints.
+            var segments: [StyleSegment] = []
+            if !elements.isEmpty, line.isPrintedElement, elements.indices.contains(line.element) {
+                let element = elements[line.element]
+                if let elementRuns = element.runs, !elementRuns.isEmpty {
+                    if wrapped[line.element] == nil {
+                        let width = Paginator.geometry[element.type]?.width
+                            ?? Paginator.pageWidthChars
+                        wrapped[line.element] = Paginator.wrapLines(element.text, width: width)
+                    }
+                    let wrappedLines = wrapped[line.element] ?? []
+                    let cursor = lineCursors[line.element] ?? 0
+                    if wrappedLines.indices.contains(cursor) {
+                        let start = wrappedLines[cursor].utf16Start
+                        segments = Emphasis.slice(
+                            elementRuns, start..<(start + (text as NSString).length)
+                        ).map {
+                            StyleSegment(start: $0.start, length: $0.end - $0.start, styles: $0.styles)
+                        }
+                    }
+                }
+            }
+            if !elements.isEmpty, line.isPrintedElement {
+                lineCursors[line.element, default: 0] += 1
+            }
+
             switch line.type {
             case .element(.transition):
-                runs.append(rightAligned(
+                var run = rightAligned(
                     text, rightEdge: format.textRight, y: y, widthOf: widthOf
-                ))
+                )
+                run.segments = segments
+                runs.append(run)
             case .element(.centered):
-                runs.append(centered(text, y: y, format: format, widthOf: widthOf))
+                var run = centered(text, y: y, format: format, widthOf: widthOf)
+                run.segments = segments
+                runs.append(run)
             default:
                 let x = textLeft + CGFloat(ScreenplayExporter.leadingSpaces(for: line)) * characterWidth
-                runs.append(Run(text: text, origin: CGPoint(x: x, y: y)))
+                runs.append(Run(text: text, origin: CGPoint(x: x, y: y), segments: segments))
             }
             if let number = marks[index] {
                 runs.append(contentsOf: sceneNumberRuns(

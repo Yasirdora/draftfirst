@@ -84,6 +84,9 @@ interface DelimPiece {
 	readonly delim: DelimKind;
 	/** Raw source length of the run (1–3 stars, 1 underscore, 2 tildes). */
 	readonly rawCount: number;
+	/** Where the run begins in the raw source — liveCollapse needs raw
+	    coordinates to remove exactly the markers it paired. */
+	readonly rawStart: number;
 	readonly canOpen: boolean;
 	readonly canClose: boolean;
 	/** Chars consumed as a closer (the run's leftmost) / as an opener (the
@@ -114,15 +117,10 @@ function starStyles(consumed: number): StyleToken[] {
 	return ['Italic'];
 }
 
-/**
- * Parse one line of Fountain content into marker-free text plus canonical
- * style runs. Per-line by contract — emphasis never crosses element bounds.
- */
-export function parseEmphasis(source: string): { text: string; runs: StyleRun[] } {
+/** Scan source into text/delimiter pieces: escapes resolved, delimiter runs
+    recognised, flanking judged from raw neighbours. */
+function scanPieces(source: string): Piece[] {
 	const pieces: Piece[] = [];
-	const spans: StyleSpan[] = [];
-
-	/* ---- scan: escapes resolved, delimiter runs recognised ------------ */
 	let buffer = '';
 	const flushText = () => {
 		if (buffer !== '') pieces.push({ kind: 'text', text: buffer });
@@ -149,6 +147,7 @@ export function parseEmphasis(source: string): { text: string; runs: StyleRun[] 
 					kind: 'delim',
 					delim: ch === '*' ? 'star' : ch === '_' ? 'under' : 'tilde',
 					rawCount: count,
+					rawStart: i,
 					/* Flanking reads the raw source neighbours; escapes cannot
 					   hide whitespace (backslash escapes punctuation only). */
 					canOpen: !isWhitespaceChar(source[end]),
@@ -170,9 +169,13 @@ export function parseEmphasis(source: string): { text: string; runs: StyleRun[] 
 	pieces.forEach((piece, index) => {
 		if (piece.kind === 'delim') piece.index = index;
 	});
+	return pieces;
+}
 
-	/* ---- match: a closing run pairs with the nearest open run of its
-	   kind, consuming leftmost-closer against rightmost-opener --------- */
+/** Match spans: a closing run pairs with the nearest open run of its kind,
+    consuming leftmost-closer against rightmost-opener. */
+function matchSpans(pieces: Piece[]): StyleSpan[] {
+	const spans: StyleSpan[] = [];
 	const openStack: DelimPiece[] = [];
 	for (const piece of pieces) {
 		if (piece.kind !== 'delim') continue;
@@ -217,6 +220,16 @@ export function parseEmphasis(source: string): { text: string; runs: StyleRun[] 
 			openStack.push(piece);
 		}
 	}
+	return spans;
+}
+
+/**
+ * Parse one line of Fountain content into marker-free text plus canonical
+ * style runs. Per-line by contract — emphasis never crosses element bounds.
+ */
+export function parseEmphasis(source: string): { text: string; runs: StyleRun[] } {
+	const pieces = scanPieces(source);
+	const spans = matchSpans(pieces);
 
 	/* ---- assemble: content string, then spans in content coordinates ---
 	   A run's chars order as [closer-consumed][literal middle][opener-
@@ -304,6 +317,233 @@ export function normaliseRuns(runs: readonly StyleRun[], textLength: number): St
 		}
 	}
 	return out;
+}
+
+/* ------------------------------------------------------------------ */
+/* edit arithmetic (RFC v2.1 §1 rules 1–4 / §4 — runs under typing)     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Re-seat runs after an element-local edit: `replaced` (old coordinates)
+ * was swapped for `insertedLength` new characters, yielding a text of
+ * `newTextLength`.
+ *
+ * Deleted text takes its runs with it; text after the edit shifts. Inserted
+ * characters inherit their donor per the platform's own rule (§4), so the
+ * model and the text view cannot disagree: the character before the
+ * insertion point, or — at content position 0 — the character after it.
+ * The donor's *whole* property set transfers (styles, revisionID,
+ * tagNumbers): one span mechanism, and normalisation merges the new span
+ * back into the donor run when they abut, which is exactly "typing extends
+ * the bold run".
+ *
+ * Precondition: `runs` are canonical over the pre-edit text.
+ */
+export function propagateRuns(
+	runs: readonly StyleRun[],
+	replaced: { start: number; end: number },
+	insertedLength: number,
+	newTextLength: number
+): StyleRun[] {
+	const { start, end } = replaced;
+	const delta = insertedLength - (end - start);
+	const canonical = normaliseRuns(runs, Number.MAX_SAFE_INTEGER);
+
+	const donor =
+		start > 0
+			? canonical.find((run) => run.start <= start - 1 && start - 1 < run.end)
+			: canonical.find((run) => run.start <= end && end < run.end);
+
+	const out: StyleRun[] = [];
+	for (const run of canonical) {
+		if (run.start < start) {
+			out.push({ ...run, end: Math.min(run.end, start) });
+		}
+		if (run.end > end) {
+			out.push({
+				...run,
+				start: Math.max(run.start, end) + delta,
+				end: run.end + delta
+			});
+		}
+	}
+	if (insertedLength > 0 && donor) {
+		const inserted: StyleRun = { start, end: start + insertedLength, styles: donor.styles };
+		if (donor.revisionID !== undefined) inserted.revisionID = donor.revisionID;
+		if (donor.tagNumbers !== undefined) inserted.tagNumbers = donor.tagNumbers;
+		out.push(inserted);
+	}
+	return normaliseRuns(out, newTextLength);
+}
+
+/** The runs' coverage of `[start, end)`, rebased to 0 — the planner's
+    head/tail extraction when an element splits. Precondition: canonical. */
+export function sliceRuns(
+	runs: readonly StyleRun[],
+	start: number,
+	end: number
+): StyleRun[] {
+	const out: StyleRun[] = [];
+	for (const run of runs) {
+		const s = Math.max(run.start, start);
+		const e = Math.min(run.end, end);
+		if (e > s) out.push({ ...run, start: s - start, end: e - start });
+	}
+	return out;
+}
+
+/**
+ * Whether every offset in `[start, end)` carries `style` — the format bar's
+ * toggle decision and active-state query. Empty ranges cover nothing.
+ * Precondition: canonical runs (sorted, non-overlapping).
+ */
+export function styleCovered(
+	runs: readonly StyleRun[],
+	start: number,
+	end: number,
+	style: StyleToken
+): boolean {
+	if (end <= start) return false;
+	let cursor = start;
+	for (const run of runs) {
+		if (run.end <= start) continue;
+		if (run.start >= end) break;
+		if (run.start > cursor) return false; // a gap inside the range
+		if (!run.styles.includes(style)) return false;
+		cursor = Math.max(cursor, run.end);
+		if (cursor >= end) return true;
+	}
+	return cursor >= end;
+}
+
+/**
+ * The format bar's verb. If the range is fully covered, the style comes off
+ * (a run left with no styles but a revisionID or tagNumbers survives — it
+ * is still a run); otherwise the style is overlaid on the whole range and
+ * normalisation unions it with whatever was there. Precondition: canonical.
+ */
+export function toggleStyle(
+	runs: readonly StyleRun[],
+	start: number,
+	end: number,
+	style: StyleToken,
+	textLength: number
+): StyleRun[] {
+	const canonical = normaliseRuns(runs, textLength);
+	if (end <= start) return canonical;
+
+	if (!styleCovered(canonical, start, end, style)) {
+		return normaliseRuns([...canonical, { start, end, styles: [style] }], textLength);
+	}
+
+	const out: StyleRun[] = [];
+	for (const run of canonical) {
+		if (run.end <= start || run.start >= end) {
+			out.push(run);
+			continue;
+		}
+		if (run.start < start) out.push({ ...run, end: start });
+		const inner: StyleRun = {
+			...run,
+			start: Math.max(run.start, start),
+			end: Math.min(run.end, end),
+			styles: run.styles.filter((s) => s !== style)
+		};
+		if (
+			inner.end > inner.start &&
+			(inner.styles.length > 0 ||
+				inner.revisionID !== undefined ||
+				(inner.tagNumbers ?? []).length > 0)
+		) {
+			out.push(inner);
+		}
+		if (run.end > end) out.push({ ...run, start: end });
+	}
+	return normaliseRuns(out, textLength);
+}
+
+/* ------------------------------------------------------------------ */
+/* live collapse (RFC v2.1 §3.3 — D6, an input transformation)          */
+/* ------------------------------------------------------------------ */
+
+export interface LiveCollapse {
+	/** The line with the paired markers removed — all other text, including
+	    any other delimiter characters, is verbatim. */
+	text: string;
+	/** The styled span the pair became, in the new text's coordinates. */
+	run: StyleRun;
+	/** The raw ranges removed from the input, ascending — the surface
+	    propagates the element's pre-existing runs through these deletions. */
+	removed: Array<{ start: number; end: number }>;
+	/** Where the caret belongs afterwards: the end of the styled span. */
+	caret: number;
+}
+
+/**
+ * The typed character at `insertedAt` may complete a marker pair. If it is
+ * part of a closing delimiter that pairs — and the pair's delimiters serve
+ * no other span — the markers collapse into a style run and cease to exist
+ * as text. Otherwise `null`: the character is literal and the edit proceeds
+ * untouched.
+ *
+ * Sole-consumer restriction, deliberately: delimiter runs shared between
+ * spans (`*a**b*`-style soup, reachable only from pasted marker text) are
+ * left for the writer to see rather than half-converted by a convenience.
+ * Whole delimiters only: a half-consumed `**` — the grammar's
+ * literal-middle answer to `**word*` — would italicise the word the moment
+ * the first closer key arrives, and typing `**word**` would end italic,
+ * never bold. At the keyboard a pair waits for its full delimiter or does
+ * not happen. Collapse is an input transformation, never a parser
+ * second-guess.
+ */
+export function liveCollapse(text: string, insertedAt: number): LiveCollapse | null {
+	const pieces = scanPieces(text);
+	const spans = matchSpans(pieces);
+
+	for (const span of spans) {
+		const opener = pieces[span.opener] as DelimPiece;
+		const closer = pieces[span.closer] as DelimPiece;
+		/* The typed character must be one of the closer's consumed chars —
+		   they are the run's leftmost. */
+		if (insertedAt < closer.rawStart || insertedAt >= closer.rawStart + closer.closerConsumed) {
+			continue;
+		}
+		/* Sole consumers only: a piece serving another span stays literal. */
+		const shared = spans.some(
+			(other) =>
+				other !== span &&
+				(other.opener === span.opener ||
+					other.opener === span.closer ||
+					other.closer === span.opener ||
+					other.closer === span.closer)
+		);
+		if (shared) continue;
+		if (opener.rawCount !== opener.openerConsumed) continue;
+		if (closer.rawCount !== closer.closerConsumed) continue;
+
+		/* Consumed chars: an opener's are its rightmost, a closer's its
+		   leftmost — and the whole-delimiter rule above means there is no
+		   surviving literal middle. */
+		const openerLiteral = opener.rawCount - opener.openerConsumed;
+		const removedOpener = {
+			start: opener.rawStart + openerLiteral,
+			end: opener.rawStart + opener.rawCount
+		};
+		const removedCloser = { start: closer.rawStart, end: closer.rawStart + closer.closerConsumed };
+
+		const start = opener.rawStart + openerLiteral;
+		const end = start + (closer.rawStart - (opener.rawStart + opener.rawCount));
+		/* An empty match styles nothing — the markers stay literal. */
+		if (end <= start) continue;
+
+		const collapsed =
+			text.slice(0, removedOpener.start) +
+			text.slice(removedOpener.end, removedCloser.start) +
+			text.slice(removedCloser.end);
+		const run: StyleRun = { start, end, styles: span.styles };
+		return { text: collapsed, run, removed: [removedOpener, removedCloser], caret: end };
+	}
+	return null;
 }
 
 /* ------------------------------------------------------------------ */
