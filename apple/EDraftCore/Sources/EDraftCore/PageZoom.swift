@@ -96,6 +96,30 @@ public nonisolated enum PageZoom {
         sqrt(min(max(magnification, actualSize), maximum))
     }
 
+    /// The band past each end of the range that a pinch may pull into.
+    ///
+    /// A hard wall at 100% or 200% reads as a broken gesture: fingers that
+    /// keep spreading expect the page to answer. So the scroll view's own
+    /// limits stand a spring's width past the page's, and `resisted` maps a
+    /// pull into the band at a third of its strength — the end says "here"
+    /// without ever holding the writer there. The settle that follows the
+    /// gesture walks the size back inside the range; nothing but a gesture
+    /// may sit out here.
+    public static let bandMinimum: CGFloat = actualSize * 0.92
+    public static let bandMaximum: CGFloat = maximum * 1.08
+
+    /// Where a pinch's raw target lands: inside the range, itself; past an
+    /// end, a third of the way into the band and never past 8% of the
+    /// limit.
+    public static func resisted(_ magnification: CGFloat) -> CGFloat {
+        let limit = min(max(magnification, actualSize), maximum)
+        let overshoot = magnification - limit
+        guard overshoot != 0 else { return magnification }
+        let spring = overshoot / 3
+        let cap = limit * 0.08
+        return limit + min(max(spring, -cap), cap)
+    }
+
     /// How the control says it: 152%, not 1.52.
     public static func percentage(_ zoom: CGFloat) -> String {
         "\(displayedPercentage(zoom))%"

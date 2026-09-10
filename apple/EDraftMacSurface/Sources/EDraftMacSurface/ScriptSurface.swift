@@ -166,11 +166,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         )
         self.canvas = canvas
 
-        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: measure, height: 480))
+        let scrollView = PageScrollView(frame: NSRect(x: 0, y: 0, width: measure, height: 480))
         scrollView.hasVerticalScroller = true
         scrollView.allowsMagnification = true
-        scrollView.minMagnification = PageZoom.actualSize
-        scrollView.maxMagnification = PageZoom.maximum
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
         // The clip view centres a page smaller than the window, so the canvas

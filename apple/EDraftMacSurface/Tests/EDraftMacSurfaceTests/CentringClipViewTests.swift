@@ -88,4 +88,29 @@ final class CentringClipViewTests: XCTestCase {
             "a mid-gesture size change left the page off the midline"
         )
     }
+
+    /// The pinch's own call: `setMagnification(_:centeredAt:)` with the
+    /// anchor parked far off the midline. Every frame passes the constraint,
+    /// so the page's midline owns x for the whole gesture — while the
+    /// anchor's y keeps the vertical, a third of the way down the view.
+    func testACursorAnchoredMagnifyKeepsTheMidline() {
+        let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 400, height: 600))
+        let clip = CentringClipView(frame: scrollView.bounds)
+        scrollView.contentView = clip
+        scrollView.documentView = NSView(frame: NSRect(x: 0, y: 0, width: 684, height: 2000))
+        scrollView.magnification = 1.0
+        clip.bounds = NSRect(x: 120, y: 500, width: 400, height: 600)
+        clip.centresHorizontally = true
+
+        scrollView.setMagnification(1.5, centeredAt: NSPoint(x: 60, y: 700))
+
+        XCTAssertEqual(
+            clip.bounds.origin.x, (684 - clip.bounds.width) / 2, accuracy: 0.5,
+            "an anchor off the midline pulled the page sideways"
+        )
+        XCTAssertEqual(
+            clip.bounds.origin.y, 700 - clip.bounds.height / 3, accuracy: 0.5,
+            "the line under the fingers did not stay under them"
+        )
+    }
 }

@@ -203,4 +203,23 @@ final class PageZoomTests: XCTestCase {
         XCTAssertEqual(PageZoom.chromeScale(at: 0.5), 1, accuracy: 0.0001)
         XCTAssertEqual(PageZoom.chromeScale(at: 3), sqrt(2), accuracy: 0.0001)
     }
+
+    // MARK: - The spring past the ends
+
+    /// Inside the range the gesture's raw target is its own answer.
+    func testAResistedPullInsideTheRangeIsUntouched() {
+        XCTAssertEqual(PageZoom.resisted(1.5), 1.5, accuracy: 0.0001)
+        XCTAssertEqual(PageZoom.resisted(PageZoom.actualSize), PageZoom.actualSize, accuracy: 0.0001)
+        XCTAssertEqual(PageZoom.resisted(PageZoom.maximum), PageZoom.maximum, accuracy: 0.0001)
+    }
+
+    /// Past an end the page answers at a third of the pull, never past 8%
+    /// of the limit, and always inside the band the scroll view allows —
+    /// the settle then walks it back into the range.
+    func testAPullPastTheEndMeetsTheSpring() {
+        XCTAssertEqual(PageZoom.resisted(2.3), 2.1, accuracy: 0.0001, "a third of the overshoot")
+        XCTAssertEqual(PageZoom.resisted(4), PageZoom.bandMaximum, accuracy: 0.0001, "capped at 8%")
+        XCTAssertEqual(PageZoom.resisted(0.85), 0.95, accuracy: 0.0001)
+        XCTAssertEqual(PageZoom.resisted(0.1), PageZoom.bandMinimum, accuracy: 0.0001)
+    }
 }
