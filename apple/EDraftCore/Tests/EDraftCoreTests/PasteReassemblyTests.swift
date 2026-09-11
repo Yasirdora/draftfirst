@@ -90,4 +90,81 @@ final class PasteReassemblyTests: XCTestCase {
         XCTAssertEqual(paragraphs?.dropFirst().first?.depth, 0,
                        "action sits at the base column, whatever the opener did")
     }
+
+    // MARK: - The unindented hard-wrap
+
+    /// Social-Network-shaped: no margins, no blank lines, prose wrapped at
+    /// a fixed right edge, speeches volleying in short lines.
+    private let unindented = """
+        FROM THE BLACK WE HEAR--
+        MARK (V.O.)
+        Did you know there are more people with
+        genius IQ's living in China than there
+        are people of any kind living in the
+        United States?
+        ERICA (V.O.)
+        That can't possibly be true.
+        FADE IN:
+        INT. CAMPUS BAR - NIGHT
+        MARK ZUCKERBERG is a sweet looking 19 year old whose lack of
+        any physically intimidating attributes masks a very
+        complicated and dangerous anger.
+        MARK
+        How do you distinguish yourself in a
+        population of people who all got 1600 on
+        their SAT's?
+        ERICA
+        I didn't know they take SAT's in China.
+        MARK
+        They don't. I wasn't talking about China
+        anymore, I was talking about me.
+        CUT TO:
+        EXT. SQUARE - DAY
+        The plaza holds its breath for a moment and
+        then moves on.
+        """
+
+    /// A speech is one paragraph: the wrap column is not a paragraph break,
+    /// and a cue is never its dialogue's continuation.
+    func testAnUnindentedHardWrapKeepsSpeechesWhole() {
+        let paragraphs = PasteReassembly.paragraphs(from: unindented)
+
+        XCTAssertEqual(
+            paragraphs?.map(\.kind),
+            [.character, .character, .dialogue, .character, .dialogue,
+             .transition, .scene, .action,
+             .character, .dialogue, .character, .dialogue, .character, .dialogue,
+             .transition, .scene, .action]
+        )
+        XCTAssertEqual(
+            paragraphs?[2].text,
+            "Did you know there are more people with genius IQ's living in China "
+                + "than there are people of any kind living in the United States?"
+        )
+        XCTAssertEqual(
+            paragraphs?[7].text,
+            "MARK ZUCKERBERG is a sweet looking 19 year old whose lack of "
+                + "any physically intimidating attributes masks a very "
+                + "complicated and dangerous anger."
+        )
+    }
+
+    /// The volley is the point: short lines do not keep a speech from
+    /// joining, and each cue still parts from its dialogue.
+    func testVolleysStayWhole() {
+        let paragraphs = PasteReassembly.paragraphs(from: unindented)
+        let erica = paragraphs?.firstIndex { $0.text.hasPrefix("I didn't know") }
+        XCTAssertEqual(paragraphs?[erica!].kind, .dialogue)
+        XCTAssertEqual(paragraphs?[erica! + 1].text, "MARK")
+    }
+
+    /// What it must not fire on: Fountain text with real blank lines, an
+    /// unwrapped paragraph-per-line copy, and a two-line snippet all keep
+    /// the line-per-element reading.
+    func testTheUnindentedModeRefusesWhatItCannotRead() {
+        XCTAssertNil(PasteReassembly.paragraphs(from: "INT. LAB - DAY\n\nDust hangs in the light."))
+        let longLines = (1...10).map { "Line \($0) of a paragraph that runs very long indeed, well past any sane wrap column, because the source kept its elements whole and never hard-wrapped them at all." }
+        XCTAssertNil(PasteReassembly.paragraphs(from: longLines.joined(separator: "\n")))
+        XCTAssertNil(PasteReassembly.paragraphs(from: "A\nB\nC\nD\nE\nF\nG\nH"))
+    }
 }

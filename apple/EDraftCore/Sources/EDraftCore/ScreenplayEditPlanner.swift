@@ -246,6 +246,10 @@ public struct ScreenplayEditPlanner {
         /// carried one — the signal that says dialogue from action once the
         /// margins are gone.
         var pasteDepths: [Int?] = Array(repeating: nil, count: parts.count)
+        /// The kind the reassembly read from the paste's structure, when it
+        /// read one — an unindented hard-wrapped paste carries its kinds
+        /// because there are no margins to measure them from.
+        var pasteKinds: [ScreenplayKind?] = Array(repeating: nil, count: parts.count)
         var pasteWasReassembled = false
         if intent == .multilinePaste {
             // A hard-wrapped paste into an empty place is reassembled into
@@ -256,6 +260,7 @@ public struct ScreenplayEditPlanner {
                let reassembled = PasteReassembly.paragraphs(from: replacement) {
                 parts = reassembled.enumerated().map { (rawIndex: $0.offset, text: $0.element.text) }
                 pasteDepths = reassembled.map { $0.depth }
+                pasteKinds = reassembled.map { $0.kind }
                 pasteWasReassembled = true
             } else {
                 let printable = parts.filter {
@@ -350,7 +355,8 @@ public struct ScreenplayEditPlanner {
                 element = preserved
             } else {
                 let previous = result.last
-                let kind = kindForNewElement(previous, part.text, pasteDepths[partIndex])
+                let kind = pasteKinds[partIndex]
+                    ?? kindForNewElement(previous, part.text, pasteDepths[partIndex])
                 let finalText = kind.uppercasesInput ? part.text.uppercased() : part.text
                 var created = ScriptElement(type: kind, text: finalText)
                 created.runs = runsForPart(

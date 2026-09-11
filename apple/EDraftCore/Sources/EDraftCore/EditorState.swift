@@ -1183,24 +1183,18 @@ public final class EditorState {
         Normalize.canonicalCasing(kind: kind.engineKind, text: text)
     }
 
+    /* The rules live in PasteHeuristics: the reassembly breaks paragraphs
+       on them and this classifier types the results — two readers, one rule. */
     private static func looksLikeSceneHeading(_ text: String) -> Bool {
-        ["INT.", "EXT.", "EST.", "INT/EXT.", "I/E."].contains { prefix in
-            text.hasPrefix(prefix)
-        }
+        PasteHeuristics.looksLikeSceneHeading(text)
     }
 
     private static func looksLikeTransition(_ text: String) -> Bool {
-        text == "FADE IN:" || text == "FADE OUT."
-            || text.hasSuffix(" TO:") || text.hasSuffix(" OUT:")
-            || text.hasSuffix("DISSOLVE:")
+        PasteHeuristics.looksLikeTransition(text)
     }
 
     private static func looksLikeCharacterCue(_ text: String, uppercase: String) -> Bool {
-        guard !text.isEmpty,
-              text == uppercase,
-              text.utf16.count <= 48,
-              text.rangeOfCharacter(from: .letters) != nil else { return false }
-        return !text.hasSuffix(".") && !text.hasSuffix(":")
+        PasteHeuristics.looksLikeCharacterCue(text, uppercase: uppercase)
     }
 
     private func recordSnapshot(structural: Bool) {

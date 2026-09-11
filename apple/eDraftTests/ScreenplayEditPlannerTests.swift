@@ -630,6 +630,70 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
         XCTAssertEqual(plan.activeOffset, ("DISSOLVE:" as NSString).length)
     }
 
+    /// The unindented hard-wrap: no margins, no blank lines, speeches
+    /// volleying in short wrapped lines. The reassembly reads structure
+    /// from the words — and the cast stays clean, which is the failure this
+    /// test exists to keep from returning: the line-per-element reading
+    /// re-typed every wrapped dialogue line as a shouted cue, and the panel
+    /// filled with seventeen hundred one-line "characters".
+    @MainActor
+    func testAnUnindentedHardWrapPasteKeepsSpeechesAndCastClean() throws {
+        let wrapped = """
+            MARK (V.O.)
+            Did you know there are more people with
+            genius IQ's living in China than there
+            are people of any kind living in the
+            United States?
+            ERICA (V.O.)
+            That can't possibly be true.
+            FADE IN:
+            INT. CAMPUS BAR - NIGHT
+            MARK ZUCKERBERG is a sweet looking 19 year old whose lack of
+            any physically intimidating attributes masks a very
+            complicated and dangerous anger.
+            MARK
+            How do you distinguish yourself in a
+            population of people who all got 1600 on
+            their SAT's?
+            ERICA
+            I didn't know they take SAT's in China.
+            EXT. SQUARE - DAY
+            The plaza holds its breath for a moment and
+            then moves on.
+            """
+
+        let plan = try XCTUnwrap(ScreenplayEditPlanner.plan(
+            elements: [ScriptElement(type: .action, text: "")],
+            replacing: NSRange(location: 0, length: 0),
+            with: wrapped,
+            intent: .multilinePaste,
+            kindForNewElement: { previous, text, depth in
+                EditorState(source: "").kindForInsertedElement(
+                    after: previous, text: text, pasteDepth: depth
+                )
+            }
+        ))
+
+        XCTAssertEqual(
+            plan.elements.map(\.type),
+            [.character, .dialogue, .character, .dialogue,
+             .transition, .scene, .action,
+             .character, .dialogue, .character, .dialogue,
+             .scene, .action]
+        )
+        XCTAssertEqual(
+            plan.elements[1].text,
+            "Did you know there are more people with genius IQ's living in China "
+                + "than there are people of any kind living in the United States?",
+            "the wrap column is not a paragraph break"
+        )
+
+        let editor = EditorState(source: "")
+        editor.screenplay = Screenplay(titlePage: [], elements: plan.elements)
+        XCTAssertEqual(editor.cast.map(\.name), ["ERICA", "MARK"],
+                       "no prose-as-cue: the cast is the two people speaking")
+    }
+
     @MainActor
     func testMultilinePasteReplacesWhitespacePlaceholderCleanly() throws {
         let placeholderID = UUID()
