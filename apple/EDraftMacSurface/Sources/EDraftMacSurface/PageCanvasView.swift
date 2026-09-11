@@ -417,12 +417,17 @@ final class PageCanvasView: NSView {
             textView?.insertionPointColor =
                 NSColor.screenplayInk.usingColorSpace(.sRGB) ?? .labelColor
 
-            // Clear: the scroll view paints the desk, all the way to the
-            // window's edges. The canvas is only as large as the pages, so a
-            // colour here would stop at its edge and draw a border round them.
+            // Clear: the canvas is only as large as the pages, so a colour
+            // here would stop at its edge and draw a border round them.
             layer?.backgroundColor = NSColor.clear.cgColor
-            // The desk and its dots, for this appearance — see `DeskGrid`.
-            enclosingScrollView?.backgroundColor = NSColor.screenplayDeskGrid(for: effectiveAppearance)
+            // The desk itself is unpainted now — the system's surface shows
+            // through — so there is no background colour to set here. The
+            // dots are `DeskGridView`'s, and it rebuilds its own pattern when
+            // the appearance changes; this only nudges the ones already on
+            // screen, since a canvas can change appearance before they have.
+            enclosingScrollView?.subviews
+                .compactMap { $0 as? DeskGridView }
+                .forEach { $0.needsDisplay = true }
             for page in pageViews {
                 // Everything the card is made of, in one place. The corner,
                 // the shadow and the border used to be set once in

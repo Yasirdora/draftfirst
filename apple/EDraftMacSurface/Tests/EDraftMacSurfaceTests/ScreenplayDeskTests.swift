@@ -60,17 +60,83 @@ final class ScreenplayDeskTests: XCTestCase {
         XCTAssertLessThanOrEqual(desk.r, 40)
     }
 
-    func testTheDarkDeskIsAlwaysBelowThePaper() {
-        for choice in PagePaper.allCases {
-            withPaper(choice) {
-                let desk = rgb(.screenplayDesk, in: .darkAqua)
-                let paper = rgb(.screenplayPaper, in: .darkAqua)
-                XCTAssertGreaterThanOrEqual(
-                    paper.r - desk.r, 10,
-                    "\(choice.title): desk \(desk.r), paper \(paper.r)"
-                )
-            }
+    /// The desk is no longer painted, and the dots carry no ground.
+    ///
+    /// This replaces `testTheDarkDeskIsAlwaysBelowThePaper`, which pinned the
+    /// old arrangement — a near-black desk under a lighter sheet. That rule is
+    /// deliberately reversed: the desk resolves to the system's own surface
+    /// and the dark page is now the darker of the two. What has to hold
+    /// instead is that nothing puts a ground back, in either direction — a
+    /// fill in the tile would repaint the desk one dot-spacing at a time.
+    @MainActor
+    func testTheDeskTileIsDotsAndNoGround() {
+        for name in [NSAppearance.Name.aqua, .darkAqua] {
+            let tile = DeskGrid.tile(for: NSAppearance(named: name)!)
+            let shot = NSBitmapImageRep(data: tile.tiffRepresentation!)!
+            // The far corner from the dot, which sits at the tile's origin.
+            let corner = shot.colorAt(x: shot.pixelsWide - 1, y: 0)
+            XCTAssertEqual(
+                Double(corner?.alphaComponent ?? 1), 0, accuracy: 0.01,
+                "\(name.rawValue): the tile has a ground, so the desk is painted after all"
+            )
         }
+    }
+
+    /// The dots have to be legible in both looks, and one alpha cannot do
+    /// that — the two grounds sit at opposite ends of the range.
+    ///
+    /// Dark lays white ink on a surface near #21222E, where a little goes a
+    /// long way. Light lays black ink on a desk that is now pure white, and
+    /// the same alpha reads as nothing: a faint dark mark on a bright field
+    /// is far weaker to the eye than a faint light one on a dark field. This
+    /// composites the real tile over the real ground and pins the distance.
+    @MainActor
+    func testTheDotsAreLegibleOnTheGroundEachLookPutsThemOn() {
+        // The surfaces the grid actually sits on, measured on screen now that
+        // the desk is unpainted: pure white in light, about #21222E in dark.
+        let grounds: [(NSAppearance.Name, NSColor, CGFloat)] = [
+            (.aqua, .white, 35),
+            (.darkAqua, NSColor(srgbRed: 33 / 255, green: 34 / 255, blue: 46 / 255, alpha: 1), 18)
+        ]
+        for (name, ground, leastVisibleStep) in grounds {
+            let shot = NSBitmapImageRep(
+                data: DeskGrid.tile(for: NSAppearance(named: name)!).tiffRepresentation!
+            )!
+            // The densest pixel of the dot, wherever antialiasing has put it.
+            var ink: NSColor?
+            for x in 0..<shot.pixelsWide {
+                for y in 0..<shot.pixelsHigh {
+                    guard let here = shot.colorAt(x: x, y: y) else { continue }
+                    if here.alphaComponent > (ink?.alphaComponent ?? 0) { ink = here }
+                }
+            }
+            let dot = ink!.usingColorSpace(.sRGB)!
+            let under = ground.usingColorSpace(.sRGB)!
+            let a = dot.alphaComponent
+            let landed = under.redComponent * (1 - a) + dot.redComponent * a
+            let step = abs(landed - under.redComponent) * 255
+
+            XCTAssertGreaterThanOrEqual(
+                step, leastVisibleStep,
+                "\(name.rawValue): the dots land \(Int(step)) levels off the desk and vanish"
+            )
+        }
+    }
+
+    /// And the scroll view does not fill either — clearing only the scroll
+    /// view leaves the clip view still painting, which was the bug that made
+    /// this look like it had not worked at all.
+    @MainActor
+    func testTheSurfaceDrawsNoDeskBehindThePage() {
+        let surface = ScriptSurface()
+        surface.bind(to: EditorState(source: "INT. A - DAY"))
+
+        XCTAssertFalse(surface.scrollView.drawsBackground)
+        XCTAssertFalse(surface.scrollView.contentView.drawsBackground)
+        XCTAssertTrue(
+            surface.scrollView.subviews.contains { $0 is DeskGridView },
+            "without the grid view the dots have nowhere to be drawn"
+        )
     }
 
     /// In light the sheet is told from the desk by its shadow and corner, not

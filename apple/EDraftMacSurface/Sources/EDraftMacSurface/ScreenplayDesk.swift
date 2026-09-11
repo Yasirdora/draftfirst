@@ -3,8 +3,19 @@ import EDraftCore
 
 extension NSColor {
 
-    /// The two surfaces a script is drawn on, and the one rule that orders
-    /// them: **the desk is darker than the paper, in both looks.**
+    /// The two surfaces a script is drawn on.
+    ///
+    /// **The rule below was reversed for dark mode on 2026-09-12.** The desk
+    /// is no longer painted at all: the scroll view draws no background, the
+    /// system's own surface shows through, and `DeskGridView` lays the dots
+    /// over it. So in dark mode the sheet is now the *darker* of the two —
+    /// #141414 against a desk that measures about #22232D — and this colour
+    /// survives only as the Launch window's ground. Everything from here to
+    /// the 2026-09-08 note is the history of the arrangement it replaced,
+    /// kept because it records what each system colour actually resolved to.
+    ///
+    /// The old rule, for that history: **the desk is darker than the paper,
+    /// in both looks.**
     ///
     /// That is how a page has always read — a lit sheet on a darker surface —
     /// and it is what Pages shows. It also decides the header: the system
@@ -64,16 +75,26 @@ extension NSColor {
     /// mode, because in light the page is paper either way.
     static let screenplayPaper = NSColor(name: "screenplayPaper") { appearance in
         guard appearance.isDark, PagePaper.stored == .inverted else {
-            // Warm rather than pure white: it is the same off-white the phone
-            // has always drawn, and against a near-black desk pure white is a
-            // lamp rather than a page.
-            return NSColor(srgbRed: 0.980, green: 0.973, blue: 0.957, alpha: 1) // #FAF8F4
+            // Warm, and no longer nearly white. #FAF8F4 was chosen when the
+            // desk was a painted grey and the page only had to avoid being a
+            // lamp on it. The desk is not painted now and resolves to pure
+            // white in light mode, so a near-white page had nothing to be
+            // seen by — it read as a faint warm patch on a brighter field,
+            // the sheet and the surface the wrong way round.
+            //
+            // This is paper rather than a lightened white: the warmth is
+            // carried by dropping blue furthest (R−B = 9, against 6 before),
+            // which is what stock does under a lamp. Enough to lift the sheet
+            // off the white desk and no further — #F3EFE5 was tried first and
+            // read as cream, which is a colour the eye stops on rather than a
+            // page it reads through.
+            return NSColor(srgbRed: 0.969, green: 0.957, blue: 0.933, alpha: 1) // #F7F4EE
         }
-        // Lifted from #2C2C2E once the desk went back to
-        // `underPageBackgroundColor`: four levels above it is not a sheet,
-        // it is a slightly different patch of desk. `ScreenplayDeskTests`
-        // holds the gap.
-        return NSColor(srgbRed: 0.227, green: 0.227, blue: 0.235, alpha: 1)     // #3A3A3C
+        // The sheet is now the *dark* thing in the window and the desk is the
+        // light one — the reverse of the arrangement above, and deliberate:
+        // the desk stopped being painted, so it resolves to the system's own
+        // mid grey and the page has to be told apart from it downward.
+        return NSColor(srgbRed: 0.078, green: 0.078, blue: 0.078, alpha: 1)     // #141414
     }
 
     /// What is written on it. Tied to the paper rather than to the app's
@@ -144,19 +165,62 @@ enum DeskGrid {
     static let spacing: CGFloat = 30
     static let dot: CGFloat = 1.5
 
+    /// The tile is the dot and nothing else: no ground.
+    ///
+    /// It used to fill itself with `screenplayDesk` first, because it was the
+    /// scroll view's *background* colour and a background has to cover. Now
+    /// the desk is not painted at all — the system's surface shows through —
+    /// so a ground here would put the old colour straight back and undo that.
+    /// `DeskGridView` composites this over whatever is behind it.
     static func tile(for appearance: NSAppearance) -> NSImage {
         let size = NSSize(width: spacing, height: spacing)
         return NSImage(size: size, flipped: false) { _ in
             appearance.performAsCurrentDrawingAppearance {
-                NSColor.screenplayDesk.setFill()
-                NSRect(origin: .zero, size: size).fill()
+                // Lifted from 0.055/0.045. The dots sat on a near-black desk
+                // and now sit on a mid grey, which swallows a wash that faint.
+                // Not the same number in both looks, because the grounds are
+                // not the same distance from the ink. Dark lays 0.10 white on
+                // a #21222E desk and lands 22 levels above it; light laying
+                // 0.10 black on a desk that is now pure white lands 26 levels
+                // below — the same arithmetic, and invisible, because the eye
+                // reads a faint dark mark on a bright field far more weakly
+                // than a faint light one on a dark field.
                 let ink = appearance.isDark
-                    ? NSColor.white.withAlphaComponent(0.055)
-                    : NSColor.black.withAlphaComponent(0.045)
+                    ? NSColor.white.withAlphaComponent(0.10)
+                    : NSColor.black.withAlphaComponent(0.18)
                 ink.setFill()
                 NSBezierPath(ovalIn: NSRect(x: 0, y: 0, width: dot, height: dot)).fill()
             }
             return true
         }
+    }
+}
+
+/// The dots, and only the dots, over whatever the system puts behind them.
+///
+/// A view rather than a background colour, because a background colour has to
+/// be opaque to be a background: assigning a pattern with a transparent ground
+/// to `NSScrollView.backgroundColor` gets it composited against the scroll
+/// view's own fill, which is the colour we are trying not to draw. Sitting
+/// below the clip view keeps it exactly where the pattern used to be — fixed
+/// to the window, not scrolling with the page, the way Freeform's grid is.
+final class DeskGridView: NSView {
+
+    override var isOpaque: Bool { false }
+
+    /// Patterns are anchored to the bottom-left of the *window* unless the
+    /// phase is stated, so without this the grid slides by a few points
+    /// whenever the view's origin moves.
+    override func draw(_ dirtyRect: NSRect) {
+        NSGraphicsContext.current?.patternPhase = convert(NSPoint.zero, to: nil)
+        NSColor.screenplayDeskGrid(for: effectiveAppearance).setFill()
+        dirtyRect.fill(using: .sourceOver)
+    }
+
+    /// A pattern image is a snapshot of one appearance, so it is rebuilt —
+    /// not just redrawn — whenever the window changes look.
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        needsDisplay = true
     }
 }

@@ -200,16 +200,25 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // never has to be grown to the viewport and a pinch needs no
         // re-measure to stay centred.
         //
-        // It is installed *before* the desk is coloured, and the order is not
-        // arbitrary: a scroll view's background is its clip view's, so
-        // replacing the clip view afterwards throws the colour away.
+        // It is installed *before* the background is settled below, and the
+        // order is not arbitrary: a scroll view's background is its clip
+        // view's, so replacing the clip view afterwards throws that setting
+        // away — it used to discard the desk colour, and now it would put the
+        // filling clip view back.
         scrollView.contentView = CentringClipView()
         scrollView.documentView = canvas
-        // The scroll view paints the desk, and it is the only thing that does.
-        // The canvas is exactly the pages, so anything it painted itself would
-        // end at its edge and read as a border around them.
-        scrollView.drawsBackground = true
-        scrollView.backgroundColor = .screenplayDesk
+        // The desk is not painted. What shows instead is the surface the
+        // system already puts under a content column, which is what the
+        // Navigator beside it is also showing; the dots are laid over it by
+        // `DeskGridView`, below the clip view so they stay fixed to the
+        // window. The clip view has to be told separately — a scroll view's
+        // background is drawn by its clip view, so clearing only the scroll
+        // view leaves the clip view still filling.
+        scrollView.drawsBackground = false
+        scrollView.contentView.drawsBackground = false
+        let grid = DeskGridView(frame: scrollView.bounds)
+        grid.autoresizingMask = [.width, .height]
+        scrollView.addSubview(grid, positioned: .below, relativeTo: scrollView.contentView)
         self.scrollView = scrollView
 
         // The bar floats in the scroll view's own space, above the clip
