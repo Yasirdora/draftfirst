@@ -33,7 +33,7 @@ final class ReturnKeyStabilityTests: XCTestCase {
                     replacing: NSRange(location: caret, length: 0),
                     with: "\n",
                     intent: .returnKey,
-                    kindForNewElement: { previous, _ in
+                    kindForNewElement: { previous, _, _ in
                         previous?.type == .character ? .dialogue : .action
                     }
                 )

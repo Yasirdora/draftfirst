@@ -17,7 +17,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: caret,
             with: "\n",
             intent: .returnKey,
-            kindForNewElement: { _, _ in .dialogue }
+            kindForNewElement: { _, _, _ in .dialogue }
         ))
 
         XCTAssertEqual(plan.elements.map(\.type), [.parenthetical, .dialogue])
@@ -39,7 +39,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: 11, length: 0),
             with: "\n",
             intent: .returnKey,
-            kindForNewElement: { _, _ in .dialogue }
+            kindForNewElement: { _, _, _ in .dialogue }
         ))
 
         // Neither half is left holding half a bracket, and no words are lost.
@@ -58,7 +58,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
                 replacing: NSRange(location: caret, length: 0),
                 with: "\n",
                 intent: .returnKey,
-                kindForNewElement: { _, _ in .dialogue }
+                kindForNewElement: { _, _, _ in .dialogue }
             ))
             XCTAssertTrue(
                 plan.elements.contains { $0.text == "(whispering)" },
@@ -75,7 +75,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: 1, length: 0),
             with: "\n",
             intent: .returnKey,
-            kindForNewElement: { _, _ in .dialogue }
+            kindForNewElement: { _, _, _ in .dialogue }
         ))
 
         XCTAssertEqual(plan.elements.map(\.text), ["(whispering)", ""])
@@ -131,7 +131,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: deletion,
             with: "",
             intent: .replacement,
-            kindForNewElement: { _, _ in .action }
+            kindForNewElement: { _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements, [
@@ -169,7 +169,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: deletion,
             with: "",
             intent: .boundaryDeletion,
-            kindForNewElement: { _, _ in .action }
+            kindForNewElement: { _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements.count, 2)
@@ -199,7 +199,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: separator, length: 1),
             with: "",
             intent: .boundaryDeletion,
-            kindForNewElement: { _, _ in .action }
+            kindForNewElement: { _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements.count, 2)
@@ -232,7 +232,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: start, length: endInsideSecond - start),
             with: "",
             intent: .replacement,
-            kindForNewElement: { _, _ in .action }
+            kindForNewElement: { _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements.count, 3)
@@ -259,7 +259,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: 1, length: 3),
             with: "\n",
             intent: .returnKey,
-            kindForNewElement: { previous, _ in
+            kindForNewElement: { previous, _, _ in
                 previous?.type == .character ? .dialogue : .action
             }
         ))
@@ -286,7 +286,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: 0, length: 0),
             with: "\n",
             intent: .returnKey,
-            kindForNewElement: { _, _ in .action }
+            kindForNewElement: { _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements.count, 2)
@@ -317,7 +317,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: insertion, length: 0),
             with: "\nELENA\nCome in.",
             intent: .multilinePaste,
-            kindForNewElement: { previous, text in
+            kindForNewElement: { previous, text, _ in
                 if text == text.uppercased(), !text.isEmpty { return .character }
                 if previous?.type == .character { return .dialogue }
                 return .action
@@ -354,7 +354,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: 0, length: source.length),
             with: "",
             intent: .replacement,
-            kindForNewElement: { _, _ in .dialogue }
+            kindForNewElement: { _, _, _ in .dialogue }
         ))
 
         XCTAssertEqual(plan.elements.count, 1)
@@ -433,7 +433,7 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
             replacing: NSRange(location: separatorBeforeEmptyElement, length: 1),
             with: "",
             intent: .backspaceAtElementStart,
-            kindForNewElement: { _, _ in .action }
+            kindForNewElement: { _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements.count, 3)
@@ -507,7 +507,7 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
             replacing: NSRange(location: separator, length: 1),
             with: "\n",
             intent: .replacement,
-            kindForNewElement: { _, _ in .action }
+            kindForNewElement: { _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements, elements)
@@ -564,6 +564,70 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
             plan.selection.location,
             (ScreenplayEditPlanner.flattenedText(plan.elements) as NSString).length
         )
+    }
+
+    /// A hard-wrapped paste into an empty place is reassembled into its
+    /// paragraphs before it is classified: margins come off, continuation
+    /// lines join, a cue parts from its speech at the column change, and
+    /// the depth past the base column says dialogue where the words alone
+    /// read like narration. This is the Kane paste, in miniature.
+    @MainActor
+    func testAHardWrappedPasteIsReassembledAndClassifiedByItsMargins() throws {
+        func line(_ column: Int, _ text: String) -> String {
+            String(repeating: " ", count: column) + text
+        }
+        let wrapped = [
+            line(0, "FADE IN:"),
+            "",
+            line(10, "EXT. XANADU - FAINT DAWN - 1940"),
+            line(10, "(MINIATURE)"),
+            "",
+            line(10, "Window, very small in the distance,"),
+            line(10, "illuminated. All around is black."),
+            "",
+            line(36, "KANE"),
+            line(31, "(a whisper)"),
+            line(24, "Rosebud... the word"),
+            line(24, "echoes."),
+            "",
+            line(10, "The screen stays black."),
+            "",
+            line(24, "Kane's voice, low and slow, carries on."),
+            "",
+            line(72, "DISSOLVE:"),
+        ].joined(separator: "\n")
+
+        let plan = try XCTUnwrap(ScreenplayEditPlanner.plan(
+            elements: [ScriptElement(type: .action, text: "")],
+            replacing: NSRange(location: 0, length: 0),
+            with: wrapped,
+            intent: .multilinePaste,
+            kindForNewElement: { previous, text, depth in
+                EditorState(source: "").kindForInsertedElement(
+                    after: previous, text: text, pasteDepth: depth
+                )
+            }
+        ))
+
+        XCTAssertEqual(
+            plan.elements.map(\.type),
+            [.transition, .scene, .action, .character, .parenthetical, .dialogue,
+             .action, .dialogue, .transition]
+        )
+        XCTAssertEqual(
+            plan.elements.map(\.text),
+            ["FADE IN:",
+             "EXT. XANADU - FAINT DAWN - 1940 (MINIATURE)",
+             "Window, very small in the distance, illuminated. All around is black.",
+             "KANE",
+             "(a whisper)",
+             "Rosebud... the word echoes.",
+             "The screen stays black.",
+             "Kane's voice, low and slow, carries on.",
+             "DISSOLVE:"]
+        )
+        XCTAssertEqual(plan.activeElementID, plan.elements.last?.id)
+        XCTAssertEqual(plan.activeOffset, ("DISSOLVE:" as NSString).length)
     }
 
     @MainActor
@@ -669,7 +733,8 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
     @MainActor
     private func simpleFountainClassifier(
         previous: ScriptElement?,
-        text: String
+        text: String,
+        pasteDepth: Int? = nil
     ) -> ScreenplayKind {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let uppercase = trimmed.uppercased()
@@ -862,8 +927,10 @@ final class KeystrokePathCharacterisationTests: XCTestCase {
     ) -> String {
         let plan = ScreenplayEditPlanner.plan(
             elements: script, replacing: range, with: replacement, intent: intent,
-            kindForNewElement: { previous, text in
-                EditorState(source: "").kindForInsertedElement(after: previous, text: text)
+            kindForNewElement: { previous, text, depth in
+                EditorState(source: "").kindForInsertedElement(
+                    after: previous, text: text, pasteDepth: depth
+                )
             }
         )
         guard let plan else { return "nil" }

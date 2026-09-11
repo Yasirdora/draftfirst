@@ -86,7 +86,7 @@ public struct ScreenplayEditPlanner {
         replacing requestedRange: NSRange,
         with requestedReplacement: String,
         intent: Intent,
-        kindForNewElement: (_ previous: ScriptElement?, _ text: String) -> ScreenplayKind
+        kindForNewElement: (_ previous: ScriptElement?, _ text: String, _ pasteDepth: Int?) -> ScreenplayKind
     ) -> Plan? {
         let elements = sourceElements.isEmpty
             ? [ScriptElement(type: .action, text: "")]
@@ -242,11 +242,27 @@ public struct ScreenplayEditPlanner {
         var parts: [(rawIndex: Int, text: String)] = rawParts.enumerated().map {
             (rawIndex: $0.offset, text: $0.element)
         }
+        /// Each part's depth past the paste's base column, when the paste
+        /// carried one — the signal that says dialogue from action once the
+        /// margins are gone.
+        var pasteDepths: [Int?] = Array(repeating: nil, count: parts.count)
+        var pasteWasReassembled = false
         if intent == .multilinePaste {
-            let printable = parts.filter {
-                !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            // A hard-wrapped paste into an empty place is reassembled into
+            // its paragraphs first — margins off, continuation lines joined
+            // (PasteReassembly) — because splitting it on newlines alone
+            // stores the courier's margins inside the writer's text.
+            if discardsEmptyPlaceholder,
+               let reassembled = PasteReassembly.paragraphs(from: replacement) {
+                parts = reassembled.enumerated().map { (rawIndex: $0.offset, text: $0.element.text) }
+                pasteDepths = reassembled.map { $0.depth }
+                pasteWasReassembled = true
+            } else {
+                let printable = parts.filter {
+                    !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                }
+                if !printable.isEmpty { parts = printable }
             }
-            if !printable.isEmpty { parts = printable }
         }
 
         var owners = Array<Int?>(repeating: nil, count: parts.count)
@@ -310,7 +326,13 @@ public struct ScreenplayEditPlanner {
         var result = Array(elements[..<start.index])
         for (partIndex, part) in parts.enumerated() {
             let element: ScriptElement
-            let sourceRange = partOffsets[part.rawIndex]..<(partOffsets[part.rawIndex] + (part.text as NSString).length)
+            // A reassembled paste carries no runs across: the target was
+            // empty and the paste is plain text, so the span arithmetic has
+            // nothing to map — say so with an explicitly empty range rather
+            // than trusting offsets that no longer name the source.
+            let sourceRange = pasteWasReassembled
+                ? 0..<0
+                : partOffsets[part.rawIndex]..<(partOffsets[part.rawIndex] + (part.text as NSString).length)
             if let owner = owners[partIndex] {
                 var preserved = elements[owner]
                 let finalText = preserved.type.uppercasesInput ? part.text.uppercased() : part.text
@@ -328,7 +350,7 @@ public struct ScreenplayEditPlanner {
                 element = preserved
             } else {
                 let previous = result.last
-                let kind = kindForNewElement(previous, part.text)
+                let kind = kindForNewElement(previous, part.text, pasteDepths[partIndex])
                 let finalText = kind.uppercasesInput ? part.text.uppercased() : part.text
                 var created = ScriptElement(type: kind, text: finalText)
                 created.runs = runsForPart(
@@ -354,7 +376,13 @@ public struct ScreenplayEditPlanner {
         let resultRanges = ranges(for: result)
         let caretPartIndex: Int
         let rawOffset: Int
-        if let exact = parts.firstIndex(where: { $0.rawIndex == rawCaret.index }) {
+        if pasteWasReassembled {
+            // The paste's own end is the caret, said plainly: the raw-caret
+            // arithmetic speaks in raw source lines, which the reassembly
+            // deliberately collapsed.
+            caretPartIndex = parts.count - 1
+            rawOffset = (parts[caretPartIndex].text as NSString).length
+        } else if let exact = parts.firstIndex(where: { $0.rawIndex == rawCaret.index }) {
             caretPartIndex = exact
             rawOffset = min(rawCaret.offset, (parts[exact].text as NSString).length)
         } else if let previous = parts.lastIndex(where: { $0.rawIndex < rawCaret.index }) {

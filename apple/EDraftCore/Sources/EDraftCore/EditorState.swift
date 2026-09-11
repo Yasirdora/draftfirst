@@ -810,7 +810,18 @@ public final class EditorState {
     /// Classifies paragraphs created by a structural paste or replacement.
     /// Return choreography still comes from the shared engine; the small set of
     /// lexical checks lets pasted Fountain retain its obvious screenplay shape.
-    public func kindForInsertedElement(after previous: ScriptElement?, text: String) -> ScreenplayKind {
+    ///
+    /// `pasteDepth` is the reassembled paste's witness (`PasteReassembly`):
+    /// how far past the scheme's base column the paragraph sat. Once a
+    /// hard-wrapped speech is joined, its words read exactly like narration,
+    /// and the depth is the only honest thing left that says dialogue from
+    /// action. It decides nothing else — the lexical checks above stay the
+    /// authority on headings, parentheticals, transitions and cues.
+    public func kindForInsertedElement(
+        after previous: ScriptElement?,
+        text: String,
+        pasteDepth: Int? = nil
+    ) -> ScreenplayKind {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let uppercase = trimmed.uppercased()
 
@@ -819,6 +830,10 @@ public final class EditorState {
         if Self.looksLikeTransition(uppercase) { return .transition }
         if previous?.type == .character || previous?.type == .parenthetical { return .dialogue }
         if Self.looksLikeCharacterCue(trimmed, uppercase: uppercase) { return .character }
+        if let depth = pasteDepth {
+            // Eight columns past the action margin is where speeches live.
+            return depth >= 8 ? .dialogue : .action
+        }
         guard let previous else { return .action }
         return nextKind(after: previous.type, text: previous.text)
     }
@@ -1177,6 +1192,7 @@ public final class EditorState {
     private static func looksLikeTransition(_ text: String) -> Bool {
         text == "FADE IN:" || text == "FADE OUT."
             || text.hasSuffix(" TO:") || text.hasSuffix(" OUT:")
+            || text.hasSuffix("DISSOLVE:")
     }
 
     private static func looksLikeCharacterCue(_ text: String, uppercase: String) -> Bool {

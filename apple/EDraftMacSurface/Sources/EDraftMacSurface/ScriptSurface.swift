@@ -2264,8 +2264,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             replacing: difference.0,
             with: difference.1,
             intent: .replacement,
-            kindForNewElement: { previous, text in
-                editor.kindForInsertedElement(after: previous, text: text)
+            kindForNewElement: { previous, text, depth in
+                editor.kindForInsertedElement(after: previous, text: text, pasteDepth: depth)
             }
         ) else { return }
         editor.replaceAllElements(
@@ -2293,8 +2293,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 replacing: range,
                 with: replacement,
                 intent: intent,
-                kindForNewElement: { previous, text in
-                    editor.kindForInsertedElement(after: previous, text: text)
+                kindForNewElement: { previous, text, depth in
+                    editor.kindForInsertedElement(after: previous, text: text, pasteDepth: depth)
                 }
               ) else { return false }
         applyModelEdit(
