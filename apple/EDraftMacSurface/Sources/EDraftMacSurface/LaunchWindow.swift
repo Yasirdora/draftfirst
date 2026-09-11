@@ -186,7 +186,10 @@ public struct LaunchWindow: View {
             .padding(.bottom, 32)
         }
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .background(Color(nsColor: .screenplayDesk))
+        // No ground of its own: the window shows the surface the system puts
+        // under it, the same way the desk behind a page now does. A stated
+        // colour here made the launch window the one place in the app still
+        // painting its own dark grey.
         .frame(minWidth: 640, minHeight: 420)
         .alert("Rename Screenplay", isPresented: isRenaming, presenting: renaming) { script in
             TextField("Name", text: $newName)
