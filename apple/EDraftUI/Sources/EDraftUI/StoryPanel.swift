@@ -104,6 +104,10 @@ public struct StoryList: View {
     /// Which name that column is showing, so the row can read as chosen.
     var selectedCharacter: String?
 
+    /// The height the row of controls is built on: what `NSSearchField` makes
+    /// itself, and so what the filter button has to match to sit level with it.
+    private static let controlHeight: CGFloat = 24
+
     @FocusState private var filterFocused: Bool
     /// Which setting the list is narrowed to, or nil for all of them. Local:
     /// it is a way of looking at the list, not a property of the document, and
@@ -198,6 +202,19 @@ public struct StoryList: View {
     /// platform puts this — Mail, Photos and Finder all hang their filters off
     /// one control beside the search field.
     private var settingMenu: some View {
+        #if os(macOS)
+        SceneSettingButton(setting: $sceneSetting)
+            .frame(width: Self.controlHeight, height: Self.controlHeight)
+            .accessibilityLabel(
+                sceneSetting.map { "Filter scenes: \($0.phrase)" } ?? "Filter scenes"
+            )
+            .help("Show only interiors, exteriors, or scenes that cross between")
+        #else
+        phoneSettingMenu
+        #endif
+    }
+
+    private var phoneSettingMenu: some View {
         Menu {
             // No title at all: an inline picker inside a menu renders its
             // label as a section header, and a word above three items that
@@ -218,18 +235,7 @@ public struct StoryList: View {
             // inside the button's, which is two circles saying one thing —
             // and neither of them round, since the button was 39 by 17.
             Image(systemName: "line.3.horizontal.decrease")
-                // Filtering is said in colour rather than by swapping in the
-                // filled glyph, which no longer exists without the ring, and
-                // which is the same accent the chosen row wears.
-                .foregroundStyle(sceneSetting == nil
-                    ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor))
         }
-        // The system's own glass, in the system's own circle — the same two
-        // the toolbar's buttons are made of, rather than a disc drawn here
-        // that would have to be kept in step with them by hand.
-        .menuStyle(.button)
-        .buttonStyle(.glass)
-        .buttonBorderShape(.circle)
         .menuIndicator(.hidden)
         .fixedSize()
         .accessibilityLabel(
@@ -691,6 +697,94 @@ private struct SceneNumbersView: View {
 /// puts it in the toolbar, which is the one place the design says the filter
 /// must not go (`MACOS-DESIGN` §1.2: scope lives at the top of the list it
 /// scopes). Return submits; a change of `focusToken` — ⌘L — takes focus.
+/// The scene filter, as the platform's own button.
+///
+/// `NSButton` rather than SwiftUI's `Menu`, because the look asked for is the
+/// one the toolbar's Back button has, and that is a specific pair of AppKit
+/// properties — `NSBezelStyleGlass` and `NSControlBorderShapeCircle` — with
+/// no SwiftUI spelling. `Menu` was tried three ways first: `.buttonStyle(.glass)`
+/// under `.menuStyle(.button)` draws a popup button's chrome instead of the
+/// glass; `.glassEffect` under `.menuStyle(.borderlessButton)` renders
+/// nothing at all on a dark sidebar; and neither an outer `.frame` nor inner
+/// `.padding` could move the control off 21 points, because an AppKit control
+/// inside a menu style sizes itself from its own metrics and ignores both.
+///
+/// Here the height is simply the height it is given.
+private struct SceneSettingButton: NSViewRepresentable {
+    @Binding var setting: SceneSetting?
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton()
+        button.title = ""
+        button.bezelStyle = .glass
+        button.borderShape = .circle
+        button.isBordered = true
+        button.imagePosition = .imageOnly
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.present(_:))
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.parent = self
+        let symbol = NSImage(
+            systemSymbolName: "line.3.horizontal.decrease",
+            accessibilityDescription: "Filter scenes"
+        )
+        // Stated at the weight the toolbar's own glyphs are drawn at, so the
+        // three lines carry the same ink as the chevron beside them.
+        button.image = symbol?.withSymbolConfiguration(
+            .init(pointSize: 12, weight: .medium)
+        )
+        // Filtering is said in colour, the accent the chosen row already
+        // wears. `contentTintColor` nil hands the glyph back to the system.
+        button.contentTintColor = setting == nil ? nil : .controlAccentColor
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var parent: SceneSettingButton
+
+        init(parent: SceneSettingButton) { self.parent = parent }
+
+        /// Built fresh each time rather than kept, so the ticks are right
+        /// without anything having to remember to update them.
+        @objc func present(_ sender: NSButton) {
+            let menu = NSMenu()
+            menu.addItem(item(titled: "All Scenes", for: nil))
+            menu.addItem(.separator())
+            for setting in SceneSetting.allCases {
+                menu.addItem(item(titled: setting.title, for: setting))
+            }
+            // Under the button rather than at the pointer: the menu belongs to
+            // the control, and a menu that opens where the mouse happened to
+            // be reads as a context menu for the list behind it.
+            menu.popUp(
+                positioning: nil,
+                at: NSPoint(x: 0, y: sender.bounds.maxY + 4),
+                in: sender
+            )
+        }
+
+        private func item(titled title: String, for setting: SceneSetting?) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: #selector(choose(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = setting
+            item.state = parent.setting == setting ? .on : .off
+            if let setting {
+                item.image = NSImage(systemSymbolName: setting.symbol, accessibilityDescription: nil)
+            }
+            return item
+        }
+
+        @objc private func choose(_ sender: NSMenuItem) {
+            parent.setting = sender.representedObject as? SceneSetting
+        }
+    }
+}
+
 private struct SceneSearchField: NSViewRepresentable {
     @Binding var text: String
     var prompt: String
