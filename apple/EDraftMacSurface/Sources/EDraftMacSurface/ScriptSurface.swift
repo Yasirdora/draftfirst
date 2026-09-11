@@ -1676,15 +1676,27 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// Moves the page so `rect` comes to rest a little below the top of the
     /// readable area, the lines that led to it still on the glass — as near
     /// as the document allows.
+    ///
+    /// Vertically only. A reveal answers "where"; it is not a licence to
+    /// move the page sideways. It once asked for x at the paper's own left
+    /// edge — and `scroll(to:)` is not answered by `constrainBoundsRect`,
+    /// so the request landed raw: a window wider than the paper pinned the
+    /// sheet against the Navigator's side. The midline is stated here
+    /// instead, the same arithmetic the clip view owns: paper narrower than
+    /// the window stays centred, and paper wider keeps the writer's pan.
     public func scroll(revealing rect: CGRect) {
         let range = scrollableRange
         guard PageScroll.canScroll(range) else { return }
-        let air = scrollView.contentView.bounds.height * Self.revealAir
+        let clip = scrollView.contentView
+        let air = clip.bounds.height * Self.revealAir
         let y = PageScroll.offset(
             bringingContentY: canvasY(ofTextRect: rect), toTopOf: range, airAbove: air
         )
-        scrollView.contentView.scroll(to: NSPoint(x: max(0, canvas.pageView.frame.minX - canvas.canvasPadding), y: y))
-        scrollView.reflectScrolledClipView(scrollView.contentView)
+        let x = clip.bounds.width >= canvas.frame.width
+            ? (canvas.frame.width - clip.bounds.width) / 2
+            : clip.bounds.origin.x
+        clip.scroll(to: NSPoint(x: x, y: y))
+        scrollView.reflectScrolledClipView(clip)
     }
 
     /// A text-view rectangle, lifted into the canvas the scroll view actually

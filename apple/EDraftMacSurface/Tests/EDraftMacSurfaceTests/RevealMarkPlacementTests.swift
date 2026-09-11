@@ -68,4 +68,38 @@ final class RevealMarkPlacementTests: XCTestCase {
             "the reveal landed flush against the top of the window"
         )
     }
+
+    /// A reveal answers "where" *vertically*. Horizontally the page stays
+    /// on its midline: the scroll once asked for x at the page's own left
+    /// edge, and a window wider than the paper pinned the sheet against the
+    /// Navigator's side with the spare glass pooled on the right.
+    func testARevealLeavesThePageOnItsMidline() {
+        var elements: [ScriptElement] = []
+        for beat in 1...40 {
+            elements.append(ScriptElement(type: .scene, text: "INT. ROOM \(beat) - DAY"))
+            elements.append(ScriptElement(
+                type: .action, text: "Action for beat \(beat), held for a full line of the page."
+            ))
+        }
+        let (editor, surface) = ScriptSurfaceHarness.bound(elements)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+            styleMask: [.titled], backing: .buffered, defer: false
+        )
+        window.contentView?.addSubview(surface.scrollView)
+        surface.scrollView.frame = window.contentView?.bounds ?? .zero
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.remeasure(to: 900, elements: editor.screenplay.elements)
+
+        XCTAssertTrue(surface.reveal(elements[40].id))
+
+        let clip = surface.scrollView.contentView
+        let canvas = surface.scrollView.documentView!
+        XCTAssertGreaterThan(clip.bounds.width, canvas.frame.width,
+                             "the window is wider than the paper — the case that pinned it left")
+        XCTAssertEqual(
+            clip.bounds.origin.x, (canvas.frame.width - clip.bounds.width) / 2, accuracy: 1,
+            "the reveal pulled the page off its midline"
+        )
+    }
 }
