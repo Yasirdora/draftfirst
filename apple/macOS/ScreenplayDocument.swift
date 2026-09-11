@@ -79,11 +79,17 @@ final class ScreenplayDocument: NSDocument {
 
     private func bind(_ editor: EditorState) {
         editor.onSourceChange = { [weak self] source in
-            self?.source = source
+            guard let self else { return }
+            self.source = source
             // The surface owns the text view's undo manager, so the document
-            // cannot infer edits from its own; it is told instead. Saving
-            // clears the count, as it always does.
-            self?.updateChangeCount(.changeDone)
+            // cannot infer edits from its own; it is told instead. Told on
+            // the clean-to-dirty transition only: every call re-syncs the
+            // window's title, and on this platform a title re-sync replays
+            // the toolbar's glass — an already-dirty document gains nothing
+            // from hearing it again. Saving and Revert clear the count, as
+            // they always did.
+            guard !isDocumentEdited else { return }
+            updateChangeCount(.changeDone)
         }
         // The surface offers the formats; writing the file is the app's,
         // because a save panel is not something a page knows about. Both the

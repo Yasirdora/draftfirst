@@ -384,7 +384,26 @@ final class PageCanvasView: NSView {
         applyAppearance()
     }
 
+    /// What `applyAppearance` last painted, so a repeat call — every layout
+    /// pass whose geometry is unchanged asks for one — does not re-assign
+    /// the same snapshots. Re-assigning the scroll view's background hands
+    /// AppKit a fresh pattern colour it reads as a change, and the titlebar's
+    /// glass answers that with a transition on every keystroke.
+    private struct AppliedLook: Equatable {
+        let dark: Bool
+        let paper: PagePaper
+        let pages: Int
+    }
+    private var appliedLook: AppliedLook?
+
     func applyAppearance() {
+        let look = AppliedLook(
+            dark: effectiveAppearance.isDark,
+            paper: PagePaper.stored,
+            pages: pageViews.count
+        )
+        guard look != appliedLook else { return }
+        appliedLook = look
         // Layer `cgColor`s are snapshots. Taking them outside the view's
         // own appearance would paint a light page on a dark canvas (or
         // the reverse) and the edge would vanish in one of the two looks.

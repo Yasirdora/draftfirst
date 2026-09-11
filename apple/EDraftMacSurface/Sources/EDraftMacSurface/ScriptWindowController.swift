@@ -49,6 +49,9 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
     private var elementItem: NSMenuToolbarItem?
     private var paperItem: NSToolbarItem?
     private var focusItem: NSToolbarItem?
+    /// What the bar was last told, so it is told again only on a real
+    /// change — see `followTheModel`.
+    private var shownElementKind: ScreenplayKind?
 
     private enum ItemID {
         static let element = "eDraft.element"
@@ -183,11 +186,11 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
 
     // MARK: Toolbar
 
-    /// Back before the title, then the writer's controls at the trailing
-    /// edge: the element under the caret; Focus and Zoom in one piece of
-    /// glass; the three that change how the page looks or what leaves the app
-    /// with it; and, standing apart because it opens a list rather than
-    /// acting, the overflow.
+    /// Back and the element under the caret lead, before the title; the
+    /// writer's other controls sit at the trailing edge: Focus and Zoom in
+    /// one piece of glass; the three that change how the page looks or what
+    /// leaves the app with it; and, standing apart because it opens a list
+    /// rather than acting, the overflow.
     private func toolbarEntries() -> [ToolbarEntry] {
         elementMenu.delegate = self
         let back = ToolbarItems.button(
@@ -203,6 +206,10 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
             toolTip: "Screenplay element",
             menu: elementMenu
         )
+        // Beside Back, before the title: only navigational items live in
+        // that part of the bar — a plain item is trailing-aligned on this
+        // platform no matter where it stands in the declared order.
+        element.isNavigational = true
         elementItem = element
 
         let focus = ToolbarItems.button(
@@ -237,8 +244,7 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         )
 
         return [
-            .toggleSidebar, .sidebarSeparator, .item(back), .flexibleSpace,
-            .item(element),
+            .toggleSidebar, .sidebarSeparator, .item(back), .item(element), .flexibleSpace,
             .item(ToolbarItems.group(ItemID.view, label: "View", [focus, zoom])),
             .item(ToolbarItems.group(ItemID.document, label: "Document", [paper, titlePage, export])),
             .space,
@@ -255,6 +261,12 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         observeChanges { [weak self] in
             guard let self else { return }
             let kind = editor.activeKind
+            // This observation re-fires on every keystroke — `activeKind`
+            // reads the screenplay, which each edit replaces — but writing a
+            // toolbar item repaints its glass, and on this platform that
+            // repaint replays for the whole bar. Speak only on a real change.
+            guard kind != shownElementKind else { return }
+            shownElementKind = kind
             elementItem?.title = kind.shortTitle
             elementItem?.image = NSImage(systemSymbolName: kind.symbol, accessibilityDescription: kind.title)
         }
@@ -262,7 +274,11 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
             guard let self else { return }
             // Under the name: the two numbers a writer actually watches.
             let pages = editor.stats.pages
-            window?.subtitle = "\(pages) \(pages == 1 ? "page" : "pages") · \(editor.stats.runtime)"
+            let subtitle = "\(pages) \(pages == 1 ? "page" : "pages") · \(editor.stats.runtime)"
+            // Same reason as the element chip: an unchanged value is not
+            // worth a titlebar write.
+            guard window?.subtitle != subtitle else { return }
+            window?.subtitle = subtitle
         }
         observeChanges { [weak self] in
             guard let self else { return }

@@ -295,6 +295,13 @@ struct FormatBarView: View {
         .padding(.horizontal, 6 * scale)
         .padding(.vertical, 3 * scale)
         .glassEffect(.regular.interactive(), in: .capsule)
+        // Glass answers what is behind it, and over a dark page that answer
+        // is a dark body on a dark ground — the bar read as glyphs floating
+        // on the script. A hairline marks the capsule in both looks, the
+        // way a menu's edge does; the shadow alone only lifts it off paper.
+        .overlay {
+            Capsule().strokeBorder(Color.primary.opacity(0.16), lineWidth: 1)
+        }
         // The shadow is a screen-space effect: it does not zoom.
         .shadow(color: .black.opacity(0.2), radius: 6, y: 3)
         .padding(5 * scale)
