@@ -1,6 +1,6 @@
 /** Pagination behavior using reduced page sizes for concise fixtures. */
 import { describe, expect, it } from 'vitest';
-import { GEOMETRY, paginate, wrapText } from './paginate.js';
+import { GEOMETRY, paginate, paginateIncrementally, wrapText } from './paginate.js';
 import type { Screenplay, ScreenplayElement } from './types.js';
 
 const el = (type: ScreenplayElement['type'], text: string): ScreenplayElement => ({ type, text });
@@ -332,5 +332,115 @@ describe('paginate · scene continuations', () => {
 		expect(pages[1].continuedTop).toBe(true);
 		expect(pageText(pages, 1)).toContain('(MORE)');
 		expect(pageText(pages, 2).some((t) => t.includes("MOLLY (CONT'D)"))).toBe(true);
+	});
+});
+
+describe('paginateIncrementally', () => {
+
+	/** A feature-shaped document: scenes, action, exchanges, transitions. */
+	const feature = (scenes: number): Screenplay => {
+		const elements: ScreenplayElement[] = [];
+		for (let beat = 1; beat <= scenes; beat++) {
+			elements.push(el('scene', `INT. ROOM ${beat} - DAY`));
+			elements.push(
+				el('action', `Action for beat ${beat}. The road holds its breath for a full line of the page.`)
+			);
+			elements.push(el('character', 'MARA'));
+			elements.push(el('parenthetical', '(quietly)'));
+			elements.push(el('dialogue', `Line ${beat}, spoken plainly and without hurry at all.`));
+			elements.push(el('character', 'DAVID'));
+			elements.push(el('dialogue', `Reply in scene ${beat}. I hear you, and I agree completely.`));
+			elements.push(el('transition', 'CUT TO:'));
+		}
+		return doc(elements);
+	};
+
+	it('answers the full pass when there is no cache', () => {
+		const script = feature(20);
+		expect(paginateIncrementally(script, doc([]), [])).toEqual(paginate(script));
+	});
+
+	it('returns the previous pages when nothing the fold reads changed', () => {
+		const before = feature(20);
+		const pages = paginate(before);
+		const after = feature(20);
+		after.elements[5].sceneNumber = 'A12'; // margin data, not layout
+		expect(paginateIncrementally(after, before, pages)).toBe(pages);
+	});
+
+	it('a text edit mid-document paginates identically to the full pass', () => {
+		const before = feature(40);
+		const pages = paginate(before);
+		const after = feature(40);
+		after.elements[100].text = 'A wholly different reply, longer and more considered than before.';
+		expect(paginateIncrementally(after, before, pages)).toEqual(paginate(after));
+	});
+
+	it('a keystroke at the end paginates identically', () => {
+		const before = feature(40);
+		const pages = paginate(before);
+		const after = feature(40);
+		after.elements[after.elements.length - 1].text += ' Again.';
+		expect(paginateIncrementally(after, before, pages)).toEqual(paginate(after));
+	});
+
+	it('a Return (insertion) paginates identically', () => {
+		const before = feature(40);
+		const pages = paginate(before);
+		const after = doc([
+			...before.elements.slice(0, 57),
+			el('action', 'A new paragraph lands in the middle of the script.'),
+			...before.elements.slice(57)
+		]);
+		expect(paginateIncrementally(after, before, pages)).toEqual(paginate(after));
+	});
+
+	it('a deletion paginates identically', () => {
+		const before = feature(40);
+		const pages = paginate(before);
+		const after = doc([
+			...before.elements.slice(0, 100),
+			...before.elements.slice(104)
+		]);
+		expect(paginateIncrementally(after, before, pages)).toEqual(paginate(after));
+	});
+
+	it('a cue becoming action splits the flow block — still identical', () => {
+		const before = feature(40);
+		const pages = paginate(before);
+		const after = feature(40);
+		after.elements[100] = el('action', after.elements[100].text); // cue index 100? find one
+		after.elements[102] = el('action', 'Not a cue any more, just narration of it.');
+		expect(paginateIncrementally(after, before, pages)).toEqual(paginate(after));
+	});
+
+	it('fuzz: random single-region edits are identical to the full pass', () => {
+		let seed = 20260911;
+		const random = () => {
+			seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+			return seed / 0x7fffffff;
+		};
+		const words = ['night', 'door', 'light', 'road', 'silence', 'again', 'KANE', 'window'];
+		const phrase = () =>
+			Array.from({ length: 3 + Math.floor(random() * 18) }, () => words[Math.floor(random() * words.length)]).join(' ');
+
+		for (let round = 0; round < 300; round++) {
+			const before = feature(30 + Math.floor(random() * 30));
+			const pages = paginate(before);
+			const after = doc(before.elements.map((e2) => ({ ...e2 })));
+			const pick = random();
+			const at = Math.floor(random() * after.elements.length);
+			if (pick < 0.45) {
+				after.elements[at] = { ...after.elements[at], text: phrase() };
+			} else if (pick < 0.6) {
+				const types: ScreenplayElement['type'][] = ['action', 'character', 'dialogue', 'scene'];
+				after.elements[at] = { ...after.elements[at], type: types[Math.floor(random() * types.length)] };
+			} else if (pick < 0.8) {
+				after.elements.splice(at, 0, el('action', phrase()));
+			} else {
+				after.elements.splice(at, 1 + Math.floor(random() * 3));
+			}
+			expect(paginateIncrementally(after, before, pages)).toEqual(paginate(after));
+		}
 	});
 });

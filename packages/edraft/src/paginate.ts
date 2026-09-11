@@ -135,22 +135,68 @@ interface Block {
 
 const FLOW_TYPES = new Set<AnyElementType>(['character', 'parenthetical', 'dialogue', 'lyrics']);
 
-function buildBlocks(script: Screenplay): Array<Block | 'pagebreak'> {
-	const blocks: Array<Block | 'pagebreak'> = [];
-	let flow: Block | null = null;
+/**
+ * Blocks built as the fold consumes them.
+ *
+ * `buildBlocks` wrapped the whole document up front — fine while pagination
+ * was always whole-document, but the incremental pass stops at the first
+ * page that matches its cache, and building blocks for the unread tail cost
+ * more than the fold saved: measured 37ms of wrap work per keystroke after
+ * the fold itself had already answered. The source produces the same stream
+ * as eagerly as the fold asks — a flow block is complete when its successor
+ * starts — so an early stop pays for the pages it read and no more.
+ */
+class BlockSource {
+	private index: number;
+	private flow: Block | null = null;
+	private buffered: Array<Block | 'pagebreak'> = [];
 
-	const flushFlow = () => {
-		if (flow) {
-			blocks.push(flow);
-			flow = null;
+	constructor(
+		private readonly script: Screenplay,
+		startIndex: number
+	) {
+		this.index = startIndex;
+	}
+
+	/** The head of the stream, unconsumed — the fold's current block. */
+	current(): Block | 'pagebreak' | undefined {
+		this.fill(1);
+		return this.buffered[0];
+	}
+
+	/** The block after the head — the scene keep rule's one lookahead. */
+	next(): Block | 'pagebreak' | undefined {
+		this.fill(2);
+		return this.buffered[1];
+	}
+
+	/** Consume the head. */
+	advance(): void {
+		this.fill(1);
+		this.buffered.shift();
+	}
+
+	private fill(count: number): void {
+		while (this.buffered.length < count && !this.atEnd) {
+			this.step();
 		}
-	};
+		/* End of input completes any open flow block. */
+		if (this.atEnd) this.flushFlow();
+	}
 
-	script.elements.forEach((el, idx) => {
-		/* Page breaks are non-printing elements that still divide layout blocks. */
+	private get atEnd(): boolean {
+		return this.index >= this.script.elements.length;
+	}
+
+	/* One element in. A block leaves the buffer only when complete: a flow
+	   block completes when its successor starts (or the document ends). */
+	private step(): void {
+		const el = this.script.elements[this.index];
+		this.index++;
+
 		if (el.type === 'pagebreak') {
-			flushFlow();
-			blocks.push('pagebreak');
+			this.flushFlow();
+			this.buffered.push('pagebreak');
 			return;
 		}
 		if (!isPrinting(el.type)) return;
@@ -158,9 +204,9 @@ function buildBlocks(script: Screenplay): Array<Block | 'pagebreak'> {
 		const geo = GEOMETRY[el.type] ?? GEOMETRY.action;
 
 		if (FLOW_TYPES.has(el.type)) {
-			if (el.type === 'character' || !flow) {
-				flushFlow();
-				flow = {
+			if (el.type === 'character' || !this.flow) {
+				this.flushFlow();
+				this.flow = {
 					kind: 'flow',
 					before: GEOMETRY.character.before,
 					lines: [],
@@ -168,7 +214,7 @@ function buildBlocks(script: Screenplay): Array<Block | 'pagebreak'> {
 					continuationEligible: el.type === 'character'
 				};
 			}
-			const activeFlow = flow;
+			const activeFlow = this.flow;
 			if (!activeFlow) throw new Error('Dialogue flow could not be initialized.');
 			if (el.type === 'lyrics') activeFlow.continuationEligible = false;
 			const wrapped =
@@ -176,53 +222,93 @@ function buildBlocks(script: Screenplay): Array<Block | 'pagebreak'> {
 					? wrapText(el.text + (el.dual ? ' ^' : ''), GEOMETRY.character.width)
 					: wrapText(el.text, geo.width);
 			for (const text of wrapped) {
-				activeFlow.lines.push({ text, type: el.type, indent: geo.indent, element: idx });
+				activeFlow.lines.push({ text, type: el.type, indent: geo.indent, element: this.index - 1 });
 			}
 			return;
 		}
 
-		flushFlow();
+		this.flushFlow();
 
 		if (el.type === 'transition' || el.type === 'centered') {
 			const align = el.type === 'transition' ? 'right' : 'center';
-			blocks.push({
+			this.buffered.push({
 				kind: 'simple',
 				before: geo.before,
 				lines: wrapText(el.text, PAGE_WIDTH_CHARS).map((text) => {
 					const a = alignedLine(text, align);
-					return { text: a.text, type: el.type, indent: a.indent, element: idx };
+					return { text: a.text, type: el.type, indent: a.indent, element: this.index - 1 };
 				})
 			});
 			return;
 		}
 
-		const wrapped = wrapText(el.text, geo.width);
-		blocks.push({
+		this.buffered.push({
 			kind: el.type === 'scene' ? 'scene' : 'simple',
 			before: geo.before,
-			lines: wrapped.map((text) => ({ text, type: el.type, indent: geo.indent, element: idx }))
+			lines: wrapText(el.text, geo.width).map((text) => ({
+				text,
+				type: el.type,
+				indent: geo.indent,
+				element: this.index - 1
+			}))
 		});
-	});
+	}
 
-	flushFlow();
-	return blocks;
+	private flushFlow(): void {
+		if (this.flow) {
+			this.buffered.push(this.flow);
+			this.flow = null;
+		}
+	}
+
 }
 
 /* ---- pagination -------------------------------------------------------- */
 
 const MORE_INDENT = GEOMETRY.dialogue.indent;
 
-export function paginate(script: Screenplay, opts: PaginateOptions = {}): ScriptPage[] {
-	const limit = opts.linesPerPage ?? LINES_PER_PAGE;
-	assertFiniteInteger(limit, 'linesPerPage', MIN_LINES_PER_PAGE, MAX_LINES_PER_PAGE);
-	const blocks = buildBlocks(script);
+interface FoldOutcome {
+	/** Pages the fold completed, numbered absolutely. */
+	pages: ScriptPage[];
+	/** The open page's lines when the fold ended — empty after a page closed. */
+	trailing: PageLine[];
+	/** Absolute number of the page the fold stopped after, or 0 for "ran to the end". */
+	stoppedAfter: number;
+}
+
+/**
+ * The pagination fold, shared by the full pass and the incremental one.
+ *
+ * Everything a page decision reads from the past is in the arguments:
+ * `startNumber` (the page being built) and `current0` (the lines already on
+ * it). `stopAfter` is consulted as each page closes; the current block still
+ * finishes, so a stop never lands mid-block. The rules below are unchanged
+ * from the pass that was measured and pinned — this is the same fold, made
+ * resumable, not a second paginator.
+ */
+function runFold(
+	source: BlockSource,
+	limit: number,
+	startNumber: number,
+	current0: PageLine[],
+	stopAfter?: (completed: ScriptPage) => boolean
+): FoldOutcome {
 	const pages: ScriptPage[] = [];
-	let current: PageLine[] = [];
+	let current = current0.slice();
+	let stoppedAfter = 0;
 
 	const newPage = (allowEmpty = false) => {
+		if (stoppedAfter > 0) return;
 		if (current.length === 0 && !allowEmpty) return;
-		pages.push({ number: pages.length + 1, lines: current, continuedTop: false, continuedBottom: false });
+		const completed: ScriptPage = {
+			number: startNumber + pages.length,
+			lines: current,
+			continuedTop: false,
+			continuedBottom: false
+		};
+		pages.push(completed);
 		current = [];
+		if (stopAfter?.(completed)) stoppedAfter = completed.number;
 	};
 
 	const blanks = (n: number, element: number) => {
@@ -291,19 +377,11 @@ export function paginate(script: Screenplay, opts: PaginateOptions = {}): Script
 		return Math.min(lines.length, head + 1);
 	};
 
-	for (let b = 0; b < blocks.length; b++) {
-		const block = blocks[b];
-
-		if (block === 'pagebreak') {
-			if (current.length > 0) newPage();
-			continue;
-		}
-
+	const stepBlock = (block: Block, next: Block | 'pagebreak' | undefined): void => {
 		const before = current.length === 0 ? 0 : block.before;
 
 		/* -- scene heading: keep with at least 2 lines of following content -- */
 		if (block.kind === 'scene') {
-			const next = blocks[b + 1];
 			const followLines =
 				next && next !== 'pagebreak'
 					? next.kind === 'flow'
@@ -315,7 +393,7 @@ export function paginate(script: Screenplay, opts: PaginateOptions = {}): Script
 				newPage();
 			}
 			emitSimpleBlock(block, current.length === 0 ? 0 : block.before);
-			continue;
+			return;
 		}
 
 		/* -- dialogue flow: cue keep-together + (MORE)/(CONT'D) splitting ----
@@ -335,7 +413,7 @@ export function paginate(script: Screenplay, opts: PaginateOptions = {}): Script
 			if (before + lines.length <= spaceLeft()) {
 				blanks(before, lines[0].element);
 				emitRange(lines, 0, lines.length);
-				continue;
+				return;
 			}
 
 			if (!continuationEligible) {
@@ -343,7 +421,7 @@ export function paginate(script: Screenplay, opts: PaginateOptions = {}): Script
 				   dialogue continuation for lyrics/cue-less imported material. */
 				if (current.length > 0 && spaceLeft() - before < head) newPage();
 				emitSimpleBlock(block, current.length === 0 ? 0 : before);
-				continue;
+				return;
 			}
 
 			const contd = base === '' ? "(CONT'D)" : `${base} (CONT'D)`;
@@ -396,17 +474,250 @@ export function paginate(script: Screenplay, opts: PaginateOptions = {}): Script
 				}
 				firstChunk = false;
 			}
-			continue;
+			return;
 		}
 
 		/* -- simple block: whole, or split with widow/orphan control; a block
 		      longer than a page chains across pages rather than overflowing -- */
 		emitSimpleBlock(block, current.length === 0 ? 0 : block.before);
+	};
+
+	while (stoppedAfter === 0) {
+		const block = source.current();
+		if (block === undefined) break;
+		if (block === 'pagebreak') {
+			if (current.length > 0) newPage();
+		} else {
+			stepBlock(block, source.next());
+		}
+		source.advance();
 	}
 
-	if (current.length > 0 || pages.length === 0) newPage(true);
+	return { pages, trailing: current, stoppedAfter };
+}
+
+export function paginate(script: Screenplay, opts: PaginateOptions = {}): ScriptPage[] {
+	const limit = opts.linesPerPage ?? LINES_PER_PAGE;
+	assertFiniteInteger(limit, 'linesPerPage', MIN_LINES_PER_PAGE, MAX_LINES_PER_PAGE);
+	const fold = runFold(new BlockSource(script, 0), limit, 1, []);
+	const pages = fold.pages;
+	/* A document's last page closes when it ends; an empty document still has one. */
+	if (fold.trailing.length > 0 || pages.length === 0) {
+		pages.push({
+			number: 1 + pages.length,
+			lines: fold.trailing,
+			continuedTop: false,
+			continuedBottom: false
+		});
+	}
 	markSceneContinues(script, pages);
 	return pages;
+}
+
+/* ---- incremental pagination ----------------------------------------------
+
+   A keystroke repaginates what changed, not the document. The fold's whole
+   memory is the page being built and the lines already on it, so a later
+   run may begin at any block boundary whose surroundings are unchanged:
+   the diff below finds the first layout-relevant change, the checkpoint
+   walks back to its block and carries the open page's prefix, the fold runs
+   forward, and the moment a completed page provably matches its cached twin
+   — same tail element, same line count — the cached tail is spliced on.
+
+   The contract the tests pin: paginateIncrementally == paginate, always.
+   When no checkpoint can be proven (a stale cache, an empty document), the
+   answer is the full pass, not a guess. */
+
+export interface PaginationCheckpoint {
+	/** 1-based number of the page the fold resumes on. */
+	pageNumber: number;
+	/** The open page's existing lines, above the resume block. */
+	prefix: PageLine[];
+	/** First element the fold processes — always a block boundary. */
+	elementIndex: number;
+}
+
+/** Type, text and dualism are everything the fold reads from an element. */
+function layoutEqual(a: Screenplay['elements'][number], b: Screenplay['elements'][number]): boolean {
+	return a.type === b.type && a.text === b.text && (a.dual ?? false) === (b.dual ?? false);
+}
+
+interface LayoutEdit {
+	firstDirty: number;
+	tailStartsAt: number;
+	tailShift: number;
+}
+
+/** The changed region, or null when nothing the fold reads has changed. */
+function layoutEditBetween(
+	previous: Screenplay['elements'],
+	current: Screenplay['elements']
+): LayoutEdit | null {
+	let first = 0;
+	const minLength = Math.min(previous.length, current.length);
+	while (first < minLength && layoutEqual(previous[first], current[first])) first++;
+	if (first === previous.length && first === current.length) return null;
+	let tail = 0;
+	while (
+		tail < minLength - first &&
+		layoutEqual(previous[previous.length - 1 - tail], current[current.length - 1 - tail])
+	) tail++;
+	return {
+		firstDirty: first,
+		tailStartsAt: current.length - tail,
+		tailShift: current.length - previous.length
+	};
+}
+
+/** True when the element opens a block in the full block list — the resume
+    point must be one, because a flow block is built from its cue forward. */
+function opensBlock(elements: Screenplay['elements'], index: number): boolean {
+	const el = elements[index];
+	if (el.type === 'pagebreak') return true;
+	if (!isPrinting(el.type)) return false;
+	if (!FLOW_TYPES.has(el.type)) return true;
+	if (el.type === 'character') return true;
+	for (let i = index - 1; i >= 0; i--) {
+		const prev = elements[i];
+		if (prev.type === 'pagebreak') return true;
+		if (!isPrinting(prev.type)) continue;
+		return !FLOW_TYPES.has(prev.type);
+	}
+	return true;
+}
+
+/** Where a resumed fold may pick up, or null for "repaginate from zero".
+    The edit's block is walked back on BOTH element lists: a type change can
+    make an element open a block in the new document while the old document
+    folded it into a flow that began earlier — and that earlier head printed
+    on an earlier page. The resume point covers both shapes. */
+export function resumeCheckpoint(
+	script: Screenplay,
+	previous: Screenplay,
+	previousPages: ScriptPage[],
+	firstDirtyElement: number
+): PaginationCheckpoint | null {
+	const elements = script.elements;
+	if (elements.length === 0 || previousPages.length === 0) return null;
+	const clamp = (i: number, list: Screenplay['elements']) => Math.min(Math.max(0, i), list.length - 1);
+	let startNew = clamp(firstDirtyElement, elements);
+	while (startNew > 0 && !opensBlock(elements, startNew)) startNew--;
+	let startOld = clamp(firstDirtyElement, previous.elements);
+	while (startOld > 0 && !opensBlock(previous.elements, startOld)) startOld--;
+	let start = Math.min(startNew, startOld);
+	if (start === 0) return null;
+	/* …and then one block further. The only backward-looking rules reach
+	   exactly this far: a changed block that now fits may pull itself onto
+	   the previous page's tail, and a scene heading keeps with the *next*
+	   block — a changed neighbour answers that question differently. */
+	let before = start - 1;
+	while (before > 0 && !opensBlock(elements, before)) before--;
+	if (before > 0) start = before;
+
+	/* The block's first printed line in the cached pages — the elements above
+	   it are unchanged, so the old and new indices agree there. */
+	for (const page of previousPages) {
+		const lines = page.lines;
+		for (let j = 0; j < lines.length; j++) {
+			if (lines[j].element !== start || lines[j].type === 'blank') continue;
+			/* Trailing blanks before the block are its `before` spacing; the
+			   resumed fold re-emits them, so the prefix ends before them. */
+			let cut = j;
+			while (cut > 0 && lines[cut - 1].type === 'blank') cut--;
+			return { pageNumber: page.number, prefix: lines.slice(0, cut), elementIndex: start };
+		}
+	}
+	return null;
+}
+
+/**
+ * Paginate against the previous run: identical pages at identical cost.
+ * The full pass runs when there is nothing proven to reuse; the early splice
+ * fires only at a page that starts in the unchanged tail with the same shape
+ * its cached twin had, where the fold's remaining work is a pure function of
+ * unchanged elements.
+ */
+export function paginateIncrementally(
+	current: Screenplay,
+	previous: Screenplay,
+	previousPages: ScriptPage[],
+	opts: PaginateOptions = {}
+): ScriptPage[] {
+	const limit = opts.linesPerPage ?? LINES_PER_PAGE;
+	assertFiniteInteger(limit, 'linesPerPage', MIN_LINES_PER_PAGE, MAX_LINES_PER_PAGE);
+	if (previousPages.length === 0) return paginate(current, opts);
+
+	const edit = layoutEditBetween(previous.elements, current.elements);
+	if (!edit) return previousPages;
+	const checkpoint = resumeCheckpoint(current, previous, previousPages, edit.firstDirty);
+	if (!checkpoint) return paginate(current, opts);
+
+	const fold = runFold(
+		new BlockSource(current, checkpoint.elementIndex),
+		limit,
+		checkpoint.pageNumber,
+		checkpoint.prefix,
+		(completed) => {
+		const cached = previousPages[completed.number - 1];
+		if (!cached) return false;
+		const firstNew = completed.lines.find((l) => l.element >= 0)?.element ?? -1;
+		const firstOld = cached.lines.find((l) => l.element >= 0)?.element ?? -1;
+		if (firstNew < 0 || firstOld < 0) return false;
+		/* A page starting inside the changed region is no twin, whatever its shape. */
+		if (firstNew < edit.tailStartsAt) return false;
+		const lastElemented = (lines: PageLine[]): number => {
+			for (let i = lines.length - 1; i >= 0; i--) {
+				if (lines[i].element >= 0) return lines[i].element;
+			}
+			return -1;
+		};
+		const lastNew = lastElemented(completed.lines);
+		const lastOld = lastElemented(cached.lines);
+		return (
+			firstNew === firstOld + edit.tailShift &&
+			lastNew === lastOld + edit.tailShift &&
+			completed.lines.length === cached.lines.length
+		);
+	});
+
+	const kept = previousPages.slice(0, checkpoint.pageNumber - 1);
+	let result: ScriptPage[];
+	if (fold.stoppedAfter > 0) {
+		/* The page the fold stopped after is in both lists: the fold completed
+		   it (that is how the resync saw it) and the cache holds its twin.
+		   The cached tail already carries it, so the fold's copy drops out. */
+		const tail = previousPages.slice(fold.stoppedAfter - 1);
+		if (edit.tailShift !== 0) {
+			/* Cached pages speak the old element indices; every line they hold
+			   belongs to the unchanged tail, so each shifts by the same delta.
+			   Copied line by line — the caller's cache is not ours to mutate. */
+			const remapped = tail.map((page) => ({
+				...page,
+				lines: page.lines.map((line) =>
+					line.element >= 0 ? { ...line, element: line.element + edit.tailShift } : { ...line }
+				)
+			}));
+			result = kept.concat(fold.pages.slice(0, -1), remapped);
+		} else {
+			result = kept.concat(fold.pages.slice(0, -1), tail);
+		}
+	} else if (fold.trailing.length > 0 || fold.pages.length === 0 && kept.length === 0) {
+		result = kept.concat(
+			fold.pages,
+			fold.trailing.length > 0 || fold.pages.length === 0
+				? [{
+						number: checkpoint.pageNumber + fold.pages.length,
+						lines: fold.trailing,
+						continuedTop: false,
+						continuedBottom: false
+					}]
+				: []
+		);
+	} else {
+		result = kept.concat(fold.pages);
+	}
+	markSceneContinues(current, result);
+	return result;
 }
 
 /* ---- scene continuations ---------------------------------------------------
@@ -442,10 +753,12 @@ function markSceneContinues(script: Screenplay, pages: ScriptPage[]): void {
 		const sNext = sceneOf[next.element];
 		/* a page boundary is a scene continuation when both sides belong to
 		   the same scene and the new page does not open with a fresh heading */
-		if (sPrev >= 0 && sPrev === sNext && script.elements[next.element].type !== 'scene') {
-			pages[i - 1].continuedBottom = true;
-			pages[i].continuedTop = true;
-		}
+		const spans = sPrev >= 0 && sPrev === sNext && script.elements[next.element].type !== 'scene';
+		/* Assignment, not accumulation: the incremental pass splices pages that
+		   carry these flags from an older document, so a stale true must be
+		   cleared by the same pass that sets the live ones. */
+		pages[i - 1].continuedBottom = spans;
+		pages[i].continuedTop = spans;
 	}
 }
 
