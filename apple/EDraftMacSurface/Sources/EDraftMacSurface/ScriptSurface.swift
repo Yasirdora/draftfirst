@@ -86,6 +86,18 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private var pendingEdit: PendingEdit?
     private var pendingSeparatorEscape: SeparatorEscape?
 
+    /// The selection the screen last painted a highlight for.
+    ///
+    /// TextKit's range-based display invalidation covers line fragment rects
+    /// only, and the paragraph spacing between two elements belongs to no
+    /// fragment — while the highlight of a selection that covers a
+    /// paragraph's end paints straight into that spacing. Taking such a
+    /// selection down dirtied the fragments and left the paint in the bands:
+    /// the two faint rules above and below the line, visible until a scroll
+    /// or a pinch forced a full redraw. Tracking what was painted is what
+    /// lets its removal dirty what was actually painted.
+    private var paintedSelection = NSRange(location: 0, length: 0)
+
     /// AppKit's text view takes its undo manager off the responder chain, which
     /// is the window — so a surface driven without one, as every test here is,
     /// would see `textView.undoManager == nil` and silently drop structural
@@ -2018,10 +2030,65 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     public func textViewDidChangeSelection(_ notification: Notification) {
         guard !applyingModel else { return }
+        retireSelectionPaint()
         updateSelection()
         updateTypingAttributes()
         refreshFormatBar(selection: textView.selectedRange())
         updateGhost()
+    }
+
+    /// Dirties what the outgoing highlight painted, then records the
+    /// incoming one.
+    ///
+    /// `selectionPaintRect` answers the region the highlight reached —
+    /// fragments, spacing bands and descent overhang — which is a superset
+    /// of what TextKit's own invalidation dirties, so the two are the
+    /// difference between the paint coming down and most of it coming down.
+    private func retireSelectionPaint() {
+        if paintedSelection.length > 0, let dirty = selectionPaintRect(for: paintedSelection) {
+            textView.setNeedsDisplay(dirty)
+        }
+        paintedSelection = textView.selectedRange()
+    }
+
+    /// The rectangle a selection's highlight actually paints, in the text
+    /// view's coordinates: the line fragments the range touches, opened out
+    /// over the paragraph spacing beside them and the descent Courier draws
+    /// past its used rect.
+    ///
+    /// The opening-out is the point. The spacing between two elements
+    /// belongs to no line fragment, so range-based invalidation never
+    /// dirties it — and a selection covering a paragraph's end highlights
+    /// into it. Two lines is the widest spacing the page uses; the two
+    /// points are the descent this file's `layOut` already knows the used
+    /// rect undershoots.
+    func selectionPaintRect(for range: NSRange) -> CGRect? {
+        guard let layoutManager = textView.layoutManager,
+              let container = textView.textContainer,
+              range.length > 0
+        else { return nil }
+        // A render can shorten the text between the paint and its removal
+        // (a centred line drops its markers); what is left of the range
+        // still answers where the paint was.
+        let length = (textView.string as NSString).length
+        let clamped = NSRange(
+            location: min(range.location, length),
+            length: min(range.length, max(0, length - min(range.location, length)))
+        )
+        guard clamped.length > 0 else { return nil }
+        let glyphs = layoutManager.glyphRange(forCharacterRange: clamped, actualCharacterRange: nil)
+        guard glyphs.length > 0, glyphs.location != NSNotFound else { return nil }
+        var painted = CGRect.null
+        layoutManager.enumerateLineFragments(forGlyphRange: glyphs) { rect, _, _, _, _ in
+            painted = painted.union(rect)
+        }
+        guard !painted.isNull else { return nil }
+        let air = ScreenplayPageLayout.lineHeight * 2 + 2
+        let dirty = painted
+            .insetBy(dx: -1, dy: -air)
+            .offsetBy(dx: textView.textContainerOrigin.x, dy: textView.textContainerOrigin.y)
+            .intersection(textView.bounds)
+        return dirty.isEmpty ? nil : dirty
     }
 
     /// What is lit on the bar, and where it floats.
@@ -2718,6 +2785,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         applyingModel = true
         textView.setSelectedRange(NSRange(location: location, length: selectionLength))
         applyingModel = false
+        // The delegate is muted above, so the paint bookkeeping the writer's
+        // own selection changes get must happen here by hand: a render may
+        // have moved lines, and the old highlight's paint is dirtied against
+        // the *new* layout — the padding in `selectionPaintRect` absorbs the
+        // few points a same-length restyle can drift.
+        retireSelectionPaint()
         updateSelection()
     }
 
