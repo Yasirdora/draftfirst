@@ -289,8 +289,10 @@ public struct StoryList: View {
                 .padding(.top, 4)
             }
         }
-        // Rows are content, not hyperlinks: keep the whole list monochrome so
-        // blue is reserved for the system's own chrome.
+        // The rows carry their own tint, so the list must not force one on
+        // them — a stated tint here reached the rows present when it was
+        // applied and missed the ones scrolled into view later, which is how
+        // a cast list came out half black and half blue.
         .tint(.primary)
     }
 
@@ -335,14 +337,12 @@ public struct StoryList: View {
             } else {
                 ForEach(editor.cast) { person in
                     if let onSelectCharacter {
+                        let chosen = person.name == selectedCharacter
                         Button { onSelectCharacter(person.name) } label: {
-                            CastRowLabel(person: person)
+                            CastRowLabel(person: person, isSelected: chosen)
                         }
                         .buttonStyle(.plain)
-                        .listRowBackground(
-                            person.name == selectedCharacter
-                                ? Color.accentColor.opacity(0.18) : Color.clear
-                        )
+                        .listRowBackground(SelectedRowMark(isOn: chosen))
                     } else {
                         CastListRow(person: person)
                     }
@@ -392,21 +392,52 @@ public struct StoryList: View {
     }
 }
 
+// MARK: - The chosen row
+
+/// The mark on the row the writer is in: a quiet inset pill, the way Finder
+/// draws one.
+///
+/// Deliberately not the system's own source-list selection. That fills the
+/// whole row with solid accent and white type the moment the list takes
+/// focus, which is right for a file list you are arrowing through and far too
+/// loud for a map of the script that sits on screen the entire time the
+/// writer is typing somewhere else. Finder's own sidebar reads as a soft grey
+/// pill with the label tinted — present when you look for it, silent when you
+/// are not. That is what this is.
+///
+/// It also has to be drawn rather than asked for: `List(selection:)` hands
+/// the appearance to AppKit, and the focused state cannot be toned down.
+struct SelectedRowMark: View {
+    let isOn: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(Color.primary.opacity(isOn ? 0.08 : 0))
+            // Inset, so the pill is a mark *on* the list rather than a band
+            // across it — the edge-to-edge fill was the single thing that
+            // most made this not look like a sidebar.
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
+    }
+}
+
 // MARK: - Scene row
 
-/// A scene, its address, and where to turn to find it.
-private struct SceneListRow: View {
+/// A scene, its address, and where to turn to find it — with no opinion
+/// about how it is chosen.
+///
+/// The Mac hands this straight to a `List(selection:)` and lets the source
+/// list draw the pill, the accent and the focus ring, which is the whole of
+/// what makes Finder's sidebar look like Finder's sidebar. The phone wraps it
+/// in `SceneListRow` below, because a bare row in a plain list is not
+/// tappable there.
+struct SceneRowLabel: View {
     let scene: SceneRow
-    /// Whether the caret sits inside this scene — the "you are here" mark,
-    /// drawn as a quiet grey wash rather than the accent a *chosen* thing
-    /// wears (the cast tab's open thread). Choosing a row moves the caret
-    /// into the scene, so the mark lands on the chosen row by itself, and
-    /// follows the caret however it moves afterwards.
-    let isCurrent: Bool
-    let open: () -> Void
+    /// Tints the row's own type, which is how Finder says "this one" without
+    /// raising its voice: the pill carries no colour, the label does.
+    var isSelected = false
 
     public var body: some View {
-        Button(action: open) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 // A production number is not a digit count: "12A" and "112"
                 // both have to fit without truncating, so the column grows to
@@ -416,7 +447,8 @@ private struct SceneListRow: View {
                 // heading, which is what a reader is actually here to read.
                 Text(scene.label)
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(isSelected
+                        ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
                     .frame(minWidth: 18, alignment: .trailing)
 
                 // One line per scene, always. The list is a map of the
@@ -433,8 +465,12 @@ private struct SceneListRow: View {
                 // wall of headings into an outline. See `SceneRow.isSecondary`
                 // for why this is emphasis and not a second element type.
                 Text(scene.title)
-                    .font(scene.isSecondary ? .subheadline : .body.weight(.medium))
-                    .foregroundStyle(scene.isSecondary ? .secondary : .primary)
+                    .font(scene.isSecondary ? .subheadline : .body)
+                    // `.foreground` rather than `.primary`: it means "whatever
+                    // the row's colour currently is", which is what the source
+                    // list changes when the row is selected. `.primary` pins
+                    // the type dark and leaves it dark on the accent pill.
+                    .foregroundStyle(rowInk)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .padding(.leading, scene.isSecondary ? 14 : 0)
@@ -451,21 +487,45 @@ private struct SceneListRow: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-        }
-        // Without this the row takes macOS's default button style, which
-        // centres its label — which is why a heading long enough to wrap came
-        // out looking like a title card. The cast row already says this.
-        .buttonStyle(.plain)
-        .listRowBackground(isCurrent ? Color.primary.opacity(0.12) : Color.clear)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint("Moves the insertion point to this scene")
     }
 
-    private var accessibilityLabel: String {
+    /// Accent when chosen; otherwise the outline's own two levels — a master
+    /// slug at full strength, a secondary one a shade back.
+    private var rowInk: AnyShapeStyle {
+        if isSelected { return AnyShapeStyle(Color.accentColor) }
+        return scene.isSecondary ? AnyShapeStyle(.secondary) : AnyShapeStyle(.foreground)
+    }
+
+    /// Spoken without the selection state: on the Mac the list says "selected"
+    /// itself, and on the phone `SceneListRow` adds "current scene".
+    var spokenLabel: String {
         var label = "Scene \(scene.label), \(scene.title)"
         if let page = scene.page { label += ", page \(page)" }
-        if isCurrent { label += ", current scene" }
         return label
+    }
+}
+
+/// The phone's tappable scene row. The Mac does not use this: there the row
+/// is chosen by the list, not by a button inside it — and a button inside a
+/// source-list row suppresses the system's own selection highlight, which is
+/// why this used to be drawn by hand.
+private struct SceneListRow: View {
+    let scene: SceneRow
+    /// Whether the caret sits inside this scene — the "you are here" mark.
+    let isCurrent: Bool
+    let open: () -> Void
+
+    public var body: some View {
+        Button(action: open) { SceneRowLabel(scene: scene, isSelected: isCurrent) }
+        // Without this the row takes the default button style, which centres
+        // its label — which is why a heading long enough to wrap came out
+        // looking like a title card.
+        .buttonStyle(.plain)
+        .listRowBackground(SelectedRowMark(isOn: isCurrent))
+        .accessibilityLabel(isCurrent
+            ? SceneRowLabel(scene: scene).spokenLabel + ", current scene"
+            : SceneRowLabel(scene: scene).spokenLabel)
+        .accessibilityHint("Moves the insertion point to this scene")
     }
 }
 
@@ -485,6 +545,7 @@ private struct SceneListRow: View {
 /// column beside the list is the surface's business, not the row's.
 private struct CastRowLabel: View {
     let person: CastRow
+    var isSelected = false
 
     var body: some View {
         HStack {
@@ -492,9 +553,12 @@ private struct CastRowLabel: View {
             // present when it is applied; rows realized later — the ones
             // a writer scrolls into view — came up in the accent colour
             // instead, so a cast list read half black and half blue.
+            // Icon and name together, the way a Finder row tints: the symbol
+            // is half of what the eye reads as "this one".
             Label(person.name, systemImage: "person.crop.circle.fill")
-                .font(.body.weight(.medium))
-                .foregroundStyle(.primary)
+                .font(.body)
+                .foregroundStyle(isSelected
+                    ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.foreground))
             Spacer()
             Text("\(person.cues) \(person.cues == 1 ? "cue" : "cues")")
                 .font(.caption.monospacedDigit())
