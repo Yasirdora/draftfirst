@@ -103,6 +103,23 @@ public enum ScreenplayExporter {
         try? Paginator.paginate(screenplay.engineModel, linesPerPage: PageFormat.current.linesPerPage)
     }
 
+    /// The same pages at the cost of the changed region alone. The engine
+    /// owns the diff and the proof (`paginateIncrementally == paginate`,
+    /// fuzz-pinned in both languages); a caller with nothing cached gets the
+    /// full pass, so this is the only call a live-editing surface needs.
+    public static func paginateIncrementally(
+        _ screenplay: EDraftCore.Screenplay,
+        previous: EDraftCore.Screenplay,
+        previousPages: [EDraftEngine.ScriptPage]
+    ) -> [EDraftEngine.ScriptPage]? {
+        try? Paginator.paginateIncrementally(
+            screenplay.engineModel,
+            previous: previous.engineModel,
+            previousPages: previousPages,
+            linesPerPage: PageFormat.current.linesPerPage
+        )
+    }
+
     /// Indent in spaces for the monospaced formats; transitions right-align
     /// against the 60-character text block. Widths count UTF-16 units, the
     /// engine's own measure.

@@ -245,87 +245,142 @@ public enum Paginator {
         .character, .parenthetical, .dialogue, .lyrics,
     ]
 
-    static func buildBlocks(_ script: Screenplay) -> [BuildItem] {
-        var items: [BuildItem] = []
-        var flow: Block? = nil
+    /// Blocks built as the fold consumes them.
+    ///
+    /// Building the whole document up front was fine while pagination was
+    /// always whole-document, but the incremental pass stops at the first
+    /// page that matches its cache — and building blocks for the unread
+    /// tail cost more than the fold saved: measured 37ms of wrap work per
+    /// keystroke after the fold itself had already answered. The source
+    /// produces the same stream as eagerly as the fold asks — a flow block
+    /// is complete when its successor starts — so an early stop pays for
+    /// the pages it read and no more.
+    final class BlockSource {
+        private let script: Screenplay
+        private var index: Int
+        private var flow: Block?
+        private var buffered: [BuildItem] = []
 
-        func flushFlow() {
-            if let existing = flow {
-                items.append(.block(existing))
-                flow = nil
-            }
+        init(_ script: Screenplay, startIndex: Int) {
+            self.script = script
+            self.index = startIndex
         }
 
-        for (index, element) in script.elements.enumerated() {
-            /* Page breaks are non-printing elements that still divide
-               layout blocks. */
+        /// The head of the stream, unconsumed — the fold's current block.
+        func current() -> BuildItem? {
+            fill(1)
+            return buffered.first
+        }
+
+        /// The block after the head — the scene keep rule's one lookahead.
+        func next() -> BuildItem? {
+            fill(2)
+            return buffered.count > 1 ? buffered[1] : nil
+        }
+
+        /// Consume the head.
+        func advance() {
+            fill(1)
+            if !buffered.isEmpty { buffered.removeFirst() }
+        }
+
+        private var atEnd: Bool { index >= script.elements.count }
+
+        private func fill(_ count: Int) {
+            while buffered.count < count && !atEnd { step() }
+            /* End of input completes any open flow block. */
+            if atEnd { flushFlow() }
+        }
+
+        /* One element in. A block leaves the buffer only when complete: a
+           flow block completes when its successor starts (or the document
+           ends). */
+        private func step() {
+            let element = script.elements[index]
+            let elementIndex = index
+            index += 1
+
             if element.type == .pagebreak {
                 flushFlow()
-                items.append(.pagebreak)
-                continue
+                buffered.append(.pagebreak)
+                return
             }
-            guard element.type.isPrinting else { continue }
+            guard element.type.isPrinting else { return }
 
-            let geo = geometry[element.type] ?? geometry[.action]!
+            let geo = Paginator.geometry[element.type] ?? Paginator.geometry[.action]!
 
-            if flowTypes.contains(element.type) {
+            if Paginator.flowTypes.contains(element.type) {
                 if element.type == .character || flow == nil {
                     flushFlow()
                     flow = Block(
                         kind: .flow,
-                        before: geometry[.character]!.before,
+                        before: Paginator.geometry[.character]!.before,
                         lines: [],
                         cueName: element.type == .character ? element.text : nil,
                         continuationEligible: element.type == .character
                     )
                 }
-                guard var activeFlow = flow else {
-                    preconditionFailure("Dialogue flow could not be initialized.")
-                }
-                if element.type == .lyrics { activeFlow.continuationEligible = false }
+                if element.type == .lyrics { flow?.continuationEligible = false }
                 let wrapped = element.type == .character
-                    ? wrapText(element.text + (element.dual == true ? " ^" : ""),
-                               width: geometry[.character]!.width)
-                    : wrapText(element.text, width: geo.width)
+                    ? Paginator.wrapText(
+                        element.text + (element.dual == true ? " ^" : ""),
+                        width: Paginator.geometry[.character]!.width
+                      )
+                    : Paginator.wrapText(element.text, width: geo.width)
                 for text in wrapped {
-                    activeFlow.lines.append(FlowLine(
+                    flow?.lines.append(FlowLine(
                         text: text, type: element.type,
-                        indent: geo.indent, element: index
+                        indent: geo.indent, element: elementIndex
                     ))
                 }
-                flow = activeFlow
-                continue
+                return
             }
 
             flushFlow()
 
             if element.type == .transition || element.type == .centered {
                 let right = element.type == .transition
-                items.append(.block(Block(
+                buffered.append(.block(Block(
                     kind: .simple,
                     before: geo.before,
-                    lines: wrapText(element.text, width: pageWidthChars).map { text in
+                    lines: Paginator.wrapText(element.text, width: Paginator.pageWidthChars).map { text in
                         FlowLine(
                             text: text, type: element.type,
-                            indent: alignedIndent(text: text, right: right),
-                            element: index
+                            indent: Paginator.alignedIndent(text: text, right: right),
+                            element: elementIndex
                         )
                     }
                 )))
-                continue
+                return
             }
 
-            items.append(.block(Block(
+            buffered.append(.block(Block(
                 kind: element.type == .scene ? .scene : .simple,
                 before: geo.before,
-                lines: wrapText(element.text, width: geo.width).map { text in
+                lines: Paginator.wrapText(element.text, width: geo.width).map { text in
                     FlowLine(text: text, type: element.type,
-                             indent: geo.indent, element: index)
+                             indent: geo.indent, element: elementIndex)
                 }
             )))
         }
 
-        flushFlow()
+        private func flushFlow() {
+            if let existing = flow {
+                buffered.append(.block(existing))
+                flow = nil
+            }
+        }
+    }
+
+    /// The whole stream at once — the benchmark's eager read of the lazy
+    /// source. Production paths consume `BlockSource` directly.
+    static func buildBlocks(_ script: Screenplay, startIndex: Int = 0) -> [BuildItem] {
+        let source = BlockSource(script, startIndex: startIndex)
+        var items: [BuildItem] = []
+        while let item = source.current() {
+            items.append(item)
+            source.advance()
+        }
         return items
     }
 
@@ -333,25 +388,38 @@ public enum Paginator {
 
     private static let moreIndent = 10  // GEOMETRY.dialogue.indent
 
-    public static func paginate(
-        _ script: Screenplay,
-        linesPerPage limit: Int = linesPerPage
-    ) throws -> [ScriptPage] {
+    /// The pagination fold, shared by the full pass and the incremental
+    /// one. Everything a page decision reads from the past is in the
+    /// arguments: `startNumber` (the page being built) and `current0` (the
+    /// lines already on it). `stopAfter` is consulted as each page closes;
+    /// the current block still finishes, so a stop never lands mid-block.
+    /// The rules are unchanged from the pass the corpus pins — the same
+    /// fold, made resumable, not a second paginator.
+    private static func runFold(
+        _ source: BlockSource,
+        limit: Int,
+        startNumber: Int,
+        current0: [PageLine],
+        stopAfter: ((ScriptPage) -> Bool)? = nil
+    ) throws -> FoldOutcome {
         guard limit >= minLinesPerPage && limit <= maxLinesPerPage else {
             throw PaginationError.invalidLinesPerPage(limit)
         }
 
-        let items = buildBlocks(script)
         var pages: [ScriptPage] = []
-        var current: [PageLine] = []
+        var current = current0
+        var stoppedAfter = 0
 
         func newPage(allowEmpty: Bool = false) {
+            guard stoppedAfter == 0 else { return }
             if current.isEmpty && !allowEmpty { return }
-            pages.append(ScriptPage(
-                number: pages.count + 1, lines: current,
+            let completed = ScriptPage(
+                number: startNumber + pages.count, lines: current,
                 continuedTop: false, continuedBottom: false
-            ))
+            )
+            pages.append(completed)
             current = []
+            if stopAfter?(completed) == true { stoppedAfter = completed.number }
         }
 
         func blanks(_ count: Int, element: Int) {
@@ -429,19 +497,13 @@ public enum Paginator {
             return Swift.min(lines.count, head + 1)
         }
 
-        for index in items.indices {
-            guard case .block(let block) = items[index] else {
-                /* pagebreak */
-                if !current.isEmpty { newPage() }
-                continue
-            }
-
+        func stepBlock(_ block: Block, _ next: BuildItem?) throws {
             let before = current.isEmpty ? 0 : block.before
 
             /* -- scene heading: keep with at least 2 lines of content -- */
             if block.kind == .scene {
                 var followNeed = 0
-                if index + 1 < items.count, case .block(let next) = items[index + 1] {
+                if case .block(let next) = next {
                     let followLines = next.kind == .flow
                         ? flowHeadLength(next.lines)
                         : Swift.min(2, next.lines.count)
@@ -451,7 +513,7 @@ public enum Paginator {
                     newPage()
                 }
                 try emitSimpleBlock(block, current.isEmpty ? 0 : block.before)
-                continue
+                return
             }
 
             /* -- dialogue flow: cue keep-together + (MORE)/(CONT'D) split --
@@ -465,7 +527,7 @@ public enum Paginator {
                 if before + lines.count <= spaceLeft() {
                     blanks(before, element: lines[0].element)
                     emitRange(lines, 0, lines.count)
-                    continue
+                    return
                 }
 
                 let head = flowHeadLength(lines)
@@ -486,7 +548,7 @@ public enum Paginator {
                        speaker or continuation for lyrics/cue-less material. */
                     if !current.isEmpty && spaceLeft() - before < head { newPage() }
                     try emitSimpleBlock(block, current.isEmpty ? 0 : before)
-                    continue
+                    return
                 }
 
                 let contd = "\(base) (CONT'D)"
@@ -545,17 +607,261 @@ public enum Paginator {
                     }
                     firstChunk = false
                 }
-                continue
+                return
             }
 
             /* -- simple block: whole, or split with widow/orphan control -- */
             try emitSimpleBlock(block, current.isEmpty ? 0 : block.before)
         }
 
-        if !current.isEmpty || pages.isEmpty { newPage(allowEmpty: true) }
+        while stoppedAfter == 0 {
+            guard let item = source.current() else { break }
+            switch item {
+            case .pagebreak:
+                if !current.isEmpty { newPage() }
+            case .block(let block):
+                try stepBlock(block, source.next())
+            }
+            source.advance()
+        }
+
+        return FoldOutcome(pages: pages, trailing: current, stoppedAfter: stoppedAfter)
+    }
+
+    /// The fold's yield: pages completed (numbered absolutely), the open
+    /// page's lines at the end, and where an early stop landed.
+    private struct FoldOutcome {
+        let pages: [ScriptPage]
+        let trailing: [PageLine]
+        let stoppedAfter: Int
+    }
+
+    public static func paginate(
+        _ script: Screenplay,
+        linesPerPage limit: Int = linesPerPage
+    ) throws -> [ScriptPage] {
+        guard limit >= minLinesPerPage && limit <= maxLinesPerPage else {
+            throw PaginationError.invalidLinesPerPage(limit)
+        }
+        let fold = try runFold(
+            BlockSource(script, startIndex: 0), limit: limit, startNumber: 1, current0: []
+        )
+        var pages = fold.pages
+        /* A document's last page closes when it ends; an empty document
+           still has one. */
+        if !fold.trailing.isEmpty || pages.isEmpty {
+            pages.append(ScriptPage(
+                number: 1 + pages.count, lines: fold.trailing,
+                continuedTop: false, continuedBottom: false
+            ))
+        }
         markSceneContinues(script, &pages)
         return pages
     }
+
+    // MARK: - Incremental pagination
+
+    /* A keystroke repaginates what changed, not the document. The fold's
+       whole memory is the page being built and the lines already on it, so
+       a later run may begin at a block boundary whose surroundings are
+       unchanged: the diff finds the first layout-relevant change, the
+       checkpoint walks back to its block — and one block further, the reach
+       of the keep-with-next and page-fit rules — the fold runs forward, and
+       the moment a completed page provably matches its cached twin the
+       cached tail is spliced on.
+
+       The contract the tests pin in both languages:
+       paginateIncrementally == paginate, always. When no checkpoint can be
+       proven, the answer is the full pass, not a guess. */
+
+    /// Where a resumed fold starts: the page being built, the lines already
+    /// on it, and the block boundary to fold from.
+    public struct PaginationCheckpoint {
+        public let pageNumber: Int
+        public let prefix: [PageLine]
+        public let elementIndex: Int
+    }
+
+    /// Type, text and dualism are everything the fold reads from an element.
+    private static func layoutEqual(_ a: ScreenplayElement, _ b: ScreenplayElement) -> Bool {
+        a.type == b.type && a.text == b.text && (a.dual ?? false) == (b.dual ?? false)
+    }
+
+    private struct LayoutEdit {
+        let firstDirty: Int
+        let tailStartsAt: Int
+        let tailShift: Int
+    }
+
+    /// The changed region, or nil when nothing the fold reads has changed.
+    private static func layoutEditBetween(
+        _ previous: [ScreenplayElement], _ current: [ScreenplayElement]
+    ) -> LayoutEdit? {
+        var first = 0
+        let minLength = Swift.min(previous.count, current.count)
+        while first < minLength && layoutEqual(previous[first], current[first]) { first += 1 }
+        if first == previous.count && first == current.count { return nil }
+        var tail = 0
+        while tail < minLength - first
+                && layoutEqual(previous[previous.count - 1 - tail], current[current.count - 1 - tail]) {
+            tail += 1
+        }
+        return LayoutEdit(
+            firstDirty: first,
+            tailStartsAt: current.count - tail,
+            tailShift: current.count - previous.count
+        )
+    }
+
+    /// True when the element opens a block in the full block list — the
+    /// resume point must be one, because a flow block is built from its cue
+    /// forward.
+    private static func opensBlock(_ elements: [ScreenplayElement], _ index: Int) -> Bool {
+        let element = elements[index]
+        if element.type == .pagebreak { return true }
+        if !element.type.isPrinting { return false }
+        if !flowTypes.contains(element.type) { return true }
+        if element.type == .character { return true }
+        var lookback = index - 1
+        while lookback >= 0 {
+            let prev = elements[lookback]
+            if prev.type == .pagebreak { return true }
+            if !prev.type.isPrinting { lookback -= 1; continue }
+            return !flowTypes.contains(prev.type)
+        }
+        return true
+    }
+
+    /// Where a resumed fold may pick up, or nil for "repaginate from zero".
+    /// The edit's block is walked back on BOTH element lists — a type change
+    /// can make an element open a block in the new document while the old
+    /// document folded it into a flow that began earlier — and then one
+    /// block further, the reach of the keep-with-next and page-fit rules.
+    public static func resumeCheckpoint(
+        _ script: Screenplay,
+        previous: Screenplay,
+        previousPages: [ScriptPage],
+        firstDirtyElement: Int
+    ) -> PaginationCheckpoint? {
+        let elements = script.elements
+        guard !elements.isEmpty, !previousPages.isEmpty else { return nil }
+        func clamped(_ i: Int, _ list: [ScreenplayElement]) -> Int {
+            Swift.min(Swift.max(0, i), list.count - 1)
+        }
+        var startNew = clamped(firstDirtyElement, elements)
+        while startNew > 0 && !opensBlock(elements, startNew) { startNew -= 1 }
+        var startOld = clamped(firstDirtyElement, previous.elements)
+        while startOld > 0 && !opensBlock(previous.elements, startOld) { startOld -= 1 }
+        var start = Swift.min(startNew, startOld)
+        guard start > 0 else { return nil }
+        var before = start - 1
+        while before > 0 && !opensBlock(elements, before) { before -= 1 }
+        if before > 0 { start = before }
+
+        /* The block's first printed line in the cached pages — the elements
+           above it are unchanged, so old and new indices agree there. */
+        for page in previousPages {
+            let lines = page.lines
+            for j in lines.indices where lines[j].element == start && lines[j].type != .blank {
+                /* Trailing blanks before the block are its `before` spacing;
+                   the resumed fold re-emits them, so the prefix ends first. */
+                var cut = j
+                while cut > 0 && lines[cut - 1].type == .blank { cut -= 1 }
+                return PaginationCheckpoint(
+                    pageNumber: page.number,
+                    prefix: Array(lines[..<cut]),
+                    elementIndex: start
+                )
+            }
+        }
+        return nil
+    }
+
+    /// Paginate against the previous run: identical pages at the cost of the
+    /// changed region alone. The full pass runs when there is nothing proven
+    /// to reuse; the early splice fires only at a page that starts in the
+    /// unchanged tail with the same shape its cached twin had.
+    public static func paginateIncrementally(
+        _ current: Screenplay,
+        previous: Screenplay,
+        previousPages: [ScriptPage],
+        linesPerPage limit: Int = linesPerPage
+    ) throws -> [ScriptPage] {
+        guard limit >= minLinesPerPage && limit <= maxLinesPerPage else {
+            throw PaginationError.invalidLinesPerPage(limit)
+        }
+        guard !previousPages.isEmpty else { return try paginate(current, linesPerPage: limit) }
+
+        guard let edit = layoutEditBetween(previous.elements, current.elements)
+        else { return previousPages }
+        guard let checkpoint = resumeCheckpoint(
+            current, previous: previous, previousPages: previousPages,
+            firstDirtyElement: edit.firstDirty
+        ) else { return try paginate(current, linesPerPage: limit) }
+
+        let fold = try runFold(
+            BlockSource(current, startIndex: checkpoint.elementIndex),
+            limit: limit,
+            startNumber: checkpoint.pageNumber,
+            current0: checkpoint.prefix
+        ) { completed in
+            guard let cached = previousPages.first(where: { $0.number == completed.number })
+            else { return false }
+            let firstNew = completed.lines.first(where: { $0.element >= 0 })?.element ?? -1
+            let firstOld = cached.lines.first(where: { $0.element >= 0 })?.element ?? -1
+            guard firstNew >= 0, firstOld >= 0 else { return false }
+            /* A page starting inside the changed region is no twin,
+               whatever its shape. */
+            guard firstNew >= edit.tailStartsAt else { return false }
+            let lastNew = completed.lines.last(where: { $0.element >= 0 })?.element ?? -1
+            let lastOld = cached.lines.last(where: { $0.element >= 0 })?.element ?? -1
+            return firstNew == firstOld + edit.tailShift
+                && lastNew == lastOld + edit.tailShift
+                && completed.lines.count == cached.lines.count
+        }
+
+        let kept = Array(previousPages.prefix(checkpoint.pageNumber - 1))
+        var result: [ScriptPage]
+        if fold.stoppedAfter > 0 {
+            /* The page the fold stopped after is in both lists: the fold
+               completed it (that is how the resync saw it) and the cache
+               holds its twin. The cached tail already carries it, so the
+               fold's copy drops out. */
+            var tail = Array(previousPages.suffix(from: fold.stoppedAfter - 1))
+            if edit.tailShift != 0 {
+                /* Cached pages speak the old element indices; every line they
+                   hold belongs to the unchanged tail, so each shifts by the
+                   same delta. Copied line by line — the caller's cache is
+                   not ours to mutate. */
+                tail = tail.map { page in
+                    var copy = page
+                    copy.lines = page.lines.map { line in
+                        var lineCopy = line
+                        if line.element >= 0 { lineCopy.element += edit.tailShift }
+                        return lineCopy
+                    }
+                    return copy
+                }
+            }
+            result = kept + fold.pages.dropLast() + tail
+        } else if !fold.trailing.isEmpty || (fold.pages.isEmpty && kept.isEmpty) {
+            if !fold.trailing.isEmpty || fold.pages.isEmpty {
+                let trailingPage = ScriptPage(
+                    number: checkpoint.pageNumber + fold.pages.count,
+                    lines: fold.trailing,
+                    continuedTop: false, continuedBottom: false
+                )
+                result = kept + fold.pages + [trailingPage]
+            } else {
+                result = kept + fold.pages
+            }
+        } else {
+            result = kept + fold.pages
+        }
+        markSceneContinues(current, &result)
+        return result
+    }
+
 
     // MARK: - Scene continuations
 
@@ -589,11 +895,13 @@ public enum Paginator {
             let sceneNext = sceneOf[next.element]
             /* A boundary is a scene continuation when both sides belong to
                the same scene and the new page does not open with a heading. */
-            if scenePrevious >= 0 && scenePrevious == sceneNext
-                && script.elements[next.element].type != .scene {
-                pages[index - 1].continuedBottom = true
-                pages[index].continuedTop = true
-            }
+            let spans = scenePrevious >= 0 && scenePrevious == sceneNext
+                && script.elements[next.element].type != .scene
+            /* Assignment, not accumulation: the incremental pass splices
+               pages that carry these flags from an older document, so a
+               stale true must be cleared by the same pass. */
+            pages[index - 1].continuedBottom = spans
+            pages[index].continuedTop = spans
         }
     }
 
