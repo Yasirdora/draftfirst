@@ -2461,6 +2461,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     var ghostFrame: NSRect { ghost.frame }
     var ghostHostLineRect: NSRect { ghost.hostLineRectForTests }
     var ghostForegroundColor: NSColor? { ghost.foregroundColorForTests }
+    /// The ghost's baseline in the text view's coordinates — laid against
+    /// the host line's own baseline by the alignment test.
+    var ghostBaseline: CGFloat? { ghost.baselineForTests }
 
     func updateGhost() {
         guard let editor else {

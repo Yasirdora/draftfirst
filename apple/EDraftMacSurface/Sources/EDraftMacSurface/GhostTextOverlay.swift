@@ -104,6 +104,13 @@ final class GhostTextOverlay: NSView {
         textContainer.size = CGSize(width: containerWidth, height: .greatestFiniteMagnitude)
         if let hostLayout = host.layoutManager {
             layoutManager.usesFontLeading = hostLayout.usesFontLeading
+            // The line box too: the host pins its leading and baseline
+            // through a delegate (FixedLeading), and this stack pinned
+            // nothing — so the ghost's baseline sat a couple of points low
+            // no matter how carefully the used-rect tops were aligned.
+            // Adopting the host's delegate makes the two stacks answer the
+            // same line box, and aligning tops aligns baselines.
+            layoutManager.delegate = hostLayout.delegate
         }
 
         let localLocation = insertionLocation - paragraphRange.location
@@ -243,6 +250,18 @@ final class GhostTextOverlay: NSView {
     var presentedSuffix: String? { isHidden ? nil : renderedKey?.suffix }
     var hostLineRectForTests: CGRect { hostLineRect }
     var foregroundColorForTests: NSColor? { drawnColor }
+
+    /// The ghost's baseline in the host's coordinates. `location(forGlyphAt:)`
+    /// answers relative to the glyph's own line-fragment used rect — one
+    /// Courier advance in for a second character — so the baseline is the
+    /// used rect's top plus that location.
+    var baselineForTests: CGFloat? {
+        guard !isHidden, ghostGlyphRange.length > 0 else { return nil }
+        let glyph = ghostGlyphRange.location
+        return drawingOrigin.y
+            + layoutManager.lineFragmentUsedRect(forGlyphAt: glyph, effectiveRange: nil).minY
+            + layoutManager.location(forGlyphAt: glyph).y
+    }
 
     // MARK: - Layout
 

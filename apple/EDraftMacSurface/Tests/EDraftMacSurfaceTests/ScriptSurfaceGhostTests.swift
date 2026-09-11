@@ -96,6 +96,38 @@ final class ScriptSurfaceGhostTests: XCTestCase {
         )
     }
 
+    /// The ghost sits on the host line's own baseline, not a couple of
+    /// points under it. The overlay runs its own TextKit stack, and its
+    /// stack pinned no leading — the host's line box comes from a delegate
+    /// (`FixedLeading`), which the ghost now adopts. Measured on screen, the
+    /// completion read a shade low; this is the number that says so.
+    func testTheGhostSitsOnTheHostBaseline() throws {
+        let (editor, surface, _) = cueSurface()
+        XCTAssertTrue(
+            ScriptSurfaceHarness.waitForGhost(editor, surface),
+            "suffix=\(editor.currentSuggestionSuffix ?? "nil") hidden=\(surface.presentedGhostSuffix ?? "nil")"
+        )
+
+        let caret = surface.textView.selectedRange().location
+        let hostLayout = try XCTUnwrap(surface.textView.layoutManager)
+        // Windowless, the layout manager answers only what has been asked
+        // for; ask for the caret's line before reading its geometry.
+        hostLayout.ensureLayout(forCharacterRange: NSRange(location: 0, length: caret))
+        let hostGlyph = hostLayout.glyphIndexForCharacter(at: caret - 1)
+        // location(forGlyphAt:) is relative to the line fragment's used
+        // rect, not the container — the baseline is the two added.
+        let hostUsed = hostLayout.lineFragmentUsedRect(forGlyphAt: hostGlyph, effectiveRange: nil)
+        let hostBaseline = surface.textView.textContainerOrigin.y
+            + hostUsed.minY
+            + hostLayout.location(forGlyphAt: hostGlyph).y
+
+        let ghostBaseline = try XCTUnwrap(surface.ghostBaseline)
+        XCTAssertEqual(
+            ghostBaseline, hostBaseline, accuracy: 0.5,
+            "the ghost's baseline is not the line's baseline"
+        )
+    }
+
     // MARK: - Guards
 
     func testNoGhostWhenTheCaretIsMidElement() {
