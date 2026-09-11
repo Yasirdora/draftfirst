@@ -20,15 +20,19 @@ public nonisolated enum SceneSetting: String, CaseIterable, Sendable, Identifiab
 
     public var id: String { rawValue }
 
-    /// What the menu calls it: the abbreviation the screenplay is written in.
+    /// What the menu calls it.
     ///
-    /// A writer scanning for exteriors is looking for `EXT.` on the page, not
-    /// for the word "exterior" — the filter should be named in the language
-    /// they are already reading.
+    /// Spelled out for the two a writer picks most, abbreviated for the third.
+    /// The abbreviations were chosen so the filter would be named in the
+    /// language on the page — but "Int." and "Ext." sitting alone in a menu
+    /// read as truncations rather than as the words they stand for, and a menu
+    /// is not the page. The crossing case keeps its short form: "Interior /
+    /// Exterior" is a mouthful for a row, and `Int. / Ext.` is how a writer
+    /// says it out loud anyway.
     public var title: String {
         switch self {
-        case .interior: "Int."
-        case .exterior: "Ext."
+        case .interior: "Interior"
+        case .exterior: "Exterior"
         case .both: "Int. / Ext."
         }
     }

@@ -214,10 +214,22 @@ public struct StoryList: View {
             .pickerStyle(.inline)
             .labelsHidden()
         } label: {
-            Image(systemName: sceneSetting == nil
-                  ? "line.3.horizontal.decrease.circle"
-                  : "line.3.horizontal.decrease.circle.fill")
+            // The bare lines. The `.circle` variants drew a ring of their own
+            // inside the button's, which is two circles saying one thing —
+            // and neither of them round, since the button was 39 by 17.
+            Image(systemName: "line.3.horizontal.decrease")
+                // Filtering is said in colour rather than by swapping in the
+                // filled glyph, which no longer exists without the ring, and
+                // which is the same accent the chosen row wears.
+                .foregroundStyle(sceneSetting == nil
+                    ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.accentColor))
         }
+        // The system's own glass, in the system's own circle — the same two
+        // the toolbar's buttons are made of, rather than a disc drawn here
+        // that would have to be kept in step with them by hand.
+        .menuStyle(.button)
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
         .menuIndicator(.hidden)
         .fixedSize()
         .accessibilityLabel(
