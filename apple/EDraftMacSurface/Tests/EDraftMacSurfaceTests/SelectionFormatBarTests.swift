@@ -275,4 +275,29 @@ final class SelectionFormatBarTests: XCTestCase {
             "the selection scrolled back into sight, so the bar returned"
         )
     }
+
+    /// Over chrome the cursor is the arrow. A cursor rect is one entry in
+    /// the window's stack, and the text view's document-wide I-beam kept
+    /// winning the overlap — so the bar says it with a `cursorUpdate`
+    /// tracking area on the topmost view under the mouse instead, which is
+    /// answered first.
+    func testTheBarClaimsTheArrowCursor() {
+        let (_, surface) = surface("INT. LAB - DAY\n\nDust hangs in the light.")
+        let host = surface.formatBarHostView
+
+        host.updateTrackingAreas()
+        host.updateTrackingAreas()
+        let areas = host.trackingAreas.filter {
+            ($0.owner as? NSView) === host && $0.options.contains(.cursorUpdate)
+        }
+        XCTAssertEqual(areas.count, 1, "the bar needs exactly one cursor voice")
+        XCTAssertTrue(
+            areas[0].options.contains(.inVisibleRect),
+            "the bar is re-framed on every scroll tick; the area must follow on its own"
+        )
+        XCTAssertTrue(
+            areas[0].options.contains(.activeAlways),
+            "a palette answers before its window is key"
+        )
+    }
 }

@@ -52,7 +52,7 @@ enum FormatMark: CaseIterable {
     var opensGroup: Bool { self == .centered || self == .note }
 }
 
-/// The bar's window into SwiftUI, and the two guarantees a palette owes the
+/// The bar's window into SwiftUI, and the three guarantees a palette owes the
 /// text it floats over:
 ///
 /// - Every point inside the frame hits the bar. A click that misses a
@@ -64,6 +64,13 @@ enum FormatMark: CaseIterable {
 /// - It never takes first responder, so clicking it keeps the selection —
 ///   and the keyboard — with the text view. A bar that takes focus turns
 ///   the selection grey and swallows the next keystroke.
+/// - Over chrome the cursor says "press me", not "type here". Said with a
+///   tracking area rather than a cursor rect: a cursor rect is one entry in
+///   the window's whole stack of them, and the text view's I-beam — added
+///   for a frame that spans the document — kept winning the overlap. A
+///   `cursorUpdate` area on the topmost view under the mouse is answered
+///   first, so the arrow is final. `.inVisibleRect` because the bar is
+///   re-framed on every scroll tick; the area follows without a reinstall.
 private final class FormatBarHost: NSHostingView<FormatBarView> {
     override var acceptsFirstResponder: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -73,20 +80,31 @@ private final class FormatBarHost: NSHostingView<FormatBarView> {
         return bounds.contains(convert(point, from: superview)) ? self : nil
     }
 
-    /// The arrow, not the I-beam: over chrome the cursor says "press me",
-    /// not "type here". Re-asked on hide and show, so a bar that is not on
-    /// screen claims no cursor.
-    override func resetCursorRects() {
-        super.resetCursorRects()
-        guard !isHidden else { return }
-        addCursorRect(bounds, cursor: .arrow)
+    /// Ours alone, so SwiftUI's own areas neither suppress nor replace it.
+    private var cursorArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let cursorArea {
+            guard !trackingAreas.contains(cursorArea) else { return }
+            self.cursorArea = nil
+        }
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.cursorUpdate, .activeAlways, .inVisibleRect],
+            owner: self
+        )
+        addTrackingArea(area)
+        cursorArea = area
     }
 
-    override var isHidden: Bool {
-        didSet {
-            guard isHidden != oldValue else { return }
-            window?.invalidateCursorRects(for: self)
-        }
+    override func cursorUpdate(with event: NSEvent) {
+        applyCursor()
+    }
+
+    /// The arrow. A separate call so a test can hear it without an event.
+    func applyCursor() {
+        NSCursor.arrow.set()
     }
 }
 
