@@ -1,3 +1,4 @@
+import EDraftEngine
 import Foundation
 
 /// The lexical tells a plain-text script carries — one definition, shared by
@@ -192,7 +193,11 @@ public nonisolated enum PasteReassembly {
                 flush()
                 continue
             }
-            let upper = trimmed.uppercased()
+            // The tells read the words, not the markers: **MARK** is a cue
+            // whether or not the writer bolded it. The raw line is what
+            // joins, so the markers survive to the planner's own parse.
+            let cleaned = Emphasis.parse(trimmed).text
+            let upper = cleaned.uppercased()
             if PasteHeuristics.looksLikeSceneHeading(upper) {
                 flush()
                 kind = .scene
@@ -201,7 +206,7 @@ public nonisolated enum PasteReassembly {
                 flush()
                 kind = .transition
                 current = [trimmed]
-            } else if PasteHeuristics.looksLikeCharacterCue(trimmed, uppercase: upper) {
+            } else if PasteHeuristics.looksLikeCharacterCue(cleaned, uppercase: upper) {
                 flush()
                 kind = .character
                 current = [trimmed]

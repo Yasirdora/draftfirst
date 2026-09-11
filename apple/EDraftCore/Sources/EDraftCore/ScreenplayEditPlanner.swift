@@ -355,16 +355,42 @@ public struct ScreenplayEditPlanner {
                 element = preserved
             } else {
                 let previous = result.last
-                let kind = pasteKinds[partIndex]
-                    ?? kindForNewElement(previous, part.text, pasteDepths[partIndex])
-                let finalText = kind.uppercasesInput ? part.text.uppercased() : part.text
+                var partText = part.text
+                var suggestedKind = pasteKinds[partIndex]
+                var parsedRuns: [StyleRun]? = nil
+                if intent == .multilinePaste {
+                    // The writer's formatting survives the paste as data:
+                    // Fountain's centred line becomes the element's type and
+                    // its emphasis markers become runs — the same parse the
+                    // file boundary applies, so a paste and an import agree.
+                    let trimmed = partText.trimmingCharacters(in: .whitespaces)
+                    if trimmed.hasPrefix(">"), trimmed.hasSuffix("<"),
+                       trimmed.utf16.count > 2 {
+                        partText = String(trimmed.dropFirst().dropLast())
+                            .trimmingCharacters(in: .whitespaces)
+                        suggestedKind = .centered
+                    }
+                    let parsed = Emphasis.parse(partText)
+                    partText = parsed.text
+                    parsedRuns = parsed.runs.isEmpty ? nil : parsed.runs
+                }
+                let kind = suggestedKind
+                    ?? kindForNewElement(previous, partText, pasteDepths[partIndex])
+                let finalText = kind.uppercasesInput ? partText.uppercased() : partText
                 var created = ScriptElement(type: kind, text: finalText)
-                created.runs = runsForPart(
-                    sourceRange: sourceRange, partText: part.text, finalText: finalText,
-                    headRuns: startElement.runs ?? [], headLength: headLength,
-                    tailRuns: endElement.runs ?? [], tailStart: tailStart,
-                    tailOffset: end.offset, donor: donor
-                )
+                if let parsedRuns {
+                    // A case expansion (ß→SS) shifts the spans the parser
+                    // measured; where the length moved, no run can be trusted.
+                    created.runs = finalText.utf16.count == partText.utf16.count
+                        ? parsedRuns : nil
+                } else {
+                    created.runs = runsForPart(
+                        sourceRange: sourceRange, partText: partText, finalText: finalText,
+                        headRuns: startElement.runs ?? [], headLength: headLength,
+                        tailRuns: endElement.runs ?? [], tailStart: tailStart,
+                        tailOffset: end.offset, donor: donor
+                    )
+                }
                 element = created
             }
             result.append(element)

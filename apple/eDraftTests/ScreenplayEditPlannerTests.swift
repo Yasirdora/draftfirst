@@ -1,4 +1,5 @@
 import EDraftCore
+import EDraftEngine
 import Foundation
 import UIKit
 import XCTest
@@ -692,6 +693,29 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
         editor.screenplay = Screenplay(titlePage: [], elements: plan.elements)
         XCTAssertEqual(editor.cast.map(\.name), ["ERICA", "MARK"],
                        "no prose-as-cue: the cast is the two people speaking")
+    }
+
+    /// A paste honours the formatting it carries: emphasis markers arrive
+    /// as style runs, the centred line as the element's type — the same
+    /// reading the file boundary gives an import.
+    @MainActor
+    func testAPasteHonoursFountainsOwnFormatting() throws {
+        let plan = try XCTUnwrap(ScreenplayEditPlanner.plan(
+            elements: [ScriptElement(type: .action, text: "")],
+            replacing: NSRange(location: 0, length: 0),
+            with: "INT. LAB - DAY\n\nThe **bold** word stands.\n\n> THE END <",
+            intent: .multilinePaste,
+            kindForNewElement: { previous, text, depth in
+                EditorState(source: "").kindForInsertedElement(
+                    after: previous, text: text, pasteDepth: depth
+                )
+            }
+        ))
+
+        XCTAssertEqual(plan.elements.map(\.type), [.scene, .action, .centered])
+        XCTAssertEqual(plan.elements[1].text, "The bold word stands.")
+        XCTAssertEqual(plan.elements[1].runs, [StyleRun(start: 4, end: 8, styles: .bold)])
+        XCTAssertEqual(plan.elements[2].text, "THE END")
     }
 
     @MainActor
