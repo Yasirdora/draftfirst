@@ -35,6 +35,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private let formatBar = SelectionFormatBar()
     let canvas: PageCanvasView
 
+    /// Parallel to the editor's elements: same order, same count, always.
+    /// `render` builds it from the elements and `adjustRange` shifts it in
+    /// place, so the pair can be zipped — walking one while looking the other
+    /// up by id measured quadratic on a 6,652-element paste (290ms per
+    /// selection change, reported as "the format bar hangs"). The invariant
+    /// is pinned by `testRangesStayParallelToElements`.
     private var ranges: [ScriptLayout.ElementRange] = []
 
     /// The engine's reading of the text last laid out: its pages, and where
@@ -59,9 +65,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let elements: [ScriptElement]
         let format: PageFormat
         let mode: PageLayoutMode
+        /// The page-start character locations the `starts` were measured
+        /// from — the fixpoint check's half of "did any boundary move?".
+        let locations: [Int]
         let starts: [CGFloat]
     }
     private var breaksPlacement: BreaksPlacement?
+    /// How many times the bands have been torn down and rebuilt from a full
+    /// measurement — what a test asks to prove a keystroke that moves no
+    /// boundary pays no rebuild.
+    private(set) var breakRecomputeCount = 0
     let highlight = RevealHighlightViewMac()
     private let ghost = GhostTextOverlay()
 
@@ -686,6 +699,41 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
            placed.mode == canvas.layoutMode {
             return placed.starts
         }
+        // The fixpoint skip: a keystroke that moves no page boundary needs
+        // no new bands, and most keystrokes move none. Measuring with the
+        // current bands in place is an incremental layout — TextKit lays
+        // out only what the edit dirtied — while rebuilding clears them,
+        // which invalidates the whole container, then assigning them does
+        // it again: measured on a 6,652-element paste, 170–460ms of
+        // full-document layout per keystroke for bands that came out
+        // identical. If every boundary still sits where it was placed, the
+        // The fixpoint skip: a keystroke that moves no page boundary needs
+        // no new bands, and most keystrokes move none. Measuring with the
+        // current bands in place is an incremental layout — TextKit lays
+        // out only what the edit dirtied — while rebuilding clears them,
+        // which invalidates the whole container, then assigning them does
+        // it again: measured on a 6,652-element paste, 170–460ms of
+        // full-document layout per keystroke for bands that came out
+        // identical.
+        //
+        // Character locations are no witness — they shift by one for every
+        // typed character. What must stay put is the *geometry*: the same
+        // number of boundaries, the same element types feeding the widow
+        // and orphan rules, and every boundary's line sitting at the same
+        // height it was placed at. All three equal means the document is
+        // already in the state a rebuild would produce.
+        if let placed = breaksPlacement,
+           placed.format == pagination.format, placed.mode == canvas.layoutMode,
+           placed.locations.count == pagination.locations.count,
+           !pagination.locations.isEmpty,
+           placed.starts.count == pagination.locations.count,
+           placed.elements.count == elements.count,
+           zip(placed.elements, elements).allSatisfy({ $0.type == $1.type }) {
+            layoutManager.ensureLayout(for: container)
+            let current = pagination.locations.map { pageStartY($0, in: layoutManager) }
+            if current == placed.starts { return placed.starts }
+        }
+        breakRecomputeCount += 1
         // Assigning the bands invalidates the container even when it holds
         // none, so clear only when there is something to clear.
         if !container.gapBands.isEmpty { container.gapBands = [] }
@@ -694,7 +742,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         else {
             breaksPlacement = BreaksPlacement(
                 elements: elements, format: pagination.format,
-                mode: canvas.layoutMode, starts: [0]
+                mode: canvas.layoutMode, locations: pagination.locations, starts: [0]
             )
             return [0]
         }
@@ -706,7 +754,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             let starts = locations.map { pageStartY($0, in: layoutManager) }
             breaksPlacement = BreaksPlacement(
                 elements: elements, format: pagination.format,
-                mode: canvas.layoutMode, starts: starts
+                mode: canvas.layoutMode, locations: locations, starts: starts
             )
             return starts
         }
@@ -766,14 +814,18 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             placed += space + line
         }
 
-        container.gapBands = bands
+        // The assignment is what invalidates the container, so spend it
+        // only when the bands actually moved — a rebuild after a
+        // layout-neutral edit would otherwise buy a full layout for no
+        // change at all.
+        if bands != container.gapBands { container.gapBands = bands }
         layoutManager.ensureLayout(for: container)
         // Where they actually landed. The sheets are laid under these, so a
         // line resting a fraction below its exclusion carries its paper with
         // it rather than being left off the top of it.
         let starts = locations.map { pageStartY($0, in: layoutManager) }
         breaksPlacement = BreaksPlacement(
-            elements: elements, format: format, mode: .pages, starts: starts
+            elements: elements, format: format, mode: .pages, locations: locations, starts: starts
         )
         return starts
     }
@@ -2026,7 +2078,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     public func textDidChange(_ notification: Notification) {
         guard !applyingModel, let editor else { return }
-        
+
         let previousRevision = editor.revision
         if let pendingEdit, applyIncrementalEdit(pendingEdit) {
             self.pendingEdit = nil
@@ -2034,7 +2086,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             self.pendingEdit = nil
             synchronizeModelFromNativeText()
         }
-        
         if editor.revision != previousRevision {
             promoteToSceneHeadingIfTyped()
             renderedRevision = editor.revision
@@ -2327,8 +2378,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         guard selection.length > 0 else { return }
 
         var touched: [(index: Int, range: NSRange)] = []
-        for (index, element) in editor.screenplay.elements.enumerated() {
-            guard let mapped = ranges.first(where: { $0.id == element.id }) else { continue }
+        // `ranges` is parallel to the elements — one index serves both, and
+        // looking ranges up by id instead measured quadratic on a
+        // feature-length paste.
+        for (index, mapped) in ranges.enumerated() {
+            guard index < editor.screenplay.elements.count else { break }
             let intersection = NSIntersectionRange(selection, mapped.range)
             guard intersection.length > 0 else { continue }
             touched.append((index, NSRange(
@@ -2398,8 +2452,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 touched.append(index)
             }
         } else {
-            for (index, element) in editor.screenplay.elements.enumerated() {
-                guard let mapped = ranges.first(where: { $0.id == element.id }) else { continue }
+            for (index, mapped) in ranges.enumerated() {
+                guard index < editor.screenplay.elements.count else { break }
                 guard NSIntersectionRange(selection, mapped.range).length > 0 else { continue }
                 touched.append(index)
             }
@@ -2457,8 +2511,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         }
 
         var touched: [(element: ScriptElement, range: NSRange)] = []
-        for element in editor.screenplay.elements {
-            guard let mapped = ranges.first(where: { $0.id == element.id }) else { continue }
+        // `ranges` is parallel to the elements — one index serves both
+        // (an id lookup per element measured 290ms per call on a
+        // feature-length paste; the writer double-clicks and the app hangs).
+        for (index, element) in editor.screenplay.elements.enumerated() {
+            guard index < ranges.count else { break }
+            let mapped = ranges[index]
             let intersection = NSIntersectionRange(selection, mapped.range)
             guard intersection.length > 0 else { continue }
             touched.append((element, NSRange(
