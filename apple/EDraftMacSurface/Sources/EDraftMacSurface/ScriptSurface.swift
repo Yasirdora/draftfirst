@@ -616,9 +616,30 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// markers — takes it from here.
     private func pagination(for elements: [ScriptElement]) -> Pagination {
         let format = PageFormat.current
-        if let cached = cachedPagination,
-           Self.layoutEquivalent(cached.elements, elements), cached.format == format {
-            return cached
+        if let cached = cachedPagination, cached.format == format {
+            if Self.layoutEquivalent(cached.elements, elements) {
+                return cached
+            }
+            // A changed region repaginates at its own cost: the engine
+            // resumes at the block above the first dirty element and
+            // splices the cached tail the moment a page provably matches.
+            // Full-pass identical, fuzz-pinned in both engines.
+            if let previousPages = cached.pages,
+               let pages = ScreenplayExporter.paginateIncrementally(
+                   Screenplay(elements: elements),
+                   previous: Screenplay(elements: cached.elements),
+                   previousPages: previousPages
+               ) {
+                let locations: [Int]
+                if pages.count > 1 {
+                    locations = ScreenplayPageLayout.pageStartLocations(elements: elements, pages: pages)
+                } else {
+                    locations = []
+                }
+                let fresh = Pagination(elements: elements, format: format, pages: pages, locations: locations)
+                cachedPagination = fresh
+                return fresh
+            }
         }
         let pages = ScreenplayExporter.paginate(Screenplay(elements: elements))
         let locations: [Int]
