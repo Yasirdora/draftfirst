@@ -1218,8 +1218,19 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // `applyAppearance` re-takes the paper, the card and the caret.
         canvas.applyAppearance()
         guard let editor else { return }
+        // A paper flip restyles the text but never moves it, so the writer's
+        // selection lives through the re-render verbatim. Restoring from the
+        // model would bring back only the caret — the model tracks an
+        // element and an offset, not a range — and a selected word would
+        // come back unselected.
+        let selection = textView.selectedRange()
         renderedRevision = -1
-        renderIfNeeded(editor)
+        render(editor.screenplay.elements) { [self] in
+            restoreSelection(selection)
+            refreshFormatBar(selection: selection)
+        }
+        renderedRevision = editor.revision
+        updateTypingAttributes()
     }
 
     /// Lets the page run under the toolbar, which is the whole of what the

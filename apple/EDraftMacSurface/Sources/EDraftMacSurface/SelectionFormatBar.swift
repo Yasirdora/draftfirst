@@ -66,13 +66,17 @@ enum FormatMark: CaseIterable {
 /// - It never takes first responder, so clicking it keeps the selection —
 ///   and the keyboard — with the text view. A bar that takes focus turns
 ///   the selection grey and swallows the next keystroke.
-/// - Over chrome the cursor says "press me", not "type here". Said with a
-///   tracking area rather than a cursor rect: a cursor rect is one entry in
-///   the window's whole stack of them, and the text view's I-beam — added
-///   for a frame that spans the document — kept winning the overlap. A
-///   `cursorUpdate` area on the topmost view under the mouse is answered
-///   first, so the arrow is final. `.inVisibleRect` because the bar is
-///   re-framed on every scroll tick; the area follows without a reinstall.
+/// - Over chrome the cursor says "press me", not "type here". The fight is
+///   with the text view's I-beam, registered as a cursor rect for a frame
+///   that spans the whole document: the window re-resolves cursor rects on
+///   every mouse move, so a one-shot answer — a plain cursor rect, or a
+///   `cursorUpdate` that fires only at the boundary — holds until the first
+///   move inside the bar and then the I-beam returns. The arrow is therefore
+///   re-stated on every move: `.mouseMoved` events reach the host because
+///   its `hitTest` claims the whole frame, and they are dispatched after the
+///   window's cursor-rect resolution, so the arrow is the last word.
+///   `.inVisibleRect` because the bar is re-framed on every scroll tick; the
+///   area follows without a reinstall.
 private final class FormatBarHost: NSHostingView<FormatBarView> {
     override var acceptsFirstResponder: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -93,7 +97,7 @@ private final class FormatBarHost: NSHostingView<FormatBarView> {
         }
         let area = NSTrackingArea(
             rect: .zero,
-            options: [.cursorUpdate, .activeAlways, .inVisibleRect],
+            options: [.cursorUpdate, .mouseMoved, .activeAlways, .inVisibleRect],
             owner: self
         )
         addTrackingArea(area)
@@ -101,6 +105,11 @@ private final class FormatBarHost: NSHostingView<FormatBarView> {
     }
 
     override func cursorUpdate(with event: NSEvent) {
+        applyCursor()
+    }
+
+    /// Every move, not just the boundary crossing — see the class note.
+    override func mouseMoved(with event: NSEvent) {
         applyCursor()
     }
 
@@ -136,6 +145,15 @@ final class SelectionFormatBar {
     /// tree alone.
     private var lit: Set<FormatMark> = []
     private var appliedScale: CGFloat = 1
+    /// A second host of the same view, kept offscreen and never displayed,
+    /// that placement measures. `fittingSize` on the visible host is only
+    /// as fresh as its last display: while the bar is hidden its layout
+    /// never runs, and a root view replaced in that state answers with a
+    /// phantom height — the first placement put the bar a half-size away
+    /// from the selection, and the next scroll tick moved it to where it
+    /// belonged. A fresh host measures true whether or not anything has
+    /// been on screen.
+    private var sizingHost = NSHostingView(rootView: FormatBarView(active: []) { _ in })
 
     init() {
         host = FormatBarHost(rootView: FormatBarView(active: []) { _ in })
@@ -150,9 +168,11 @@ final class SelectionFormatBar {
     }
 
     private func rebuild() {
-        host.rootView = FormatBarView(active: lit, scale: appliedScale) { [weak self] mark in
+        let view = FormatBarView(active: lit, scale: appliedScale) { [weak self] mark in
             self?.onApply?(mark)
         }
+        host.rootView = view
+        sizingHost = NSHostingView(rootView: view)
     }
 
     /// What is lit, and where the bar floats. `active` is the set of marks
@@ -201,7 +221,10 @@ final class SelectionFormatBar {
             rebuild()
         }
 
-        let size = host.fittingSize
+        // Measured from the offscreen host — see `sizingHost`: the visible
+        // host's `fittingSize` is stale until its first display, which is
+        // exactly the first placement.
+        let size = sizingHost.fittingSize
         let magnification = scrollView.magnification
         // The bar's half-extents in the document's units, for clamping; its
         // screen size never changes.
