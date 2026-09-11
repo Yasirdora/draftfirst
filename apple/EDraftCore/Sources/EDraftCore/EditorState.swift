@@ -170,6 +170,14 @@ public final class EditorState {
     @ObservationIgnored private var cachedEngineModel: EDraftEngine.Screenplay?
     @ObservationIgnored private var cachedEngineModelRevision = -1
 
+    /// The panel's lists walk the whole document, and a SwiftUI body asks
+    /// for them on every invalidation — the cast's regex-per-cue pass
+    /// measured 14ms on a 6,769-element paste, paid per keystroke. Both are
+    /// pure functions of (revision) — and, for scene page numbers, the
+    /// debounced stats — so they are cached by exactly those keys.
+    @ObservationIgnored private var scenesCache: (revision: Int, stats: ScreenplayStats, rows: [SceneRow])?
+    @ObservationIgnored private var castCache: (revision: Int, rows: [CastRow])?
+
     private var currentEngineModel: EDraftEngine.Screenplay {
         if cachedEngineModelRevision == revision, let cachedEngineModel { return cachedEngineModel }
         let model = screenplay.engineModel
@@ -341,9 +349,12 @@ public final class EditorState {
     }
 
     public var scenes: [SceneRow] {
+        if let cache = scenesCache, cache.revision == revision, cache.stats == stats {
+            return cache.rows
+        }
         var number = 0
-        return screenplay.elements.enumerated().compactMap { index, element in
-            guard element.type == .scene, !element.text.isEmpty else { return nil }
+        let rows = screenplay.elements.enumerated().compactMap { index, element in
+            guard element.type == .scene, !element.text.isEmpty else { return nil as SceneRow? }
             number += 1
             return SceneRow(
                 id: element.id,
@@ -352,8 +363,10 @@ public final class EditorState {
                 sceneNumber: element.sceneNumber,
                 title: element.text,
                 elementIndex: index
-            )
+            ) as SceneRow?
         }
+        scenesCache = (revision, stats, rows)
+        return rows
     }
 
     /// The scene the writer is in — the Navigator's "you are here" mark.
@@ -374,6 +387,7 @@ public final class EditorState {
     }
 
     public var cast: [CastRow] {
+        if let cache = castCache, cache.revision == revision { return cache.rows }
         var counts: [String: Int] = [:]
         var firstCue: [String: UUID] = [:]
         for element in screenplay.elements where element.type == .character {
@@ -384,11 +398,15 @@ public final class EditorState {
             // looking for where they come in.
             if firstCue[name] == nil { firstCue[name] = element.id }
         }
-        return counts
-            .compactMap { name, cues in
-                firstCue[name].map { CastRow(id: name, name: name, cues: cues, firstCueID: $0) }
-            }
-            .sorted { $0.cues == $1.cues ? $0.name < $1.name : $0.cues > $1.cues }
+        var rows: [CastRow] = []
+        rows.reserveCapacity(counts.count)
+        for (name, cues) in counts {
+            guard let first = firstCue[name] else { continue }
+            rows.append(CastRow(id: name, name: name, cues: cues, firstCueID: first))
+        }
+        rows.sort { $0.cues == $1.cues ? $0.name < $1.name : $0.cues > $1.cues }
+        castCache = (revision, rows)
+        return rows
     }
 
     /// A character's thread through the script: every scene they speak in,
@@ -500,15 +518,19 @@ public final class EditorState {
     /// Trailing whitespace or a non-breaking space — left behind when a
     /// ghosted extension is accepted — must not defeat the match.
     public static func canonicalCharacterName(_ text: String) -> String {
-        text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(
-                of: #"(?:\s*\([^)]*\))+\s*$"#,
-                with: "",
-                options: .regularExpression
-            )
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .uppercased()
+        // The regex this replaces — `(?:\s*\([^)]*\))+\s*$` — cost a regex
+        // engine per cue per panel render (14ms a pass on a feature paste).
+        // The rule by hand: trailing "(extension)" groups and whitespace come
+        // off the end; nothing else is touched.
+        var rest = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        while rest.hasSuffix(")") {
+            guard let open = rest.lastIndex(of: "(") else { break }
+            /* The regex allowed exactly one close per group: an unbalanced
+               tail ("TYLER)", "NAME (A) B)") strips nothing at all. */
+            guard rest[open...].filter({ $0 == ")" }).count == 1 else { break }
+            rest = rest[..<open].trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return rest.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     }
 
     /// Whatever follows a cue's name — " (V.O.)", " (CONT'D)".
