@@ -134,16 +134,69 @@ final class SelectionFormatBarTests: XCTestCase {
         _ = editor
     }
 
+    /// Centre Line flips the element's type, and the text stays exactly the
+    /// writer's — no `> <` marker ever enters it. The line draws centred
+    /// because that is what the type means, and the bar reads it back lit.
     func testCentreMarksTheWholeLineAndAgainUnmarksIt() {
-        let (_, surface) = surface("INT. LAB - DAY\n\nThe end.")
+        let (editor, surface) = surface("INT. LAB - DAY\n\nThe end.")
         select("end", in: surface)
 
         surface.applyMark(.centered)
-        XCTAssertTrue(surface.textView.string.contains("> The end. <"))
+        XCTAssertEqual(editor.screenplay.elements.last?.type, .centered)
+        XCTAssertFalse(
+            surface.textView.string.contains(">") || surface.textView.string.contains("<"),
+            "no marker characters enter the text"
+        )
+        let lineRange = (surface.textView.string as NSString).range(of: "The end.")
+        let paragraph = surface.textView.textStorage?
+            .attribute(.paragraphStyle, at: lineRange.location, effectiveRange: nil)
+            as? NSParagraphStyle
+        XCTAssertEqual(paragraph?.alignment, .center, "a centred line draws centred")
+        XCTAssertTrue(
+            surface.styleCoverage(at: surface.textView.selectedRange()).contains(.centered),
+            "the bar reads what the line wears"
+        )
 
         surface.applyMark(.centered)
-        XCTAssertTrue(surface.textView.string.contains("The end."))
+        XCTAssertEqual(editor.screenplay.elements.last?.type, .action,
+                       "centring again takes the line back to action")
         XCTAssertFalse(surface.textView.string.contains("> The end. <"))
+    }
+
+    /// One undo lifts the whole flip, named like the styles are.
+    func testCentreIsOneNamedUndoStep() {
+        let (editor, surface) = surface("INT. LAB - DAY\n\nThe end.")
+        select("end", in: surface)
+        surface.applyMark(.centered)
+        XCTAssertEqual(editor.screenplay.elements.last?.type, .centered)
+
+        editor.undo()
+        XCTAssertEqual(editor.screenplay.elements.last?.type, .action,
+                       "one undo takes the line back to action")
+    }
+
+    /// One decision for the whole selection, the rule the styles set: a
+    /// selection spanning a centred line and a plain one centres them all —
+    /// it does not strip the first and centre the second.
+    func testCentreDecidesOnceForAMixedSelection() {
+        let (editor, surface) = surface("INT. LAB - DAY\n\nThe end.")
+        select("LAB", in: surface)
+        surface.applyMark(.centered)
+        XCTAssertEqual(editor.screenplay.elements.first?.type, .centered)
+        XCTAssertEqual(editor.screenplay.elements.last?.type, .action)
+
+        let whole = surface.textView.string as NSString
+        let span = NSUnionRange(whole.range(of: "LAB"), whole.range(of: "The"))
+        surface.textView.setSelectedRange(span)
+        surface.applyMark(.centered)
+        XCTAssertEqual(editor.screenplay.elements.first?.type, .centered,
+                       "the centred line is not stripped")
+        XCTAssertEqual(editor.screenplay.elements.last?.type, .centered,
+                       "the plain line joins it")
+
+        surface.applyMark(.centered)
+        XCTAssertEqual(editor.screenplay.elements.first?.type, .action)
+        XCTAssertEqual(editor.screenplay.elements.last?.type, .action)
     }
 
     func testAStyleMarkNeedsASelection() {

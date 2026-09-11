@@ -9,9 +9,11 @@ import SwiftUI
 /// Emphasis is data now, not notation (RFC v2.1): bold, italic, underline
 /// and strikethrough are style runs in the model, toggled through
 /// `ScriptSurface.toggleStyle`, and the file hears them exactly because the
-/// serialiser synthesises the markers at the boundary. A centred line is an
-/// element-level rewrite and a note is anchored to the element, not the
-/// selection — see `ScriptAsides`.
+/// serialiser synthesises the markers at the boundary. A centred line is
+/// the element's type, flipped through the same model path
+/// (`ScriptSurface.toggleCentered`) — the file hears `Alignment="Center"`
+/// exactly, and the text never carries a `> <` — and a note is anchored
+/// to the element, not the selection — see `ScriptAsides`.
 enum FormatMark: CaseIterable {
     case bold, italic, underline, strikethrough, centered, note
 
@@ -302,30 +304,17 @@ struct FormatBarView: View {
 extension ScriptSurface {
 
     /// Routes a mark to its mechanism. A style run is toggled through the
-    /// model (`toggleStyle`); a centred line still travels through the text
-    /// view's own input path, so the planner sees it exactly as it sees
-    /// typing — undoable, and never behind the model's back. A note is not a
-    /// text mark; the surface routes it to `addNoteAtCaret` itself.
+    /// model (`toggleStyle`); a centred line is an element-level change of
+    /// the same kind (`toggleCentered`) — the type flips through the model,
+    /// the file hears `Alignment="Center"` at the boundary, and no `> <`
+    /// marker ever enters the text. A note is not a text mark; the surface
+    /// routes it to `addNoteAtCaret` itself.
     func applyMark(_ mark: FormatMark) {
         if let style = mark.styleSet {
             toggleStyle(style, named: mark.title)
             return
         }
         guard mark == .centered else { return }
-        let selection = textView.selectedRange()
-        let text = textView.string as NSString
-        var line = text.lineRange(for: selection)
-        var content = text.substring(with: line)
-        if content.hasSuffix("\n") {
-            content.removeLast()
-            line.length -= 1
-        }
-        let trimmed = content.trimmingCharacters(in: .whitespaces)
-        let centred = trimmed.hasPrefix(">") && trimmed.hasSuffix("<")
-        let replacement = centred
-            ? String(trimmed.dropFirst().dropLast()).trimmingCharacters(in: .whitespaces)
-            : "> \(trimmed) <"
-        textView.insertText(replacement, replacementRange: line)
-        textView.setSelectedRange(NSRange(location: line.location, length: (replacement as NSString).length))
+        toggleCentered(named: mark.title)
     }
 }

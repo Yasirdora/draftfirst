@@ -2360,6 +2360,55 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         )
     }
 
+    /// Centres every line the selection touches, or takes them all back to
+    /// action — the format bar's Centre Line, an element-level change of
+    /// the same kind as `toggleStyle`.
+    ///
+    /// The element's type is the change, not the text around it: the model
+    /// and both file formats already agree on what a centred line is
+    /// (Fountain parses `> <` at the boundary, FDX stores
+    /// `Alignment="Center"`), so the only thing a marker-inserting bar ever
+    /// added was the marker. One decision for the whole selection, the rule
+    /// the styles set: every touched line already centred undoes them all,
+    /// anything else centres them all. Undo is one named step through
+    /// `applyModelEdit`, exactly like a style.
+    func toggleCentered(named actionName: String) {
+        guard let editor else { return }
+        let selection = textView.selectedRange()
+
+        var touched: [Int] = []
+        if selection.length == 0 {
+            // A caret centres the line it sits in — `elementRange(at:)`
+            // owns which element that is (an empty line is still a place,
+            // and a caret on the joining newline belongs to the element it
+            // just finished).
+            if let mapped = elementRange(at: selection.location),
+               let index = editor.screenplay.elements.firstIndex(where: { $0.id == mapped.id }) {
+                touched.append(index)
+            }
+        } else {
+            for (index, element) in editor.screenplay.elements.enumerated() {
+                guard let mapped = ranges.first(where: { $0.id == element.id }) else { continue }
+                guard NSIntersectionRange(selection, mapped.range).length > 0 else { continue }
+                touched.append(index)
+            }
+        }
+        guard !touched.isEmpty else { return }
+
+        let unmark = touched.allSatisfy { editor.screenplay.elements[$0].type == .centered }
+        var elements = editor.screenplay.elements
+        for index in touched {
+            elements[index].type = unmark ? .action : .centered
+        }
+        applyModelEdit(
+            elements,
+            activeID: editor.activeElementID ?? elements[touched[0]].id,
+            offset: editor.selectionOffset,
+            selection: selection,
+            actionName: actionName
+        )
+    }
+
     /// The undo name for a collapsed marker pair, built from the run's
     /// styles in the bar's own order: "Bold", "Bold Italic", "Underline"…
     private static func styleActionName(_ styles: StyleSet) -> String {
@@ -2372,8 +2421,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     /// The marks every character of the selection already wears — the bar's
     /// lit state. A caret answers for the next keystroke instead: the style
-    /// it would inherit by the donor rule (§4). Marks that are not styles
-    /// never light.
+    /// it would inherit by the donor rule (§4). Centre Line is not a style,
+    /// but it is a state the lines can wear: it lights when every touched
+    /// line is centred, the same "all of it" rule the styles use.
     func styleCoverage(at selection: NSRange) -> Set<FormatMark> {
         guard let editor else { return [] }
 
@@ -2381,15 +2431,18 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             guard let mapped = elementRange(at: selection.location),
                   let element = editor.screenplay.elements.first(where: { $0.id == mapped.id })
             else { return [] }
+            var lit: Set<FormatMark> = element.type == .centered ? [.centered] : []
             let length = (element.text as NSString).length
             let caret = max(0, min(selection.location - mapped.range.location, length))
             let donor = caret > 0
                 ? element.runs?.first(where: { $0.start <= caret - 1 && caret - 1 < $0.end })
                 : element.runs?.first(where: { $0.start <= caret && caret < $0.end })
-            guard let donor else { return [] }
-            return Set(FormatMark.allCases.filter {
-                $0.styleSet.map { donor.styles.contains($0) } ?? false
-            })
+            if let donor {
+                lit.formUnion(FormatMark.allCases.filter {
+                    $0.styleSet.map { donor.styles.contains($0) } ?? false
+                })
+            }
+            return lit
         }
 
         var touched: [(element: ScriptElement, range: NSRange)] = []
@@ -2403,7 +2456,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             )))
         }
         guard !touched.isEmpty else { return [] }
-        return Set(FormatMark.allCases.filter { mark in
+        var lit = Set(FormatMark.allCases.filter { mark in
             guard let style = mark.styleSet else { return false }
             return touched.allSatisfy { element, range in
                 Emphasis.isCovered(
@@ -2412,6 +2465,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 )
             }
         })
+        if touched.allSatisfy({ $0.element.type == .centered }) {
+            lit.insert(.centered)
+        }
+        return lit
     }
 
     private func registerModelUndo(_ state: ModelUndoState, actionName: String) {
