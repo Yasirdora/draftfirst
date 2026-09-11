@@ -1,6 +1,6 @@
 # Handoff
 
-*Written 2026-09-05, last updated on branch `rename/edraft`.
+*Written 2026-09-05, last updated 2026-09-11 on branch `rename/edraft`.
 For whoever picks this up next — human or otherwise.*
 
 Read this file first, then [MACOS-EXECUTION.md](MACOS-EXECUTION.md), which is
@@ -40,7 +40,7 @@ reading a number, not by reasoning about what ought to happen.
 |---|---|
 | Branch | `rename/edraft` |
 | iOS app | Feature-complete for its own plan; ships |
-| macOS app | An AppKit document window (`NSDocument`, `ScriptWindowController`) around the SwiftUI panels, one window at a time with a launch gallery behind it: page card, types, ghosts, finds, exports, prints, format bar over a selection; the toolbar's glass turns light over the page, as Pages' does. Title page is a sheet; Cast opens the character thread and the page refits. Notes live in the margin. **Next: WYSIWYG emphasis (M5), view modes, statistics** |
+| macOS app | An AppKit document window (`NSDocument`, `ScriptWindowController`) around the SwiftUI panels, one window at a time with a launch gallery behind it: page card, types, ghosts, finds, exports, prints, a format bar over a selection that toggles real style runs; the toolbar's glass turns light over the page, as Pages' does. Title page is a sheet; Cast opens the character thread and the page refits. Notes live in the margin. **Next: view modes, statistics; emphasis on the iPhone (runs are in the model and file, the phone does not draw them yet)** |
 | Packages | `EDraftEngine`, `EDraftCore`, `EDraftUI`, `EDraftMacSurface`, `EDraftUIKitSurface`, `SplitWindowKit` |
 | Xcode targets | `eDraft`, `eDraftTests`, `eDraft (macOS)` |
 
@@ -48,11 +48,11 @@ reading a number, not by reasoning about what ought to happen.
 a number drops, you broke something.
 
 ```bash
-npm test                                              # 428 TypeScript
-swift test --package-path apple/eDraftEngine          # 112 engine
-swift test --package-path apple/EDraftCore            # 149 core        (macOS)
+npm test                                              # 525 TypeScript (500 engine package + 25 web app)
+swift test --package-path apple/eDraftEngine          # 128 engine
+swift test --package-path apple/EDraftCore            # 177 core        (macOS)
 swift test --package-path apple/EDraftUI              #  24 document    (macOS)
-swift test --package-path apple/EDraftMacSurface      # 153 Mac surface (macOS)
+swift test --package-path apple/EDraftMacSurface      # 222 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project apple/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 105 app
@@ -61,9 +61,13 @@ xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   DEVELOPMENT_TEAM=""                                        # the Mac app
 ```
 
+*Recounted 2026-09-11: every number above was run against this tree, not
+carried over. The iOS count comes from the `.xcresult` bundle — xcodebuild's
+stdout does not print it.*
+
 The `EDraftUIKitSurface` package has no suite of its own and is not in that
 list. It imports UIKit, so it cannot be built by `swift test` on a Mac host at
-all; its behaviour is covered by the 102 in the iOS app target, which runs under
+all; its behaviour is covered by the 105 in the iOS app target, which runs under
 the simulator where the document plumbing those tests drive already lives. A
 test target there would be a path nobody could run.
 
@@ -145,12 +149,22 @@ prevent.**
 
 The plan is [MACOS-EXECUTION.md](MACOS-EXECUTION.md). In order of value:
 
-0. **WYSIWYG emphasis — M5, planned and not begun.** The owner's requirement:
-   bold, italic and underline drawn as type on the page, marks only in files.
-   The model has no inline runs today, so it is engine-first (TypeScript, then
-   the Swift port and its corpus, then core, then both surfaces). The order
-   and the trap to avoid are written under M5. Do not hide marks in the text
-   view instead.
+0. **WYSIWYG emphasis — Phase A shipped on the Mac (2026-09-10/11).** Bold,
+   italic, underline and strikethrough are style runs in the model — both
+   engines, corpus-pinned — never marker characters in the text; the
+   Fountain and FDX boundaries synthesise and parse the markers
+   (`Alignment="Center"` is the element's type, and Centre Line now flips
+   that instead of wrapping a line in `> <`). On the Mac the format bar
+   toggles them through the model, typed markers live-collapse on
+   completion (D6), and the bar reads back what the selection wears. The
+   design and its review are in this directory: [rfc-viewport-editing-model.md](rfc-viewport-editing-model.md)
+   (the live one, v2.1 — code comments cite it as "RFC v2.1") over
+   [rfc-emphasis-layout-model.md](rfc-emphasis-layout-model.md) (v1,
+   superseded, kept for the audit trail). What remains: the iPhone carries
+   runs losslessly but neither draws them nor offers the UI, and the Mac
+   has no Format menu or keyboard shortcuts — the bar is the only way in.
+   Later phases of the RFC (tags, revision marks, locks as run properties)
+   are unpinned and unbuilt.
 
 1. **The outline has no home.** `Outline 1/2/3` and `Summary` now read as
    sections and synopses instead of printing as stage directions, and
@@ -366,4 +380,10 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
 | [MACOS-PLAN.md](MACOS-PLAN.md) | Why macOS, why now — the market position |
 | [IOS-COMPLETENESS.md](IOS-COMPLETENESS.md) | Where the iPhone app stands |
 | [VISION.md](VISION.md) | The product — the writer never formats |
+| [rfc-viewport-editing-model.md](rfc-viewport-editing-model.md) | **RFC v2.1, the live editing-model design** — runs in the model, markers at the boundary; cited by code comments and commit messages as "RFC v2.1" (§3.3, D6, §5.x) |
+| [rfc-emphasis-layout-model.md](rfc-emphasis-layout-model.md) | RFC v1, superseded by v2 — kept for the audit trail; its §3 consumer list was Phase 0's checklist |
+| [bold-italic-underline-review.md](bold-italic-underline-review.md) | The peer review the RFCs stand on — claim-by-claim verdicts, the Beat architecture read, the landscape survey |
+| [evaluation-draft-format-plan.md](evaluation-draft-format-plan.md) | The `.draft` format evaluation — the tier rule (anything pointing at text positions must be modelled) that flipped D1 |
+| [work-package-1.txt](work-package-1.txt) | The paginator-parity work package RFC v2.1 §5.4 gates locked pages on |
+| [Goal support bold i.txt](<Goal support bold i.txt>) | The original recommendation the peer review examined — kept so the review's subject is readable |
 | `docs/artifacts/macos-design-direction.html` | A one-page summary of the design, also published as an artifact |

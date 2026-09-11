@@ -1,0 +1,91 @@
+Goal: support **bold / italic / underline** so the editing viewport shows formatted
+type (like Apple Pages), while `*`, `**`, `_` exist only in the file.
+
+## Claims to verify — MEASURED (check these against the repos)
+
+Two sibling projects by the same author, at `~/Documents/development`:
+
+**`writedown`** — SvelteKit + CodeMirror 6 markdown editor.
+1. `src/lib/editor/live-preview.ts` keeps markdown as the literal document and
+   conceals markers with `Decoration.replace({})`, for node types
+   `EmphasisMark`, `CodeMark`, `StrikethroughMark`, `HeaderMark`, `QuoteMark`,
+   `LinkMark`, `URL`.
+2. Concealment is gated on `selectionTouchesLine(...)` — markers are revealed on
+   any line the selection touches, hidden elsewhere.
+3. Decorations are built only over `view.visibleRanges`.
+4. Its README claims JSON-tree WYSIWYG editors (ProseMirror/Lexical) "can't
+   round-trip markdown losslessly".
+
+**`notedown`** — SvelteKit markdown editor with a contenteditable "Page" surface,
+plus a screenplay editor sharing eDraft's engine.
+5. `src/lib/components/WritingDesk.svelte`: `renderDocument()` sets
+   `sheet.innerHTML = renderMarkdown(desk.doc, …)`; `pageChanged()` calls
+   `serialiseMarkdown(sheet)` to convert the DOM back to markdown.
+6. `src/lib/markdown/serialise.ts:95` — `if (isBold(child)) out += wrapRun('**', inner)`.
+7. `src/lib/markdown/fidelity.ts` classifies the round trip as
+   `identical | normalized | changed | lossy`, warning on suspected loss.
+8. `src/lib/screenplay/types.ts:31` says the screenplay model holds
+   "Plain text of the element. Emphasis markers are preserved raw for now" —
+   i.e. the *screenplay* editor does NOT render emphasis; only the markdown one does.
+9. `src/lib/components/ScriptEditor.svelte` uses `textContent` throughout, not
+   `innerHTML`, for block text.
+
+## Claims to verify — FROM MEMORY, likely weakest (please research)
+
+10. Microsoft Word, Apple Pages and Google Docs model inline styling as **runs of
+    styled text over plain characters**, not as markers embedded in the text.
+11. Obsidian and Typora use the **conceal-on-inactive-line** approach, and
+    therefore reveal markers on the line holding the cursor.
+12. Therefore: a permanently clean viewport (never showing a marker, including on
+    the active line) requires a rich model + serialise-on-save, *or* requires
+    making concealed marker ranges **atomic** for caret movement, hit-testing,
+    selection and deletion.
+13. In TextKit 1, the way to hide characters so they occupy no space and are not
+    drawn is to return `NSGlyphProperty.null` from the layout manager's glyph
+    generation (`layoutManager(_:shouldGenerateGlyphs:properties:characterIndexes:font:forGlyphRange:)`).
+    **Verify this is correct and current for macOS 26**, and state the TextKit 2
+    equivalent.
+
+## Independent research requested
+
+A. How do **Word, Pages, Google Docs, LibreOffice** actually represent inline
+   character formatting internally? Cite documentation or file-format specs
+   (OOXML runs, iWork's format, ODF text:span) rather than inference.
+
+B. How do markdown/plain-text editors that offer WYSIWYG handle it —
+   **Obsidian, Typora, iA Writer, Ulysses, Bear, Zettlr, MarkText**? Which
+   reveal markers near the cursor and which never do? What are the documented
+   failure modes and user complaints?
+
+C. **Most important:** how do *screenwriting* apps do it — **Highland 2,
+   Slugline, Fade In, Final Draft**, and especially **Beat**
+   (github.com/lmparppei/Beat), an open-source macOS Fountain editor that uses
+   AppKit/TextKit. Beat is the closest possible prior art: same platform, same
+   format, same problem. **Read its actual source** and report how it renders
+   `*italic*` / `**bold**` / `_underline_` — marks concealed in place, or a
+   separate attributed model? How does it handle caret movement across markers?
+
+D. Are there known problems with either approach at scale (documents of
+   500–3000 pages)?
+
+## Specific technical question about this app
+
+eDraft's engine paginates by **counting characters** — 60 per line, 55 lines per
+page — and that pagination is authoritative (the PDF is generated from it, and
+studios schedule against the page count).
+
+If `**bold**` markers live inside the element's text, the paginator would count
+the markers toward the 60-character line width and wrap early, producing wrong
+page counts. The other assistant claims this is fixable with a "printed length"
+function that ignores markers, used by the wrap.
+
+**Is that the right fix, or does it indicate the markers shouldn't be in the
+model text at all?** Consider that Fountain's spec says emphasis markers are not
+printed.
+
+## Output wanted
+
+1. Which numbered claims are **true, false, or misleading** — with evidence.
+2. What Beat actually does (C), in detail. This may settle the question outright.
+3. Your own recommendation, including if it differs from both options above.
+4. Anything the other assistant appears to have hallucinated or overstated.

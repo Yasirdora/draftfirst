@@ -1,0 +1,110 @@
+# Work package 1 — Paginator parity with Final Draft
+
+## Your role
+
+You are working in eDraft, a native macOS/iOS screenwriting app. The codebase
+holds a high standard and you are expected to meet it:
+
+- **Clean, robust, production quality.** No spaghetti, no speculative
+  abstraction, no indirection that only forwards a call. A refactor must earn
+  itself.
+- **Fix causes, not symptoms.** Never patch over something you do not
+  understand.
+- **Measure, don't infer.** Every non-obvious fix in this repo was found by
+  instrumenting and reading a number. If you cannot verify something, say so
+  plainly rather than implying you did.
+- **Report anything you notice** — a bug, a wrong comment, a risk, a stale
+  document — even when it is outside this task. Do not fix it silently; do not
+  stay silent about it.
+
+Read `docs/HANDOFF.md` **in full** before starting. §3 has four architectural
+rules; §5 is a list of traps that have each already cost someone hours; §6 is
+the working conventions. They are not optional.
+
+## Background
+
+eDraft has its own paginator (`ScreenplayExporter.paginate`, engine
+`Paginate.swift` / `packages/edraft/src/paginate.ts`). It wraps at 60 Courier
+characters and fits 55 lines per page. Its output is authoritative: the PDF is
+generated from it, and a film production schedules against its page count.
+
+**Nobody has ever measured it against Final Draft.**
+
+That matters because the next phases (revision marks, locked pages, A-pages)
+are promises about *Final Draft's* pagination, not ours. If we are off by even
+a line per page, A-pages land in different places, and the locking model has to
+be designed around that fact rather than patched afterwards.
+
+There is precedent for exactly this kind of drift. Until recently our text view
+laid out 1–2 more lines per page than the paginator counted, because Courier
+12's advance is 7.201171875pt rather than 7.2, so 60 characters need
+432.07pt and the 432pt text block wrapped a full line one character early. That
+was found by measurement, not reasoning.
+
+## What makes this measurable
+
+A production `.fdx` records Final Draft's **own** pagination decisions:
+
+- `<SceneProperties Page="1" Length="2/8" Title="…">` on scene headings —
+  the page each scene starts on (including A-pages such as `1A`, `7A`, `7B`)
+  and the scene's length in eighths of a page. `sample02.fdx` has 36 of these.
+- `<LockedPages><LockedPage PageNumber="…">` — 25 in `sample02.fdx`.
+
+So parity is testable automatically. Line-level behaviour (where FD splits
+dialogue across a page, how it renders MOREs) is *not* in the file and remains
+a manual check — do not claim otherwise.
+
+## The task
+
+Build a **paginator parity scorecard** and report what it finds.
+
+1. For each scene in a real `.fdx`, compare our paginator's start page against
+   `SceneProperties@Page`. Handle A-page designations (`7A`) — do not silently
+   coerce them to integers.
+2. Compare our page-fraction arithmetic against `SceneProperties@Length`
+   (eighths).
+3. Compare our page count against the file's own, and our locked-page numbers
+   against `<LockedPages>`.
+4. Report per scene where we differ, by how much, and whether the error
+   accumulates down the script or is局 local.
+
+## Constraints
+
+- **Measurement only. Do not change the paginator.** If you find divergence,
+  that is a finding that informs the design of locks — not a bug to fix in this
+  package. Resist it.
+- **Test fixtures live outside the repo** at `/Users/x/Documents/sample01.fdx`
+  and `sample02.fdx`. They are Final Draft's own demo scripts — **do not commit
+  them.** The scorecard must skip cleanly when they are absent, the way
+  `LayoutBenchmarkTests` skips behind `EDRAFT_BENCHMARKS=1`.
+- **Rule 2 applies**: TypeScript is the source of truth for engine behaviour.
+  If anything in the engine must change, change `packages/edraft/src/*` first,
+  regenerate the conformance corpus, then match the Swift port. Never the
+  reverse.
+- **Do not touch another author's work in flight**: `PageZoom.swift`,
+  `CentringClipView.swift`, `PageZoomSurfaceTests.swift`,
+  `PageZoomTests.swift`. There is a `zoom-baseline` git tag; its 51 zoom tests
+  must still pass when you are done.
+- Do not add dependencies.
+
+## Done looks like
+
+- A scorecard that runs on demand, skips without the fixtures, and prints a
+  per-scene comparison plus a summary.
+- A short written finding: how close are we, where do we diverge, does the
+  error accumulate, and what does that imply for designing locked pages and
+  A-pages.
+- Green baseline maintained. Run all suites before you start and after you
+  finish; if a number drops, you broke something.
+- Commit at each green point. Commit messages are **prose** — what changed and
+  why it was worth changing. Match the voice in `git log`. Trailer:
+  `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`
+- `docs/MACOS-EXECUTION.md` updated with what you did and what you measured.
+
+## Report back
+
+1. The parity numbers.
+2. What they imply for the locking model.
+3. Anything else you noticed — bugs, wrong comments, stale docs, risks — with
+   evidence, whether or not you fixed it.
+4. Anything you could not verify, said plainly.

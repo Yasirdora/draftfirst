@@ -489,7 +489,19 @@ production drafts and counting.
       Scenes and Cast, not a mode of the page.
 - [ ] **Owed: notes on iPhone.** Same shape, same reason.
 
-### M5 — WYSIWYG emphasis · *planned 2026-09-08, not begun*
+### M5 — WYSIWYG emphasis · *planned 2026-09-08; Phase 0 + Phase A shipped 2026-09-10/11*
+
+*Status update, 2026-09-11.* The plan below ran as written, under a different
+name: the viewport editing model RFC (v2.1, `docs/rfc-viewport-editing-model.md`)
+is this milestone's design, adopted after the `.draft` format review flipped
+the storage decision to runs-in-model. Phase 0 (runs in both engines, corpus
+pinned) is `d076e1f`; Phase A (the Mac surface draws them, the format bar
+toggles them, typed markers live-collapse) is `7ffad02`; Centre Line as the
+element's type is `4b382c6`. Still owed: the iPhone draws nothing of it (the
+model carries runs losslessly — same shape as notes were), the Mac has no
+Format menu or keyboard way in, and the RFC's later phases (tags, revision
+marks, locks as run properties) are unbuilt. The original plan follows,
+unchanged.
 
 The owner's requirement: the page shows bold, italic and underline as type,
 never as `**` and `_`; markup exists only where a file is written. Today the
