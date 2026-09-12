@@ -80,6 +80,23 @@ what can and cannot be seen when the display is asleep — read it before
 debugging a Mac build that appears to hang, which would have saved forty
 minutes on 2026-09-06.
 
+**Relaunching the Mac app for the owner** — build into the project-relative
+derived-data path and open exactly that bundle, or you will hand them a stale
+app without knowing it:
+
+```bash
+xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
+  -derivedDataPath apple/build
+pkill -f "Build/Products/Debug/eDraft"; sleep 1
+open "apple/build/Build/Products/Debug/eDraft (macOS).app"
+```
+
+A bare `xcodebuild build` writes to `~/Library/Developer/Xcode/DerivedData`
+instead, and `open` on the path above launches whatever bundle was already
+there — on 2026-09-12 that cost the owner a test round against a build from
+before the work being tested, and the bug report that followed was a ghost.
+Check the bundle's mtime against the clock before you say "relaunched".
+
 ---
 
 ## 3. The architecture, and the rules that hold it up
@@ -370,6 +387,34 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
 - **Update [MACOS-EXECUTION.md](MACOS-EXECUTION.md) as you go** — tick the box,
   record the commit, and write down anything you had to measure. That file is
   what makes the next handoff cheap.
+
+### Parallel sessions
+
+Several agents work this tree at once. It holds up when — and only when —
+each one keeps to its lane:
+
+- **Own a lane, and say which one is yours.** The lanes as of 2026-09-12:
+  the paste route and corpus gate (`packages/edraft`, `apple/eDraftEngine`,
+  `PasteReassembly.swift`, `ScreenplayEditPlanner.swift`,
+  `EditorState.kindForInsertedElement`, `scripts/`); the zoom cluster
+  (`PageZoom.swift`, `PageZoomControl.swift`, the zoom parts of
+  `ScriptSurface.swift`); the Scenes-tab filter (`EDraftUI`'s
+  `StoryPanel.swift` / `NavigatorOutline.swift` and the outline derivations
+  in `EDraftCore`). A lane is a promise that nobody else needs to read your
+  diffs to keep their own work true.
+- **`EditorState.swift` is the one file every lane crosses.** When your hunk
+  shares a file with another session's uncommitted work, stage with
+  `git add -p` and answer per hunk — never stage a hunk you did not write.
+  One concern per commit, so the next session's `git log` reads as a ledger,
+  not a braid.
+- **Leave nothing uncommitted that another lane is about to touch.**
+  Uncommitted hunks in a shared file turn the next session's routine staging
+  into surgery — and the sessions that follow you cannot tell your leftovers
+  from their own bugs.
+- **Recount the baseline when you move it.** The numbers in §2 were run
+  against the tree they name; if your commit changes one, change the line,
+  and put the suite counts you actually ran in your commit message — not the
+  ones you remember.
 
 ## 7. The documents
 
