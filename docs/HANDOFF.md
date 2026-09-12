@@ -48,11 +48,11 @@ reading a number, not by reasoning about what ought to happen.
 a number drops, you broke something.
 
 ```bash
-npm test                                              # 542 TypeScript (513 engine package + 29 web app)
+npm test                                              # 547 TypeScript (518 engine package + 29 web app)
 swift test --package-path apple/eDraftEngine          # 141 engine
 swift test --package-path apple/EDraftCore            # 193 core        (macOS)
 swift test --package-path apple/EDraftUI              #  24 document    (macOS)
-swift test --package-path apple/EDraftMacSurface      # 228 Mac surface (macOS)
+swift test --package-path apple/EDraftMacSurface      # 232 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project apple/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 108 app
