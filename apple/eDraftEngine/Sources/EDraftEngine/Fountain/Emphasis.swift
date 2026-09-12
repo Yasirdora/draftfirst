@@ -437,6 +437,70 @@ public enum Emphasis {
         return normalise(out, textLength: textLength)
     }
 
+    // MARK: - the attention mark (docs/RFC-HIGHLIGHTER.md)
+
+    /// Whether the range is fully covered by the mark — the toggle's one
+    /// decision per selection: fully covered takes it off.
+    public static func highlightCovered(
+        _ runs: [StyleRun], from start: Int, to end: Int
+    ) -> Bool {
+        guard end > start else { return false }
+        var cursor = start
+        for run in runs where run.highlight != nil {
+            if run.start > cursor { return false }
+            cursor = max(cursor, run.end)
+            if cursor >= end { return true }
+        }
+        return false
+    }
+
+    /// Apply the mark over the range, or clear it when `color` is nil.
+    /// One color per point: an apply clears first and then sets, so a
+    /// marked span never carries two. A run left with no styles,
+    /// revision, tags or highlight is destroyed — the empty-run rule the
+    /// styles live by.
+    public static func toggleHighlight(
+        _ runs: [StyleRun],
+        from start: Int, to end: Int,
+        color: HighlightColor?,
+        textLength: Int
+    ) -> [StyleRun] {
+        let canonical = normalise(runs, textLength: textLength)
+        guard end > start else { return canonical }
+
+        var cleared: [StyleRun] = []
+        for run in canonical {
+            if run.end <= start || run.start >= end {
+                cleared.append(run)
+                continue
+            }
+            if run.start < start {
+                var before = run
+                before.end = start
+                cleared.append(before)
+            }
+            var inner = run
+            inner.start = max(run.start, start)
+            inner.end = min(run.end, end)
+            inner.highlight = nil
+            if inner.end > inner.start,
+               !inner.styles.isEmpty || inner.revisionID != nil
+                   || !(inner.tagNumbers ?? []).isEmpty {
+                cleared.append(inner)
+            }
+            if run.end > end {
+                var after = run
+                after.start = end
+                cleared.append(after)
+            }
+        }
+        guard let color else { return normalise(cleared, textLength: textLength) }
+        return normalise(
+            cleared + [StyleRun(start: start, end: end, styles: [], highlight: color)],
+            textLength: textLength
+        )
+    }
+
     // MARK: - live collapse (RFC v2.1 §3.3 — D6, an input transformation)
 
     public struct CollapseResult: Equatable, Sendable {
