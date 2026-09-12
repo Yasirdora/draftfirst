@@ -50,7 +50,7 @@ a number drops, you broke something.
 ```bash
 npm test                                              # 547 TypeScript (518 engine package + 29 web app)
 swift test --package-path apple/eDraftEngine          # 141 engine
-swift test --package-path apple/EDraftCore            # 193 core        (macOS)
+swift test --package-path apple/EDraftCore            # 196 core        (macOS)
 swift test --package-path apple/EDraftUI              #  24 document    (macOS)
 swift test --package-path apple/EDraftMacSurface      # 232 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
@@ -385,6 +385,7 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
 | [rfc-emphasis-layout-model.md](rfc-emphasis-layout-model.md) | RFC v1, superseded by v2 — kept for the audit trail; its §3 consumer list was Phase 0's checklist |
 | [bold-italic-underline-review.md](bold-italic-underline-review.md) | The peer review the RFCs stand on — claim-by-claim verdicts, the Beat architecture read, the landscape survey |
 | [evaluation-draft-format-plan.md](evaluation-draft-format-plan.md) | The `.draft` format evaluation — the tier rule (anything pointing at text positions must be modelled) that flipped D1 |
+| [CODE-REVIEW-2026-09-12.md](CODE-REVIEW-2026-09-12.md) | The September 12 code review — the September 10 findings verified fixed, two bugs found and pinned (the donor's mark, the rename's runs), watch items named |
 | [work-package-1.txt](work-package-1.txt) | The paginator-parity work package RFC v2.1 §5.4 gates locked pages on |
 | [Goal support bold i.txt](<Goal support bold i.txt>) | The original recommendation the peer review examined — kept so the review's subject is readable |
 | `docs/artifacts/macos-design-direction.html` | A one-page summary of the design, also published as an artifact |
