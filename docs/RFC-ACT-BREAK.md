@@ -1,6 +1,10 @@
 # RFC: Act breaks
 
-*2026-09-12. Status: proposed, awaiting sign-off. Corpus witness:
+*2026-09-12. Status: phase 1 landed — the model and the boundaries (the
+type, the paginator's break-before, FDX both directions, Fountain out, the
+Core bridge) are in both engines, pinned b3d1fc5 → de1406a → 442d720.
+Phases 2 (selector entry, navigator, renumber) and 3 (paste route) remain.
+Corpus witness:
 breaking-bad.txt (ACT ONE … END ACT FOUR, between page numbers). The design
 principle this applies — the model stores the semantic minimum, every format
 boundary derives what it can — is stated in §2 and meant to be reused.*
