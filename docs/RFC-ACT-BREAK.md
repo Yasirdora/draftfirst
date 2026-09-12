@@ -1,14 +1,19 @@
 # RFC: Act breaks
 
-*2026-09-12. Status: phases 1–2 landed. Phase 1 — the model and the
+*2026-09-12. Status: phases 1–3 landed. Phase 1 — the model and the
 boundaries (the type, the paginator's break-before, FDX both directions,
 Fountain out, the Core bridge) — pinned b3d1fc5 → de1406a → 442d720.
 Phase 2 — the derivation (§4's ordinals, canonical spelling, renumber),
 the selector entry, the delete hook, and the navigator's outline, Mac
 first per §8, the shared list serving the phone's sheet as it stands —
-pinned 1f90e5c → e6babe6 → e58b3d9 → 0558928 → d3da099. Phase 3 (§5's
-paste route, with the corpus gate) remains, as does the iOS port of the
-insert affordance. Corpus witness:
+pinned 1f90e5c → e6babe6 → e58b3d9 → 0558928 → d3da099. Phase 3 — §5's
+paste route: the classifier's act-card arm ahead of cue and speech
+position, the closing cards dropped at both engines' doors (attachment
+dies at the drop — no thought crosses an act boundary), the generated
+End of Act mirroring a writer's own card (END TEASER, Breaking Bad's
+spelling), and the paste-corpus gate holding all fourteen scripts —
+pinned 9b16b74 → b7c9189 → b3bfd95 → 34ad3c1. What remains is the iOS
+port of the insert affordance. Corpus witness:
 breaking-bad.txt (ACT ONE … END ACT FOUR, between page numbers). The design
 principle this applies — the model stores the semantic minimum, every format
 boundary derives what it can — is stated in §2 and meant to be reused.*
@@ -137,11 +142,20 @@ Two rules, both corpus-witnessed:
 - A standalone line matching `^(ACT\s+(ONE|…|TWENTY|[0-9]+))$`, blank lines
   on both sides, becomes an `actbreak`. (breaking-bad.txt, five witnesses.)
 - A standalone line matching `^END (OF )?ACT\b.*$` is dropped — derivable
-  (D3), and dropping it is what keeps it out of the cast panel.
+  (D3), and dropping it is what keeps it out of the cast panel. As landed,
+  the exact `END TEASER` drops with it: the pattern above missed the
+  teaser's own closing card, and the corpus caught what the rule's prose
+  already intended. `END COLD OPEN` stays out — unwitnessed.
 
 `TEASER` / `COLD OPEN` as standalone card lines route to `actbreak` with
 their text kept. The corpus gate: after the paste, Breaking Bad's golden
 panels hold — cast without a single ACT, four acts in the structure.
+
+Landed with one refinement the phase-1 boundary needed: the generated End
+of Act named every act by ordinal, so a TEASER would have closed as END OF
+ACT ONE. It now mirrors the act's own card when the card is not canonical —
+END TEASER, the pilot's own spelling — and keeps END OF ACT \<ordinal\> for
+the canonical ones.
 
 ## 6. UI
 
