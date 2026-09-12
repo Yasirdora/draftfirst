@@ -272,6 +272,49 @@ public enum Fdx {
 
     // MARK: - Paragraph collection
 
+    /// One Text element's attributes, read as a model run — nothing when
+    /// the run carries nothing (AllCaps aside, which lives in the text
+    /// itself; see `runIsAllCaps`).
+    private static func modelRun(
+        from attributes: [(name: String, value: String)], start: Int, end: Int
+    ) -> StyleRun? {
+        guard end > start else { return nil }
+        var styles: StyleSet = []
+        if let style = attributes.last(where: { $0.name == "style" })?.value {
+            for part in style.split(separator: "+") {
+                switch part.trimmingCharacters(in: .whitespaces) {
+                case "Bold": styles.insert(.bold)
+                case "Italic": styles.insert(.italic)
+                case "Underline": styles.insert(.underline)
+                case "Strikeout": styles.insert(.strikeout)
+                case "HiddenText": styles.insert(.hiddenText)
+                default: break   // AllCaps lives in the text — the file's own rule
+                }
+            }
+        }
+        let revision = attributes.last(where: { $0.name == "revisionid" })
+            .flatMap { Int($0.value) }
+        let tags = (attributes.last(where: { $0.name == "tagnumber" })?.value ?? "")
+            .split(separator: ",")
+            .compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+        var highlight: HighlightColor?
+        let highlightValue = attributes.last(where: {
+            $0.name == "\(Fdx.extensionPrefix.lowercased()):highlight"
+        })?.value ?? Fdx.legacyAttributePrefixes.lazy.compactMap({ legacy in
+            attributes.last(where: { $0.name == "\(legacy):highlight" })?.value
+        }).first
+        if highlightValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "yellow" {
+            highlight = .yellow
+        }
+        guard !styles.isEmpty || revision != nil || !tags.isEmpty || highlight != nil
+        else { return nil }
+        return StyleRun(
+            start: start, end: end, styles: styles,
+            revisionID: revision, tagNumbers: tags.isEmpty ? nil : tags,
+            highlight: highlight
+        )
+    }
+
     private struct CollectedParagraph {
         var attributes: [(name: String, value: String)]
         var text: String
@@ -284,6 +327,8 @@ public enum Fdx {
         /// Where its direct-child <Text> runs sit, so only they are replaced.
         var textStart: Int = -1
         var textEnd: Int = -1
+        /// The runs the paragraph's direct-child <Text> elements declared.
+        var runs: [StyleRun] = []
 
         func attribute(_ name: String) -> String? {
             attributes.last { $0.name == name }?.value
@@ -346,6 +391,9 @@ public enum Fdx {
         var metadataDepth = 0
         /// Whether the Text run being read is styled AllCaps by Final Draft.
         var runUppercases = false
+        /// The direct-child Text run being read, so its attributes become a
+        /// model run: styles, revision, tags, and our own highlight.
+        var openRun: (attributes: [(name: String, value: String)], start: Int)?
         var paragraphCount = 0
         var textRunCount = 0
         var limitReached = false
@@ -434,6 +482,7 @@ public enum Fdx {
                 runUppercases = Fdx.runIsAllCaps(
                     tag.attributes.first { $0.name == "style" }?.value
                 )
+                openRun = (attributes: tag.attributes, start: current?.text.utf16.count ?? 0)
             }
             return true
         }
@@ -451,6 +500,15 @@ public enum Fdx {
                 textDepth -= 1
                 runUppercases = false
                 current?.textEnd = tagEnd(offset)
+                if let run = openRun, current != nil {
+                    if let span = Fdx.modelRun(
+                        from: run.attributes,
+                        start: run.start, end: current!.text.utf16.count
+                    ) {
+                        current?.runs.append(span)
+                    }
+                }
+                openRun = nil
             }
             if name == "paragraph" {
                 current?.end = tagEnd(offset)
@@ -643,6 +701,11 @@ public enum Fdx {
             let type: ElementKind = refineGeneral(kind?.type ?? .general, paragraph)
 
             var element = ScreenplayElement(type: type, text: paragraph.text)
+            if !paragraph.runs.isEmpty {
+                element.runs = Emphasis.normalise(
+                    paragraph.runs, textLength: paragraph.text.utf16.count
+                )
+            }
             if type == .section, let depth = kind?.depth { element.depth = depth }
             let sceneNumber = paragraph.attribute("number") ?? ""
             if type == .scene && !sceneNumber.isEmpty { element.sceneNumber = sceneNumber }
@@ -744,7 +807,9 @@ public enum Fdx {
                 wrote = true
             }
             out += Array(units[last.end...])
-            return String(utf16CodeUnits: out, count: out.count)
+            return Fdx.ensureNamespaceDeclared(
+                String(utf16CodeUnits: out, count: out.count)
+            )
         }
     }
 
@@ -790,6 +855,10 @@ public enum Fdx {
         /// The whitespace before it, kept so a save reproduces the file byte
         /// for byte rather than re-indenting every line of a 750KB document.
         let lead: [UInt16]
+        /// The runs the file itself declared, for the content gate on a
+        /// preserving save — a run changed without a character moving still
+        /// rewrites the paragraph.
+        let runs: [StyleRun]
     }
 
     /// Opens a Final Draft file and keeps it, so it can be written back whole.
@@ -819,7 +888,8 @@ public enum Fdx {
                 end: paragraph.end,
                 textStart: paragraph.textStart,
                 textEnd: paragraph.textEnd,
-                lead: lead
+                lead: lead,
+                runs: paragraph.runs
             ))
         }
 
@@ -911,10 +981,16 @@ public enum Fdx {
         let whole = Array(units[origin.start..<origin.end])
         let sameText = recognisedText(origin.type, origin.text)
             == recognisedText(element.type, element.text)
+        /* The text is only half of a paragraph's content: a highlight or a
+           style changed without a character moving must rewrite the run too. */
+        let sameRuns = runsEqual(
+            origin.runs,
+            Emphasis.normalise(element.runs ?? [], textLength: element.text.utf16.count)
+        )
         let changedKind = origin.type != element.type
             && !fountainFlattens.contains(origin.type)
             && modelToFdx[element.type] != nil
-        if sameText && !changedKind { return whole }
+        if sameText && sameRuns && !changedKind { return whole }
         guard origin.textStart >= 0, origin.textEnd > origin.textStart else { return whole }
 
         // The attributes and every nested block stay; only the paragraph's own
@@ -922,13 +998,25 @@ public enum Fdx {
         var out = changedKind
             ? retypedOpenTag(origin, as: modelToFdx[element.type] ?? "Action", in: units)
             : Array(units[origin.start..<origin.textStart])
-        if sameText {
+        if sameText && sameRuns {
             out += Array(units[origin.textStart..<origin.end])
             return out
         }
-        out += Array("<Text>\(encodeXmlEntities(element.text))</Text>".utf16)
+        out += Array(textRunsMarkup(of: element).utf16)
         out += Array(units[origin.textEnd..<origin.end])
         return out
+    }
+
+    /// Whether two run lists say the same thing, property for property.
+    fileprivate static func runsEqual(_ a: [StyleRun], _ b: [StyleRun]) -> Bool {
+        guard a.count == b.count else { return false }
+        return zip(a, b).allSatisfy { run, other in
+            run.start == other.start && run.end == other.end
+                && run.styles == other.styles
+                && run.revisionID == other.revisionID
+                && (run.tagNumbers ?? []) == (other.tagNumbers ?? [])
+                && run.highlight == other.highlight
+        }
     }
 
     /// The paragraph's opening tag with a new Type, every other attribute left
@@ -947,6 +1035,69 @@ public enum Fdx {
             ).utf16)
         }
         return Array(head.replacingCharacters(in: range, with: " Type=\"\(fdxType)\"").utf16)
+    }
+
+    /// A paragraph's text as one or more <Text> runs.
+    ///
+    /// The model's runs become the file's runs: styles in FDX's own '+'
+    /// list, the highlight in our extension namespace, revision and tags
+    /// carried. A paragraph with no runs writes exactly what it always did —
+    /// the plain single <Text> — so a runless document's bytes never move.
+    fileprivate static func textRunsMarkup(of element: ScreenplayElement) -> String {
+        let runs = element.runs ?? []
+        guard !runs.isEmpty else {
+            return "<Text>\(encodeXmlEntities(element.text))</Text>"
+        }
+        let text = element.text as NSString
+        var out = ""
+        var cursor = 0
+        let styleOrder: [(StyleSet, String)] = [
+            (.bold, "Bold"), (.italic, "Italic"), (.underline, "Underline"),
+            (.strikeout, "Strikeout"), (.allCaps, "AllCaps"), (.hiddenText, "HiddenText")
+        ]
+        for run in runs.sorted(by: { $0.start < $1.start }) {
+            let start = max(cursor, min(run.start, text.length))
+            let end = max(start, min(run.end, text.length))
+            if start > cursor {
+                out += "<Text>\(encodeXmlEntities(text.substring(with: NSRange(location: cursor, length: start - cursor))))</Text>"
+            }
+            if end > start {
+                var attrs: [String] = []
+                let styles = styleOrder.filter { run.styles.contains($0.0) }.map { $0.1 }
+                if !styles.isEmpty { attrs.append("Style=\"\(styles.joined(separator: "+"))\"") }
+                if let revisionID = run.revisionID { attrs.append("RevisionID=\"\(revisionID)\"") }
+                if let tagNumbers = run.tagNumbers, !tagNumbers.isEmpty {
+                    attrs.append("TagNumber=\"\(tagNumbers.map(String.init).joined(separator: ","))\"")
+                }
+                if run.highlight != nil {
+                    attrs.append("\(Fdx.extensionPrefix):Highlight=\"Yellow\"")
+                }
+                let attributeText = attrs.isEmpty ? "" : " " + attrs.joined(separator: " ")
+                out += "<Text\(attributeText)>\(encodeXmlEntities(text.substring(with: NSRange(location: start, length: end - start))))</Text>"
+            }
+            cursor = end
+        }
+        if cursor < text.length {
+            out += "<Text>\(encodeXmlEntities(text.substring(from: cursor)))</Text>"
+        }
+        return out
+    }
+
+    /// A namespaced attribute means nothing without its declaration. Files
+    /// written by Final Draft have never heard of our prefix, so the first
+    /// time eDraft's own metadata is spliced into one — a highlight, a lyrics
+    /// mark — the root gains the declaration. Files that already declare it
+    /// (anything eDraft wrote) pass through byte-identical.
+    fileprivate static func ensureNamespaceDeclared(_ xml: String) -> String {
+        guard xml.contains("\(Fdx.extensionPrefix):") else { return xml }
+        guard !xml.contains("xmlns:\(Fdx.extensionPrefix)=") else { return xml }
+        guard let root = xml.range(of: "<FinalDraft") else { return xml }
+        var copy = xml
+        copy.insert(
+            contentsOf: " xmlns:\(Fdx.extensionPrefix)=\"\(Fdx.namespace)\"",
+            at: root.upperBound
+        )
+        return copy
     }
 
     /// The single <Paragraph>…</Paragraph> out of a one-element export.
@@ -988,7 +1139,7 @@ public enum Fdx {
             let encoded = encodeXmlValue(
                 element.text, diagnostics: diagnostics, context: "paragraph text", elementIndex: index
             )
-            body.append("<Paragraph \(attributes.joined(separator: " "))><Text>\(encoded)</Text></Paragraph>")
+            body.append("<Paragraph \(attributes.joined(separator: " "))>\(textRunsMarkup(of: element))</Paragraph>")
         }
 
         if omittedStructural > 0 {

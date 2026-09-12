@@ -271,17 +271,23 @@ public enum Emphasis {
             }
             let revisionID = covering.first(where: { $0.revisionID != nil })?.revisionID
             let tags = tagNumbers.sorted()
+            /* One color per point: where covering runs disagree, the
+               earliest-starting wins — the revisionID rule
+               (RFC HIGHLIGHTER §2). */
+            let highlight = covering.first(where: { $0.highlight != nil })?.highlight
 
-            if styles.isEmpty, tags.isEmpty, revisionID == nil { continue }
+            if styles.isEmpty, tags.isEmpty, revisionID == nil, highlight == nil { continue }
             let candidate = StyleRun(
                 start: start, end: end, styles: styles,
-                revisionID: revisionID, tagNumbers: tags.isEmpty ? nil : tags
+                revisionID: revisionID, tagNumbers: tags.isEmpty ? nil : tags,
+                highlight: highlight
             )
 
             let last = out.last
             if let last, last.end == start, last.styles == candidate.styles,
                last.revisionID == candidate.revisionID,
-               last.tagNumbers ?? [] == candidate.tagNumbers ?? [] {
+               last.tagNumbers ?? [] == candidate.tagNumbers ?? [],
+               last.highlight == candidate.highlight {
                 out[out.count - 1].end = end
             } else {
                 out.append(candidate)
@@ -336,7 +342,8 @@ public enum Emphasis {
         if insertedLength > 0, let donor {
             out.append(StyleRun(
                 start: start, end: start + insertedLength, styles: donor.styles,
-                revisionID: donor.revisionID, tagNumbers: donor.tagNumbers
+                revisionID: donor.revisionID, tagNumbers: donor.tagNumbers,
+                highlight: donor.highlight
             ))
         }
         return normalise(out, textLength: newLength)
@@ -417,7 +424,8 @@ public enum Emphasis {
             inner.end = min(run.end, end)
             inner.styles.subtract(style)
             if inner.end > inner.start,
-               !inner.styles.isEmpty || inner.revisionID != nil || !(inner.tagNumbers ?? []).isEmpty {
+               !inner.styles.isEmpty || inner.revisionID != nil
+                   || !(inner.tagNumbers ?? []).isEmpty || inner.highlight != nil {
                 out.append(inner)
             }
             if run.end > end {

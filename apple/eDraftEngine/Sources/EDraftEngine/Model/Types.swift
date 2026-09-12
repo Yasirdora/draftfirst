@@ -143,19 +143,31 @@ extension StyleSet: Codable {
 /// `revisionID` and `tagNumbers` live on the run because FDX puts
 /// RevisionID and TagNumber on `<Text>` next to Style — one span mechanism,
 /// and the model can never express a span the format cannot hear.
+/// Highlight colors. v1 is yellow alone; the field is a value, not a
+/// flag, so a palette is an additive UI change and never a format
+/// migration (docs/RFC-HIGHLIGHTER.md, D7).
+public enum HighlightColor: String, Codable, Equatable, Sendable {
+    case yellow
+}
+
 public struct StyleRun: Codable, Equatable, Sendable {
     public var start: Int
     public var end: Int
     public var styles: StyleSet
     public var revisionID: Int?
     public var tagNumbers: [Int]?
+    /// The attention mark (docs/RFC-HIGHLIGHTER.md): one color in v1,
+    /// carried on the run beside styles like `revisionID`.
+    public var highlight: HighlightColor?
 
     public init(start: Int, end: Int, styles: StyleSet,
-                revisionID: Int? = nil, tagNumbers: [Int]? = nil) {
+                revisionID: Int? = nil, tagNumbers: [Int]? = nil,
+                highlight: HighlightColor? = nil) {
         self.start = start
         self.end = end
         self.styles = styles
         self.revisionID = revisionID
+        self.highlight = highlight
         self.tagNumbers = tagNumbers
     }
 }
