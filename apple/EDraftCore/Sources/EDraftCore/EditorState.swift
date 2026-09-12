@@ -605,7 +605,12 @@ public final class EditorState {
 
         for index in elements.indices where elements[index].type == .character {
             guard Self.canonicalCharacterName(elements[index].text) == current else { continue }
-            elements[index].text = cueName + Self.cueExtension(elements[index].text)
+            let previous = elements[index]
+            let renamed = cueName + Self.cueExtension(previous.text)
+            elements[index].text = renamed
+            elements[index].runs = runsThroughRename(
+                previous.runs, from: previous.text, to: renamed
+            )
             changed += 1
         }
 
@@ -616,10 +621,21 @@ public final class EditorState {
             for index in elements.indices where elements[index].type != .character {
                 let text = elements[index].text
                 let range = NSRange(location: 0, length: (text as NSString).length)
-                guard regex.firstMatch(in: text, range: range) != nil else { continue }
-                elements[index].text = regex.stringByReplacingMatches(
-                    in: text, range: range, withTemplate: template
-                )
+                // One pass replaces every mention — and moves every run
+                // after each of them. Runs travel one replacement at a time,
+                // latest first, so the earlier offsets stay true.
+                let matches = regex.matches(in: text, range: range)
+                guard !matches.isEmpty else { continue }
+                var newText = text as NSString
+                var runs = elements[index].runs
+                for match in matches.reversed() {
+                    let inserted = typed.utf16.count
+                    let delta = inserted - match.range.length
+                    newText = newText.replacingCharacters(in: match.range, with: typed) as NSString
+                    runs = runs.map { runs in runs.map { reseat($0, around: match.range, delta: delta, insertedLength: inserted) } }
+                }
+                elements[index].text = newText as String
+                elements[index].runs = runs?.isEmpty == true ? nil : runs
                 changed += 1
             }
         }
@@ -627,6 +643,40 @@ public final class EditorState {
         guard changed > 0 else { return 0 }
         apply(elements, "Rename Character")
         return changed
+    }
+
+    /// The runs a name change carries with it: the diff re-seats them by
+    /// exactly the edit the text just went through, so a bold cue — or a
+    /// highlighted one — keeps its mark on the right words after a rename.
+    private func runsThroughRename(
+        _ runs: [StyleRun]?, from oldText: String, to newText: String
+    ) -> [StyleRun]? {
+        guard let runs,
+              let (range, inserted) = ScreenplayEditPlanner.replacementBetween(oldText, newText)
+        else { return runs }
+        let delta = inserted.utf16.count - range.length
+        let reseated = runs.map { reseat($0, around: range, delta: delta, insertedLength: inserted.utf16.count) }
+        return reseated.isEmpty ? nil : reseated
+    }
+
+    /// Where a run lands when a name is replaced underneath it. A name is an
+    /// atomic unit: a run that overlaps the replaced mention at all covers
+    /// the new name whole — anything less would pin the mark to letters that
+    /// merely kept their offsets, which is how a rename loses its styles.
+    private func reseat(
+        _ run: StyleRun, around range: NSRange, delta: Int, insertedLength: Int
+    ) -> StyleRun {
+        if run.end <= range.location { return run }
+        if run.start >= NSMaxRange(range) {
+            var shifted = run
+            shifted.start += delta
+            shifted.end += delta
+            return shifted
+        }
+        var covered = run
+        covered.start = min(run.start, range.location)
+        covered.end = range.location + insertedLength + max(0, run.end - NSMaxRange(range))
+        return covered
     }
 
     /// Whether a rename would fold this character into one that already
@@ -1350,9 +1400,10 @@ public final class EditorState {
         )
     }
 
-    /// A Swift-only estimate that never touches the JavaScript bridge. Used
-    /// at editor open and around structural edits: precise pagination is
-    /// always refreshed by the debounced pass, never on the critical path.
+    /// A line-count estimate, not a measurement. Used at editor open and
+    /// around structural edits: precise pagination (the Swift engine, off the
+    /// main actor) is always refreshed by the debounced pass, never on the
+    /// critical path.
     private static func quickStats(for screenplay: Screenplay) -> ScreenplayStats {
         let words = screenplay.elements.reduce(0) {
             $0 + $1.text.split(whereSeparator: \.isWhitespace).count

@@ -1,5 +1,6 @@
 import XCTest
 @testable import EDraftCore
+import EDraftEngine
 
 /// The cast and scene lists the panel reads. Both walk the whole document,
 /// and a SwiftUI body asks on every invalidation — so they are cached by
@@ -63,5 +64,65 @@ final class EditorPanelCacheTests: XCTestCase {
         for (input, expected) in cases {
             XCTAssertEqual(EditorState.canonicalCharacterName(input), expected, input)
         }
+    }
+    /// A name change moves the runs with it: the mark stays on the words it
+    /// was placed on, in cues and in prose alike — a rename must not pin a
+    /// highlight to whatever letters happened to keep their offsets.
+    func testARenameCarriesRunsThroughTheLengthChange() {
+        let editor = EditorState(source: "An opening image.")
+        let cue = ScriptElement(
+            type: .character, text: "MARA",
+            runs: [StyleRun(start: 0, end: 4, styles: [], highlight: .yellow)]
+        )
+        let prose = ScriptElement(
+            type: .action, text: "Mara crosses the room.",
+            runs: [StyleRun(start: 0, end: 4, styles: [], highlight: .yellow)]
+        )
+        editor.screenplay = Screenplay(titlePage: [], elements: [cue, prose])
+        var applied: [ScriptElement]?
+        editor.onApplyElements = { elements, _ in applied = elements }
+
+        let changed = editor.renameCharacter("MARA", to: "ELENA", includingMentions: true)
+
+        XCTAssertGreaterThan(changed, 0)
+        let newCue = applied?.first { $0.type == .character }
+        XCTAssertEqual(newCue?.text, "ELENA")
+        XCTAssertEqual(
+            newCue?.runs,
+            [StyleRun(start: 0, end: 5, styles: [], highlight: .yellow)],
+            "the mark stretches with the name, cue side"
+        )
+        let newProse = applied?.first { $0.type == .action }
+        XCTAssertEqual(newProse?.text, "ELENA crosses the room.",
+                       "prose takes the proposed name verbatim, cues take it shouted")
+        XCTAssertEqual(
+            newProse?.runs,
+            [StyleRun(start: 0, end: 5, styles: [], highlight: .yellow)],
+            "and prose side"
+        )
+    }
+
+    /// Several mentions in one paragraph each move the runs after them,
+    /// latest first — the run behind the *last* mention shifts by both
+    /// deltas, never by one.
+    func testARenameAcrossSeveralMentionsReSeatsRunsOnceEach() {
+        let editor = EditorState(source: "An opening image.")
+        let prose = ScriptElement(
+            type: .action, text: "Mara enters. Mara leaves.",
+            runs: [StyleRun(start: 13, end: 17, styles: [], highlight: .yellow)]
+        )
+        editor.screenplay = Screenplay(titlePage: [], elements: [prose])
+        var applied: [ScriptElement]?
+        editor.onApplyElements = { elements, _ in applied = elements }
+
+        _ = editor.renameCharacter("MARA", to: "JUNE", includingMentions: true)
+
+        let result = applied?.first
+        XCTAssertEqual(result?.text, "JUNE enters. JUNE leaves.")
+        XCTAssertEqual(
+            result?.runs,
+            [StyleRun(start: 13, end: 17, styles: [], highlight: .yellow)],
+            "same length here, so the mark stands where it was placed"
+        )
     }
 }
