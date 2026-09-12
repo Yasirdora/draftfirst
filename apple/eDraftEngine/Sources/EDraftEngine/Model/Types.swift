@@ -21,6 +21,10 @@ public enum ElementKind: String, Codable, Sendable, CaseIterable {
     case general
     case centered
     case lyrics
+    /// The card that opens an act. Its page break is a rule of the type (the
+    /// paginator forces one), and the act's end is derived — the next
+    /// actbreak or the document's end — never stored. RFC-ACT-BREAK §2.
+    case actbreak
     // Structural elements (never paginate/print)
     case note
     case section
@@ -31,7 +35,7 @@ public enum ElementKind: String, Codable, Sendable, CaseIterable {
     public var isPrinting: Bool {
         switch self {
         case .scene, .action, .character, .dialogue, .parenthetical,
-             .transition, .shot, .general, .centered, .lyrics:
+             .transition, .shot, .general, .centered, .lyrics, .actbreak:
             return true
         case .note, .section, .synopsis, .pagebreak:
             return false

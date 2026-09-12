@@ -19,7 +19,7 @@ struct PaginateConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.count == 10)
+        #expect(Self.corpus.count == 11)
     }
 
     @Test("paginate", arguments: Self.corpus)

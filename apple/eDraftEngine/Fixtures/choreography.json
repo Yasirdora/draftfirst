@@ -101,6 +101,16 @@
       "result": "scene"
     },
     {
+      "current": "actbreak",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "actbreak",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
       "current": "note",
       "reverse": false,
       "result": "character"
@@ -228,6 +238,15 @@
     },
     {
       "prev": "lyrics",
+      "result": [
+        "scene",
+        "action",
+        "character",
+        "transition"
+      ]
+    },
+    {
+      "prev": "actbreak",
       "result": [
         "scene",
         "action",
@@ -407,6 +426,18 @@
     },
     {
       "current": "scene",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "scene",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "scene",
       "prev": "note",
       "reverse": false,
       "result": "action"
@@ -587,6 +618,18 @@
     },
     {
       "current": "action",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "character"
+    },
+    {
+      "current": "action",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "scene"
+    },
+    {
+      "current": "action",
       "prev": "note",
       "reverse": false,
       "result": "character"
@@ -767,6 +810,18 @@
     },
     {
       "current": "character",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "transition"
+    },
+    {
+      "current": "character",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "action"
+    },
+    {
+      "current": "character",
       "prev": "note",
       "reverse": false,
       "result": "transition"
@@ -947,6 +1002,18 @@
     },
     {
       "current": "dialogue",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "dialogue",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "dialogue",
       "prev": "note",
       "reverse": false,
       "result": "scene"
@@ -1127,6 +1194,18 @@
     },
     {
       "current": "parenthetical",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "parenthetical",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "parenthetical",
       "prev": "note",
       "reverse": false,
       "result": "scene"
@@ -1307,6 +1386,18 @@
     },
     {
       "current": "transition",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "transition",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "transition",
       "prev": "note",
       "reverse": false,
       "result": "scene"
@@ -1487,6 +1578,18 @@
     },
     {
       "current": "shot",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "shot",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "shot",
       "prev": "note",
       "reverse": false,
       "result": "scene"
@@ -1667,6 +1770,18 @@
     },
     {
       "current": "general",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "general",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "general",
       "prev": "note",
       "reverse": false,
       "result": "scene"
@@ -1847,6 +1962,18 @@
     },
     {
       "current": "centered",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "centered",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "centered",
       "prev": "note",
       "reverse": false,
       "result": "scene"
@@ -2027,6 +2154,18 @@
     },
     {
       "current": "lyrics",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "lyrics",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "lyrics",
       "prev": "note",
       "reverse": false,
       "result": "scene"
@@ -2069,6 +2208,198 @@
     },
     {
       "current": "lyrics",
+      "prev": "pagebreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": null,
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
+      "prev": null,
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "scene",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "actbreak",
+      "prev": "scene",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "action",
+      "reverse": false,
+      "result": "action"
+    },
+    {
+      "current": "actbreak",
+      "prev": "action",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "character",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "actbreak",
+      "prev": "character",
+      "reverse": true,
+      "result": "parenthetical"
+    },
+    {
+      "current": "actbreak",
+      "prev": "dialogue",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "actbreak",
+      "prev": "dialogue",
+      "reverse": true,
+      "result": "character"
+    },
+    {
+      "current": "actbreak",
+      "prev": "parenthetical",
+      "reverse": false,
+      "result": "dialogue"
+    },
+    {
+      "current": "actbreak",
+      "prev": "parenthetical",
+      "reverse": true,
+      "result": "dialogue"
+    },
+    {
+      "current": "actbreak",
+      "prev": "transition",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
+      "prev": "transition",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "shot",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
+      "prev": "shot",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "general",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
+      "prev": "general",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "centered",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
+      "prev": "centered",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "lyrics",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
+      "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "note",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
+      "prev": "note",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "section",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
+      "prev": "section",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "synopsis",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
+      "prev": "synopsis",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "actbreak",
+      "prev": "pagebreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "actbreak",
       "prev": "pagebreak",
       "reverse": true,
       "result": "transition"
@@ -2207,6 +2538,18 @@
     },
     {
       "current": "note",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "note",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "note",
       "prev": "note",
       "reverse": false,
       "result": "scene"
@@ -2387,6 +2730,18 @@
     },
     {
       "current": "section",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "section",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "section",
       "prev": "note",
       "reverse": false,
       "result": "scene"
@@ -2567,6 +2922,18 @@
     },
     {
       "current": "synopsis",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "synopsis",
+      "prev": "actbreak",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "synopsis",
       "prev": "note",
       "reverse": false,
       "result": "scene"
@@ -2742,6 +3109,18 @@
     {
       "current": "pagebreak",
       "prev": "lyrics",
+      "reverse": true,
+      "result": "transition"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "actbreak",
+      "reverse": false,
+      "result": "scene"
+    },
+    {
+      "current": "pagebreak",
+      "prev": "actbreak",
       "reverse": true,
       "result": "transition"
     },
@@ -3271,6 +3650,54 @@
     },
     {
       "current": "lyrics",
+      "key": "tab",
+      "text": " ",
+      "result": "character"
+    },
+    {
+      "current": "actbreak",
+      "key": "enter",
+      "text": "x",
+      "result": "action"
+    },
+    {
+      "current": "actbreak",
+      "key": "enter",
+      "text": "",
+      "result": "action"
+    },
+    {
+      "current": "actbreak",
+      "key": "enter",
+      "text": "   ",
+      "result": "action"
+    },
+    {
+      "current": "actbreak",
+      "key": "enter",
+      "text": " ",
+      "result": "action"
+    },
+    {
+      "current": "actbreak",
+      "key": "tab",
+      "text": "x",
+      "result": "character"
+    },
+    {
+      "current": "actbreak",
+      "key": "tab",
+      "text": "",
+      "result": "character"
+    },
+    {
+      "current": "actbreak",
+      "key": "tab",
+      "text": "   ",
+      "result": "character"
+    },
+    {
+      "current": "actbreak",
       "key": "tab",
       "text": " ",
       "result": "character"

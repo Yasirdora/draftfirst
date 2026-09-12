@@ -20,7 +20,7 @@ struct NormalizeConformanceTests {
         #expect(Self.corpus.unwrapParenthetical.count == 12)
         #expect(Self.corpus.cue.count == 25)
         #expect(Self.corpus.looksLikeCue.count == 13)
-        #expect(Self.corpus.elementText.count == 50)
+        #expect(Self.corpus.elementText.count == 55)
     }
 
     @Test("normalizeParenthetical", arguments: Self.corpus.parenthetical)

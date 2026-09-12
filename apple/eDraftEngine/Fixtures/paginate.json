@@ -17279,5 +17279,128 @@
       "runtime": "~1 minute",
       "printedLines": 4
     }
+  },
+  {
+    "name": "act-breaks",
+    "screenplay": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "action",
+          "text": "The teaser plays out."
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "scene",
+          "text": "INT. WHITE HOUSE - NIGHT"
+        },
+        {
+          "type": "action",
+          "text": "No president ever slept here."
+        },
+        {
+          "type": "pagebreak",
+          "text": ""
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT TWO"
+        },
+        {
+          "type": "action",
+          "text": "The middle."
+        }
+      ]
+    },
+    "expected": {
+      "pages": [
+        {
+          "number": 1,
+          "lines": [
+            {
+              "text": "The teaser plays out.",
+              "type": "action",
+              "indent": 0,
+              "element": 0
+            }
+          ],
+          "continuedTop": false,
+          "continuedBottom": false
+        },
+        {
+          "number": 2,
+          "lines": [
+            {
+              "text": "ACT ONE",
+              "type": "actbreak",
+              "indent": 26,
+              "element": 1
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 2
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 2
+            },
+            {
+              "text": "INT. WHITE HOUSE - NIGHT",
+              "type": "scene",
+              "indent": 0,
+              "element": 2
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 3
+            },
+            {
+              "text": "No president ever slept here.",
+              "type": "action",
+              "indent": 0,
+              "element": 3
+            }
+          ],
+          "continuedTop": false,
+          "continuedBottom": true
+        },
+        {
+          "number": 3,
+          "lines": [
+            {
+              "text": "ACT TWO",
+              "type": "actbreak",
+              "indent": 26,
+              "element": 5
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 6
+            },
+            {
+              "text": "The middle.",
+              "type": "action",
+              "indent": 0,
+              "element": 6
+            }
+          ],
+          "continuedTop": true,
+          "continuedBottom": false
+        }
+      ],
+      "runtime": "~3 minutes",
+      "printedLines": 6
+    }
   }
 ]

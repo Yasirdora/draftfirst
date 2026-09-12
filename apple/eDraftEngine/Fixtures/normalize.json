@@ -505,6 +505,31 @@
       "type": "lyrics",
       "input": "Some action.",
       "result": "Some action."
+    },
+    {
+      "type": "actbreak",
+      "input": "beat",
+      "result": "beat"
+    },
+    {
+      "type": "actbreak",
+      "input": "(beat",
+      "result": "(beat"
+    },
+    {
+      "type": "actbreak",
+      "input": "MARA (CONT'D)",
+      "result": "MARA (CONT'D)"
+    },
+    {
+      "type": "actbreak",
+      "input": "INT. LAB - DAY",
+      "result": "INT. LAB - DAY"
+    },
+    {
+      "type": "actbreak",
+      "input": "Some action.",
+      "result": "Some action."
     }
   ]
 }

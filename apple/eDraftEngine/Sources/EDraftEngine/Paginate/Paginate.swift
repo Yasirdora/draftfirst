@@ -111,6 +111,10 @@ public enum Paginator {
         .general: Geometry(indent: 0, width: 60, before: 1),
         .centered: Geometry(indent: 0, width: 60, before: 1),
         .lyrics: Geometry(indent: 10, width: 35, before: 0),
+        // The card always lands at the top of the page its break just opened,
+        // so `before` is moot — the fold's top-of-page suppression drops it
+        // anyway. Zero states that honestly.
+        .actbreak: Geometry(indent: 0, width: 60, before: 0),
     ]
 
     // MARK: - Text wrapping
@@ -308,6 +312,30 @@ public enum Paginator {
             guard element.type.isPrinting else { return }
 
             let geo = Paginator.geometry[element.type] ?? Paginator.geometry[.action]!
+
+            if element.type == .actbreak {
+                /* Break-before is a rule of the type (RFC-ACT-BREAK D2), not a
+                   stored pagebreak the writer could delete. The fold ignores a
+                   break on an empty page, so a document opening on ACT ONE gets
+                   no blank first page, and a writer's pagebreak beside the card
+                   collapses into one break. The flow flush is the block
+                   boundary: no speech straddles an act, so no MORE/CONT'D pair
+                   ever spans one. */
+                flushFlow()
+                buffered.append(.pagebreak)
+                buffered.append(.block(Block(
+                    kind: .simple,
+                    before: geo.before,
+                    lines: Paginator.wrapText(element.text, width: Paginator.pageWidthChars).map { text in
+                        FlowLine(
+                            text: text, type: element.type,
+                            indent: Paginator.alignedIndent(text: text, right: false),
+                            element: elementIndex
+                        )
+                    }
+                )))
+                return
+            }
 
             if Paginator.flowTypes.contains(element.type) {
                 if element.type == .character || flow == nil {

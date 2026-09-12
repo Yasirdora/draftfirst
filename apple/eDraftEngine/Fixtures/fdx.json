@@ -631,10 +631,31 @@
             {
               "type": "synopsis",
               "text": "Tangle questions Uncle."
+            }
+          ]
+        },
+        "diagnostics": []
+      }
+    },
+    {
+      "name": "act-breaks",
+      "source": "<FinalDraft><Content><Paragraph Type=\"Action\"><Text>The teaser plays out.</Text></Paragraph><Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END OF TEASER</Text></Paragraph><Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT ONE</Text></Paragraph><Paragraph Type=\"Action\"><Text>No president ever slept here.</Text></Paragraph></Content></FinalDraft>",
+      "options": {},
+      "expected": {
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "action",
+              "text": "The teaser plays out."
             },
             {
-              "type": "centered",
-              "text": "The end"
+              "type": "actbreak",
+              "text": "ACT ONE"
+            },
+            {
+              "type": "action",
+              "text": "No president ever slept here."
             }
           ]
         },
@@ -4918,6 +4939,38 @@
             "elementIndex": 0
           }
         ]
+      }
+    },
+    {
+      "name": "act-breaks",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "Teaser."
+          },
+          {
+            "type": "actbreak",
+            "text": "ACT ONE"
+          },
+          {
+            "type": "action",
+            "text": "Middle."
+          },
+          {
+            "type": "actbreak",
+            "text": "ACT TWO"
+          },
+          {
+            "type": "action",
+            "text": "End."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Action\"><Text>Teaser.</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT ONE</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Middle.</Text></Paragraph>\n<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END OF ACT ONE</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT TWO</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>End.</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
+        "diagnostics": []
       }
     }
   ]

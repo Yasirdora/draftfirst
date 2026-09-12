@@ -188,13 +188,13 @@ public enum Fdx {
         // a writer's notes on the page — ten of them across the two real
         // features this was measured on.
         "note": .note,
-        // Act breaks. Both print, both carry `Alignment="Center"` on the
-        // paragraph, so `refineGeneral` makes them centered and they come out
-        // looking the way Final Draft drew them. Named here rather than left
-        // to fall through so they stop being reported as unknown: a warning a
-        // reader cannot act on is one that teaches them to ignore the list.
-        "new act": .general,
-        "end of act": .general
+        // The card that opens an act prints and is structure: the model's
+        // actbreak keeps both (RFC-ACT-BREAK §3). Its Alignment="Center" is a
+        // property of the type, so nothing is refined from attributes.
+        "new act": .actbreak
+        /* "end of act" is deliberately absent: it carries no fact the model
+           lacks — an act ends where the next one begins (D3). The import loop
+           absorbs it; mapping it here would store a derivable fact. */
     ]
 
     /// The outline levels, which Final Draft lets a writer rename.
@@ -254,6 +254,7 @@ public enum Fdx {
         .general: "General",
         .centered: "General",
         .lyrics: "General",
+        .actbreak: "New Act",
         .note: "Note",
         .synopsis: "Summary"
         /* `.section` is not here: its level is part of its type — see
@@ -688,6 +689,11 @@ public enum Fdx {
         for paragraph in parsed.body {
             let fdxType = paragraph.attribute("type") ?? ""
             let key = fdxType.jsTrimmed.lowercased()
+            /* RFC-ACT-BREAK D3: an End of Act carries no fact the model lacks —
+               an act ends where the next one begins, and the export regenerates
+               these. Absorbed without a warning: a diagnostic the reader cannot
+               act on only teaches them to ignore the list. */
+            if key == "end of act" { continue }
             let kind = fdxElementKind(key)
             if kind == nil && !fdxType.isEmpty {
                 diagnostics.add(.init(
@@ -754,6 +760,11 @@ public enum Fdx {
     /// import reaches, so a rewrite cannot disagree with it.
     private static func elementKind(of paragraph: CollectedParagraph) -> ElementKind {
         let key = (paragraph.attribute("type") ?? "").jsTrimmed.lowercased()
+        /* End of Act falls to .general here on purpose: the import absorbed
+           it (RFC-ACT-BREAK D3), so no model element ever matches this span,
+           and an unmatched span is preserved verbatim. The two readers must
+           keep disagreeing — if this one ever absorbed too, the span's bytes
+           would have no owner. */
         return refineGeneral(fdxElementKind(key)?.type ?? .general, paragraph)
     }
 
@@ -1110,6 +1121,19 @@ public enum Fdx {
 
     // MARK: - Export
 
+    /// The ordinal an act card spells: words through twenty, digits beyond —
+    /// some scripts run long (RFC-ACT-BREAK D4). Shared by the generated
+    /// End of Act cards and, in phase 2, the selector's default card text.
+    private static let actOrdinalWords = [
+        "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN",
+        "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN",
+        "EIGHTEEN", "NINETEEN", "TWENTY"
+    ]
+
+    public static func actOrdinalWord(_ n: Int) -> String {
+        n >= 1 && n <= actOrdinalWords.count ? actOrdinalWords[n - 1] : String(n)
+    }
+
     /// Serialise the engine model as FDX XML. Structural elements the FDX
     /// paragraph subset cannot represent are omitted, reported in
     /// `diagnostics`, and noted in an in-file warning comment.
@@ -1120,6 +1144,7 @@ public enum Fdx {
         var body: [String] = []
         var omittedStructural = 0
         var omittedUnknown = 0
+        var actOrdinal = 0
 
         for (index, element) in script.elements.enumerated() {
             guard let fdxType = fdxType(of: element) else {
@@ -1127,8 +1152,23 @@ public enum Fdx {
                 continue
             }
 
+            if element.type == .actbreak {
+                /* D3, written out loud: the act that just ended is a derivable
+                   fact, so its card is generated here rather than stored in the
+                   model. Final Draft readers see the file their software would
+                   have written; eDraft never stores it. */
+                actOrdinal += 1
+                if actOrdinal > 1 {
+                    body.append(
+                        "<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END OF ACT \(actOrdinalWord(actOrdinal - 1))</Text></Paragraph>"
+                    )
+                }
+            }
+
             var attributes = ["Type=\"\(fdxType)\""]
-            if element.type == .centered { attributes.append("Alignment=\"Center\"") }
+            if element.type == .centered || element.type == .actbreak {
+                attributes.append("Alignment=\"Center\"")
+            }
             if element.type == .lyrics { attributes.append("\(extensionPrefix):ElementType=\"lyrics\"") }
             if element.type == .character && element.dual == true { attributes.append("Dual=\"Yes\"") }
             if element.type == .scene, let sceneNumber = element.sceneNumber, !sceneNumber.isEmpty {

@@ -224,7 +224,9 @@ public enum PredictionEngine {
         for i in stride(from: clampIndex(elements, beforeIndex) - 1, through: 0, by: -1) {
             let element = elements[i]
             switch element.type {
-            case .scene:
+            /* An act boundary ends a voice as surely as a scene cut does — a
+               speech never continues across one. */
+            case .scene, .actbreak:
                 return false
             case .character:
                 return spoke

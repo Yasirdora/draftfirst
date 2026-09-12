@@ -27,6 +27,9 @@ public enum Choreography {
         .general: .action,
         .centered: .action,
         .lyrics: .lyrics,
+        // A card is never a speech beat: Return after it opens action, like
+        // a transition or any other off-ring type. RFC-ACT-BREAK §6.
+        .actbreak: .action,
     ]
 
     /// Where a line with nothing on it goes when Return is pressed on it

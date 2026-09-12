@@ -46,7 +46,7 @@ mkdirSync(outDir, { recursive: true });
 
 const PRINTING_TYPES = [
 	'scene', 'action', 'character', 'dialogue', 'parenthetical',
-	'transition', 'shot', 'general', 'centered', 'lyrics'
+	'transition', 'shot', 'general', 'centered', 'lyrics', 'actbreak'
 ];
 const STRUCTURAL_TYPES = ['note', 'section', 'synopsis', 'pagebreak'];
 const ALL_TYPES = [...PRINTING_TYPES, ...STRUCTURAL_TYPES];
@@ -347,6 +347,36 @@ for (const { name, source } of SCRIPTS) {
 			pages: twinPages,
 			runtime: estimateRuntime(twinPages),
 			printedLines: printedLineCount(twinPages)
+		}
+	});
+}
+
+/* Act breaks (RFC-ACT-BREAK): the card opens a fresh page, centred at its
+   top; a document opening on ACT ONE gets no blank first page; a writer's
+   pagebreak beside the card collapses into one break. The model elements are
+   literal — Fountain's own spelling for the card parses as centered, the
+   named degradation, so no Fountain source can build this document. */
+{
+	const withActs = {
+		titlePage: [],
+		elements: [
+			{ type: 'action', text: 'The teaser plays out.' },
+			{ type: 'actbreak', text: 'ACT ONE' },
+			{ type: 'scene', text: 'INT. WHITE HOUSE - NIGHT' },
+			{ type: 'action', text: 'No president ever slept here.' },
+			{ type: 'pagebreak', text: '' },
+			{ type: 'actbreak', text: 'ACT TWO' },
+			{ type: 'action', text: 'The middle.' }
+		]
+	};
+	const actPages = paginate(withActs);
+	paginateFixture.push({
+		name: 'act-breaks',
+		screenplay: withActs,
+		expected: {
+			pages: actPages,
+			runtime: estimateRuntime(actPages),
+			printedLines: printedLineCount(actPages)
 		}
 	});
 }
@@ -867,6 +897,12 @@ addFdxImport(
 	'outline',
 	`<FinalDraft><Content><Paragraph Type="Outline 1"><Text>Act One</Text></Paragraph><Paragraph Type="Outline 2 (Sequences)"><Text>Meet Tangle</Text></Paragraph><Paragraph Type="Outline 3"><Text>Set up Gold Key</Text></Paragraph><Paragraph Type="Summary"><Text>Tangle questions Uncle.</Text></Paragraph><Paragraph Alignment="Center" Type="End of Act"><Text>The end</Text></Paragraph></Content></FinalDraft>`
 );
+/* Act breaks (RFC-ACT-BREAK §3): New Act imports as the actbreak element,
+   End of Act is absorbed — a fact the model derives, never stores. */
+addFdxImport(
+	'act-breaks',
+	`<FinalDraft><Content><Paragraph Type="Action"><Text>The teaser plays out.</Text></Paragraph><Paragraph Type="End of Act" Alignment="Center"><Text>END OF TEASER</Text></Paragraph><Paragraph Type="New Act" Alignment="Center"><Text>ACT ONE</Text></Paragraph><Paragraph Type="Action"><Text>No president ever slept here.</Text></Paragraph></Content></FinalDraft>`
+);
 addFdxImport('limits-source', `<FinalDraft><Content/></FinalDraft>`, { maxSourceCharacters: 10 });
 addFdxImport(
 	'limits-warnings',
@@ -915,6 +951,20 @@ addFdxExport('structural-omissions', {
 addFdxExport('illegal-characters', {
 	titlePage: [],
 	elements: [{ type: 'action', text: 'A\u0000B' }]
+});
+
+/* Act breaks (RFC-ACT-BREAK §3): each actbreak exports as New Act with
+   Alignment="Center", and the End of Act cards a Final Draft reader expects
+   are generated from the derived boundary — never stored in the model. */
+addFdxExport('act-breaks', {
+	titlePage: [],
+	elements: [
+		{ type: 'action', text: 'Teaser.' },
+		{ type: 'actbreak', text: 'ACT ONE' },
+		{ type: 'action', text: 'Middle.' },
+		{ type: 'actbreak', text: 'ACT TWO' },
+		{ type: 'action', text: 'End.' }
+	]
 });
 
 writeFixture('fdx.json', { import: fdxImport, export: fdxExport });

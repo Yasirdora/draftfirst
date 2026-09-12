@@ -18,10 +18,10 @@ struct ChoreographyConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.tabNext.count == 28)
-        #expect(Self.corpus.tabSetFor.count == 15)
-        #expect(Self.corpus.tabCycle.count == 420)
-        #expect(Self.corpus.nextElement.count == 112)
+        #expect(Self.corpus.tabNext.count == 30)
+        #expect(Self.corpus.tabSetFor.count == 16)
+        #expect(Self.corpus.tabCycle.count == 480)
+        #expect(Self.corpus.nextElement.count == 120)
     }
 
     @Test("tabRingCycle", arguments: Self.corpus.tabNext)
