@@ -474,7 +474,10 @@ public struct ScreenplayEditPlanner {
             out += Emphasis.slice(headRuns, partStart..<min(partEnd, headLength))
         }
 
-        // Replacement: inherits the donor's properties wholesale.
+        // Replacement: inherits the donor's properties wholesale — the
+        // *whole* set, mark included (§4). Leaving `highlight` off this
+        // construction silently dropped the mark from text inserted into a
+        // highlighted span.
         let donorStart = max(partStart, headLength)
         let donorEnd = min(partEnd, tailStart)
         if donorStart < donorEnd, let donor {
@@ -483,7 +486,8 @@ public struct ScreenplayEditPlanner {
                 end: donorEnd - partStart,
                 styles: donor.styles,
                 revisionID: donor.revisionID,
-                tagNumbers: donor.tagNumbers
+                tagNumbers: donor.tagNumbers,
+                highlight: donor.highlight
             ))
         }
 

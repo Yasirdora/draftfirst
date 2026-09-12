@@ -80,4 +80,32 @@ final class PasteFormattingTests: XCTestCase {
         XCTAssertEqual(plan?.elements.last?.type, .dialogue)
         XCTAssertEqual(plan?.elements.last?.text, "It is.")
     }
+
+    /// The donor rule gives inserted text the *whole* property set (§4) —
+    /// mark included. Inserting at the end of a highlighted word must not
+    /// drop the highlight on what follows it.
+    func testInsertionIntoAMarkedSpanKeepsTheMark() {
+        let element = ScriptElement(
+            type: .action, text: "The word",
+            runs: [StyleRun(start: 4, end: 8, styles: [], highlight: .yellow)]
+        )
+        let plan = ScreenplayEditPlanner.plan(
+            elements: [element],
+            replacing: NSRange(location: 8, length: 0),
+            with: " and more",
+            intent: .replacement,
+            kindForNewElement: { previous, text, depth in
+                EditorState(source: "").kindForInsertedElement(
+                    after: previous, text: text, pasteDepth: depth
+                )
+            }
+        )
+
+        let runs = plan?.elements.first?.runs ?? []
+        XCTAssertEqual(
+            runs.filter { $0.highlight != nil }.map { "\($0.start)-\($0.end)" },
+            ["4-17"],
+            "the mark covers the original word and what the donor passed on"
+        )
+    }
 }
