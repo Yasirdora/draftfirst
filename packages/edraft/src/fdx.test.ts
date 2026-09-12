@@ -1,7 +1,6 @@
 /** FDX import, export, diagnostics, limits, and round-trip behavior. */
 import { describe, expect, it } from 'vitest';
 import {
-	actOrdinalWord,
 	decodeXmlEntities,
 	encodeXmlEntities,
 	openFdx,
@@ -745,13 +744,5 @@ describe('FDX · act breaks (RFC-ACT-BREAK §3)', () => {
 		};
 		const { script: back } = parseFdx(writeFdx(script));
 		expect(back.elements).toEqual(script.elements);
-	});
-
-	it('spells ordinals in words through twenty, digits beyond', () => {
-		expect(actOrdinalWord(1)).toBe('ONE');
-		expect(actOrdinalWord(4)).toBe('FOUR');
-		expect(actOrdinalWord(20)).toBe('TWENTY');
-		expect(actOrdinalWord(21)).toBe('21');
-		expect(actOrdinalWord(113)).toBe('113');
 	});
 });

@@ -1,0 +1,353 @@
+{
+  "ordinals": [
+    {
+      "n": 1,
+      "result": "ONE"
+    },
+    {
+      "n": 2,
+      "result": "TWO"
+    },
+    {
+      "n": 4,
+      "result": "FOUR"
+    },
+    {
+      "n": 10,
+      "result": "TEN"
+    },
+    {
+      "n": 20,
+      "result": "TWENTY"
+    },
+    {
+      "n": 21,
+      "result": "21"
+    },
+    {
+      "n": 22,
+      "result": "22"
+    },
+    {
+      "n": 113,
+      "result": "113"
+    }
+  ],
+  "canonical": [
+    {
+      "text": "ACT ONE",
+      "result": true
+    },
+    {
+      "text": "ACT TWENTY",
+      "result": true
+    },
+    {
+      "text": "ACT 21",
+      "result": true
+    },
+    {
+      "text": "ACT 3",
+      "result": true
+    },
+    {
+      "text": "TEASER",
+      "result": false
+    },
+    {
+      "text": "COLD OPEN",
+      "result": false
+    },
+    {
+      "text": "ACT TWO: THE TURN",
+      "result": false
+    },
+    {
+      "text": "Act One",
+      "result": false
+    },
+    {
+      "text": "ACT TWENTYONE",
+      "result": false
+    },
+    {
+      "text": "ACT ONE ",
+      "result": false
+    },
+    {
+      "text": "ACT  ONE",
+      "result": false
+    },
+    {
+      "text": "ACT",
+      "result": false
+    },
+    {
+      "text": "",
+      "result": false
+    },
+    {
+      "text": "END OF ACT ONE",
+      "result": false
+    }
+  ],
+  "renumber": [
+    {
+      "input": [
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT TWO"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT THREE"
+        }
+      ],
+      "result": [
+        "ACT ONE",
+        "ACT TWO",
+        "ACT THREE"
+      ]
+    },
+    {
+      "input": [
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT THREE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT FOUR"
+        }
+      ],
+      "result": [
+        "ACT ONE",
+        "ACT TWO",
+        "ACT THREE"
+      ]
+    },
+    {
+      "input": [
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "TEASER"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT TWO"
+        }
+      ],
+      "result": [
+        "ACT ONE",
+        "TEASER",
+        "ACT THREE"
+      ]
+    },
+    {
+      "input": [
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT TWO"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT TWO"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT THREE"
+        }
+      ],
+      "result": [
+        "ACT ONE",
+        "ACT TWO",
+        "ACT THREE",
+        "ACT FOUR"
+      ]
+    },
+    {
+      "input": [
+        {
+          "type": "actbreak",
+          "text": "ACT 1"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT 2"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT 5"
+        }
+      ],
+      "result": [
+        "ACT ONE",
+        "ACT TWO",
+        "ACT THREE"
+      ]
+    },
+    {
+      "input": [
+        {
+          "type": "scene",
+          "text": "INT. ROOM - DAY"
+        },
+        {
+          "type": "action",
+          "text": "ACT ONE is said aloud, not printed."
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT SEVEN"
+        },
+        {
+          "type": "action",
+          "text": "After the card."
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT TWO"
+        }
+      ],
+      "result": [
+        "INT. ROOM - DAY",
+        "ACT ONE is said aloud, not printed.",
+        "ACT ONE",
+        "After the card.",
+        "ACT TWO"
+      ]
+    },
+    {
+      "input": [
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        }
+      ],
+      "result": [
+        "ACT ONE",
+        "ACT TWO",
+        "ACT THREE",
+        "ACT FOUR",
+        "ACT FIVE",
+        "ACT SIX",
+        "ACT SEVEN",
+        "ACT EIGHT",
+        "ACT NINE",
+        "ACT TEN",
+        "ACT ELEVEN",
+        "ACT TWELVE",
+        "ACT THIRTEEN",
+        "ACT FOURTEEN",
+        "ACT FIFTEEN",
+        "ACT SIXTEEN",
+        "ACT SEVENTEEN",
+        "ACT EIGHTEEN",
+        "ACT NINETEEN",
+        "ACT TWENTY",
+        "ACT 21",
+        "ACT 22"
+      ]
+    }
+  ]
+}

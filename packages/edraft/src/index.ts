@@ -15,6 +15,14 @@ export type {
 export { contentIndex, fountainIndex, isPrinting } from './types.js';
 
 export {
+	ACT_ORDINAL_WORDS,
+	actOrdinal,
+	defaultActCard,
+	isCanonicalActCard,
+	renumberActs
+} from './acts.js';
+
+export {
 	escapeFountainContent,
 	liveCollapse,
 	normaliseRuns,

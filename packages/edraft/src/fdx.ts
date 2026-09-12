@@ -11,6 +11,7 @@
  * helper embeds an XML warning when non-printing structure must be omitted.
  */
 
+import { actOrdinal } from './acts.js';
 import { canonicalCasing } from './normalize.js';
 import { normaliseRuns, STYLE_ORDER } from './style.js';
 import { isPrinting } from './types.js';
@@ -1321,19 +1322,6 @@ function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph
 
 const XML_HEADER = '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>';
 
-/** The ordinal an act card spells: words through twenty, digits beyond —
-    some scripts run long (RFC-ACT-BREAK D4). Shared by the generated
-    End of Act cards and, in phase 2, the selector's default card text. */
-const ACT_ORDINAL_WORDS: readonly string[] = [
-	'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN',
-	'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN',
-	'EIGHTEEN', 'NINETEEN', 'TWENTY'
-];
-
-export function actOrdinalWord(n: number): string {
-	return ACT_ORDINAL_WORDS[n - 1] ?? String(n);
-}
-
 /**
  * A namespaced attribute means nothing without its declaration. Files
  * written by Final Draft have never heard of our prefix, so the first
@@ -1407,7 +1395,7 @@ export function writeFdxWithDiagnostics(
 	const body: string[] = [];
 	let omittedStructural = 0;
 	let omittedUnknown = 0;
-	let actOrdinal = 0;
+	let actCount = 0;
 
 	for (const [index, element] of script.elements.entries()) {
 		const fdxType = fdxTypeOf(element);
@@ -1426,10 +1414,10 @@ export function writeFdxWithDiagnostics(
 			   fact, so its card is generated here rather than stored in the
 			   model. Final Draft readers see the file their software would
 			   have written; eDraft never stores it. */
-			actOrdinal++;
-			if (actOrdinal > 1) {
+			actCount++;
+			if (actCount > 1) {
 				body.push(
-					`<Paragraph Type="End of Act" Alignment="Center"><Text>END OF ACT ${actOrdinalWord(actOrdinal - 1)}</Text></Paragraph>`
+					`<Paragraph Type="End of Act" Alignment="Center"><Text>END OF ACT ${actOrdinal(actCount - 1)}</Text></Paragraph>`
 				);
 			}
 		}

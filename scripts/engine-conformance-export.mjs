@@ -16,6 +16,11 @@ import { fileURLToPath } from 'node:url';
 
 import { parseFountain, serialiseFountain } from '../packages/edraft/dist/index.js';
 import {
+	actOrdinal,
+	isCanonicalActCard,
+	renumberActs
+} from '../packages/edraft/dist/index.js';
+import {
 	liveCollapse,
 	parseEmphasis,
 	propagateRuns,
@@ -125,6 +130,49 @@ for (const type of PRINTING_TYPES) {
 	}
 }
 writeFixture('normalize.json', normalize);
+
+/* ------------------------------------------------------------------ */
+/* acts.json — the act derivation: ordinals, the canonical spelling,   */
+/* and the renumber rule (RFC-ACT-BREAK §4)                            */
+/* ------------------------------------------------------------------ */
+
+const actbreak = (text) => ({ type: 'actbreak', text });
+
+const acts = {
+	ordinals: [1, 2, 4, 10, 20, 21, 22, 113].map((n) => ({ n, result: actOrdinal(n) })),
+	canonical: [
+		'ACT ONE', 'ACT TWENTY', 'ACT 21', 'ACT 3', 'TEASER', 'COLD OPEN',
+		'ACT TWO: THE TURN', 'Act One', 'ACT TWENTYONE', 'ACT ONE ', 'ACT  ONE',
+		'ACT', '', 'END OF ACT ONE'
+	].map((text) => ({ text, result: isCanonicalActCard(text) })),
+	renumber: [
+		/* already sequential — the empty edit */
+		[actbreak('ACT ONE'), actbreak('ACT TWO'), actbreak('ACT THREE')],
+		/* the gap a deleted act leaves closes */
+		[actbreak('ACT ONE'), actbreak('ACT THREE'), actbreak('ACT FOUR')],
+		/* a customised card is never rewritten, but its act still counts */
+		[actbreak('ACT ONE'), actbreak('TEASER'), actbreak('ACT TWO')],
+		/* a mid-script insert renumbers what follows it */
+		[actbreak('ACT ONE'), actbreak('ACT TWO'), actbreak('ACT TWO'), actbreak('ACT THREE')],
+		/* digit spellings are canonical too and follow the same rule */
+		[actbreak('ACT 1'), actbreak('ACT 2'), actbreak('ACT 5')],
+		/* everything that is not an act break is not the rule's business */
+		[
+			{ type: 'scene', text: 'INT. ROOM - DAY' },
+			{ type: 'action', text: 'ACT ONE is said aloud, not printed.' },
+			actbreak('ACT SEVEN'),
+			{ type: 'action', text: 'After the card.' },
+			actbreak('ACT TWO')
+		],
+		/* words run out at twenty; the count does not */
+		Array.from({ length: 22 }, () => actbreak('ACT ONE'))
+	].map((elements) => ({
+		input: elements,
+		result: renumberActs(elements).map((e) => e.text)
+	}))
+};
+writeFixture('acts.json', acts);
+
 
 /* ------------------------------------------------------------------ */
 /* crc32.json — ZIP integrity, including the canonical check value     */
