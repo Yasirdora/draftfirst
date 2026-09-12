@@ -1945,6 +1945,10 @@ struct ScriptTextView: UIViewRepresentable {
             return ranges.first
         }
 
+        /// One yellow, as paper wants it — the same mark the Mac and the
+        /// PDF draw, keyed to the page rather than the app's appearance.
+        private static let highlightWash = UIColor(red: 1.0, green: 0.93, blue: 0.42, alpha: 1)
+
         private func makeAttributedString(
             elements: [ScriptElement],
             width: CGFloat,
@@ -1964,6 +1968,21 @@ struct ScriptTextView: UIViewRepresentable {
                     spacingAfter: nextSpacing
                 )
                 result.append(NSAttributedString(string: element.text, attributes: style))
+                // The attention mark, drawn as a wash on the paper — the
+                // phone shows what the file carries, because one document
+                // is one document (docs/RFC-HIGHLIGHTER.md). Full emphasis
+                // rendering lands with the iPhone-emphasis project.
+                let length = (element.text as NSString).length
+                for run in element.runs ?? [] {
+                    guard run.highlight != nil else { continue }
+                    let start = min(max(0, run.start), length)
+                    let end = min(max(start, run.end), length)
+                    guard end > start else { continue }
+                    result.addAttribute(
+                        .backgroundColor, value: Self.highlightWash,
+                        range: NSRange(location: location + start, length: end - start)
+                    )
+                }
                 mapped.append(ElementRange(
                     id: element.id,
                     range: NSRange(location: location, length: (element.text as NSString).length)
