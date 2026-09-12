@@ -323,13 +323,17 @@ public struct StoryList: View {
             let visible = SceneListFilter.included(
                 editor.scenes, query: sceneQuery, setting: sceneSetting
             )
-            if editor.scenes.isEmpty {
+            /// A scene filter answers "which scenes" — acts are not scenes,
+            /// so the outline flattens back to rows while one is on.
+            let filtering = !sceneQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || sceneSetting != nil
+            if editor.scenes.isEmpty && editor.acts.isEmpty {
                 EmptyListRow(
                     title: "No Scenes Yet",
                     detail: "Start a line with INT. or EXT. to build the navigator.",
                     symbol: "film.stack"
                 )
-            } else if visible.isEmpty {
+            } else if visible.isEmpty && filtering {
                 // Say which of the two narrowed it away, because the remedy
                 // differs: clear the field, or widen the filter.
                 EmptyListRow(
@@ -337,10 +341,26 @@ public struct StoryList: View {
                     detail: emptyFilterDetail,
                     symbol: sceneQuery.isEmpty ? "line.3.horizontal.decrease.circle" : "magnifyingglass"
                 )
-            } else {
+            } else if filtering || editor.acts.isEmpty {
                 ForEach(visible) { scene in
                     SceneListRow(scene: scene, isCurrent: scene.id == editor.activeSceneID) {
                         open(scene.id)
+                    }
+                }
+            } else {
+                // The outline: acts as the top-level entries, the scenes each
+                // one owns beneath it (RFC-ACT-BREAK §6). Unfiltered only —
+                // a map is what you see when you are not searching it.
+                ForEach(NavigatorOutline.rows(acts: editor.acts, scenes: editor.scenes)) { row in
+                    switch row {
+                    case .act(let act):
+                        ActListRow(act: act, isCurrent: act.id == editor.activeActID) {
+                            open(act.id)
+                        }
+                    case .scene(let scene):
+                        SceneListRow(scene: scene, isCurrent: scene.id == editor.activeSceneID) {
+                            open(scene.id)
+                        }
                     }
                 }
             }
@@ -382,16 +402,25 @@ public struct StoryList: View {
         tab == .scenes ? sceneContext : castContext
     }
 
-    /// Structure at a glance: scene and location counts plus the INT/EXT
-    /// texture a production reads a script by.
+    /// Structure at a glance: act count when the script has acts, then scene
+    /// and location counts plus the INT/EXT texture a production reads a
+    /// script by.
     private var sceneContext: String {
         let stats = editor.storyStats
-        guard stats.scenes > 0 else { return "" }
-        return [
-            "\(stats.scenes) \(stats.scenes == 1 ? "scene" : "scenes")",
-            "\(stats.locations) \(stats.locations == 1 ? "location" : "locations")",
-            "\(stats.interior) INT · \(stats.exterior) EXT"
-        ].joined(separator: " · ")
+        let actCount = editor.acts.count
+        guard stats.scenes > 0 || actCount > 0 else { return "" }
+        var facts: [String] = []
+        if actCount > 0 {
+            facts.append("\(actCount) \(actCount == 1 ? "act" : "acts")")
+        }
+        if stats.scenes > 0 {
+            facts += [
+                "\(stats.scenes) \(stats.scenes == 1 ? "scene" : "scenes")",
+                "\(stats.locations) \(stats.locations == 1 ? "location" : "locations")",
+                "\(stats.interior) INT · \(stats.exterior) EXT"
+            ]
+        }
+        return facts.joined(separator: " · ")
     }
 
     /// Voice at a glance: cast size, cue volume, and who carries the dialogue
@@ -436,6 +465,73 @@ struct SelectedRowMark: View {
             // most made this not look like a sidebar.
             .padding(.horizontal, 4)
             .padding(.vertical, 1)
+    }
+}
+
+// MARK: - Act row
+
+/// An act: the outline's top level, so the row speaks a shade stronger than
+/// a master scene — the card text at semibold, its span where the scene
+/// rows put their page. The glyph keeps the leading column the scene
+/// numbers own, so card and heading titles align down the list.
+struct ActRowLabel: View {
+    let act: ActRow
+    var isCurrent = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: ScreenplayKind.actbreak.symbol)
+                .font(.caption)
+                .foregroundStyle(isCurrent
+                    ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+                .frame(minWidth: 18, alignment: .trailing)
+
+            Text(act.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isCurrent
+                    ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.foreground))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .help(act.title)
+
+            if let range = act.pageRangeLabel {
+                Text(range)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    /// Spoken without the selection state, the way `SceneRowLabel` is.
+    var spokenLabel: String {
+        var label = act.title
+        if let first = act.firstPage {
+            if let last = act.lastPage, last > first {
+                label += ", pages \(first) to \(last)"
+            } else {
+                label += ", page \(first)"
+            }
+        }
+        return label
+    }
+}
+
+/// The tappable act row — the same button-and-pill arrangement as the scene
+/// row, because the card is a real place and choosing it goes there.
+private struct ActListRow: View {
+    let act: ActRow
+    let isCurrent: Bool
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) { ActRowLabel(act: act, isCurrent: isCurrent) }
+        .buttonStyle(.plain)
+        .listRowBackground(SelectedRowMark(isOn: isCurrent))
+        .accessibilityLabel(isCurrent
+            ? ActRowLabel(act: act).spokenLabel + ", current act"
+            : ActRowLabel(act: act).spokenLabel)
+        .accessibilityHint("Moves the insertion point to the act's card")
     }
 }
 
