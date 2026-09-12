@@ -20,11 +20,12 @@ public enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendabl
     case section
     case synopsis
     case pagebreak
+    case actbreak
 
     public var id: String { rawValue }
 
     /// The matching kind in the native `EDraftEngine` package. Both
-    /// enums carry the identical fourteen raw values (pinned by the
+    /// enums carry the identical fifteen raw values (pinned by the
     /// engine's conformance corpus), so a miss means a careless rename —
     /// a bug to catch in debug, never a reason to crash a writer's app.
     public nonisolated var engineKind: ElementKind {
@@ -62,6 +63,7 @@ public enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendabl
         case .section: "Section"
         case .synopsis: "Synopsis"
         case .pagebreak: "Page Break"
+        case .actbreak: "Act Break"
         }
     }
 
@@ -88,6 +90,7 @@ public enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendabl
         case .section: "list.bullet.indent"
         case .synopsis: "text.quote"
         case .pagebreak: "doc.append"
+        case .actbreak: "theatermasks"
         }
     }
 

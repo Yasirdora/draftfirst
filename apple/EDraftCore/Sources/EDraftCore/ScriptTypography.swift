@@ -52,7 +52,7 @@ public nonisolated enum ScriptTypography {
     public static func alignment(for kind: ScreenplayKind) -> Alignment {
         switch kind {
         case .transition: .right
-        case .centered:   .centred
+        case .centered, .actbreak: .centred
         default:          .natural
         }
     }
@@ -65,7 +65,7 @@ public nonisolated enum ScriptTypography {
     public static func spacing(before kind: ScreenplayKind) -> Double {
         switch kind {
         case .scene: 24
-        case .action, .character, .transition, .shot, .general, .centered: 14
+        case .action, .character, .transition, .shot, .general, .centered, .actbreak: 14
         case .dialogue, .parenthetical: 0
         default: 10
         }
