@@ -159,6 +159,10 @@ public enum ScreenplayPageRenderer {
             guard range.location >= 0, NSMaxRange(range) <= attributed.length else { continue }
             attributed.addAttributes(ScriptLayout.styleAttributes(for: segment.styles), range: range)
         }
+        // The attention mark goes down before the ink: one fill per
+        // highlighted segment, behind everything it covers — a highlight
+        // that vanishes on paper is a lie (RFC HIGHLIGHTER D6).
+        drawHighlightRects(of: run, attributed: attributed, in: context)
         var x = run.origin.x
         (run.text as NSString).enumerateSubstrings(
             in: NSRange(location: 0, length: attributed.length),
@@ -184,5 +188,51 @@ public enum ScreenplayPageRenderer {
                 x += size.width
             }
         }
+    }
+
+    /// v1's one color, as paper wants it: a pastel that black Courier
+    /// reads cleanly through, in print and on screen.
+    private static let highlightFill = NSColor(
+        calibratedRed: 1.0, green: 0.93, blue: 0.42, alpha: 0.65
+    ).cgColor
+
+    /// One filled rect per highlighted segment, computed with the same
+    /// per-grapheme walk the ink uses, so the mark and the glyphs over it
+    /// always agree about where a column sits.
+    private static func drawHighlightRects(
+        of run: ScreenplayPageLayout.Run,
+        attributed: NSAttributedString,
+        in context: CGContext
+    ) {
+        let marked = run.segments.filter { $0.highlight != nil }
+        guard !marked.isEmpty else { return }
+        var rects: [CGRect] = []
+        var x = run.origin.x
+        (run.text as NSString).enumerateSubstrings(
+            in: NSRange(location: 0, length: attributed.length),
+            options: .byComposedCharacterSequences
+        ) { substring, subrange, _, _ in
+            guard let substring else { return }
+            let attributes = attributed.attributes(at: subrange.location, effectiveRange: nil)
+            let width = (substring as NSString).size(withAttributes: attributes).width
+            let height = ScriptLayout.glyphPathHeight(substring, font: (attributes[.font] as? NSFont) ?? courier)
+            let scale = ScreenplayPageLayout.scaleToFitLine(measuredHeight: height)
+            for segment in marked where subrange.location + subrange.length > segment.start
+                && subrange.location < segment.start + segment.length {
+                let rect = CGRect(
+                    x: x, y: run.origin.y,
+                    width: width * (scale < 0.999 ? scale : 1),
+                    height: ScreenplayPageLayout.lineHeight
+                )
+                if let last = rects.last, abs(last.maxX - rect.minX) < 0.5 {
+                    rects[rects.count - 1] = last.union(rect)
+                } else {
+                    rects.append(rect)
+                }
+            }
+            x += width * (scale < 0.999 ? scale : 1)
+        }
+        context.setFillColor(highlightFill)
+        for rect in rects { context.fill(rect) }
     }
 }

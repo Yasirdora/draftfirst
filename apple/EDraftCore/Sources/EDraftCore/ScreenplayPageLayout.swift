@@ -48,11 +48,16 @@ public enum ScreenplayPageLayout {
         public var start: Int
         public var length: Int
         public var styles: StyleSet
+        /// The attention mark over this span (docs/RFC-HIGHLIGHTER.md) —
+        /// drawn behind the ink, never into it.
+        public var highlight: HighlightColor?
 
-        public init(start: Int, length: Int, styles: StyleSet) {
+        public init(start: Int, length: Int, styles: StyleSet,
+                    highlight: HighlightColor? = nil) {
             self.start = start
             self.length = length
             self.styles = styles
+            self.highlight = highlight
         }
     }
 
@@ -238,7 +243,8 @@ public enum ScreenplayPageLayout {
                         segments = Emphasis.slice(
                             elementRuns, start..<(start + (text as NSString).length)
                         ).map {
-                            StyleSegment(start: $0.start, length: $0.end - $0.start, styles: $0.styles)
+                            StyleSegment(start: $0.start, length: $0.end - $0.start,
+                                         styles: $0.styles, highlight: $0.highlight)
                         }
                     }
                 }

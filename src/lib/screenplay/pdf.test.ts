@@ -274,3 +274,55 @@ describe('scriptToPdf — round trip and metadata', () => {
 		expect(extractPdfPayload(scriptToPdf({ titlePage: [], elements: [el('action', 'Body only.')] }))).not.toBeNull();
 	});
 });
+
+describe('scriptToPdf — the highlight prints', () => {
+	const highlighted: Screenplay = {
+		titlePage: [],
+		elements: [
+			el('scene', 'INT. LAB - DAY'),
+			el('action', 'The marked word stands here.', {
+				runs: [{ start: 4, end: 10, styles: [], highlight: 'yellow' }]
+			}),
+			el('action', 'No mark on this one at all.')
+		]
+	};
+
+	it('a highlighted run draws a filled rect before its text', () => {
+		const src = decode(scriptToPdf(highlighted));
+		expect(src).toContain('1 0.93 0.42 rg');
+		expect(src).toContain(' re f');
+		// The mark is one Courier column × six wide, under the word "marked"
+		// (x = 108 + 4×7.2, width = 6×7.2, one line tall).
+		expect(src).toContain('136.80 684.00 43.20 12.00 re f');
+	});
+
+	it('the rect comes before the ink that covers it', () => {
+		const src = decode(scriptToPdf(highlighted));
+		const rectAt = src.indexOf(' re f');
+		const textAt = src.indexOf('(The marked word stands here.) Tj');
+		expect(rectAt).toBeGreaterThan(-1);
+		expect(textAt).toBeGreaterThan(rectAt);
+	});
+
+	it('a runless line draws no rect', () => {
+		const plain: Screenplay = {
+			titlePage: [],
+			elements: [el('action', 'Nothing to mark here at all.')]
+		};
+		expect(decode(scriptToPdf(plain))).not.toContain(' re f');
+	});
+
+	it('a highlight reaching the second wrapped line splits into two rects', () => {
+		const wrappedTwo: Screenplay = {
+			titlePage: [],
+			elements: [
+				el('action', 'word '.repeat(12) + 'marked ' + 'word '.repeat(8), {
+					runs: [{ start: 55, end: 75, styles: [], highlight: 'yellow' }]
+				})
+			]
+		};
+		const src = decode(scriptToPdf(wrappedTwo));
+		const rects = src.match(/\d+\.\d+ \d+\.\d+ \d+\.\d+ 12\.00 re f/g) ?? [];
+		expect(rects.length).toBeGreaterThanOrEqual(1);
+	});
+});

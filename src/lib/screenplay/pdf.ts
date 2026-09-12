@@ -34,10 +34,13 @@ import { encodePdfPayload } from '@edraft/core/import';
 import {
 	paginate,
 	PAGE_WIDTH_CHARS,
+	wrapLines,
 	wrapText,
 	type PageLine,
 	type ScriptPage
 } from '@edraft/core/layout';
+import type { StyleRun } from '@edraft/core';
+import { GEOMETRY } from '@edraft/core/layout';
 import { printedLineText } from './pageline';
 
 /* ---- geometry ------------------------------------------------------------ */
@@ -205,16 +208,79 @@ function textOp(x: number, y: number, text: string): string {
 	return `BT /F1 ${FONT_SIZE} Tf 1 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)} Tm (${pdfStr(text)}) Tj ET`;
 }
 
+/* v1's one highlight color, as paper wants it: a pastel black Courier
+   reads cleanly through, in print and on screen (RFC HIGHLIGHTER §6). */
+const HIGHLIGHT = { r: 1.0, g: 0.93, b: 0.42, alpha: 0.65 };
+
+function rectOp(x: number, y: number, width: number, height: number): string {
+	return [
+		'q',
+		`${HIGHLIGHT.r} ${HIGHLIGHT.g} ${HIGHLIGHT.b} rg`,
+		`${x.toFixed(2)} ${y.toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re f`,
+		'Q'
+	].join('\n');
+}
+
+/** The highlighted spans a printed line carries, in line coordinates —
+    sliced from the element's runs at the offset the wrap put this line at,
+    exactly as the Mac layout does it (ScreenplayPageLayout). */
+function highlightSpans(
+	line: PageLine,
+	elements: Screenplay['elements'],
+	wrapped: Map<number, { text: string; utf16Start: number }[]>,
+	cursors: Map<number, number>,
+	text: string
+): { start: number; end: number }[] {
+	if (line.type === 'blank' || line.element < 0) return [];
+	const element = elements[line.element];
+	if (!element) return [];
+	/* Every printed element line consumes one wrapped line — generated lines
+	   ((MORE), a CONT'D cue) carry element -1 and consume nothing. */
+	const cursor = cursors.get(line.element) ?? 0;
+	cursors.set(line.element, cursor + 1);
+	if (!element.runs?.some((run) => run.highlight !== undefined)) return [];
+	let lines = wrapped.get(line.element);
+	if (!lines) {
+		const geometry = GEOMETRY[element.type] ?? GEOMETRY.action;
+		lines = wrapLines(element.text, geometry.width);
+		wrapped.set(line.element, lines);
+	}
+	const start = lines[cursor]?.utf16Start;
+	if (start === undefined) return [];
+	const end = start + text.length;
+	const spans: { start: number; end: number }[] = [];
+	for (const run of element.runs) {
+		if (run.highlight === undefined) continue;
+		const from = Math.max(run.start, start);
+		const to = Math.min(run.end, end);
+		if (to > from) spans.push({ start: from - start, end: to - start });
+	}
+	return spans;
+}
+
 function bodyStream(
 	page: ScriptPage,
 	sceneNumberByElement: Map<number, string>,
-	showPageNumber: boolean
+	showPageNumber: boolean,
+	elements: Screenplay['elements'],
+	wrapped: Map<number, { text: string; utf16Start: number }[]>,
+	cursors: Map<number, number>
 ): string {
 	const ops: string[] = [];
 	page.lines.forEach((line, i) => {
 		if (line.type === 'blank') return;
 		const text = renderText(line);
-		if (text !== '') ops.push(textOp(lineX(line.indent), lineY(i), text));
+		const y = lineY(i);
+		if (text !== '') {
+			// The mark goes down before the ink (RFC HIGHLIGHTER D6).
+			for (const span of highlightSpans(line, elements, wrapped, cursors, text)) {
+				ops.push(rectOp(
+					lineX(line.indent) + span.start * CHAR_W, y - 2,
+					(span.end - span.start) * CHAR_W, LINE_H
+				));
+			}
+			ops.push(textOp(lineX(line.indent), y, text));
+		}
 
 		/* scene numbers print in both margins, aligned with the heading; a
 		   pathologically long number clamps at the page edge, never negative */
@@ -356,8 +422,15 @@ export function scriptToPdf(script: Screenplay): Uint8Array {
 	}
 	const specs: PageSpec[] = [];
 	if (hasTitle) specs.push({ stream: titleStream(script.titlePage) });
+	const wrapped = new Map<number, { text: string; utf16Start: number }[]>();
+	const cursors = new Map<number, number>();
 	pages.forEach((p, i) =>
-		specs.push({ stream: bodyStream(p, sceneNumbers, /* page 1 of the body shows no number */ i > 0) })
+		specs.push({
+			stream: bodyStream(
+				p, sceneNumbers, /* page 1 of the body shows no number */ i > 0,
+				script.elements, wrapped, cursors
+			)
+		})
 	);
 
 	/* objects: 1 catalog, 2 pages, 3 font, then per page: page obj + content obj */

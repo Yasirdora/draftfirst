@@ -89,7 +89,22 @@ public enum ScreenplayPageRenderer {
     }
 
     private static func draw(_ runs: [ScreenplayPageLayout.Run]) {
+        // The attention mark goes down before the ink, as the Mac draws it —
+        // one document is one document on paper too (RFC HIGHLIGHTER D6).
+        let characterWidth = ("0" as NSString).size(withAttributes: textAttributes).width
         for run in runs {
+            let marked = run.segments.filter { $0.highlight != nil }
+            if !marked.isEmpty {
+                UIColor(red: 1.0, green: 0.93, blue: 0.42, alpha: 0.65).setFill()
+                for segment in marked {
+                    UIRectFill(CGRect(
+                        x: run.origin.x + CGFloat(segment.start) * characterWidth,
+                        y: run.origin.y,
+                        width: CGFloat(segment.length) * characterWidth,
+                        height: ScreenplayPageLayout.lineHeight
+                    ))
+                }
+            }
             (run.text as NSString).draw(at: run.origin, withAttributes: textAttributes)
         }
     }
