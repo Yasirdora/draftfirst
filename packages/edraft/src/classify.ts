@@ -13,6 +13,7 @@ import type { ElementType, Screenplay, ScreenplayElement } from './types.js';
 import { isPrinting } from './types.js';
 import { stripCueExtensions } from './smarttype.js';
 import { isActCard } from './acts.js';
+import { parseNumberedSceneHeading } from './sceneheading.js';
 
 /** One physical line lifted from a foreign document. */
 export interface RawLine {
@@ -134,8 +135,12 @@ function classifyLine(raw: RawLine, text: string, prev: ClassifiedLine | undefin
 		if (styled !== undefined) return verdict(raw, styled, 'high', `style "${raw.styleName}"`);
 	}
 
-	/* 2. scene headings announce themselves */
+	/* 2. scene headings announce themselves — bare, or carrying the scene
+	   number a production draft prints at their left edge */
 	if (SCENE_INTRO.test(text)) return verdict(raw, 'scene', 'high', 'opens with INT./EXT.');
+	if (parseNumberedSceneHeading(text) !== undefined) {
+		return verdict(raw, 'scene', 'high', 'numbered scene heading');
+	}
 
 	/* 3. an act card announces itself — the canonical spelling or one of
 	   television's unnumbered openers (RFC-ACT-BREAK §5). Without this arm
@@ -287,7 +292,17 @@ export function toScreenplay(classified: readonly ClassifiedLine[]): Screenplay 
 			prev.text = `${prev.text} ${line.raw.text}`;
 			continue;
 		}
-		elements.push({ type: line.type, text: line.raw.text });
+		const element: ScreenplayElement = { type: line.type, text: line.raw.text };
+		if (line.type === 'scene') {
+			/* the number a production draft prints at the edge is furniture
+			   with a home — sceneNumber — not part of the writer's heading */
+			const numbered = parseNumberedSceneHeading(element.text);
+			if (numbered !== undefined) {
+				element.text = numbered.text;
+				if (numbered.number !== undefined) element.sceneNumber = numbered.number;
+			}
+		}
+		elements.push(element);
 	}
 	return { titlePage: [], elements };
 }

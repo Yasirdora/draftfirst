@@ -20,6 +20,7 @@ import {
 	isActCard,
 	isCanonicalActCard,
 	isEndActCard,
+	parseNumberedSceneHeading,
 	renumberActs
 } from '../packages/edraft/dist/index.js';
 import {
@@ -190,6 +191,36 @@ const acts = {
 	}))
 };
 writeFixture('acts.json', acts);
+
+/* ------------------------------------------------------------------ */
+/* sceneheading.json — the numbered scene heading grammar (routing     */
+/* pack, step 1): the flanked production number, the leading number,   */
+/* and the OMITTED card — every witness the corpus carries              */
+/* ------------------------------------------------------------------ */
+
+const sceneheadings = {
+	cases: [
+		'15 INT. HOLE.',
+		'23 EXT. SIGNAL HILL - THAT MOMENT.',
+		'24 INT. BANKSIDE HOME - NIGHT.',
+		'2 EXT. NORTH CARTHAGE- MORNING 2',
+		'3 EXT. NICK DUNNE’S FRONT YARD- DAWN 3*',
+		'4 EXT. BAR PARKING LOT- DAY 4*',
+		'2 INT. APARTMENT 4',
+		'113 OMITTED.',
+		'115 OMITTED',
+		'116 OMITTED',
+		'OMITTED',
+		'EXT. ROOF - NIGHT',
+		'INT. APARTMENT 4',
+		'17.',
+		'ACT ONE',
+		'WALTER',
+		'OMITTED FROM THE DRAFT, HE SAID',
+		''
+	].map((text) => ({ text, result: parseNumberedSceneHeading(text) ?? null }))
+};
+writeFixture('sceneheading.json', sceneheadings);
 
 
 /* ------------------------------------------------------------------ */

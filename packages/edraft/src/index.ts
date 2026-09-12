@@ -24,6 +24,9 @@ export {
 	renumberActs
 } from './acts.js';
 
+export { parseNumberedSceneHeading } from './sceneheading.js';
+export type { NumberedSceneHeading } from './sceneheading.js';
+
 export {
 	escapeFountainContent,
 	liveCollapse,

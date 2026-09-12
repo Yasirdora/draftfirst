@@ -58,6 +58,36 @@ describe('classifyLines', () => {
 		expect(types).not.toContain('actbreak');
 	});
 
+	it('types a numbered scene heading as a scene and gives the number its home', () => {
+		const { script, report } = finalizeImport(
+			classifyLines([
+				{ text: '2 EXT. NORTH CARTHAGE- MORNING 2' },
+				{ text: 'Nick drives.' },
+				{ text: '15 INT. HOLE.' },
+				{ text: 'Darkness.' }
+			]),
+			'text',
+			[]
+		);
+		expect(script.elements.map((element) => element.type)).toEqual(['scene', 'action', 'scene', 'action']);
+		expect(script.elements[0]).toMatchObject({ text: 'EXT. NORTH CARTHAGE- MORNING', sceneNumber: '2' });
+		expect(script.elements[2]).toMatchObject({ text: 'INT. HOLE.', sceneNumber: '15' });
+		expect(report.scenes).toBe(2);
+		expect(report.characters).toEqual([]);
+	});
+
+	it('types the OMITTED card as a scene and keeps no cue of it', () => {
+		const { script, report } = finalizeImport(
+			classifyLines([{ text: '113 OMITTED.' }, { text: 'OMITTED' }, { text: 'EXT. ROOF - NIGHT' }]),
+			'text',
+			[]
+		);
+		expect(script.elements.map((element) => element.type)).toEqual(['scene', 'scene', 'scene']);
+		expect(script.elements[0]).toMatchObject({ text: 'OMITTED', sceneNumber: '113' });
+		expect(script.elements[1]).toMatchObject({ text: 'OMITTED' });
+		expect(report.characters).toEqual([]);
+	});
+
 	it('recognizes the transition family', () => {
 		const types = typesOf([
 			{ text: 'CUT TO:' },

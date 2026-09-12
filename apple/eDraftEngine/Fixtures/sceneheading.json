@@ -1,0 +1,108 @@
+{
+  "cases": [
+    {
+      "text": "15 INT. HOLE.",
+      "result": {
+        "number": "15",
+        "text": "INT. HOLE."
+      }
+    },
+    {
+      "text": "23 EXT. SIGNAL HILL - THAT MOMENT.",
+      "result": {
+        "number": "23",
+        "text": "EXT. SIGNAL HILL - THAT MOMENT."
+      }
+    },
+    {
+      "text": "24 INT. BANKSIDE HOME - NIGHT.",
+      "result": {
+        "number": "24",
+        "text": "INT. BANKSIDE HOME - NIGHT."
+      }
+    },
+    {
+      "text": "2 EXT. NORTH CARTHAGE- MORNING 2",
+      "result": {
+        "number": "2",
+        "text": "EXT. NORTH CARTHAGE- MORNING"
+      }
+    },
+    {
+      "text": "3 EXT. NICK DUNNE’S FRONT YARD- DAWN 3*",
+      "result": {
+        "number": "3",
+        "text": "EXT. NICK DUNNE’S FRONT YARD- DAWN"
+      }
+    },
+    {
+      "text": "4 EXT. BAR PARKING LOT- DAY 4*",
+      "result": {
+        "number": "4",
+        "text": "EXT. BAR PARKING LOT- DAY"
+      }
+    },
+    {
+      "text": "2 INT. APARTMENT 4",
+      "result": {
+        "number": "2",
+        "text": "INT. APARTMENT 4"
+      }
+    },
+    {
+      "text": "113 OMITTED.",
+      "result": {
+        "number": "113",
+        "text": "OMITTED"
+      }
+    },
+    {
+      "text": "115 OMITTED",
+      "result": {
+        "number": "115",
+        "text": "OMITTED"
+      }
+    },
+    {
+      "text": "116 OMITTED",
+      "result": {
+        "number": "116",
+        "text": "OMITTED"
+      }
+    },
+    {
+      "text": "OMITTED",
+      "result": {
+        "text": "OMITTED"
+      }
+    },
+    {
+      "text": "EXT. ROOF - NIGHT",
+      "result": null
+    },
+    {
+      "text": "INT. APARTMENT 4",
+      "result": null
+    },
+    {
+      "text": "17.",
+      "result": null
+    },
+    {
+      "text": "ACT ONE",
+      "result": null
+    },
+    {
+      "text": "WALTER",
+      "result": null
+    },
+    {
+      "text": "OMITTED FROM THE DRAFT, HE SAID",
+      "result": null
+    },
+    {
+      "text": "",
+      "result": null
+    }
+  ]
+}
