@@ -943,6 +943,10 @@ public final class EditorState {
         let uppercase = trimmed.uppercased()
 
         if Self.looksLikeSceneHeading(uppercase) { return .scene }
+        // The card is structural, never a speaker (RFC-ACT-BREAK §5) —
+        // without this arm the cue check below adopts ACT ONE, and speech
+        // position would read it as dialogue under a cue.
+        if Acts.isActCard(trimmed) { return .actbreak }
         if trimmed.hasPrefix("(") { return .parenthetical }
         if Self.looksLikeTransition(uppercase) { return .transition }
         if previous?.type == .character || previous?.type == .parenthetical { return .dialogue }

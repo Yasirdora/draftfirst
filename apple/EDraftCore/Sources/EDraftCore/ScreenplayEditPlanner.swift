@@ -292,7 +292,11 @@ public struct ScreenplayEditPlanner {
                 pasteWasReassembled = true
             } else {
                 let printable = parts.filter {
-                    !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    let text = $0.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    // End-of-act cards are furniture (RFC-ACT-BREAK §5): an
+                    // act ends where the next one begins, so the closing
+                    // card is dropped here, never stored.
+                    return !text.isEmpty && !Acts.isEndActCard(text)
                 }
                 if !printable.isEmpty { parts = printable }
             }

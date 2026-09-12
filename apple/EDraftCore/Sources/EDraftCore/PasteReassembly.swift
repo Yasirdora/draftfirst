@@ -113,6 +113,14 @@ public nonisolated enum PasteReassembly {
                 column = -1
                 continue
             }
+            if Acts.isEndActCard(Emphasis.parse(trimmed).text) {
+                // An act ends where the next one begins: the closing card
+                // is furniture (RFC-ACT-BREAK §5), and a hard boundary —
+                // the paragraph under way ends here, nothing joins across.
+                flush()
+                column = -1
+                continue
+            }
             let indent = leadingIndent(of: line)
             // A column change is a paragraph break: the cue and its speech
             // share no blank line. One column of drift is the copier's
@@ -201,9 +209,22 @@ public nonisolated enum PasteReassembly {
             // joins, so the markers survive to the planner's own parse.
             let cleaned = Emphasis.parse(trimmed).text
             let upper = cleaned.uppercased()
+            if Acts.isEndActCard(cleaned) {
+                // An act ends where the next one begins: the closing card
+                // is furniture (RFC-ACT-BREAK §5), and a hard boundary —
+                // the paragraph under way ends here, nothing joins across.
+                flush()
+                continue
+            }
             if PasteHeuristics.looksLikeSceneHeading(upper) {
                 flush()
                 kind = .scene
+                current = [trimmed]
+            } else if Acts.isActCard(cleaned) {
+                // The card is structural, never a speaker — without this
+                // tell the cue shape below adopts ACT ONE (RFC-ACT-BREAK §5).
+                flush()
+                kind = .actbreak
                 current = [trimmed]
             } else if PasteHeuristics.looksLikeTransition(upper) {
                 flush()
@@ -228,8 +249,8 @@ public nonisolated enum PasteReassembly {
                     flush()
                     kind = .dialogue
                     current = []
-                case .scene, .transition:
-                    flush()
+                case .scene, .transition, .actbreak:
+                    flush() // a card stands alone; what follows it is prose
                     kind = .action
                     current = []
                 default:
