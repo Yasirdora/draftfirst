@@ -315,6 +315,8 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         editor.onChangeElementKind?(kind)
     }
 
+    @objc public func insertActBreak(_ sender: Any?) { editor.onInsertActBreak?() }
+
     @objc public func acceptSuggestion(_ sender: Any?) { editor.acceptPrediction() }
     @objc public func addNote(_ sender: Any?) { editor.onAddNote?() }
     @objc public func showFind(_ sender: Any?) { editor.onShowFind?() }

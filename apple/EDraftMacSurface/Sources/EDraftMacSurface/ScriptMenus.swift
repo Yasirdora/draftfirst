@@ -32,6 +32,19 @@ public enum ScriptMenus {
         for kind in ScreenplayKind.editorKinds where !editor.contextualKinds.contains(kind) {
             menu.addItem(elementItem(kind))
         }
+        // An act break is not a conversion — there is nothing a paragraph
+        // could become that says "a new act starts here" — so it sits apart
+        // from the kinds and inserts instead (RFC-ACT-BREAK §6).
+        menu.addItem(.separator())
+        let actBreak = NSMenuItem(
+            title: ScreenplayKind.actbreak.title,
+            action: #selector(ScriptWindowController.insertActBreak(_:)),
+            keyEquivalent: ""
+        )
+        actBreak.image = NSImage(
+            systemSymbolName: ScreenplayKind.actbreak.symbol, accessibilityDescription: nil
+        )
+        menu.addItem(actBreak)
     }
 
     /// Format → Element, with ⌘1–⌘9.

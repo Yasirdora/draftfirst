@@ -88,6 +88,14 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// number must not rebuild the page, or the caret visits the top of the
     /// document on every keystroke. See `CaretTransitTests` on the phone.
     private var renderedRevision = -1
+    /// The act-break count the renumber rule (RFC-ACT-BREAK §4) last
+    /// accounted for. The rule fires only when an edit changed that count —
+    /// an act break arriving or leaving — never on an ordinary keystroke.
+    /// Written in exactly two places: `bind`, so a document merely opened is
+    /// not mistaken for one that gained acts, and the hook itself once it
+    /// has compared — never in `render`, or the structural path's own draw
+    /// would move the baseline before the comparison happened.
+    private var lastActbreakCount = 0
     private var paperObserver: NSObjectProtocol?
     /// What the page was last drawn on, so a defaults change that is about
     /// something else does not relay the script.
@@ -350,6 +358,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         guard self.editor !== editor else { return }
         self.editor = editor
         renderedRevision = -1
+        // The renumber rule's baseline: what the document holds at bind is
+        // not something arriving, so the tracker starts at the truth rather
+        // than at zero — see `renumberActCardsIfNeeded`.
+        lastActbreakCount = editor.screenplay.elements.count(where: { $0.type == .actbreak })
         editor.onJumpToElement = { [weak self] id in
             self?.reveal(
                 id,
@@ -363,6 +375,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         editor.onFindNext = { [weak self] in self?.find(next: true) }
         editor.onFindPrevious = { [weak self] in self?.find(next: false) }
         editor.onInsertElements = { [weak self] pages in self?.insertElements(pages) }
+        editor.onInsertActBreak = { [weak self] in self?.insertActBreak() }
         editor.onApplyElements = { [weak self] elements, name in
             self?.applyElements(elements, actionName: name)
         }
@@ -2145,6 +2158,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         }
         if editor.revision != previousRevision {
             promoteToSceneHeadingIfTyped()
+            renumberActCardsIfNeeded()
             renderedRevision = editor.revision
             lastLaidElements = editor.screenplay.elements
             updateTypingAttributes()
@@ -2420,6 +2434,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         updateTypingAttributes()
         reportNativeUndoAvailability()
         updateGhost()
+        // Last, and after the tracker compare, never inside `render`: every
+        // structural road an act break can leave by ends here, and the hook
+        // must read the count the page held *before* this edit drew. Its own
+        // renumber re-enters this function once and no-ops there.
+        renumberActCardsIfNeeded()
     }
 
     /// Toggles a style over the current selection — the format bar's verb.
@@ -2892,6 +2911,69 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             offset: offset,
             selection: NSRange(location: location + offset, length: 0),
             actionName: "Add Pages"
+        )
+    }
+
+    /// The element menu's Act Break (RFC-ACT-BREAK §6): the break lands
+    /// after the element the caret is in — never inside it, so nothing
+    /// ends mid-sentence — with a canonical card and the caret in the
+    /// action line that follows. The renumber runs inside the same edit,
+    /// so an insert between two acts renumbers what follows as one undo
+    /// step, and the tracker's refresh in `render` keeps the delete hook
+    /// from mistaking this for an edit it must answer.
+    private func insertActBreak() {
+        guard let editor else { return }
+        var elements = editor.screenplay.elements
+        let card = ScreenplayEditPlanner.defaultActCard(forInsertionInto: elements)
+        let actBreak = ScriptElement(type: .actbreak, text: card)
+        let after = ScriptElement(type: .action, text: "")
+        let index = min(
+            editor.activeElementIndex.map { $0 + 1 } ?? elements.count,
+            elements.count
+        )
+        elements.insert(contentsOf: [actBreak, after], at: index)
+        for (changed, text) in ScreenplayEditPlanner.renumberedActCards(in: elements) {
+            elements[changed].text = text
+        }
+        let location = ScreenplayEditPlanner.ranges(for: elements)[index + 1].range.location
+        applyModelEdit(
+            elements,
+            activeID: after.id,
+            offset: 0,
+            selection: NSRange(location: location, length: 0),
+            actionName: "Insert Act Break"
+        )
+    }
+
+    /// The delete half of the renumber rule: an act break that left the
+    /// document by any road — backspace, a selection delete, cut, undo —
+    /// renumbers the cards that followed it. Fires only when the count the
+    /// page last drew disagrees with the model's, so an ordinary keystroke
+    /// costs one pass over the element types and nothing more; and applies
+    /// only a non-empty delta, so an undo that restores the exact cards is
+    /// not rewritten into a second undo step. The caret keeps its element
+    /// and offset: renumbered cards shift text above it, so the selection
+    /// is recomputed against the new ranges rather than carried across.
+    private func renumberActCardsIfNeeded() {
+        guard let editor else { return }
+        let elements = editor.screenplay.elements
+        let count = elements.count(where: { $0.type == .actbreak })
+        guard count != lastActbreakCount else { return }
+        lastActbreakCount = count
+        let delta = ScreenplayEditPlanner.renumberedActCards(in: elements)
+        guard !delta.isEmpty else { return }
+        var updated = elements
+        for (index, text) in delta { updated[index].text = text }
+        guard let activeID = editor.activeElementID ?? updated.first?.id else { return }
+        let offset = editor.selectionOffset
+        let location = ScreenplayEditPlanner.ranges(for: updated)
+            .first(where: { $0.id == activeID })?.range.location ?? 0
+        applyModelEdit(
+            updated,
+            activeID: activeID,
+            offset: offset,
+            selection: NSRange(location: location + offset, length: 0),
+            actionName: "Renumber Acts"
         )
     }
 
