@@ -67,6 +67,49 @@ describe('importPlainText', () => {
 		expect(report.warnings.join(' ')).toMatch(/stripped 5 pagination artifact/);
 	});
 
+	it('drops end-of-act cards, counts them, and ends the speech they closed (RFC-ACT-BREAK §5)', () => {
+		/* the Breaking Bad shape, witnessed in the corpus: the teaser's own
+		   END TEASER, then ACT ONE through ACT FOUR with END ACT <n> */
+		const source = [
+			'EXT. COW PASTURE - DAY',
+			'',
+			'A cow stands around.',
+			'',
+			'END TEASER',
+			'',
+			'ACT ONE',
+			'',
+			'EXT. WHITE RESIDENCE - NIGHT',
+			'',
+			'WALTER',
+			'I am the one who knocks.',
+			'END ACT ONE',
+			'ACT TWO',
+			'',
+			'INT. LAB - DAY'
+		].join('\n');
+		const { script, report } = importPlainText(source);
+		expect(script.elements.map((element) => element.type)).toEqual([
+			'scene',
+			'action',
+			'actbreak',
+			'scene',
+			'character',
+			'dialogue',
+			'actbreak',
+			'scene'
+		]);
+		expect(report.warnings.join(' ')).toMatch(/dropped 2 end-of-act card/);
+	});
+
+	it('lets no thought continue across a dropped end-of-act card', () => {
+		/* attachment dies at the boundary: without the reset, ACT TWO would
+		   sit "attached" to the speech above it */
+		const source = ['WALTER', 'I am the one who knocks.', 'END OF ACT ONE', 'ACT TWO'].join('\n');
+		const { script } = importPlainText(source);
+		expect(script.elements.map((element) => element.type)).toEqual(['character', 'dialogue', 'actbreak']);
+	});
+
 	it('turns form feeds into pagebreak elements', () => {
 		const { script } = importPlainText('INT. A - DAY\f\n\nINT. B - NIGHT');
 		expect(script.elements.map((element) => element.type)).toEqual(['scene', 'pagebreak', 'scene']);

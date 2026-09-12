@@ -25,6 +25,39 @@ describe('classifyLines', () => {
 		expect(types).toEqual(['scene', 'scene', 'scene', 'scene', 'scene']);
 	});
 
+	it('recognizes the act cards the corpus carries (RFC-ACT-BREAK §5)', () => {
+		const classified = classifyLines([
+			{ text: 'TEASER' },
+			{ text: 'ACT ONE' },
+			{ text: 'ACT 4' },
+			{ text: 'COLD OPEN' }
+		]);
+		expect(classified.map((line) => line.type)).toEqual([
+			'actbreak',
+			'actbreak',
+			'actbreak',
+			'actbreak'
+		]);
+		expect(classified.every((line) => line.confidence === 'high')).toBe(true);
+	});
+
+	it('reads an act card as a boundary even inside a speech run', () => {
+		/* without the act arm, speech position would type ACT ONE as dialogue
+		   and the cue shape would adopt TEASER as a speaker */
+		const types = typesOf([
+			{ text: 'WALTER' },
+			{ text: 'I am the one who knocks.' },
+			{ text: 'ACT TWO' },
+			{ text: 'EXT. DESERT - DAY' }
+		]);
+		expect(types).toEqual(['character', 'dialogue', 'actbreak', 'scene']);
+	});
+
+	it('refuses the near-misses: a customised card and a lowercase one are not boundaries', () => {
+		const types = typesOf([{ text: 'ACT TWO: THE TURN' }, { text: 'Act One' }]);
+		expect(types).not.toContain('actbreak');
+	});
+
 	it('recognizes the transition family', () => {
 		const types = typesOf([
 			{ text: 'CUT TO:' },

@@ -18,7 +18,9 @@ export {
 	ACT_ORDINAL_WORDS,
 	actOrdinal,
 	defaultActCard,
+	isActCard,
 	isCanonicalActCard,
+	isEndActCard,
 	renumberActs
 } from './acts.js';
 

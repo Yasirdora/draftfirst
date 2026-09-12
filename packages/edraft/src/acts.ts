@@ -41,6 +41,27 @@ export function defaultActCard(ordinal: number): string {
 	return `ACT ${actOrdinal(ordinal)}`;
 }
 
+/** The cards the paste route recognises as act breaks (RFC-ACT-BREAK §5):
+    a canonical act card, or one of television's unnumbered openers. Both
+    tests are exact and case-sensitive — a lowercase "teaser" is prose until
+    the writer shouts it. The corpus witness is Breaking Bad: TEASER, then
+    ACT ONE through ACT FOUR, and nothing else in fourteen scripts matches. */
+export function isActCard(text: string): boolean {
+	return isCanonicalActCard(text) || text === 'TEASER' || text === 'COLD OPEN';
+}
+
+/** The companion card that closes an act on the page (RFC-ACT-BREAK §5):
+    "END ACT ONE", "END OF ACT ONE", or the teaser's own "END TEASER" — the
+    exact set the corpus carries; "END OF 4M26 MI CAMINO" is a music cue and
+    must not match, so ACT must end on a word boundary. These lines are
+    dropped on import, never stored: an act ends where the next one begins,
+    and the FDX boundary regenerates the card from the derivation. */
+const END_ACT_CARD = /^END (?:OF )?ACT\b/;
+
+export function isEndActCard(text: string): boolean {
+	return END_ACT_CARD.test(text) || text === 'END TEASER';
+}
+
 /** The renumber rule (RFC-ACT-BREAK §4): every card still speaking the
     canonical spelling is renumbered to the ordinal its position now
     carries; a card that doesn't match is the writer's text and is left

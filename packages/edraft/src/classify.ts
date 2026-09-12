@@ -12,6 +12,7 @@
 import type { ElementType, Screenplay, ScreenplayElement } from './types.js';
 import { isPrinting } from './types.js';
 import { stripCueExtensions } from './smarttype.js';
+import { isActCard } from './acts.js';
 
 /** One physical line lifted from a foreign document. */
 export interface RawLine {
@@ -136,23 +137,28 @@ function classifyLine(raw: RawLine, text: string, prev: ClassifiedLine | undefin
 	/* 2. scene headings announce themselves */
 	if (SCENE_INTRO.test(text)) return verdict(raw, 'scene', 'high', 'opens with INT./EXT.');
 
-	/* 3. transitions: uppercase ending "TO:", or the unambiguous FADE/IRIS family */
+	/* 3. an act card announces itself — the canonical spelling or one of
+	   television's unnumbered openers (RFC-ACT-BREAK §5). Without this arm
+	   the cue shape below adopts ACT ONE as a speaker. */
+	if (isActCard(text)) return verdict(raw, 'actbreak', 'high', 'act card');
+
+	/* 4. transitions: uppercase ending "TO:", or the unambiguous FADE/IRIS family */
 	const uppercase = isUppercaseForm(text);
 	if ((uppercase && text.endsWith('TO:')) || FADE_OR_IRIS.test(text)) {
 		return verdict(raw, 'transition', 'high', 'transition shape');
 	}
 
-	/* 4. uppercase camera framing is a shot designation, never a speaker */
+	/* 5. uppercase camera framing is a shot designation, never a speaker */
 	if (uppercase && SHOT_INTRO.test(text)) {
 		return verdict(raw, 'shot', 'medium', 'camera framing reads as a shot');
 	}
 
-	/* 5. a fully bracketed line reads as a parenthetical */
+	/* 6. a fully bracketed line reads as a parenthetical */
 	if (text.startsWith('(') && text.endsWith(')')) {
 		return verdict(raw, 'parenthetical', 'medium', 'a line in brackets reads as a parenthetical');
 	}
 
-	/* 6. speech position: after a cue, text is what the character says. A
+	/* 7. speech position: after a cue, text is what the character says. A
 	   parenthetical only exists inside a speech, so what follows it is
 	   speech too — only continuing a finished speech needs true attachment. */
 	if (prev?.type === 'character') {
@@ -171,15 +177,15 @@ function classifyLine(raw: RawLine, text: string, prev: ClassifiedLine | undefin
 		return verdict(raw, 'dialogue', 'medium', 'continues the speech');
 	}
 
-	/* 7. explicit alignment — cues never sit right or centered */
+	/* 8. explicit alignment — cues never sit right or centered */
 	if (raw.align === 'center') return verdict(raw, 'centered', 'high', 'centered');
 	if (raw.align === 'right') return verdict(raw, 'transition', 'medium', 'right-aligned');
 
-	/* 8. far-right layout is transition position */
+	/* 9. far-right layout is transition position */
 	const indent = raw.indentInches ?? 0;
 	if (indent >= 5) return verdict(raw, 'transition', 'medium', `far-right indent of ${indent}"`);
 
-	/* 9. the uppercase cue shape — layout only decides how sure we are */
+	/* 10. the uppercase cue shape — layout only decides how sure we are */
 	if (cueShape(text)) {
 		if (indent >= 1.5) {
 			return verdict(raw, 'character', 'high', `uppercase cue at a ${indent}" indent`);
@@ -187,14 +193,14 @@ function classifyLine(raw: RawLine, text: string, prev: ClassifiedLine | undefin
 		return verdict(raw, 'character', 'medium', 'uppercase cue shape');
 	}
 
-	/* 10. a bare middle indent is speech layout with no other signal — a guess */
+	/* 11. a bare middle indent is speech layout with no other signal — a guess */
 	if (indent >= 0.7) return verdict(raw, 'dialogue', 'low', `indented ${indent}" — reads as speech`);
 
-	/* 11. directly under a heading or a shot, prose describes what we see */
+	/* 12. directly under a heading or a shot, prose describes what we see */
 	if (prev?.type === 'scene') return verdict(raw, 'action', 'high', 'describes the scene above it');
 	if (prev?.type === 'shot') return verdict(raw, 'action', 'high', 'describes what the shot frames');
 
-	/* 12. prose is action */
+	/* 13. prose is action */
 	return verdict(raw, 'action', 'medium', 'no stronger signal — treated as action');
 }
 

@@ -9,6 +9,7 @@
 
 import { classifyLines, finalizeImport } from './classify.js';
 import type { ImportResult, RawLine } from './classify.js';
+import { isEndActCard } from './acts.js';
 
 export const DEFAULT_MAX_TEXT_SOURCE_CHARACTERS: number = 16 * 1024 * 1024;
 
@@ -59,6 +60,7 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 
 	const rawLines: RawLine[] = [];
 	let stripped = 0;
+	let endCards = 0;
 	let attached = false;
 	let pageBreakPending = false;
 
@@ -81,6 +83,14 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 				stripped++;
 				continue; /* attachment survives — (MORE) splits a speech, not a thought */
 			}
+			if (isEndActCard(trimmed)) {
+				/* an act ends where the next one begins, so the closing card is
+				   furniture (RFC-ACT-BREAK §5) — and a hard boundary: unlike
+				   (MORE), no thought continues across it, so attachment dies here */
+				endCards++;
+				attached = false;
+				continue;
+			}
 			const line: RawLine = { text: trimmed.replace(/\t/g, ' ').replace(/ {2,}/g, ' ') };
 			const indent = leadingIndentInches(segment);
 			if (indent > 0) line.indentInches = indent;
@@ -97,6 +107,9 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 	const warnings: string[] = [];
 	if (stripped > 0) {
 		warnings.push(`stripped ${stripped} pagination artifact(s) — page numbers, (MORE), CONTINUED`);
+	}
+	if (endCards > 0) {
+		warnings.push(`dropped ${endCards} end-of-act card(s) — an act ends where the next one begins`);
 	}
 	if (rawLines.length === 0) warnings.push('no text found in the source');
 

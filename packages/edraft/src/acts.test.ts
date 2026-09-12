@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
 	actOrdinal,
 	defaultActCard,
+	isActCard,
 	isCanonicalActCard,
+	isEndActCard,
 	renumberActs
 } from './acts.js';
 import type { ScreenplayElement } from './types.js';
@@ -97,5 +99,44 @@ describe('defaultActCard', () => {
 	it('spells the canonical card of its ordinal', () => {
 		expect(defaultActCard(2)).toBe('ACT TWO');
 		expect(defaultActCard(23)).toBe('ACT 23');
+	});
+});
+
+describe('isActCard (RFC-ACT-BREAK §5 — the paste route)', () => {
+	it('accepts the canonical spelling and television’s openers', () => {
+		expect(isActCard('ACT ONE')).toBe(true);
+		expect(isActCard('ACT 21')).toBe(true);
+		expect(isActCard('TEASER')).toBe(true);
+		expect(isActCard('COLD OPEN')).toBe(true);
+	});
+
+	it('refuses everything else — the cue shape must not adopt these either', () => {
+		expect(isActCard('ACT TWO: THE TURN')).toBe(false);
+		expect(isActCard('Act One')).toBe(false);
+		expect(isActCard('teaser')).toBe(false);
+		expect(isActCard('ACT ONE ')).toBe(false);
+		expect(isActCard('END OF ACT ONE')).toBe(false);
+		expect(isActCard('')).toBe(false);
+	});
+});
+
+describe('isEndActCard (RFC-ACT-BREAK §5 — the paste route)', () => {
+	it('accepts the closing cards the corpus carries', () => {
+		expect(isEndActCard('END OF ACT ONE')).toBe(true);
+		expect(isEndActCard('END ACT ONE')).toBe(true);
+		expect(isEndActCard('END OF ACT 21')).toBe(true);
+		expect(isEndActCard('END TEASER')).toBe(true);
+	});
+
+	it('refuses the musical cues and near-misses the corpus also carries', () => {
+		/* Emilia Pérez — these are music cues, not act boundaries */
+		expect(isEndActCard('END OF 4M26 MI CAMINO')).toBe(false);
+		expect(isEndActCard('END 1M4 EL ENCUENTRO')).toBe(false);
+		expect(isEndActCard('END OF ACTS')).toBe(false);
+		expect(isEndActCard('END ACTA')).toBe(false);
+		expect(isEndActCard('END PILOT.')).toBe(false);
+		expect(isEndActCard('end of act one')).toBe(false);
+		expect(isEndActCard('END  TEASER')).toBe(false);
+		expect(isEndActCard('')).toBe(false);
 	});
 });

@@ -745,4 +745,51 @@ describe('FDX · act breaks (RFC-ACT-BREAK §3)', () => {
 		const { script: back } = parseFdx(writeFdx(script));
 		expect(back.elements).toEqual(script.elements);
 	});
+
+	it('names the generated End of Act the way the act names itself', () => {
+		/* Breaking Bad's own spelling: the teaser closes as END TEASER, the
+		   canonical acts as END OF ACT <their ordinal> — a writer's card is
+		   mirrored, never renamed (RFC-ACT-BREAK §3, refined in phase 3).
+		   The fixture is renumber-stable: TEASER is custom and keeps its
+		   name, so ACT TWO is the second act's canonical card. */
+		const fdx = writeFdx({
+			titlePage: [],
+			elements: [
+				{ type: 'action', text: 'Cold pasture.' },
+				{ type: 'actbreak', text: 'TEASER' },
+				{ type: 'action', text: 'Middle.' },
+				{ type: 'actbreak', text: 'ACT TWO' },
+				{ type: 'action', text: 'Later.' },
+				{ type: 'actbreak', text: 'ACT TWO: THE TURN' },
+				{ type: 'action', text: 'Nearly.' },
+				{ type: 'actbreak', text: 'ACT THREE' },
+				{ type: 'action', text: 'End.' }
+			]
+		});
+		expect(fdx).toContain(
+			'<Paragraph Type="End of Act" Alignment="Center"><Text>END TEASER</Text></Paragraph>'
+		);
+		expect(fdx).toContain(
+			'<Paragraph Type="End of Act" Alignment="Center"><Text>END OF ACT TWO</Text></Paragraph>'
+		);
+		expect(fdx).toContain(
+			'<Paragraph Type="End of Act" Alignment="Center"><Text>END ACT TWO: THE TURN</Text></Paragraph>'
+		);
+		/* the document's own end ends the last act — nothing is generated there */
+		expect(fdx).not.toContain('END OF ACT THREE');
+	});
+
+	it('escapes a writer’s own card when it is mirrored into the End of Act', () => {
+		const fdx = writeFdx({
+			titlePage: [],
+			elements: [
+				{ type: 'actbreak', text: 'ACT ONE' },
+				{ type: 'action', text: 'Middle.' },
+				{ type: 'actbreak', text: 'FISH & CHIP SHOP' },
+				{ type: 'action', text: 'Nearly.' },
+				{ type: 'actbreak', text: 'ACT THREE' }
+			]
+		});
+		expect(fdx).toContain('<Text>END FISH &amp; CHIP SHOP</Text>');
+	});
 });
