@@ -311,3 +311,19 @@ enum ActsCorpus {
         let result: [String]
     }
 }
+
+/// The numbered scene heading grammar (routing pack, step 1). Pinned by
+/// `Fixtures/sceneheading.json`.
+enum SceneheadingCorpus {
+    struct Root: Decodable {
+        let cases: [Case]
+    }
+    struct Case: Decodable {
+        let text: String
+        let result: Parsed?
+    }
+    struct Parsed: Decodable, Equatable {
+        let number: String?
+        let text: String
+    }
+}

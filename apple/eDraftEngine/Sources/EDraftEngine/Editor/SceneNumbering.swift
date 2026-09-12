@@ -10,6 +10,90 @@ import Foundation
 /// is why numbering is two operations rather than one.
 public enum SceneNumbering {
 
+    /// The numbered scene heading grammar (routing pack, step 1 —
+    /// corpus-witnessed). Production drafts print the scene number at the
+    /// heading's left edge, and some flank the heading with the same number
+    /// at the right edge, a revision asterisk on its tail: "2 EXT. NORTH
+    /// CARTHAGE- MORNING 2", "3 EXT. NICK DUNNE’S FRONT YARD- DAWN 3*"
+    /// (gone-girl.txt, 244 witnesses), "15 INT. HOLE." (corpus-6.txt, 40
+    /// witnesses). An omitted scene keeps its number and prints the OMITTED
+    /// card, numbered or bare: "113 OMITTED." (corpus-6), "OMITTED"
+    /// (episode-101, whiplash).
+    ///
+    /// The number is furniture with a home — the element's sceneNumber —
+    /// and the words are the writer's. Ported from the TypeScript engine's
+    /// `sceneheading.ts`, pinned to it by `Fixtures/sceneheading.json`, and
+    /// answered without a regex: digits are ASCII the way JavaScript's `\d`
+    /// is, so the port cannot drift on a non-ASCII digit.
+    public static func parseNumberedHeading(_ text: String) -> (number: String?, text: String)? {
+        var body = Substring(text)
+
+        /* the OMITTED card, numbered or bare — its trailing period is not
+           meaning, and the check is case-sensitive the way the TypeScript
+           pattern is */
+        var number: String? = nil
+        let digits = body.prefix(while: { $0.isASCII && $0.isNumber })
+        if !digits.isEmpty {
+            let whitespace = body.dropFirst(digits.count).prefix(while: { $0.isWhitespace })
+            if !whitespace.isEmpty {
+                number = String(digits)
+                body = body.dropFirst(digits.count + whitespace.count)
+            }
+        }
+        if body.hasPrefix("OMITTED") {
+            let tail = body.dropFirst("OMITTED".count)
+            if tail.isEmpty || tail == "." {
+                return (number, "OMITTED")
+            }
+        }
+        guard number != nil, !body.isEmpty, hasSceneIntro(body) else { return nil }
+
+        /* the flanking number repeats the leading one, revisions marked —
+           and only then is it furniture; "APARTMENT 4" is a place */
+        var flanked = body
+        var star = 0
+        if flanked.hasSuffix("*") {
+            star = 1
+            flanked = flanked.dropLast()
+        }
+        let trailingDigits = suffix(flanked, where: { $0.isASCII && $0.isNumber })
+        if !trailingDigits.isEmpty, String(trailingDigits) == number {
+            let whitespace = suffix(flanked.dropLast(trailingDigits.count), where: { $0.isWhitespace })
+            if !whitespace.isEmpty {
+                body = body.dropLast(whitespace.count + trailingDigits.count + star)
+            }
+        }
+        return (number, String(body))
+    }
+
+    /// Whether the text opens with a scene intro — INT./EXT. and family —
+    /// case-insensitively, the way the TypeScript `SCENE_INTRO` reads it:
+    /// any intro word, then a dot or whitespace. A prefix that matches but
+    /// is not followed by a boundary does not rule the text out — a shorter
+    /// intro may still match ("INT./EXTX" is INT + "." to the TypeScript
+    /// alternation, and must be here too).
+    private static func hasSceneIntro(_ text: Substring) -> Bool {
+        let upper = text.uppercased()
+        for intro in ["INT./EXT", "INT/EXT", "I/E", "INT", "EXT", "EST"] {
+            guard upper.hasPrefix(intro) else { continue }
+            guard let next = upper.dropFirst(intro.count).first else { continue }
+            if next == "." || next.isWhitespace { return true }
+        }
+        return false
+    }
+
+    /// `suffix(while:)` is the one Sequence convenience the standard library
+    /// does not ship; the grammar needs it twice.
+    private static func suffix(_ text: Substring, where predicate: (Character) -> Bool) -> Substring {
+        var index = text.endIndex
+        while index > text.startIndex {
+            let previous = text.index(before: index)
+            guard predicate(text[previous]) else { break }
+            index = previous
+        }
+        return text[index...]
+    }
+
     /// Numbers every scene from 1, discarding whatever was there.
     ///
     /// For a script that has not gone out yet. On one that has, this is the
