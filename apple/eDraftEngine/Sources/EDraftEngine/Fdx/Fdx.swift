@@ -1121,19 +1121,6 @@ public enum Fdx {
 
     // MARK: - Export
 
-    /// The ordinal an act card spells: words through twenty, digits beyond —
-    /// some scripts run long (RFC-ACT-BREAK D4). Shared by the generated
-    /// End of Act cards and, in phase 2, the selector's default card text.
-    private static let actOrdinalWords = [
-        "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN",
-        "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN",
-        "EIGHTEEN", "NINETEEN", "TWENTY"
-    ]
-
-    public static func actOrdinalWord(_ n: Int) -> String {
-        n >= 1 && n <= actOrdinalWords.count ? actOrdinalWords[n - 1] : String(n)
-    }
-
     /// Serialise the engine model as FDX XML. Structural elements the FDX
     /// paragraph subset cannot represent are omitted, reported in
     /// `diagnostics`, and noted in an in-file warning comment.
@@ -1144,7 +1131,7 @@ public enum Fdx {
         var body: [String] = []
         var omittedStructural = 0
         var omittedUnknown = 0
-        var actOrdinal = 0
+        var actCount = 0
 
         for (index, element) in script.elements.enumerated() {
             guard let fdxType = fdxType(of: element) else {
@@ -1157,10 +1144,10 @@ public enum Fdx {
                    fact, so its card is generated here rather than stored in the
                    model. Final Draft readers see the file their software would
                    have written; eDraft never stores it. */
-                actOrdinal += 1
-                if actOrdinal > 1 {
+                actCount += 1
+                if actCount > 1 {
                     body.append(
-                        "<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END OF ACT \(actOrdinalWord(actOrdinal - 1))</Text></Paragraph>"
+                        "<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END OF ACT \(Acts.ordinal(actCount - 1))</Text></Paragraph>"
                     )
                 }
             }

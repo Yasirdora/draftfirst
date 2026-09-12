@@ -288,3 +288,24 @@ enum FdxCorpus {    struct Root: Decodable {
         }
     }
 }
+
+/// The act derivation (RFC-ACT-BREAK §4). Pinned by `Fixtures/acts.json`.
+enum ActsCorpus {
+    struct Root: Decodable {
+        let ordinals: [OrdinalCase]
+        let canonical: [CanonicalCase]
+        let renumber: [RenumberCase]
+    }
+    struct OrdinalCase: Decodable {
+        let n: Int
+        let result: String
+    }
+    struct CanonicalCase: Decodable {
+        let text: String
+        let result: Bool
+    }
+    struct RenumberCase: Decodable {
+        let input: [ScreenplayElement]
+        let result: [String]
+    }
+}
