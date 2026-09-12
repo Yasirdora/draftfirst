@@ -1,10 +1,14 @@
 # RFC: Act breaks
 
-*2026-09-12. Status: phase 1 landed — the model and the boundaries (the
-type, the paginator's break-before, FDX both directions, Fountain out, the
-Core bridge) are in both engines, pinned b3d1fc5 → de1406a → 442d720.
-Phases 2 (selector entry, navigator, renumber) and 3 (paste route) remain.
-Corpus witness:
+*2026-09-12. Status: phases 1–2 landed. Phase 1 — the model and the
+boundaries (the type, the paginator's break-before, FDX both directions,
+Fountain out, the Core bridge) — pinned b3d1fc5 → de1406a → 442d720.
+Phase 2 — the derivation (§4's ordinals, canonical spelling, renumber),
+the selector entry, the delete hook, and the navigator's outline, Mac
+first per §8, the shared list serving the phone's sheet as it stands —
+pinned 1f90e5c → e6babe6 → e58b3d9 → 0558928 → d3da099. Phase 3 (§5's
+paste route, with the corpus gate) remains, as does the iOS port of the
+insert affordance. Corpus witness:
 breaking-bad.txt (ACT ONE … END ACT FOUR, between page numbers). The design
 principle this applies — the model stores the semantic minimum, every format
 boundary derives what it can — is stated in §2 and meant to be reused.*
