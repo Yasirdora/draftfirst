@@ -22,11 +22,12 @@
     "package:build": "npm run build --workspace=@edraft/core",
     "package:verify": "npm run verify --workspace=@edraft/core && npm run pack:check --workspace=@edraft/core",
     "package:smoke": "node scripts/package-smoke.mjs",
-    "quality": "npm run check && npm run check:boundaries && npm test && npm run check:conformance && npm run build && npm run package:verify && npm run package:smoke",
+    "quality": "npm run check && npm run check:boundaries && npm test && npm run check:conformance && npm run check:paste-corpus && npm run build && npm run package:verify && npm run package:smoke",
     "deploy": "npm run build && npx wrangler@latest pages deploy build",
     "ios:engine": "node scripts/ios-engine-sync.mjs",
     "engine:conformance": "node scripts/engine-conformance-export.mjs",
     "check:conformance": "node scripts/check-conformance-freshness.mjs",
+    "check:paste-corpus": "node scripts/paste-corpus-gate.mjs",
     "check:boundaries": "node scripts/check-swift-boundaries.mjs"
   },
   "dependencies": {

@@ -1,0 +1,96 @@
+{
+  "breaking-bad.txt": {
+    "actbreaks": [
+      "TEASER",
+      "ACT ONE",
+      "ACT TWO",
+      "ACT THREE",
+      "ACT FOUR"
+    ],
+    "endCardsDropped": 4,
+    "cardCues": [],
+    "scenes": 69
+  },
+  "corpus-1.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 90
+  },
+  "corpus-6.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 74
+  },
+  "emilia-perez.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [
+      "END 1M4 EL ENCUENTRO",
+      "END 3M19 POR CASUALIDAD",
+      "END OF 4M26 MI CAMINO"
+    ],
+    "scenes": 106
+  },
+  "episode-101.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 90
+  },
+  "foryourcon.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 57
+  },
+  "from-the-black.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 189
+  },
+  "gone-girl.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 1
+  },
+  "heat.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 246
+  },
+  "lalaland.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 113
+  },
+  "manchester.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 177
+  },
+  "no-country.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 150
+  },
+  "pasted-26.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 274
+  },
+  "whiplash.txt": {
+    "actbreaks": [],
+    "endCardsDropped": 0,
+    "cardCues": [],
+    "scenes": 114
+  }
+}
