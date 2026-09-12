@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+	highlightCovered,
 	liveCollapse,
 	propagateRuns,
 	sliceRuns,
 	styleCovered,
+	toggleHighlight,
 	toggleStyle
 } from './style.js';
 import type { StyleRun } from './types.js';
@@ -226,5 +228,46 @@ describe('liveCollapse — D6, the input transformation', () => {
 	it('never collapses an empty pair', () => {
 		expect(liveCollapse('****', 3)).toBeNull(); // 4+ stars: literal run
 		expect(liveCollapse('**' + '**', 3)).toBeNull(); // empty match
+	});
+});
+
+describe('toggleHighlight', () => {
+	it('applies the mark, splitting at the range edges', () => {
+		const runs = toggleHighlight([], 3, 9, 'yellow', 12);
+		expect(runs).toEqual([{ start: 3, end: 9, styles: [], highlight: 'yellow' }]);
+	});
+
+	it('one color per point: an apply clears first, then sets', () => {
+		const marked = toggleHighlight([], 0, 12, 'yellow', 12);
+		const over = toggleHighlight(marked, 4, 8, 'yellow', 12);
+		expect(over).toEqual([{ start: 0, end: 12, styles: [], highlight: 'yellow' }]);
+	});
+
+	it('fully covered comes off clean, styles keep their span', () => {
+		const base = [
+			{ start: 0, end: 6, styles: ['Bold' as const] },
+			{ start: 6, end: 12, styles: [], highlight: 'yellow' as const }
+		];
+		expect(toggleHighlight(base, 6, 12, undefined, 12)).toEqual([
+			{ start: 0, end: 6, styles: ['Bold'] }
+		]);
+	});
+
+	it('a partial clear splits the mark around the gap', () => {
+		const marked = [{ start: 0, end: 10, styles: [], highlight: 'yellow' as const }];
+		expect(toggleHighlight(marked, 3, 7, undefined, 10)).toEqual([
+			{ start: 0, end: 3, styles: [], highlight: 'yellow' },
+			{ start: 7, end: 10, styles: [], highlight: 'yellow' }
+		]);
+	});
+
+	it('highlightCovered answers the bar’s one decision', () => {
+		const marked = [
+			{ start: 0, end: 5, styles: [], highlight: 'yellow' as const },
+			{ start: 5, end: 10, styles: [], highlight: 'yellow' as const }
+		];
+		expect(highlightCovered(marked, 2, 8)).toBe(true);
+		expect(highlightCovered(marked, 2, 11)).toBe(false);
+		expect(highlightCovered([], 0, 1)).toBe(false);
 	});
 });

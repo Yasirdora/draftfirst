@@ -41,7 +41,7 @@
  * carries them natively).
  */
 
-import type { StyleRun, StyleToken } from './types.js';
+import type { HighlightColor, StyleRun, StyleToken } from './types.js';
 
 /** Canonical token order for `StyleRun.styles` and the FDX Style attribute. */
 export const STYLE_ORDER: readonly StyleToken[] = [
@@ -474,6 +474,75 @@ export function toggleStyle(
 		if (run.end > end) out.push({ ...run, start: end });
 	}
 	return normaliseRuns(out, textLength);
+}
+
+/* ------------------------------------------------------------------ */
+/* the attention mark (docs/RFC-HIGHLIGHTER.md)                         */
+/* ------------------------------------------------------------------ */
+
+/** Whether `[start, end)` is fully covered by the mark, for the toggle's
+    one decision per selection: fully covered takes it off. */
+export function highlightCovered(
+	runs: readonly StyleRun[],
+	start: number,
+	end: number
+): boolean {
+	if (end <= start) return false;
+	let cursor = start;
+	for (const run of runs) {
+		if (run.highlight === undefined) continue;
+		if (run.start > cursor) return false;
+		cursor = Math.max(cursor, run.end);
+		if (cursor >= end) return true;
+	}
+	return false;
+}
+
+/**
+ * Apply the mark over `[start, end)`, or clear it when `color` is
+ * undefined. One color per point: an apply clears first and then sets,
+ * so a marked span never carries two. A run left with no styles,
+ * revision, tags or highlight is destroyed — no zero-property run may
+ * persist (the empty-run rule the styles live by).
+ */
+export function toggleHighlight(
+	runs: readonly StyleRun[],
+	start: number,
+	end: number,
+	color: HighlightColor | undefined,
+	textLength: number
+): StyleRun[] {
+	const canonical = normaliseRuns(runs, textLength);
+	if (end <= start) return canonical;
+
+	const cleared: StyleRun[] = [];
+	for (const run of canonical) {
+		if (run.end <= start || run.start >= end) {
+			cleared.push(run);
+			continue;
+		}
+		if (run.start < start) cleared.push({ ...run, end: start });
+		const inner: StyleRun = {
+			...run,
+			start: Math.max(run.start, start),
+			end: Math.min(run.end, end)
+		};
+		delete inner.highlight;
+		if (
+			inner.end > inner.start &&
+			(inner.styles.length > 0 ||
+				inner.revisionID !== undefined ||
+				(inner.tagNumbers ?? []).length > 0)
+		) {
+			cleared.push(inner);
+		}
+		if (run.end > end) cleared.push({ ...run, start: end });
+	}
+	if (color === undefined) return normaliseRuns(cleared, textLength);
+	return normaliseRuns(
+		[...cleared, { start, end, styles: [], highlight: color }],
+		textLength
+	);
 }
 
 /* ------------------------------------------------------------------ */

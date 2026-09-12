@@ -18,6 +18,8 @@ export {
 	escapeFountainContent,
 	liveCollapse,
 	normaliseRuns,
+	highlightCovered,
+	toggleHighlight,
 	parseEmphasis,
 	propagateRuns,
 	sliceRuns,
