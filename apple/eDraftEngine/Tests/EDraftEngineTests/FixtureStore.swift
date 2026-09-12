@@ -294,6 +294,8 @@ enum ActsCorpus {
     struct Root: Decodable {
         let ordinals: [OrdinalCase]
         let canonical: [CanonicalCase]
+        let actCards: [CanonicalCase]
+        let endCards: [CanonicalCase]
         let renumber: [RenumberCase]
     }
     struct OrdinalCase: Decodable {

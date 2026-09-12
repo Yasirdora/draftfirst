@@ -10,7 +10,7 @@ struct ActsConformanceTests {
         do { return try FixtureStore.load("acts.json") }
         catch {
             Issue.record("Failed to load acts.json: \(error)")
-            return .init(ordinals: [], canonical: [], renumber: [])
+            return .init(ordinals: [], canonical: [], actCards: [], endCards: [], renumber: [])
         }
     }()
 
@@ -18,6 +18,8 @@ struct ActsConformanceTests {
     func corpusLoads() {
         #expect(Self.corpus.ordinals.count == 8)
         #expect(Self.corpus.canonical.count == 14)
+        #expect(Self.corpus.actCards.count == 14)
+        #expect(Self.corpus.endCards.count == 16)
         #expect(Self.corpus.renumber.count == 7)
     }
 
@@ -29,6 +31,16 @@ struct ActsConformanceTests {
     @Test("isCanonicalActCard", arguments: Self.corpus.canonical)
     func canonical(_ case_: ActsCorpus.CanonicalCase) {
         #expect(Acts.isCanonicalActCard(case_.text) == case_.result)
+    }
+
+    @Test("isActCard", arguments: Self.corpus.actCards)
+    func actCard(_ case_: ActsCorpus.CanonicalCase) {
+        #expect(Acts.isActCard(case_.text) == case_.result)
+    }
+
+    @Test("isEndActCard", arguments: Self.corpus.endCards)
+    func endActCard(_ case_: ActsCorpus.CanonicalCase) {
+        #expect(Acts.isEndActCard(case_.text) == case_.result)
     }
 
     @Test("renumber", arguments: Self.corpus.renumber)

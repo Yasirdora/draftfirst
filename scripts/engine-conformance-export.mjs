@@ -17,7 +17,9 @@ import { fileURLToPath } from 'node:url';
 import { parseFountain, serialiseFountain } from '../packages/edraft/dist/index.js';
 import {
 	actOrdinal,
+	isActCard,
 	isCanonicalActCard,
+	isEndActCard,
 	renumberActs
 } from '../packages/edraft/dist/index.js';
 import {
@@ -145,6 +147,22 @@ const acts = {
 		'ACT TWO: THE TURN', 'Act One', 'ACT TWENTYONE', 'ACT ONE ', 'ACT  ONE',
 		'ACT', '', 'END OF ACT ONE'
 	].map((text) => ({ text, result: isCanonicalActCard(text) })),
+	/* the paste route's two vocabularies (RFC-ACT-BREAK §5): what opens an
+	   act, and the closing card the import drops */
+	actCards: [
+		'ACT ONE', 'ACT TWENTY', 'ACT 21', 'TEASER', 'COLD OPEN',
+		'ACT TWO: THE TURN', 'Act One', 'teaser', 'cold open', 'ACT ONE ',
+		'ACT', 'END OF ACT ONE', 'END TEASER', ''
+	].map((text) => ({ text, result: isActCard(text) })),
+	endCards: [
+		'END OF ACT ONE', 'END ACT ONE', 'END OF ACT 21', 'END TEASER',
+		'END OF ACT TWO: THE TURN', 'END OF ACT ONE ',
+		/* the corpus's near-misses — Emilia Pérez's music cues, a plural,
+		   a glued suffix, a lowercase spelling, a doubled space */
+		'END OF 4M26 MI CAMINO', 'END 1M4 EL ENCUENTRO', 'END 3M19 POR CASUALIDAD',
+		'END OF ACTS', 'END ACTA', 'END PILOT.', 'end of act one', 'END  TEASER',
+		'END COLD OPEN', ''
+	].map((text) => ({ text, result: isEndActCard(text) })),
 	renumber: [
 		/* already sequential — the empty edit */
 		[actbreak('ACT ONE'), actbreak('ACT TWO'), actbreak('ACT THREE')],
@@ -1003,14 +1021,23 @@ addFdxExport('illegal-characters', {
 
 /* Act breaks (RFC-ACT-BREAK §3): each actbreak exports as New Act with
    Alignment="Center", and the End of Act cards a Final Draft reader expects
-   are generated from the derived boundary — never stored in the model. */
+   are generated from the derived boundary — never stored in the model. The
+   generated card names the act the way the act names itself: a canonical
+   card ends END OF ACT <its ordinal>; a writer's own card is mirrored —
+   TEASER closes as END TEASER, Breaking Bad's own spelling. The fixture is
+   renumber-stable: TEASER is custom and keeps its name, so ACT TWO is the
+   second act's canonical card. */
 addFdxExport('act-breaks', {
 	titlePage: [],
 	elements: [
-		{ type: 'action', text: 'Teaser.' },
-		{ type: 'actbreak', text: 'ACT ONE' },
+		{ type: 'action', text: 'Cold pasture.' },
+		{ type: 'actbreak', text: 'TEASER' },
 		{ type: 'action', text: 'Middle.' },
 		{ type: 'actbreak', text: 'ACT TWO' },
+		{ type: 'action', text: 'Later.' },
+		{ type: 'actbreak', text: 'ACT TWO: THE TURN' },
+		{ type: 'action', text: 'Nearly.' },
+		{ type: 'actbreak', text: 'ACT THREE' },
 		{ type: 'action', text: 'End.' }
 	]
 });

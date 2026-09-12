@@ -91,6 +91,130 @@
       "result": false
     }
   ],
+  "actCards": [
+    {
+      "text": "ACT ONE",
+      "result": true
+    },
+    {
+      "text": "ACT TWENTY",
+      "result": true
+    },
+    {
+      "text": "ACT 21",
+      "result": true
+    },
+    {
+      "text": "TEASER",
+      "result": true
+    },
+    {
+      "text": "COLD OPEN",
+      "result": true
+    },
+    {
+      "text": "ACT TWO: THE TURN",
+      "result": false
+    },
+    {
+      "text": "Act One",
+      "result": false
+    },
+    {
+      "text": "teaser",
+      "result": false
+    },
+    {
+      "text": "cold open",
+      "result": false
+    },
+    {
+      "text": "ACT ONE ",
+      "result": false
+    },
+    {
+      "text": "ACT",
+      "result": false
+    },
+    {
+      "text": "END OF ACT ONE",
+      "result": false
+    },
+    {
+      "text": "END TEASER",
+      "result": false
+    },
+    {
+      "text": "",
+      "result": false
+    }
+  ],
+  "endCards": [
+    {
+      "text": "END OF ACT ONE",
+      "result": true
+    },
+    {
+      "text": "END ACT ONE",
+      "result": true
+    },
+    {
+      "text": "END OF ACT 21",
+      "result": true
+    },
+    {
+      "text": "END TEASER",
+      "result": true
+    },
+    {
+      "text": "END OF ACT TWO: THE TURN",
+      "result": true
+    },
+    {
+      "text": "END OF ACT ONE ",
+      "result": true
+    },
+    {
+      "text": "END OF 4M26 MI CAMINO",
+      "result": false
+    },
+    {
+      "text": "END 1M4 EL ENCUENTRO",
+      "result": false
+    },
+    {
+      "text": "END 3M19 POR CASUALIDAD",
+      "result": false
+    },
+    {
+      "text": "END OF ACTS",
+      "result": false
+    },
+    {
+      "text": "END ACTA",
+      "result": false
+    },
+    {
+      "text": "END PILOT.",
+      "result": false
+    },
+    {
+      "text": "end of act one",
+      "result": false
+    },
+    {
+      "text": "END  TEASER",
+      "result": false
+    },
+    {
+      "text": "END COLD OPEN",
+      "result": false
+    },
+    {
+      "text": "",
+      "result": false
+    }
+  ],
   "renumber": [
     {
       "input": [

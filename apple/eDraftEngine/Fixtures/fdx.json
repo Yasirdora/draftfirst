@@ -4948,11 +4948,11 @@
         "elements": [
           {
             "type": "action",
-            "text": "Teaser."
+            "text": "Cold pasture."
           },
           {
             "type": "actbreak",
-            "text": "ACT ONE"
+            "text": "TEASER"
           },
           {
             "type": "action",
@@ -4964,12 +4964,28 @@
           },
           {
             "type": "action",
+            "text": "Later."
+          },
+          {
+            "type": "actbreak",
+            "text": "ACT TWO: THE TURN"
+          },
+          {
+            "type": "action",
+            "text": "Nearly."
+          },
+          {
+            "type": "actbreak",
+            "text": "ACT THREE"
+          },
+          {
+            "type": "action",
             "text": "End."
           }
         ]
       },
       "expected": {
-        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Action\"><Text>Teaser.</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT ONE</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Middle.</Text></Paragraph>\n<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END OF ACT ONE</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT TWO</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>End.</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Action\"><Text>Cold pasture.</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>TEASER</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Middle.</Text></Paragraph>\n<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END TEASER</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT TWO</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Later.</Text></Paragraph>\n<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END OF ACT TWO</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT TWO: THE TURN</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Nearly.</Text></Paragraph>\n<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END ACT TWO: THE TURN</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT THREE</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>End.</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
         "diagnostics": []
       }
     }

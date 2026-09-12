@@ -1132,6 +1132,9 @@ public enum Fdx {
         var omittedStructural = 0
         var omittedUnknown = 0
         var actCount = 0
+        /* the card the previous act break carries, so the generated End of
+           Act can name the act the way the act names itself */
+        var previousActCard: String?
 
         for (index, element) in script.elements.enumerated() {
             guard let fdxType = fdxType(of: element) else {
@@ -1143,13 +1146,20 @@ public enum Fdx {
                 /* D3, written out loud: the act that just ended is a derivable
                    fact, so its card is generated here rather than stored in the
                    model. Final Draft readers see the file their software would
-                   have written; eDraft never stores it. */
+                   have written; eDraft never stores it. The card names the act
+                   the way the act names itself: a canonical card ends "END OF
+                   ACT ONE", a writer's own card is mirrored — TEASER closes as
+                   END TEASER, which is Breaking Bad's own spelling. */
                 actCount += 1
-                if actCount > 1 {
+                if actCount > 1, let previousActCard {
+                    let endText = Acts.isCanonicalActCard(previousActCard)
+                        ? "END OF ACT \(Acts.ordinal(actCount - 1))"
+                        : "END \(previousActCard)"
                     body.append(
-                        "<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END OF ACT \(Acts.ordinal(actCount - 1))</Text></Paragraph>"
+                        "<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>\(encodeXmlValue(endText, diagnostics: diagnostics, context: "end-of-act card", elementIndex: index))</Text></Paragraph>"
                     )
                 }
+                previousActCard = element.text
             }
 
             var attributes = ["Type=\"\(fdxType)\""]

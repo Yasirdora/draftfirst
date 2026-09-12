@@ -44,6 +44,44 @@ public enum Acts {
         "ACT \(Self.ordinal(ordinal))"
     }
 
+    /// The cards the paste route recognises as act breaks (RFC-ACT-BREAK §5):
+    /// a canonical act card, or one of television's unnumbered openers. Both
+    /// tests are exact and case-sensitive — a lowercase "teaser" is prose
+    /// until the writer shouts it. The corpus witness is Breaking Bad:
+    /// TEASER, then ACT ONE through ACT FOUR, and nothing else in fourteen
+    /// scripts matches.
+    public static func isActCard(_ text: String) -> Bool {
+        isCanonicalActCard(text) || text == "TEASER" || text == "COLD OPEN"
+    }
+
+    /// The companion card that closes an act on the page (RFC-ACT-BREAK §5):
+    /// "END ACT ONE", "END OF ACT ONE", or the teaser's own "END TEASER" —
+    /// the exact set the corpus carries; "END OF 4M26 MI CAMINO" is a music
+    /// cue and must not match, so ACT must end on a word boundary. These
+    /// lines are dropped on import, never stored: an act ends where the next
+    /// one begins, and the FDX boundary regenerates the card from the
+    /// derivation.
+    ///
+    /// Answered without a regex, with the boundary read the way JavaScript's
+    /// `\b` reads it: a word character is an ASCII letter, digit, or
+    /// underscore — a Unicode letter like É is a boundary, matching the
+    /// TypeScript engine's `[A-Za-z0-9_]` class exactly.
+    public static func isEndActCard(_ text: String) -> Bool {
+        if text == "END TEASER" { return true }
+        var rest = Substring(text)
+        if rest.hasPrefix("END OF ") {
+            rest = rest.dropFirst(7)
+        } else if rest.hasPrefix("END ") {
+            rest = rest.dropFirst(4)
+        } else {
+            return false
+        }
+        guard rest.hasPrefix("ACT") else { return false }
+        guard let next = rest.dropFirst(3).first else { return true }
+        let isWordChar = next.isASCII && (next.isLetter || next.isNumber || next == "_")
+        return !isWordChar
+    }
+
     /// The renumber rule (RFC-ACT-BREAK §4): every card still speaking the
     /// canonical spelling is renumbered to the ordinal its position now
     /// carries; a card that doesn't match is the writer's text and is left
