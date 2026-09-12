@@ -334,20 +334,21 @@ public struct ScreenplayStats: Equatable, Sendable {
 
     nonisolated public init(
         pages: Int = 1, runtime: String = "~1 minute",
-        words: Int = 0, scenePages: [Int: Int] = [:]
+        words: Int = 0, elementPages: [Int: Int] = [:]
     ) {
         self.pages = pages
         self.runtime = runtime
         self.words = words
-        self.scenePages = scenePages
+        self.elementPages = elementPages
     }
     public var pages: Int = 1
     public var runtime: String = "~1 minute"
     public var words: Int = 0
-    /// The page each scene opens on, by element index — computed in the same
-    /// pagination pass as the page count, so the Navigator and the PDF can
-    /// never disagree about where a scene falls.
-    public var scenePages: [Int: Int] = [:]
+    /// The page each element opens on, by element index — computed in the
+    /// same pagination pass as the page count, so the Navigator and the PDF
+    /// can never disagree about where anything falls. Scenes read it for
+    /// their row; act breaks read it for their page ranges.
+    public var elementPages: [Int: Int] = [:]
 }
 
 /// Paper size for pagination and PDF. US Letter is the Hollywood default;
@@ -452,6 +453,49 @@ public struct SceneRow: Identifiable, Equatable, Sendable {
     /// What the Navigator shows: the production's number when there is one,
     /// otherwise where the scene falls.
     public var label: String { sceneNumber ?? String(number) }
+}
+
+/// An act, derived from the element list the way the model derives it
+/// (RFC-ACT-BREAK §2): an act runs from its `actbreak` card to the next
+/// one or to the document's end. Nothing here is stored — the card text is
+/// the only fact, and even the ordinal is the card's position re-counted.
+public struct ActRow: Identifiable, Equatable, Sendable {
+
+    nonisolated public init(
+        id: UUID, ordinal: Int, title: String, elementIndex: Int,
+        firstPage: Int?, lastPage: Int?
+    ) {
+        self.id = id
+        self.ordinal = ordinal
+        self.title = title
+        self.elementIndex = elementIndex
+        self.firstPage = firstPage
+        self.lastPage = lastPage
+    }
+
+    /// The act break element's own id, so a Navigator row can jump to the
+    /// card — a real place, the way a scene row is a real place.
+    public let id: UUID
+    /// Position among the act breaks, counting from 1.
+    public let ordinal: Int
+    /// The card text — ACT TWO, or the writer's own TEASER.
+    public let title: String
+    public let elementIndex: Int
+    /// The page the card opens on, at the paper size currently set. Nil
+    /// only before the first pagination has settled.
+    public let firstPage: Int?
+    /// The page before the next act's card — or the document's last page
+    /// for the final act. An act with nothing between its card and the
+    /// next one spans its own page alone.
+    public let lastPage: Int?
+
+    /// What the Navigator's trailing column shows: the act's span when it
+    /// has one, its card's page when it doesn't.
+    public var pageRangeLabel: String? {
+        guard let firstPage else { return nil }
+        guard let lastPage, lastPage > firstPage else { return firstPage.formatted() }
+        return "\(firstPage.formatted())–\(lastPage.formatted())"
+    }
 }
 
 /// The Navigator's per-tab context line: structure and voice at a glance.

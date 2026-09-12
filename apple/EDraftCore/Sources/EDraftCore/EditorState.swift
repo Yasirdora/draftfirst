@@ -48,6 +48,10 @@ public final class EditorState {
     /// view, because an edit that skips its undo registration leaves the Undo
     /// button and the model disagreeing about what the document contains.
     @ObservationIgnored public var onInsertElements: (([ScriptElement]) -> Void)?
+    /// Inserts an act break after the caret's element, card canonical, caret
+    /// in the action line that follows (RFC-ACT-BREAK §6). Same reasoning as
+    /// `onInsertElements`: the text view owns undo registration.
+    @ObservationIgnored public var onInsertActBreak: (() -> Void)?
     /// Replaces the whole element list as one undoable step, named for the
     /// Undo menu. Same reasoning as `onInsertElements`: the text view owns
     /// registration, so nothing may write the model behind its back.
@@ -176,6 +180,7 @@ public final class EditorState {
     /// pure functions of (revision) — and, for scene page numbers, the
     /// debounced stats — so they are cached by exactly those keys.
     @ObservationIgnored private var scenesCache: (revision: Int, stats: ScreenplayStats, rows: [SceneRow])?
+    @ObservationIgnored private var actsCache: (revision: Int, stats: ScreenplayStats, rows: [ActRow])?
     @ObservationIgnored private var castCache: (revision: Int, rows: [CastRow])?
 
     private var currentEngineModel: EDraftEngine.Screenplay {
@@ -359,7 +364,7 @@ public final class EditorState {
             return SceneRow(
                 id: element.id,
                 number: number,
-                page: stats.scenePages[index],
+                page: stats.elementPages[index],
                 sceneNumber: element.sceneNumber,
                 title: element.text,
                 elementIndex: index
@@ -384,6 +389,46 @@ public final class EditorState {
     public var activeSceneID: UUID? {
         guard let activeIndex = activeElementIndex else { return nil }
         return scenes.last(where: { $0.elementIndex <= activeIndex })?.id
+    }
+
+    /// The acts, derived (RFC-ACT-BREAK §2): every `actbreak` opens one,
+    /// and it runs to the next card or the document's end. Cached by
+    /// revision like the scene list — a 300-page script recounts its
+    /// cards only when the text actually moved.
+    public var acts: [ActRow] {
+        if let cache = actsCache, cache.revision == revision, cache.stats == stats {
+            return cache.rows
+        }
+        var ordinal = 0
+        var starts: [(id: UUID, ordinal: Int, title: String, index: Int, page: Int?)] = []
+        for (index, element) in screenplay.elements.enumerated() where element.type == .actbreak {
+            ordinal += 1
+            starts.append((element.id, ordinal, element.text, index, stats.elementPages[index]))
+        }
+        let rows = starts.enumerated().map { position, start in
+            let ceiling = position + 1 < starts.count
+                ? starts[position + 1].page ?? stats.pages + 1
+                : stats.pages + 1
+            return ActRow(
+                id: start.id,
+                ordinal: start.ordinal,
+                title: start.title,
+                elementIndex: start.index,
+                firstPage: start.page,
+                lastPage: start.page.map { max($0, ceiling - 1) }
+            )
+        }
+        actsCache = (revision, stats, rows)
+        return rows
+    }
+
+    /// The act the writer is in — the same "you are here" rule as the
+    /// scene mark: the last card at or before the caret. Nil above the
+    /// first act break, which is every film script and most television
+    /// cold opens.
+    public var activeActID: UUID? {
+        guard let activeIndex = activeElementIndex else { return nil }
+        return acts.last(where: { $0.elementIndex <= activeIndex })?.id
     }
 
     public var cast: [CastRow] {
@@ -452,7 +497,7 @@ public final class EditorState {
                     element.id,
                     element.sceneNumber ?? String(ordinal),
                     element.text,
-                    stats.scenePages[index]
+                    stats.elementPages[index]
                 )
                 index += 1
 
@@ -1362,13 +1407,13 @@ public final class EditorState {
     /// one the export prints, and a writer would have no way to tell which
     /// was lying. A slug broken across a page break keeps the earlier page —
     /// the scene starts where its first line does.
-    public nonisolated static func scenePages(
+    public nonisolated static func elementPages(
         in pages: [EDraftEngine.ScriptPage]
     ) -> [Int: Int] {
         var found: [Int: Int] = [:]
         for page in pages {
             for line in page.lines {
-                guard case .element(.scene) = line.type, line.element >= 0,
+                guard case .element = line.type, line.element >= 0,
                       found[line.element] == nil else { continue }
                 found[line.element] = page.number
             }
@@ -1396,7 +1441,7 @@ public final class EditorState {
             pages: max(1, pages.count),
             runtime: Paginator.estimateRuntime(pages),
             words: words,
-            scenePages: scenePages(in: pages)
+            elementPages: elementPages(in: pages)
         )
     }
 

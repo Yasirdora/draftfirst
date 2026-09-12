@@ -38,6 +38,34 @@ public struct ScreenplayEditPlanner {
         }
     }
 
+    /// The renumber rule (RFC-ACT-BREAK §4) over the surface's own element
+    /// list, answered as the delta only: which element indices take which
+    /// new card text. The rule itself lives in the engine — `Acts.renumber`
+    /// — so the web app, the phone and the Mac count acts the same way;
+    /// this is only the index-preserving bridge across the two element
+    /// shapes, which is why a customised card and every non-act element
+    /// come back absent from the delta rather than rewritten.
+    public static func renumberedActCards(in elements: [ScriptElement]) -> [Int: String] {
+        let projected = elements.map {
+            ScreenplayElement(type: $0.type.engineKind, text: $0.text)
+        }
+        let renumbered = Acts.renumber(projected)
+        var delta: [Int: String] = [:]
+        for (index, pair) in zip(renumbered, elements).enumerated() {
+            if pair.0.text != pair.1.text { delta[index] = pair.0.text }
+        }
+        return delta
+    }
+
+    /// The card a freshly inserted act break carries: the canonical
+    /// spelling of the ordinal it lands at — one past the count of act
+    /// breaks already in the script. The renumber rule keeps it true when
+    /// a later insert or delete moves it.
+    public static func defaultActCard(forInsertionInto elements: [ScriptElement]) -> String {
+        let count = elements.count(where: { $0.type == .actbreak })
+        return Acts.defaultCard(ordinal: count + 1)
+    }
+
     public static func replacementBetween(_ oldText: String, _ newText: String) -> (NSRange, String)? {
         guard oldText != newText else { return nil }
 
