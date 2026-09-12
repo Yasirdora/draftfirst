@@ -381,6 +381,7 @@ Do **not** copy `ScreenplayPageRenderer.swift` to AppKit names. Placement is
 | [IOS-COMPLETENESS.md](IOS-COMPLETENESS.md) | Where the iPhone app stands |
 | [VISION.md](VISION.md) | The product — the writer never formats |
 | [rfc-viewport-editing-model.md](rfc-viewport-editing-model.md) | **RFC v2.1, the live editing-model design** — runs in the model, markers at the boundary; cited by code comments and commit messages as "RFC v2.1" (§3.3, D6, §5.x) |
+| [RFC-HIGHLIGHTER.md](RFC-HIGHLIGHTER.md) | The highlighter: single yellow attention mark on the run, FDX namespace round-trip, PDF prints it, note-wash stacking rule |
 | [rfc-emphasis-layout-model.md](rfc-emphasis-layout-model.md) | RFC v1, superseded by v2 — kept for the audit trail; its §3 consumer list was Phase 0's checklist |
 | [bold-italic-underline-review.md](bold-italic-underline-review.md) | The peer review the RFCs stand on — claim-by-claim verdicts, the Beat architecture read, the landscape survey |
 | [evaluation-draft-format-plan.md](evaluation-draft-format-plan.md) | The `.draft` format evaluation — the tier rule (anything pointing at text positions must be modelled) that flipped D1 |
