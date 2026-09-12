@@ -159,9 +159,12 @@ public nonisolated enum PasteReassembly {
     /// every forty characters, which is exactly what the Social Network
     /// paste did (2,758 "cues", 1,723 of them prose).
     ///
-    /// The one thing it cannot see: two consecutive action paragraphs with
-    /// no marker between them join into one. That is the honest edge of a
-    /// structure-less paste, and it is named here rather than hidden.
+    /// The things it cannot see, named rather than hidden: two consecutive
+    /// action paragraphs with no marker between them join into one, and a
+    /// scene heading long enough to wrap loses its continuation to action —
+    /// margins are the only thing that tells a heading's second line from a
+    /// new paragraph, and this paste has none. Both are the honest edge of a
+    /// structure-less paste.
     private static func hardWrappedParagraphs(_ lines: [String]) -> [Paragraph]? {
         let nonBlank = lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         // A snippet is not a structure; a paste with real blank-line
