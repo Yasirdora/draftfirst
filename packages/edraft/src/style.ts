@@ -297,11 +297,22 @@ export function normaliseRuns(runs: readonly StyleRun[], textLength: number): St
 		].sort((a, b) => a - b);
 		covering.sort((a, b2) => a.start - b2.start);
 		const revisionID = covering.find((run) => run.revisionID !== undefined)?.revisionID;
+		/* One color per point: where covering runs disagree, the
+		   earliest-starting wins — the revisionID rule (RFC HIGHLIGHTER §2). */
+		const highlight = covering.find((run) => run.highlight !== undefined)?.highlight;
 
-		if (styles.length === 0 && tagNumbers.length === 0 && revisionID === undefined) continue;
+		if (
+			styles.length === 0 &&
+			tagNumbers.length === 0 &&
+			revisionID === undefined &&
+			highlight === undefined
+		) {
+			continue;
+		}
 		const candidate: StyleRun = { start, end, styles };
 		if (revisionID !== undefined) candidate.revisionID = revisionID;
 		if (tagNumbers.length > 0) candidate.tagNumbers = tagNumbers;
+		if (highlight !== undefined) candidate.highlight = highlight;
 
 		const previous = out[out.length - 1];
 		if (
@@ -309,7 +320,8 @@ export function normaliseRuns(runs: readonly StyleRun[], textLength: number): St
 			previous.end === start &&
 			previous.styles.join() === candidate.styles.join() &&
 			previous.revisionID === candidate.revisionID &&
-			(previous.tagNumbers ?? []).join() === (candidate.tagNumbers ?? []).join()
+			(previous.tagNumbers ?? []).join() === (candidate.tagNumbers ?? []).join() &&
+			previous.highlight === candidate.highlight
 		) {
 			previous.end = end;
 		} else {
@@ -371,6 +383,7 @@ export function propagateRuns(
 		const inserted: StyleRun = { start, end: start + insertedLength, styles: donor.styles };
 		if (donor.revisionID !== undefined) inserted.revisionID = donor.revisionID;
 		if (donor.tagNumbers !== undefined) inserted.tagNumbers = donor.tagNumbers;
+		if (donor.highlight !== undefined) inserted.highlight = donor.highlight;
 		out.push(inserted);
 	}
 	return normaliseRuns(out, newTextLength);
@@ -453,7 +466,8 @@ export function toggleStyle(
 			inner.end > inner.start &&
 			(inner.styles.length > 0 ||
 				inner.revisionID !== undefined ||
-				(inner.tagNumbers ?? []).length > 0)
+				(inner.tagNumbers ?? []).length > 0 ||
+				inner.highlight !== undefined)
 		) {
 			out.push(inner);
 		}

@@ -12,14 +12,14 @@
  */
 
 import { canonicalCasing } from './normalize.js';
+import { normaliseRuns, STYLE_ORDER } from './style.js';
 import { isPrinting } from './types.js';
 import type {
 	AnyElementType,
 	ElementType,
 	Screenplay,
 	ScreenplayElement,
-	TitlePageEntry
-} from './types.js';
+	TitlePageEntry, StyleRun } from './types.js';
 
 /* ---- diagnostics and limits -------------------------------------------- */
 
@@ -506,6 +506,7 @@ interface FdxParagraph {
 	attributes: Map<string, string>;
 	text: string;
 	paragraphIndex: number;
+	runs: StyleRun[];
 }
 
 interface ParsedParagraphs {
@@ -523,6 +524,59 @@ type MutableFdxParagraph = FdxParagraph & {
 	textStart: number;
 	textEnd: number;
 };
+
+/** Whether two run lists say the same thing, property for property. */
+function runsEqual(a: StyleRun[], b: StyleRun[]): boolean {
+	if (a.length !== b.length) return false;
+	return a.every((run, index) => {
+		const other = b[index];
+		return (
+			run.start === other.start &&
+			run.end === other.end &&
+			run.styles.join() === other.styles.join() &&
+			run.revisionID === other.revisionID &&
+			(run.tagNumbers ?? []).join() === (other.tagNumbers ?? []).join() &&
+			run.highlight === other.highlight
+		);
+	});
+}
+
+/** One Text element's attributes, read as a model run — nothing when the
+    run carries nothing (AllCaps aside, which lives in the text itself). */
+function modelRunFromAttributes(
+	attributes: Map<string, string>,
+	start: number,
+	end: number
+): StyleRun | null {
+	if (end <= start) return null;
+	const run: StyleRun = { start, end, styles: [] };
+	const style = attributes.get('style');
+	if (style) {
+		const present = new Set(style.split('+').map((part) => part.trim()));
+		/* AllCaps stays in the text — the file's own rule (see runIsAllCaps)
+		   — so it never becomes a run token here. */
+		run.styles = STYLE_ORDER.filter((token) => token !== 'AllCaps' && present.has(token));
+	}
+	const revision = Number(attributes.get('revisionid'));
+	if (Number.isSafeInteger(revision)) run.revisionID = revision;
+	const tags = (attributes.get('tagnumber') ?? '')
+		.split(',')
+		.filter((part) => part.trim() !== '')
+		.map((part) => Number(part.trim()))
+		.filter((value) => Number.isSafeInteger(value));
+	if (tags.length > 0) run.tagNumbers = tags;
+	const highlight = attributes.get('edraft:highlight') ?? attributes.get('draftfirst:highlight');
+	if ((highlight ?? '').trim().toLowerCase() === 'yellow') run.highlight = 'yellow';
+	if (
+		run.styles.length === 0 &&
+		run.revisionID === undefined &&
+		run.tagNumbers === undefined &&
+		run.highlight === undefined
+	) {
+		return null;
+	}
+	return run;
+}
 
 function paragraphsOf(
 	source: string,
@@ -571,6 +625,9 @@ function paragraphsOf(
 	let metadataDepth = 0;
 	/// Whether the Text run being read is styled AllCaps by Final Draft.
 	let runUppercases = false;
+	/** The direct-child Text run being read, so its attributes become a
+	    model run: styles, revision, tags, and our own highlight. */
+	let openRun: { attributes: Map<string, string>; start: number } | null = null;
 	let paragraphCount = 0;
 	let textRunCount = 0;
 	let limitReached = false;
@@ -635,7 +692,8 @@ function paragraphsOf(
 						start: offset,
 						end: offset,
 						textStart: -1,
-						textEnd: -1
+						textEnd: -1,
+						runs: []
 					};
 					paragraphCount++;
 				}
@@ -649,6 +707,7 @@ function paragraphsOf(
 					textDepth++;
 					if (current.textStart === -1) current.textStart = offset;
 					runUppercases = runIsAllCaps(tag.attributes.get('style'));
+					openRun = { attributes: tag.attributes, start: current.text.length };
 				}
 				return true;
 			},
@@ -664,7 +723,14 @@ function paragraphsOf(
 				if (name === 'text' && textDepth > 0) {
 					textDepth--;
 					runUppercases = false;
-					if (current) current.textEnd = tagEnd(offset);
+					if (current) {
+						current.textEnd = tagEnd(offset);
+						if (openRun) {
+							const span = modelRunFromAttributes(openRun.attributes, openRun.start, current.text.length);
+							if (span) current.runs.push(span);
+							openRun = null;
+						}
+					}
 				}
 				if (name === 'paragraph') {
 					if (current) current.end = tagEnd(offset);
@@ -840,6 +906,9 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 			const type = refineGeneral(kind?.type ?? 'general', paragraph);
 
 			const element: ScreenplayElement = { type, text: paragraph.text };
+			if (paragraph.runs.length > 0) {
+				element.runs = normaliseRuns(paragraph.runs, (paragraph.text as string).length);
+			}
 			if (type === 'section' && kind?.depth !== undefined) element.depth = kind.depth;
 			const sceneNumber = attributeOf(paragraph, 'number');
 			if (type === 'scene' && sceneNumber !== '') element.sceneNumber = sceneNumber;
@@ -981,6 +1050,10 @@ interface OriginParagraph {
 	 * read and makes it impossible to see what actually changed.
 	 */
 	lead: string;
+	/** The runs the file itself declared, for the content gate on a
+	    preserving save — a run changed without a character moving still
+	    rewrites the paragraph. */
+	runs: StyleRun[];
 }
 
 /**
@@ -1109,11 +1182,17 @@ function rewriteParagraph(
 	index: number
 ): string {
 	const sameText = origin.key === originKey(element.type, element.text);
+	/* The text is only half of a paragraph's content: a highlight or a
+	   style changed without a character moving must rewrite the run too. */
+	const sameRuns = runsEqual(
+		origin.runs,
+		normaliseRuns(element.runs ?? [], element.text.length)
+	);
 	const changedKind =
 		origin.type !== element.type &&
 		!FOUNTAIN_FLATTENS.has(origin.type) &&
 		MODEL_TO_FDX[element.type] !== undefined;
-	if (sameText && !changedKind) return source.slice(origin.start, origin.end);
+	if (sameText && sameRuns && !changedKind) return source.slice(origin.start, origin.end);
 	if (origin.textStart === -1 || origin.textEnd <= origin.textStart) {
 		return source.slice(origin.start, origin.end);
 	}
@@ -1123,10 +1202,9 @@ function rewriteParagraph(
 	const head = changedKind
 		? retypedOpenTag(source, origin, MODEL_TO_FDX[element.type] as string)
 		: source.slice(origin.start, origin.textStart);
-	if (sameText) return head + source.slice(origin.textStart, origin.end);
+	if (sameText && sameRuns) return head + source.slice(origin.textStart, origin.end);
 
-	const encoded = encodeXmlValue(element.text, diagnostics, 'paragraph text', index);
-	return head + `<Text>${encoded}</Text>` + source.slice(origin.textEnd, origin.end);
+	return head + textRunsMarkup(element, diagnostics, index) + source.slice(origin.textEnd, origin.end);
 }
 
 /**
@@ -1182,7 +1260,9 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 			}
 
 			return {
-				xml: source.slice(0, first) + out.join('') + source.slice(last),
+				xml: ensureNamespaceDeclared(
+					source.slice(0, first) + out.join('') + source.slice(last)
+				),
 				warnings: messagesOf(diagnostics.result()),
 				diagnostics: diagnostics.result()
 			};
@@ -1220,7 +1300,8 @@ function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph
 			end: held.end,
 			textStart: held.textStart,
 			textEnd: held.textEnd,
-			lead
+			lead,
+			runs: paragraph.runs
 		};
 	});
 }
@@ -1228,6 +1309,69 @@ function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph
 /* ---- export ------------------------------------------------------------- */
 
 const XML_HEADER = '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>';
+
+/**
+ * A namespaced attribute means nothing without its declaration. Files
+ * written by Final Draft have never heard of our prefix, so the first
+ * time eDraft's own metadata is spliced into one — a highlight, a lyrics
+ * mark — the root gains the declaration. Files that already declare it
+ * (anything eDraft wrote) pass through byte-identical.
+ */
+function ensureNamespaceDeclared(xml: string): string {
+	if (!xml.includes(`${EDRAFT_PREFIX}:`)) return xml;
+	if (xml.includes(`xmlns:${EDRAFT_PREFIX}=`)) return xml;
+	const root = xml.indexOf('<FinalDraft');
+	if (root === -1) return xml;
+	return (
+		xml.slice(0, root + '<FinalDraft'.length) +
+		` xmlns:${EDRAFT_PREFIX}="${EDRAFT_NAMESPACE}"` +
+		xml.slice(root + '<FinalDraft'.length)
+	);
+}
+
+/**
+ * A paragraph's text as one or more <Text> runs.
+ *
+ * The model's runs become the file's runs: styles in FDX's own '+'
+ * list, the highlight in our extension namespace, revision and tags
+ * carried. A paragraph with no runs writes exactly what it always did —
+ * the plain single <Text> — so a runless document's bytes never move.
+ */
+function textRunsMarkup(
+	element: ScreenplayElement,
+	diagnostics: DiagnosticCollector,
+	index: number
+): string {
+	const runs = element.runs ?? [];
+	if (runs.length === 0) {
+		return `<Text>${encodeXmlValue(element.text, diagnostics, 'paragraph text', index)}</Text>`;
+	}
+	const encode = (slice: string) => encodeXmlValue(slice, diagnostics, 'paragraph text', index);
+	const text = element.text;
+	const out: string[] = [];
+	let cursor = 0;
+	const ordered = [...runs].sort((a, b) => a.start - b.start);
+	for (const run of ordered) {
+		const start = Math.max(cursor, Math.min(run.start, text.length));
+		const end = Math.max(start, Math.min(run.end, text.length));
+		if (start > cursor) out.push(`<Text>${encode(text.slice(cursor, start))}</Text>`);
+		if (end > start) {
+			const attrs: string[] = [];
+			const styles = STYLE_ORDER.filter((token) => run.styles.includes(token));
+			if (styles.length > 0) attrs.push(`Style="${styles.join('+')}"`);
+			if (run.revisionID !== undefined) attrs.push(`RevisionID="${run.revisionID}"`);
+			if (run.tagNumbers !== undefined && run.tagNumbers.length > 0) {
+				attrs.push(`TagNumber="${run.tagNumbers.join(',')}"`);
+			}
+			if (run.highlight !== undefined) attrs.push(`${EDRAFT_PREFIX}:Highlight="Yellow"`);
+			const attributeText = attrs.length > 0 ? ` ${attrs.join(' ')}` : '';
+			out.push(`<Text${attributeText}>${encode(text.slice(start, end))}</Text>`);
+		}
+		cursor = end;
+	}
+	if (cursor < text.length) out.push(`<Text>${encode(text.slice(cursor))}</Text>`);
+	return out.join('');
+}
 
 export function writeFdxWithDiagnostics(
 	script: Screenplay,
@@ -1261,8 +1405,7 @@ export function writeFdxWithDiagnostics(
 				`Number="${encodeXmlValue(element.sceneNumber, diagnostics, 'scene number', index)}"`
 			);
 		}
-		const encoded = encodeXmlValue(element.text, diagnostics, 'paragraph text', index);
-		body.push(`<Paragraph ${attributes.join(' ')}><Text>${encoded}</Text></Paragraph>`);
+		body.push(`<Paragraph ${attributes.join(' ')}>${textRunsMarkup(element, diagnostics, index)}</Paragraph>`);
 	}
 
 	if (omittedStructural > 0) {

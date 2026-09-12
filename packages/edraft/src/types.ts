@@ -59,6 +59,11 @@ export type StyleToken = 'Bold' | 'Italic' | 'Underline' | 'Strikeout' | 'AllCap
     `revisionID` and `tagNumbers` live on the run because FDX puts
     RevisionID and TagNumber on <Text> next to Style — one span mechanism,
     and the model can never express a span the format cannot hear. */
+/** Highlight colors. v1 is yellow alone; the field is a value, not a
+    flag, so a palette is an additive UI change and never a format
+    migration (docs/RFC-HIGHLIGHTER.md, D7). */
+export type HighlightColor = 'yellow';
+
 export interface StyleRun {
 	start: number;
 	end: number;
@@ -66,6 +71,9 @@ export interface StyleRun {
 	styles: StyleToken[];
 	revisionID?: number;
 	tagNumbers?: number[];
+	/** The attention mark (docs/RFC-HIGHLIGHTER.md): one color in v1,
+	    carried on the run beside styles like `revisionID`. */
+	highlight?: HighlightColor;
 }
 
 export interface ScreenplayElement {

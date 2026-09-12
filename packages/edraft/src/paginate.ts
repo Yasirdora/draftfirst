@@ -81,31 +81,53 @@ function assertFiniteInteger(value: number, name: string, min: number, max: numb
 	}
 }
 
-/** Greedy word wrap at `width` characters, hard-splitting tokens that cannot fit. */
-export function wrapText(text: string, width: number): string[] {
+/** One wrapped line: its text, and where it begins in the source string,
+    in UTF-16 units. The PDF's run slicing reads offsets from this. */
+export interface WrappedLine {
+	text: string;
+	utf16Start: number;
+}
+
+/** Greedy word wrap at `width` characters, hard-splitting tokens that
+    cannot fit, with the source offset of every line kept. */
+export function wrapLines(text: string, width: number): WrappedLine[] {
 	assertFiniteInteger(width, 'width', 1, PAGE_WIDTH_CHARS);
-	const words = text
-		.split(/\s+/)
-		.filter((w) => w !== '')
-		.flatMap((word) => {
-			if (word.length <= width) return [word];
-			const chunks: string[] = [];
-			for (let i = 0; i < word.length; i += width) chunks.push(word.slice(i, i + width));
-			return chunks;
-		});
-	if (words.length === 0) return [''];
-	const lines: string[] = [];
-	let cur = words[0];
-	for (let i = 1; i < words.length; i++) {
-		if (cur.length + 1 + words[i].length <= width) {
-			cur += ' ' + words[i];
+	const words: { text: string; start: number }[] = [];
+	let offset = 0;
+	for (const piece of text.split(/(\s+)/)) {
+		if (/^\s+$/.test(piece) || piece === '') {
+			offset += piece.length;
+			continue;
+		}
+		if (piece.length <= width) {
+			words.push({ text: piece, start: offset });
 		} else {
-			lines.push(cur);
-			cur = words[i];
+			for (let i = 0; i < piece.length; i += width) {
+				words.push({ text: piece.slice(i, i + width), start: offset + i });
+			}
+		}
+		offset += piece.length;
+	}
+	if (words.length === 0) return [{ text: '', utf16Start: 0 }];
+	const lines: WrappedLine[] = [];
+	let cur = words[0].text;
+	let curStart = words[0].start;
+	for (let i = 1; i < words.length; i++) {
+		if (cur.length + 1 + words[i].text.length <= width) {
+			cur += ' ' + words[i].text;
+		} else {
+			lines.push({ text: cur, utf16Start: curStart });
+			cur = words[i].text;
+			curStart = words[i].start;
 		}
 	}
-	lines.push(cur);
+	lines.push({ text: cur, utf16Start: curStart });
 	return lines;
+}
+
+/** Greedy word wrap at `width` characters, hard-splitting tokens that cannot fit. */
+export function wrapText(text: string, width: number): string[] {
+	return wrapLines(text, width).map((line) => line.text);
 }
 
 function alignedLine(text: string, align: 'right' | 'center'): { text: string; indent: number } {

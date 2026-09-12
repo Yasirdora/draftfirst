@@ -602,3 +602,93 @@ describe('FDX AllCaps runs', () => {
 		expect(parseFdx(notCaps).script.elements[0].text).toBe('left alone');
 	});
 });
+
+describe('runs in FDX — emphasis, revision, tags and the highlight', () => {
+	it('reads a run’s attributes into the model', () => {
+		const xml = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft xmlns:EDraft="https://edraft.xyz/ns/fdx/1" DocumentType="Script" Version="3"><Content>
+<Paragraph Type="Action"><Text>plain </Text><Text Style="Bold+Italic">strong</Text><Text RevisionID="2"> revised</Text><Text EDraft:Highlight="Yellow"> marked</Text></Paragraph>
+</Content></FinalDraft>`;
+
+		const element = parseFdx(xml).script.elements[0];
+		expect(element.text).toBe('plain strong revised marked');
+		expect(element.runs).toEqual([
+			{ start: 6, end: 12, styles: ['Bold', 'Italic'] },
+			{ start: 12, end: 20, styles: [], revisionID: 2 },
+			{ start: 20, end: 27, styles: [], highlight: 'yellow' }
+		]);
+	});
+
+	it('writes runs back out, in canonical style order', () => {
+		const script: Screenplay = {
+			titlePage: [],
+			elements: [
+				{
+					type: 'action',
+					text: 'The strong marked words.',
+					runs: [
+						{ start: 4, end: 10, styles: ['Italic', 'Bold'] },
+						{ start: 11, end: 17, styles: [], highlight: 'yellow' }
+					]
+				}
+			]
+		};
+		const xml = writeFdx(script);
+		expect(xml).toContain('<Text>The </Text>');
+		expect(xml).toContain('<Text Style="Bold+Italic">strong</Text>');
+		expect(xml).toContain('<Text EDraft:Highlight="Yellow">marked</Text>');
+		expect(xml).toContain('<Text> words.</Text>');
+	});
+
+	it('round-trips runs losslessly through our own write and read', () => {
+		const script: Screenplay = {
+			titlePage: [],
+			elements: [
+				{
+					type: 'dialogue',
+					text: 'A bold thing, a marked thing.',
+					runs: [
+						{ start: 2, end: 6, styles: ['Bold'] },
+						{ start: 16, end: 22, styles: [], highlight: 'yellow' }
+					]
+				}
+			]
+		};
+		const back = parseFdx(writeFdx(script)).script.elements[0];
+		expect(back.text).toBe('A bold thing, a marked thing.');
+		expect(back.runs).toEqual([
+			{ start: 2, end: 6, styles: ['Bold'] },
+			{ start: 16, end: 22, styles: [], highlight: 'yellow' }
+		]);
+	});
+
+	it('a runless document writes the same plain text it always did', () => {
+		const script: Screenplay = {
+			titlePage: [],
+			elements: [{ type: 'action', text: 'No runs here.' }]
+		};
+		const xml = writeFdx(script);
+		expect(xml).toContain('<Paragraph Type="Action"><Text>No runs here.</Text></Paragraph>');
+		expect(xml).not.toContain('Style=');
+		expect(xml).not.toContain('Highlight');
+	});
+
+	it('the preserving rewrite declares the namespace when it first needs it', () => {
+		const xml = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="6">
+  <Content>
+    <Paragraph Type="Action"><Text>Mark me.</Text></Paragraph>
+  </Content>
+</FinalDraft>`;
+		const doc = openFdx(xml);
+		const edited: Screenplay = {
+			titlePage: [],
+			elements: [
+				{ type: 'action', text: 'Mark me.', runs: [{ start: 0, end: 4, styles: [], highlight: 'yellow' }] }
+			]
+		};
+		const out = doc.rewrite(edited).xml;
+		expect(out).toContain('xmlns:EDraft="https://edraft.xyz/ns/fdx/1"');
+		expect(out).toContain('<Text EDraft:Highlight="Yellow">Mark</Text>');
+	});
+});

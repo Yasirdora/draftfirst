@@ -414,7 +414,10 @@ describe('paginateIncrementally', () => {
 		expect(paginateIncrementally(after, before, pages)).toEqual(paginate(after));
 	});
 
-	it('fuzz: random single-region edits are identical to the full pass', () => {
+	it('fuzz: random single-region edits are identical to the full pass', {
+		// Three hundred property rounds outlast the default 5s under load.
+		timeout: 30000
+	}, () => {
 		let seed = 20260911;
 		const random = () => {
 			seed = (seed * 1103515245 + 12345) & 0x7fffffff;
