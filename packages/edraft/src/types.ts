@@ -16,7 +16,11 @@ export type ElementType =
 	| 'shot'
 	| 'general'
 	| 'centered'
-	| 'lyrics';
+	| 'lyrics'
+	/* The card that opens an act. Its page break is a rule of the type (the
+	   paginator forces one), and the act's end is derived — the next actbreak
+	   or the document's end — never stored. RFC-ACT-BREAK §2, D2-D3. */
+	| 'actbreak';
 
 /** Non-printing structural types (kept in the model, skipped by the paginator). */
 export type StructuralType = 'note' | 'section' | 'synopsis' | 'pagebreak';
@@ -33,7 +37,8 @@ const PRINTING_TYPES: ReadonlySet<string> = new Set<ElementType>([
 	'shot',
 	'general',
 	'centered',
-	'lyrics'
+	'lyrics',
+	'actbreak'
 ]);
 
 /** Offset within one element's marker-free content text, in UTF-16 code

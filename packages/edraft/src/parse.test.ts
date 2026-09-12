@@ -411,3 +411,18 @@ describe('round-trip · parse → serialise → parse', () => {
 		expect(parseFountain(serialiseFountain(model)).elements).toEqual(model.elements);
 	});
 });
+
+describe('act breaks at the Fountain boundary (RFC-ACT-BREAK §3)', () => {
+	it('serialises an act break as the centred card', () => {
+		expect(
+			serialiseFountain({ titlePage: [], elements: [{ type: 'actbreak', text: 'ACT TWO' }] })
+		).toContain('> ACT TWO <');
+	});
+
+	it('parses that card back as centred text — structure flattens, ink survives', () => {
+		expect(parseFountain('> ACT TWO <').elements[0]).toMatchObject({
+			type: 'centered',
+			text: 'ACT TWO'
+		});
+	});
+});

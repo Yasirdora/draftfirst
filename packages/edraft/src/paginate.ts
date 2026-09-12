@@ -46,7 +46,11 @@ export const GEOMETRY: Readonly<Record<string, Geometry>> = {
 	shot: { indent: 0, width: 60, before: 1 },
 	general: { indent: 0, width: 60, before: 1 },
 	centered: { indent: 0, width: 60, before: 1 },
-	lyrics: { indent: 10, width: 35, before: 0 }
+	lyrics: { indent: 10, width: 35, before: 0 },
+	/* The card always lands at the top of the page its break just opened, so
+	   `before` is moot — the fold's top-of-page suppression drops it anyway.
+	   Kept at zero so the geometry table states that honestly. */
+	actbreak: { indent: 0, width: 60, before: 0 }
 };
 
 /* ---- output model ------------------------------------------------------ */
@@ -224,6 +228,27 @@ class BlockSource {
 		if (!isPrinting(el.type)) return;
 
 		const geo = GEOMETRY[el.type] ?? GEOMETRY.action;
+
+		if (el.type === 'actbreak') {
+			/* Break-before is a rule of the type (RFC-ACT-BREAK D2), not a
+			   stored pagebreak the writer could delete. The fold ignores a
+			   break on an empty page, so a document opening on ACT ONE gets no
+			   blank first page, and a writer's pagebreak beside the card
+			   collapses into one break. The flow flush is the block boundary:
+			   no speech straddles an act, so no MORE/CONT'D pair ever spans
+			   one. */
+			this.flushFlow();
+			this.buffered.push('pagebreak');
+			this.buffered.push({
+				kind: 'simple',
+				before: geo.before,
+				lines: wrapText(el.text, PAGE_WIDTH_CHARS).map((text) => {
+					const a = alignedLine(text, 'center');
+					return { text: a.text, type: el.type, indent: a.indent, element: this.index - 1 };
+				})
+			});
+			return;
+		}
 
 		if (FLOW_TYPES.has(el.type)) {
 			if (el.type === 'character' || !this.flow) {

@@ -45,6 +45,9 @@ interface ParaSpec {
 	left?: number;
 	align?: 'center' | 'right';
 	keepNext?: boolean;
+	/* The act card opens a fresh page (RFC-ACT-BREAK D2) — DOCX speaks it
+	   natively as a paragraph property. */
+	pageBreakBefore?: boolean;
 }
 
 /** Where each element sits on the page, measured from the 1.5" text margin. */
@@ -62,6 +65,8 @@ function paraSpec(type: ElementType): ParaSpec {
 			return { before: 0, after: LINE, align: 'right' };
 		case 'centered':
 			return { before: 0, after: LINE, align: 'center' };
+		case 'actbreak':
+			return { before: 0, after: LINE, align: 'center', pageBreakBefore: true };
 		default:
 			/* action, shot, general, lyrics — the left margin */
 			return { before: 0, after: LINE };
@@ -71,6 +76,7 @@ function paraSpec(type: ElementType): ParaSpec {
 function paragraph(spec: ParaSpec, text: string): string {
 	let props = `<w:spacing w:before="${spec.before}" w:after="${spec.after}" w:line="${LINE}" w:lineRule="auto"/>`;
 	if (spec.keepNext === true) props = `<w:keepNext/>${props}`;
+	if (spec.pageBreakBefore === true) props = `<w:pageBreakBefore/>${props}`;
 	if (spec.left !== undefined) props += `<w:ind w:left="${spec.left}"/>`;
 	if (spec.align !== undefined) props += `<w:jc w:val="${spec.align}"/>`;
 	if (text === '') return `<w:p><w:pPr>${props}</w:pPr></w:p>`;

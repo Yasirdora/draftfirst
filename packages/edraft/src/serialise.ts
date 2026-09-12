@@ -95,6 +95,11 @@ export function elementToFountain(el: ScreenplayElement): string {
 		}
 		case 'centered':
 			return `> ${body} <`;
+		case 'actbreak':
+			/* Fountain has no act spelling; the centred card prints correctly
+			   everywhere and re-imports as centered — the named degradation,
+			   RFC-ACT-BREAK §3. The paste route is smarter than the format. */
+			return `> ${body} <`;
 		case 'lyrics':
 			return `~ ${body}`;
 		case 'shot':

@@ -1,6 +1,7 @@
 /** FDX import, export, diagnostics, limits, and round-trip behavior. */
 import { describe, expect, it } from 'vitest';
 import {
+	actOrdinalWord,
 	decodeXmlEntities,
 	encodeXmlEntities,
 	openFdx,
@@ -690,5 +691,67 @@ describe('runs in FDX — emphasis, revision, tags and the highlight', () => {
 		const out = doc.rewrite(edited).xml;
 		expect(out).toContain('xmlns:EDraft="https://edraft.xyz/ns/fdx/1"');
 		expect(out).toContain('<Text EDraft:Highlight="Yellow">Mark</Text>');
+	});
+});
+
+describe('FDX · act breaks (RFC-ACT-BREAK §3)', () => {
+	it('reads New Act as an actbreak and absorbs End of Act', () => {
+		const xml = `<FinalDraft><Content>
+<Paragraph Type="Action"><Text>The teaser plays out.</Text></Paragraph>
+<Paragraph Type="End of Act" Alignment="Center"><Text>END OF TEASER</Text></Paragraph>
+<Paragraph Type="New Act" Alignment="Center"><Text>ACT ONE</Text></Paragraph>
+<Paragraph Type="Action"><Text>No president ever slept here.</Text></Paragraph>
+</Content></FinalDraft>`;
+		const { script } = parseFdx(xml);
+		expect(script.elements).toEqual([
+			{ type: 'action', text: 'The teaser plays out.' },
+			{ type: 'actbreak', text: 'ACT ONE' },
+			{ type: 'action', text: 'No president ever slept here.' }
+		]);
+	});
+
+	it('writes New Act centred and generates the End of Act the act ends', () => {
+		const fdx = writeFdx({
+			titlePage: [],
+			elements: [
+				{ type: 'action', text: 'Teaser.' },
+				{ type: 'actbreak', text: 'ACT ONE' },
+				{ type: 'action', text: 'Middle.' },
+				{ type: 'actbreak', text: 'ACT TWO' },
+				{ type: 'action', text: 'End.' }
+			]
+		});
+		expect(fdx).toContain(
+			'<Paragraph Type="New Act" Alignment="Center"><Text>ACT ONE</Text></Paragraph>'
+		);
+		expect(fdx).toContain(
+			'<Paragraph Type="End of Act" Alignment="Center"><Text>END OF ACT ONE</Text></Paragraph>'
+		);
+		expect(fdx.indexOf('END OF ACT ONE')).toBeLessThan(fdx.indexOf('ACT TWO'));
+		/* The document's own end ends the last act — nothing is generated there. */
+		expect(fdx).not.toContain('END OF ACT TWO');
+	});
+
+	it('round-trips acts: export → import lands the model back exactly', () => {
+		const script: Screenplay = {
+			titlePage: [],
+			elements: [
+				{ type: 'action', text: 'Teaser.' },
+				{ type: 'actbreak', text: 'ACT ONE' },
+				{ type: 'action', text: 'Middle.' },
+				{ type: 'actbreak', text: 'TEASER, BUT EVIL' },
+				{ type: 'action', text: 'End.' }
+			]
+		};
+		const { script: back } = parseFdx(writeFdx(script));
+		expect(back.elements).toEqual(script.elements);
+	});
+
+	it('spells ordinals in words through twenty, digits beyond', () => {
+		expect(actOrdinalWord(1)).toBe('ONE');
+		expect(actOrdinalWord(4)).toBe('FOUR');
+		expect(actOrdinalWord(20)).toBe('TWENTY');
+		expect(actOrdinalWord(21)).toBe('21');
+		expect(actOrdinalWord(113)).toBe('113');
 	});
 });

@@ -208,7 +208,9 @@ function continuingSameVoice(elements: ScreenplayElement[], beforeIndex: number,
 	let spoke = false;
 	for (let i = clampIndex(elements, beforeIndex) - 1; i >= 0; i--) {
 		const t = elements[i].type;
-		if (t === 'scene') return false;
+		/* An act boundary ends a voice as surely as a scene cut does — a speech
+		   never continues across one. */
+		if (t === 'scene' || t === 'actbreak') return false;
 		if (t === 'character') {
 			return spoke && stripCueExtensions(elements[i].text).trim().toUpperCase() === name;
 		}

@@ -447,3 +447,65 @@ describe('paginateIncrementally', () => {
 		}
 	});
 });
+
+describe('paginate · act breaks (RFC-ACT-BREAK)', () => {
+	it('opens a new page for every act, card centred at the top', () => {
+		const pages = paginate(
+			doc([
+				el('action', 'The teaser plays out.'),
+				el('actbreak', 'ACT ONE'),
+				el('scene', 'INT. WHITE HOUSE - NIGHT'),
+				el('action', 'No president ever slept here.')
+			])
+		);
+		expect(pages).toHaveLength(2);
+		expect(pages[1].lines[0].text.trim()).toBe('ACT ONE');
+		/* Centred on the sixty-character grid, and nothing above it. */
+		expect(pages[1].lines[0].indent).toBeGreaterThan(0);
+	});
+
+	it('makes no blank first page when the document opens on an act', () => {
+		const pages = paginate(doc([el('actbreak', 'ACT ONE'), el('action', 'We begin.')]));
+		expect(pages).toHaveLength(1);
+		expect(pages[0].lines[0].text.trim()).toBe('ACT ONE');
+	});
+
+	it("collapses a writer's page break beside the card into one break", () => {
+		const pages = paginate(
+			doc([
+				el('action', 'Out.'),
+				el('pagebreak', ''),
+				el('actbreak', 'ACT TWO'),
+				el('action', 'In.')
+			])
+		);
+		expect(pages).toHaveLength(2);
+		expect(pages[1].lines[0].text.trim()).toBe('ACT TWO');
+	});
+
+	it('splits a long speech naturally, but the act still opens clean', () => {
+		const longSpeech = Array.from({ length: 24 }, (_, i) => `line ${i + 1} of the speech.`).join(
+			' '
+		);
+		const pages = paginate(
+			doc([
+				el('character', 'WALT'),
+				el('dialogue', longSpeech),
+				el('actbreak', 'ACT TWO'),
+				el('action', 'The next act begins.')
+			]),
+			{ linesPerPage: 10 }
+		);
+		const actPage = pages.findIndex((p) => p.lines.some((l) => l.text.trim() === 'ACT TWO'));
+		expect(actPage).toBeGreaterThan(0);
+		/* The speech spilled forward with its (MORE)/CONT'D pair somewhere
+		   before the act... */
+		expect(pages.slice(0, actPage).some((p) => p.lines.some((l) => l.text === '(MORE)'))).toBe(
+			true
+		);
+		/* ...but the act's own page opens with the card, not a continuation —
+		   no pair ever spans an act boundary. */
+		expect(pages[actPage].lines[0].text.trim()).toBe('ACT TWO');
+		expect(pages[actPage].lines.some((l) => l.text.includes("(CONT'D)"))).toBe(false);
+	});
+});

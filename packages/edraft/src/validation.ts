@@ -50,6 +50,7 @@ const ELEMENT_TYPES = new Set([
 	'general',
 	'centered',
 	'lyrics',
+	'actbreak',
 	'note',
 	'section',
 	'synopsis',
