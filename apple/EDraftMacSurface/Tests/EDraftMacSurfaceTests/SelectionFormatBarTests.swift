@@ -136,12 +136,12 @@ final class SelectionFormatBarTests: XCTestCase {
 
     /// Centre Line flips the element's type, and the text stays exactly the
     /// writer's — no `> <` marker ever enters it. The line draws centred
-    /// because that is what the type means, and the bar reads it back lit.
+    /// because that is what the type means.
     func testCentreMarksTheWholeLineAndAgainUnmarksIt() {
         let (editor, surface) = surface("INT. LAB - DAY\n\nThe end.")
         select("end", in: surface)
 
-        surface.applyMark(.centered)
+        surface.toggleCentered(named: "Center Line")
         XCTAssertEqual(editor.screenplay.elements.last?.type, .centered)
         XCTAssertFalse(
             surface.textView.string.contains(">") || surface.textView.string.contains("<"),
@@ -152,12 +152,8 @@ final class SelectionFormatBarTests: XCTestCase {
             .attribute(.paragraphStyle, at: lineRange.location, effectiveRange: nil)
             as? NSParagraphStyle
         XCTAssertEqual(paragraph?.alignment, .center, "a centred line draws centred")
-        XCTAssertTrue(
-            surface.styleCoverage(at: surface.textView.selectedRange()).contains(.centered),
-            "the bar reads what the line wears"
-        )
 
-        surface.applyMark(.centered)
+        surface.toggleCentered(named: "Center Line")
         XCTAssertEqual(editor.screenplay.elements.last?.type, .action,
                        "centring again takes the line back to action")
         XCTAssertFalse(surface.textView.string.contains("> The end. <"))
@@ -167,7 +163,7 @@ final class SelectionFormatBarTests: XCTestCase {
     func testCentreIsOneNamedUndoStep() {
         let (editor, surface) = surface("INT. LAB - DAY\n\nThe end.")
         select("end", in: surface)
-        surface.applyMark(.centered)
+        surface.toggleCentered(named: "Center Line")
         XCTAssertEqual(editor.screenplay.elements.last?.type, .centered)
 
         editor.undo()
@@ -181,20 +177,20 @@ final class SelectionFormatBarTests: XCTestCase {
     func testCentreDecidesOnceForAMixedSelection() {
         let (editor, surface) = surface("INT. LAB - DAY\n\nThe end.")
         select("LAB", in: surface)
-        surface.applyMark(.centered)
+        surface.toggleCentered(named: "Center Line")
         XCTAssertEqual(editor.screenplay.elements.first?.type, .centered)
         XCTAssertEqual(editor.screenplay.elements.last?.type, .action)
 
         let whole = surface.textView.string as NSString
         let span = NSUnionRange(whole.range(of: "LAB"), whole.range(of: "The"))
         surface.textView.setSelectedRange(span)
-        surface.applyMark(.centered)
+        surface.toggleCentered(named: "Center Line")
         XCTAssertEqual(editor.screenplay.elements.first?.type, .centered,
                        "the centred line is not stripped")
         XCTAssertEqual(editor.screenplay.elements.last?.type, .centered,
                        "the plain line joins it")
 
-        surface.applyMark(.centered)
+        surface.toggleCentered(named: "Center Line")
         XCTAssertEqual(editor.screenplay.elements.first?.type, .action)
         XCTAssertEqual(editor.screenplay.elements.last?.type, .action)
     }
@@ -357,6 +353,95 @@ final class SelectionFormatBarTests: XCTestCase {
         XCTAssertTrue(
             areas[0].options.contains(.activeAlways),
             "a palette answers before its window is key"
+        )
+    }
+
+    /// The highlighter is the run's other property through the same model
+    /// path: one decision for the whole selection, one named undo step,
+    /// and the mark in the storage where content belongs.
+    func testHighlightMarksAndAgainLiftsIt() {
+        let (editor, surface) = surface("INT. LAB - DAY\n\nDust hangs in the light.")
+        select("hangs", in: surface)
+
+        surface.applyMark(.highlight)
+        XCTAssertEqual(
+            editor.screenplay.elements.last?.runs,
+            [StyleRun(start: 5, end: 10, styles: [], highlight: .yellow)]
+        )
+        let range = (surface.textView.string as NSString).range(of: "hangs")
+        let background = surface.textView.textStorage?
+            .attribute(.backgroundColor, at: range.location, effectiveRange: nil)
+        XCTAssertNotNil(background, "the mark draws as a wash on the paper")
+        XCTAssertTrue(
+            surface.styleCoverage(at: surface.textView.selectedRange()).contains(.highlight),
+            "the bar reads the mark the selection wears"
+        )
+
+        surface.applyMark(.highlight)
+        XCTAssertNil(editor.screenplay.elements.last?.runs, "one more takes it off")
+        XCTAssertFalse(
+            surface.styleCoverage(at: surface.textView.selectedRange()).contains(.highlight)
+        )
+    }
+
+    /// One undo lifts the whole mark, named like the styles are.
+    func testHighlightIsOneNamedUndoStep() {
+        let (editor, surface) = surface("INT. LAB - DAY\n\nDust hangs in the light.")
+        select("hangs", in: surface)
+        surface.applyMark(.highlight)
+        XCTAssertNotNil(editor.screenplay.elements.last?.runs)
+
+        editor.undo()
+        XCTAssertNil(editor.screenplay.elements.last?.runs, "one undo lifts the mark")
+    }
+
+    /// A mixed selection decides once: a span half-marked gets marked
+    /// everywhere; it does not strip the marked half.
+    func testHighlightDecidesOnceForAMixedSelection() {
+        let (editor, surface) = surface("INT. LAB - DAY\n\nDust hangs in the light.")
+        select("hangs", in: surface)
+        surface.applyMark(.highlight)
+        XCTAssertEqual(editor.screenplay.elements.last?.runs?.count, 1)
+
+        let whole = (surface.textView.string as NSString).range(of: "Dust hangs in the light.")
+        surface.textView.setSelectedRange(whole)
+        surface.applyMark(.highlight)
+        XCTAssertTrue(
+            Emphasis.highlightCovered(
+                editor.screenplay.elements.last?.runs ?? [],
+                from: 0, to: ("Dust hangs in the light." as NSString).length
+            ),
+            "the mixed selection is marked everywhere, not stripped"
+        )
+    }
+
+    /// The wash yields to the mark: a noted line keeps its tint everywhere
+    /// except where a highlight stands (docs/RFC-HIGHLIGHTER.md §4).
+    func testTheNoteWashYieldsToTheMark() {
+        let (editor, surface) = surface("INT. LAB - DAY\n\nDust hangs in the light.")
+        let action = editor.screenplay.elements.last!
+        editor.addNote("check this", to: action.id)
+        surface.renderIfNeeded(editor)
+        let noted = (surface.textView.string as NSString).range(of: "Dust hangs in the light.")
+        let storage = surface.textView.textStorage!
+        let lm = surface.textView.layoutManager!
+
+        select("hangs", in: surface)
+        surface.applyMark(.highlight)
+
+        let hangs = (surface.textView.string as NSString).range(of: "hangs")
+        let washOnHangs = lm.temporaryAttribute(
+            .backgroundColor, atCharacterIndex: hangs.location, effectiveRange: nil
+        )
+        XCTAssertNil(washOnHangs, "the note's wash sits on the mark it must yield to")
+
+        let washOnDust = lm.temporaryAttribute(
+            .backgroundColor, atCharacterIndex: noted.location, effectiveRange: nil
+        )
+        XCTAssertNotNil(washOnDust, "the rest of the noted line keeps its tint")
+        XCTAssertNotNil(
+            storage.attribute(.backgroundColor, at: hangs.location, effectiveRange: nil),
+            "the mark itself is in the storage"
         )
     }
 }

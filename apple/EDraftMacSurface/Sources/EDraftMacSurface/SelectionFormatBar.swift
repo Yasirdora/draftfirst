@@ -3,19 +3,19 @@ import EDraftCore
 import EDraftEngine
 import SwiftUI
 
-/// The marks a writer can put on a selection, plus the two things a
-/// selection is often the start of.
+/// The marks a writer can put on a selection, plus the thing a selection is
+/// often the start of.
 ///
 /// Emphasis is data now, not notation (RFC v2.1): bold, italic, underline
 /// and strikethrough are style runs in the model, toggled through
 /// `ScriptSurface.toggleStyle`, and the file hears them exactly because the
-/// serialiser synthesises the markers at the boundary. A centred line is
-/// the element's type, flipped through the same model path
-/// (`ScriptSurface.toggleCentered`) — the file hears `Alignment="Center"`
-/// exactly, and the text never carries a `> <` — and a note is anchored
-/// to the element, not the selection — see `ScriptAsides`.
+/// serialiser synthesises the markers at the boundary. The attention mark
+/// is the run's other property, toggled through `ScriptSurface.toggleHighlight`
+/// (docs/RFC-HIGHLIGHTER.md): one yellow, storage-backed, printed on paper.
+/// Centering is the element's type and lives in the element menu, not here;
+/// a note is anchored to the element, not the selection — see `ScriptAsides`.
 enum FormatMark: CaseIterable {
-    case bold, italic, underline, strikethrough, centered, note
+    case bold, italic, underline, strikethrough, highlight, note
 
     var symbol: String {
         switch self {
@@ -23,7 +23,7 @@ enum FormatMark: CaseIterable {
         case .italic: "italic"
         case .underline: "underline"
         case .strikethrough: "strikethrough"
-        case .centered: "text.aligncenter"
+        case .highlight: "highlighter"
         case .note: "note.text.badge.plus"
         }
     }
@@ -34,24 +34,26 @@ enum FormatMark: CaseIterable {
         case .italic: "Italic"
         case .underline: "Underline"
         case .strikethrough: "Strikethrough"
-        case .centered: "Center Line"
+        case .highlight: "Highlight"
         case .note: "Add Note"
         }
     }
 
     /// The run style the mark commands; nil for a mark that is not a style.
+    /// The highlight is the run's *other* property, not a StyleSet token —
+    /// `toggleHighlight` owns it the way `toggleStyle` owns these.
     var styleSet: StyleSet? {
         switch self {
         case .bold: .bold
         case .italic: .italic
         case .underline: .underline
         case .strikethrough: .strikeout
-        case .centered, .note: nil
+        case .highlight, .note: nil
         }
     }
 
     /// A thin rule stands before the first mark of each group.
-    var opensGroup: Bool { self == .centered || self == .note }
+    var opensGroup: Bool { self == .note }
 }
 
 /// The bar's window into SwiftUI, and the three guarantees a palette owes the
@@ -300,7 +302,11 @@ struct FormatBarView: View {
                 } label: {
                     Image(systemName: mark.symbol)
                         .font(.system(size: 13 * scale, weight: .medium))
-                        .foregroundStyle(active.contains(mark) ? Color.accentColor : .primary)
+                        .foregroundStyle(
+                            mark == .highlight
+                                ? Color(nsColor: .highlightWash)
+                                : active.contains(mark) ? Color.accentColor : .primary
+                        )
                         .frame(width: 26 * scale, height: 26 * scale)
                         .background {
                             if active.contains(mark) {
@@ -334,17 +340,16 @@ struct FormatBarView: View {
 extension ScriptSurface {
 
     /// Routes a mark to its mechanism. A style run is toggled through the
-    /// model (`toggleStyle`); a centred line is an element-level change of
-    /// the same kind (`toggleCentered`) — the type flips through the model,
-    /// the file hears `Alignment="Center"` at the boundary, and no `> <`
-    /// marker ever enters the text. A note is not a text mark; the surface
-    /// routes it to `addNoteAtCaret` itself.
+    /// model (`toggleStyle`); the attention mark is the run's other
+    /// property, toggled through the same model path (`toggleHighlight`).
+    /// A note is not a text mark; the surface routes it to `addNoteAtCaret`
+    /// itself.
     func applyMark(_ mark: FormatMark) {
         if let style = mark.styleSet {
             toggleStyle(style, named: mark.title)
             return
         }
-        guard mark == .centered else { return }
-        toggleCentered(named: mark.title)
+        guard mark == .highlight else { return }
+        toggleHighlight(named: mark.title)
     }
 }

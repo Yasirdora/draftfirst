@@ -103,7 +103,13 @@ public enum ScriptLayout {
                 let start = min(max(0, run.start), length)
                 let end = min(max(start, run.end), length)
                 guard end > start else { continue }
-                let runAttributes = styleAttributes(for: run.styles)
+                var runAttributes = styleAttributes(for: run.styles)
+                // The attention mark is a wash on the paper, never a color
+                // on the ink — a storage attribute because it is content,
+                // not a decoration (docs/RFC-HIGHLIGHTER.md).
+                if run.highlight != nil {
+                    runAttributes[.backgroundColor] = NSColor.highlightWash
+                }
                 guard !runAttributes.isEmpty else { continue }
                 result.addAttributes(
                     runAttributes,

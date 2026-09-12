@@ -141,6 +141,18 @@ extension NSColor {
     static var screenplayNoteWash: NSColor { screenplayNoteTint.withAlphaComponent(0.10) }
     static var screenplayOpenNoteWash: NSColor { screenplayNoteTint.withAlphaComponent(0.20) }
 
+    /// The attention mark on paper — one yellow, bright enough to read as
+    /// the highlighter it is against the note's pale wash, and never as a
+    /// color on the ink (docs/RFC-HIGHLIGHTER.md). Keyed to the paper the
+    /// way the note's tint is: lifted on the dark page, where the flat
+    /// yellow goes muddy.
+    static let highlightWash = NSColor(name: "highlightWash") { appearance in
+        guard appearance.isDark, PagePaper.stored == .inverted else {
+            return NSColor(srgbRed: 1.0, green: 0.93, blue: 0.42, alpha: 1)   // #FFEE6B
+        }
+        return NSColor(srgbRed: 0.98, green: 0.84, blue: 0.42, alpha: 1)      // #FAD66B
+    }
+
     /// A prediction, and a hint, in the same ink at less weight — so they
     /// stay legible on either page.
     static var screenplayGhostInk: NSColor { screenplayInk.withAlphaComponent(0.45) }

@@ -1510,12 +1510,39 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         for note in editor.notes {
             guard let anchor = note.anchor, let range = byElement[anchor], range.length > 0,
                   NSMaxRange(range) <= whole.length else { continue }
-            layoutManager.addTemporaryAttribute(
-                .backgroundColor,
-                value: openNoteIDs.contains(note.id) ? open : wash,
-                forCharacterRange: range
-            )
+            // The wash yields to the mark: a highlight is content in the
+            // storage and the more specific claim on those words, so a noted
+            // line is tinted everywhere *except* where one stands
+            // (docs/RFC-HIGHLIGHTER.md §4).
+            let color = openNoteIDs.contains(note.id) ? open : wash
+            for unmarked in unhighlightedSubranges(of: range) {
+                layoutManager.addTemporaryAttribute(
+                    .backgroundColor,
+                    value: color,
+                    forCharacterRange: unmarked
+                )
+            }
         }
+    }
+
+    /// The pieces of `range` that carry no storage highlight — the gaps
+    /// between highlighted spans, in order. The wash paints these; the mark
+    /// keeps its own.
+    private func unhighlightedSubranges(of range: NSRange) -> [NSRange] {
+        guard let storage = textView.textStorage, range.length > 0 else { return [range] }
+        var subranges: [NSRange] = []
+        var cursor = range.location
+        storage.enumerateAttribute(.backgroundColor, in: range) { value, subrange, _ in
+            guard value != nil else { return }
+            if subrange.location > cursor {
+                subranges.append(NSRange(location: cursor, length: subrange.location - cursor))
+            }
+            cursor = NSMaxRange(subrange)
+        }
+        if cursor < NSMaxRange(range) {
+            subranges.append(NSRange(location: cursor, length: NSMaxRange(range) - cursor))
+        }
+        return subranges
     }
 
     /// Where each note's mark goes, in canvas coordinates.
@@ -2455,9 +2482,63 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         )
     }
 
+    /// Marks the selection, or takes the mark off — the format bar's
+    /// highlighter, the run's other property (`Emphasis.toggleHighlight`),
+    /// toggled through the same model path as `toggleStyle` so undo, the
+    /// file and the next writer of these paragraphs all see the same edit.
+    ///
+    /// One decision for the whole selection, the rule the styles set: every
+    /// touched span already marked takes it off, anything else marks it
+    /// all. One yellow — v1 has no other color to decide (RFC HIGHLIGHTER D1).
+    func toggleHighlight(named actionName: String) {
+        guard let editor else { return }
+        let selection = textView.selectedRange()
+        guard selection.length > 0 else { return }
+
+        var touched: [(index: Int, range: NSRange)] = []
+        for (index, mapped) in ranges.enumerated() {
+            guard index < editor.screenplay.elements.count else { break }
+            let intersection = NSIntersectionRange(selection, mapped.range)
+            guard intersection.length > 0 else { continue }
+            touched.append((index, NSRange(
+                location: intersection.location - mapped.range.location,
+                length: intersection.length
+            )))
+        }
+        guard !touched.isEmpty else { return }
+
+        let covered = touched.allSatisfy { index, range in
+            Emphasis.highlightCovered(
+                editor.screenplay.elements[index].runs ?? [],
+                from: range.location, to: NSMaxRange(range)
+            )
+        }
+        var elements = editor.screenplay.elements
+        for (index, range) in touched {
+            let current = elements[index].runs ?? []
+            if !covered,
+               Emphasis.highlightCovered(current, from: range.location, to: NSMaxRange(range)) {
+                continue   // already wears it; marking elsewhere changes nothing here
+            }
+            let toggled = Emphasis.toggleHighlight(
+                current,
+                from: range.location, to: NSMaxRange(range),
+                color: covered ? nil : .yellow,
+                textLength: (elements[index].text as NSString).length
+            )
+            elements[index].runs = toggled.isEmpty ? nil : toggled
+        }
+        applyModelEdit(
+            elements,
+            activeID: editor.activeElementID ?? elements[touched[0].index].id,
+            offset: editor.selectionOffset,
+            selection: selection,
+            actionName: actionName
+        )
+    }
+
     /// Centres every line the selection touches, or takes them all back to
-    /// action — the format bar's Centre Line, an element-level change of
-    /// the same kind as `toggleStyle`.
+    /// action — an element-level change of the same kind as `toggleStyle`.
     ///
     /// The element's type is the change, not the text around it: the model
     /// and both file formats already agree on what a centred line is
@@ -2516,9 +2597,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     /// The marks every character of the selection already wears — the bar's
     /// lit state. A caret answers for the next keystroke instead: the style
-    /// it would inherit by the donor rule (§4). Centre Line is not a style,
-    /// but it is a state the lines can wear: it lights when every touched
-    /// line is centred, the same "all of it" rule the styles use.
+    /// it would inherit by the donor rule (§4). The highlighter lights the
+    /// same way the styles do: when every touched span is marked, or when
+    /// the caret's donor carries the mark.
     func styleCoverage(at selection: NSRange) -> Set<FormatMark> {
         guard let editor else { return [] }
 
@@ -2526,7 +2607,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             guard let mapped = elementRange(at: selection.location),
                   let element = editor.screenplay.elements.first(where: { $0.id == mapped.id })
             else { return [] }
-            var lit: Set<FormatMark> = element.type == .centered ? [.centered] : []
+            var lit: Set<FormatMark> = []
             let length = (element.text as NSString).length
             let caret = max(0, min(selection.location - mapped.range.location, length))
             let donor = caret > 0
@@ -2536,6 +2617,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 lit.formUnion(FormatMark.allCases.filter {
                     $0.styleSet.map { donor.styles.contains($0) } ?? false
                 })
+                if donor.highlight != nil { lit.insert(.highlight) }
             }
             return lit
         }
@@ -2564,8 +2646,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 )
             }
         })
-        if touched.allSatisfy({ $0.element.type == .centered }) {
-            lit.insert(.centered)
+        if touched.allSatisfy({ element, range in
+            Emphasis.highlightCovered(element.runs ?? [], from: range.location, to: NSMaxRange(range))
+        }) {
+            lit.insert(.highlight)
         }
         return lit
     }
