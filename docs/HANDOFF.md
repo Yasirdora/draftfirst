@@ -48,14 +48,14 @@ reading a number, not by reasoning about what ought to happen.
 a number drops, you broke something.
 
 ```bash
-npm test                                              # 533 TypeScript (508 engine package + 25 web app)
-swift test --package-path apple/eDraftEngine          # 136 engine
-swift test --package-path apple/EDraftCore            # 188 core        (macOS)
+npm test                                              # 542 TypeScript (513 engine package + 29 web app)
+swift test --package-path apple/eDraftEngine          # 141 engine
+swift test --package-path apple/EDraftCore            # 193 core        (macOS)
 swift test --package-path apple/EDraftUI              #  24 document    (macOS)
-swift test --package-path apple/EDraftMacSurface      # 225 Mac surface (macOS)
+swift test --package-path apple/EDraftMacSurface      # 228 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project apple/eDraft.xcodeproj -scheme eDraft \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 107 app
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 108 app
 xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   -configuration Debug CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual \
   DEVELOPMENT_TEAM=""                                        # the Mac app
