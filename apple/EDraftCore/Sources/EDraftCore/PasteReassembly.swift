@@ -292,6 +292,112 @@ nonisolated enum PasteHeuristics {
         guard !body.contains("*") else { return text }
         return String(body)
     }
+
+    /* The marked card (corpus: gone-girl ×24, emilia-perez ×4, episode-101
+       ×2, from-the-black ×6): a marker line opens the card, then its content
+       in witnessed order — a date line, a time line, and one all-caps line
+       that is the card's message and closes it. The first prose line closes
+       the card unread. No witnessed card follows a time-only opening with a
+       message, so after a time line with no date above it the message slot
+       is shut — the all-caps line there is the next cue (from-the-black's
+       "9:48 PM / MARK (V.O.)"), never the card's text. A marker carrying its
+       content on the same line ("INSERT CHYRON: 1994") is the whole card at
+       once. Mirrored from the TypeScript engine's plaintext.ts. */
+
+    /// The card's opening line — "TITLE CARD:", "TITLE:", "SUPER:",
+    /// "INSERT CHYRON:", case-insensitively. Returns the content riding the
+    /// marker's own line (empty when the marker stands alone), or nil when
+    /// the line is no marker.
+    static func titleCardMarker(_ text: String) -> String? {
+        var rest = Substring(text)
+        /// Takes `word` case-insensitively; `spaced` requires at least one
+        /// whitespace before it, the way the pattern's `\s+` reads.
+        func take(_ word: String, spaced: Bool) -> Bool {
+            var probe = rest
+            var spaces = 0
+            while probe.first?.isWhitespace == true { probe = probe.dropFirst(); spaces += 1 }
+            guard probe.count >= word.count,
+                  probe.prefix(word.count).uppercased() == word,
+                  !spaced || spaces > 0
+            else { return false }
+            rest = probe.dropFirst(word.count)
+            return true
+        }
+        if take("TITLE", spaced: false) {
+            _ = take("CARD", spaced: true)
+        } else if take("SUPER", spaced: false) {
+            // whole marker
+        } else if take("INSERT", spaced: false), take("CHYRON", spaced: true) {
+            // whole marker
+        } else {
+            return nil
+        }
+        // \s* then the colon — "TITLES:" and "SUPERIMPOSE" are no markers
+        while rest.first?.isWhitespace == true { rest = rest.dropFirst() }
+        guard rest.first == ":" else { return nil }
+        rest = rest.dropFirst()
+        while rest.first?.isWhitespace == true { rest = rest.dropFirst() }
+        return String(rest)
+    }
+
+    /// The card's date line: "July 6, 2012", "JULY 5th, 2012",
+    /// "JULY, 5, 2012", a trailing comma tolerated.
+    /// ^[A-Za-z]+,? \d{1,2}(?:st|nd|rd|th)?,? \d{4}[,.]?$
+    static func isTitleCardDate(_ text: String) -> Bool {
+        var rest = Substring(text)
+        let month = rest.prefix(while: { $0.isASCII && $0.isLetter })
+        guard !month.isEmpty else { return false }
+        rest = rest.dropFirst(month.count)
+        if rest.first == "," { rest = rest.dropFirst() }
+        guard rest.first == " " else { return false }
+        rest = rest.dropFirst()
+        let day = rest.prefix(while: { $0.isASCII && $0.isNumber })
+        guard !day.isEmpty, day.count <= 2 else { return false }
+        rest = rest.dropFirst(day.count)
+        for suffix in ["st", "nd", "rd", "th"] where rest.hasPrefix(suffix) {
+            rest = rest.dropFirst(2)
+            break
+        }
+        if rest.first == "," { rest = rest.dropFirst() }
+        guard rest.first == " " else { return false }
+        rest = rest.dropFirst()
+        let year = rest.prefix(while: { $0.isASCII && $0.isNumber })
+        guard year.count == 4 else { return false }
+        rest = rest.dropFirst(4)
+        if rest.first == "." || rest.first == "," { rest = rest.dropFirst() }
+        return rest.isEmpty
+    }
+
+    /// The card's time line: "11:17 A.m.", "4:17 PM", "6:17PM".
+    /// ^\d{1,2}:\d{2}\s*(?:[AP]\.?M\.?)?$ case-insensitively
+    static func isTitleCardTime(_ text: String) -> Bool {
+        var rest = Substring(text)
+        let hour = rest.prefix(while: { $0.isASCII && $0.isNumber })
+        guard !hour.isEmpty, hour.count <= 2 else { return false }
+        rest = rest.dropFirst(hour.count)
+        guard rest.first == ":" else { return false }
+        rest = rest.dropFirst()
+        let minute = rest.prefix(while: { $0.isASCII && $0.isNumber })
+        guard minute.count == 2 else { return false }
+        rest = rest.dropFirst(2)
+        while rest.first?.isWhitespace == true { rest = rest.dropFirst() }
+        guard !rest.isEmpty else { return true }
+        let upper = rest.uppercased()
+        guard let meridiem = upper.first, meridiem == "A" || meridiem == "P" else { return false }
+        var tail = upper.dropFirst()
+        if tail.first == "." { tail = tail.dropFirst() }
+        guard tail.first == "M" else { return false }
+        tail = tail.dropFirst()
+        if tail.first == "." { tail = tail.dropFirst() }
+        return tail.isEmpty
+    }
+
+    /// An all-caps line, the card's message shape — "ONE DAY GONE".
+    static func isCardMessage(_ text: String) -> Bool {
+        text.contains(where: { $0.isASCII && $0.isLetter && $0.isUppercase })
+            && text == text.uppercased()
+    }
+
 }
 
 /// What a hard-wrapped paste means.
@@ -370,6 +476,9 @@ public nonisolated enum PasteReassembly {
         var current: [String] = []
         var depth = 0
         var column = -1
+        var cardOpen = false
+        var cardHasDate = false
+        var cardSawTime = false
         func flush() {
             guard !current.isEmpty else { return }
             paragraphs.append(Paragraph(text: current.joined(separator: " "), depth: depth))
@@ -380,6 +489,7 @@ public nonisolated enum PasteReassembly {
             guard !trimmed.isEmpty else {
                 flush()
                 column = -1
+                cardOpen = false
                 continue
             }
             let unstarred = PasteHeuristics.strippingRevisionStar(trimmed)
@@ -403,7 +513,50 @@ public nonisolated enum PasteReassembly {
                 // the paragraph under way ends here, nothing joins across.
                 flush()
                 column = -1
+                cardOpen = false
                 continue
+            }
+            if let cardInline = PasteHeuristics.titleCardMarker(unstarred) {
+                // The marker is the card's meaning, not its text — a hard
+                // boundary: the lines it opens print centered, whatever
+                // column they sat at, and nothing continues across it.
+                flush()
+                column = -1
+                if cardInline.isEmpty {
+                    cardOpen = true
+                    cardHasDate = false
+                    cardSawTime = false
+                } else {
+                    paragraphs.append(Paragraph(text: cardInline, depth: 0, kind: .centered))
+                }
+                continue
+            }
+            if cardOpen {
+                if PasteHeuristics.isTitleCardDate(unstarred) {
+                    flush()
+                    column = -1
+                    paragraphs.append(Paragraph(text: unstarred, depth: 0, kind: .centered))
+                    cardHasDate = true
+                    continue
+                }
+                if PasteHeuristics.isTitleCardTime(unstarred) {
+                    flush()
+                    column = -1
+                    paragraphs.append(Paragraph(text: unstarred, depth: 0, kind: .centered))
+                    cardSawTime = true
+                    continue
+                }
+                // The message slot: open at the marker and under a date —
+                // shut after a bare time stamp, where the caps line is the
+                // next speaker, not the card's text.
+                if PasteHeuristics.isCardMessage(unstarred), cardHasDate || !cardSawTime {
+                    flush()
+                    column = -1
+                    paragraphs.append(Paragraph(text: unstarred, depth: 0, kind: .centered))
+                    cardOpen = false
+                    continue
+                }
+                cardOpen = false  // the first prose line closes the card
             }
             let indent = leadingIndent(of: line)
             // A column change is a paragraph break: the cue and its speech
@@ -481,6 +634,9 @@ public nonisolated enum PasteReassembly {
         var paragraphs: [Paragraph] = []
         var kind: ScreenplayKind = .action
         var current: [String] = []
+        var cardOpen = false
+        var cardHasDate = false
+        var cardSawTime = false
         func flush() {
             guard !current.isEmpty else { return }
             paragraphs.append(Paragraph(text: current.joined(separator: " "), depth: 0, kind: kind))
@@ -490,6 +646,7 @@ public nonisolated enum PasteReassembly {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else {
                 flush()
+                cardOpen = false
                 continue
             }
             let unstarred = PasteHeuristics.strippingRevisionStar(trimmed)
@@ -516,7 +673,44 @@ public nonisolated enum PasteReassembly {
                 // is furniture (RFC-ACT-BREAK §5), and a hard boundary —
                 // the paragraph under way ends here, nothing joins across.
                 flush()
+                cardOpen = false
                 continue
+            }
+            if let cardInline = PasteHeuristics.titleCardMarker(unstarred) {
+                // The marker is the card's meaning, not its text — a hard
+                // boundary: the lines it opens print centered, and nothing
+                // continues across it.
+                flush()
+                kind = .action
+                if cardInline.isEmpty {
+                    cardOpen = true
+                    cardHasDate = false
+                    cardSawTime = false
+                } else {
+                    paragraphs.append(Paragraph(text: cardInline, depth: 0, kind: .centered))
+                }
+                continue
+            }
+            if cardOpen {
+                if PasteHeuristics.isTitleCardDate(unstarred) {
+                    paragraphs.append(Paragraph(text: unstarred, depth: 0, kind: .centered))
+                    cardHasDate = true
+                    continue
+                }
+                if PasteHeuristics.isTitleCardTime(unstarred) {
+                    paragraphs.append(Paragraph(text: unstarred, depth: 0, kind: .centered))
+                    cardSawTime = true
+                    continue
+                }
+                // The message slot: open at the marker and under a date —
+                // shut after a bare time stamp, where the caps line is the
+                // next speaker, not the card's text.
+                if PasteHeuristics.isCardMessage(unstarred), cardHasDate || !cardSawTime {
+                    paragraphs.append(Paragraph(text: unstarred, depth: 0, kind: .centered))
+                    cardOpen = false
+                    continue
+                }
+                cardOpen = false  // the first prose line closes the card
             }
             if PasteHeuristics.looksLikeSceneHeading(cleaned) {
                 flush()

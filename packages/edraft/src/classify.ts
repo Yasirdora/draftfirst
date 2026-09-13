@@ -168,14 +168,16 @@ function classifyLine(raw: RawLine, text: string, prev: ClassifiedLine | undefin
 
 	/* 7. speech position: after a cue, text is what the character says. A
 	   parenthetical only exists inside a speech, so what follows it is
-	   speech too — only continuing a finished speech needs true attachment. */
-	if (prev?.type === 'character') {
+	   speech too — only continuing a finished speech needs true attachment.
+	   An explicitly centered line answers to its alignment, never to speech
+	   position: a title card under a cue is a card, not a dangling speech. */
+	if (raw.align !== 'center' && prev?.type === 'character') {
 		return verdict(raw, 'dialogue', attached ? 'high' : 'medium', 'follows the character cue');
 	}
-	if (prev?.type === 'parenthetical') {
+	if (raw.align !== 'center' && prev?.type === 'parenthetical') {
 		return verdict(raw, 'dialogue', 'medium', 'follows the parenthetical');
 	}
-	if (attached && prev?.type === 'dialogue') {
+	if (attached && prev?.type === 'dialogue' && raw.align !== 'center') {
 		/* pasted streams carry no blank lines, so an uppercase cue-shaped
 		   line inside a speech run is a new speaker far more often than a
 		   shouted continuation — shouts keep their terminal punctuation */

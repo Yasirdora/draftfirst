@@ -89,7 +89,9 @@ final class PasteCorpusGateTests: XCTestCase {
 
     /// The printed page's furniture never reaches the model (routing pack,
     /// step 1): 1,898 artifact lines stripped across the corpus, none
-    /// stored. Matches the TypeScript gate's hard check.
+    /// stored. Matches the TypeScript gate's hard check. A centered line
+    /// answers to its alignment — a card's year ("1994") is its content,
+    /// not a stray page number, so the rule holds over prose only.
     func testNoScriptStoresAPaginationArtifact() throws {
         guard FileManager.default.fileExists(atPath: corpusDir) else {
             throw XCTSkip("no corpus at \(corpusDir) — the scripts are not committed")
@@ -98,7 +100,7 @@ final class PasteCorpusGateTests: XCTestCase {
             let source = try String(contentsOfFile: "\(corpusDir)/\(file)", encoding: .utf8)
             let elements = paste(source)
             XCTAssertEqual(
-                elements.filter { PasteHeuristics.isPaginationArtifact($0.text) }.count, 0,
+                elements.filter { $0.type != .centered && PasteHeuristics.isPaginationArtifact($0.text) }.count, 0,
                 "\(file) stores no page number, (MORE) or CONTINUED"
             )
         }
@@ -141,7 +143,12 @@ final class PasteCorpusGateTests: XCTestCase {
         }
         /// Measured on this route and pinned — the genuine blank-separated
         /// pairs agree with the TypeScript engine's typing, file for file.
-        let expectedSplits: [String: Int] = ["pasted-26.txt": 8]
+        /// from-the-black's one is the card grammar's doing and it is
+        /// genuine: the closing SUPER's flush ends the speech above it
+        /// ("…then hits "Refresh"."), and the card's mixed-case content
+        /// closes the card unread and prints as prose — the boundary the
+        /// card's lines used to hide by fusing into the speech.
+        let expectedSplits: [String: Int] = ["pasted-26.txt": 8, "from-the-black.txt": 1]
         for file in try corpusFiles() {
             let source = try String(contentsOfFile: "\(corpusDir)/\(file)", encoding: .utf8)
             let elements = paste(source)

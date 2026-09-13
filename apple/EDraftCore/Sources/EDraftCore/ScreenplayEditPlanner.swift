@@ -297,7 +297,16 @@ public struct ScreenplayEditPlanner {
                 pasteAttached = Array(repeating: false, count: parts.count)
                 pasteWasReassembled = true
             } else {
-                let printable = parts.compactMap { part -> (rawIndex: Int, text: String, attached: Bool)? in
+                /// The card grammar's state (plaintext.ts): a marker opens
+                /// the card, its date/time/message lines keep it, the first
+                /// prose line closes it. Marker lines drop; content lines
+                /// keep as centered — and both are hard boundaries the
+                /// attachment scan must not cross.
+                var cardOpen = false
+                var cardHasDate = false
+                var cardSawTime = false
+                var cardBoundaryRawIndexes = Set<Int>()
+                let printable = parts.compactMap { part -> (rawIndex: Int, text: String, attached: Bool, card: Bool)? in
                     let trimmed = part.text.trimmingCharacters(in: .whitespacesAndNewlines)
                     // The revision asterisk comes off before any other test:
                     // it is furniture riding on content, not content, and a
@@ -308,9 +317,46 @@ public struct ScreenplayEditPlanner {
                     // stamps, (MORE) and CONTINUED are furniture of the
                     // printed page, dropped the same way.
                     let text = PasteHeuristics.strippingRevisionStar(trimmed)
-                    guard !text.isEmpty, !Acts.isEndActCard(text),
-                          !PasteHeuristics.isPaginationArtifact(text)
-                    else { return nil }
+                    // A blank line or an end-of-act card closes any open
+                    // card, the way the TypeScript import reads it.
+                    if text.isEmpty || Acts.isEndActCard(text) {
+                        cardOpen = false
+                        return nil
+                    }
+                    guard !PasteHeuristics.isPaginationArtifact(text) else { return nil }
+                    if let cardInline = PasteHeuristics.titleCardMarker(text) {
+                        cardBoundaryRawIndexes.insert(part.rawIndex)
+                        guard cardInline.isEmpty else {
+                            // The marker carries the whole card on its own
+                            // line — "INSERT CHYRON: 1994".
+                            return (part.rawIndex, cardInline, false, true)
+                        }
+                        cardOpen = true
+                        cardHasDate = false
+                        cardSawTime = false
+                        return nil
+                    }
+                    if cardOpen {
+                        if PasteHeuristics.isTitleCardDate(text) {
+                            cardHasDate = true
+                            cardBoundaryRawIndexes.insert(part.rawIndex)
+                            return (part.rawIndex, text, false, true)
+                        }
+                        if PasteHeuristics.isTitleCardTime(text) {
+                            cardSawTime = true
+                            cardBoundaryRawIndexes.insert(part.rawIndex)
+                            return (part.rawIndex, text, false, true)
+                        }
+                        // The message slot: open at the marker and under a
+                        // date — shut after a bare time stamp, where the caps
+                        // line is the next speaker, not the card's text.
+                        if PasteHeuristics.isCardMessage(text), cardHasDate || !cardSawTime {
+                            cardOpen = false
+                            cardBoundaryRawIndexes.insert(part.rawIndex)
+                            return (part.rawIndex, text, false, true)
+                        }
+                        cardOpen = false  // the first prose line closes the card
+                    }
                     // Attachment is read the way the TypeScript import reads
                     // it (plaintext.ts): the dropped furniture keeps the
                     // attachment it rode in on — (MORE) splits a speech, not
@@ -324,6 +370,9 @@ public struct ScreenplayEditPlanner {
                         if aboveText.isEmpty { continue }
                         if PasteHeuristics.isPaginationArtifact(aboveText) { continue }
                         if Acts.isEndActCard(aboveText) { break }
+                        // A card line grants no attachment: the marker opens
+                        // a centered world, and the next prose stands alone.
+                        if cardBoundaryRawIndexes.contains(above.rawIndex) { break }
                         attached = true
                         break
                     }
@@ -331,11 +380,12 @@ public struct ScreenplayEditPlanner {
                     // strip changed it; offsets past a dropped or shortened
                     // line name the pre-strip source, as they already did
                     // for the furniture this filter has always dropped.
-                    return (part.rawIndex, text == trimmed ? part.text : text, attached)
+                    return (part.rawIndex, text == trimmed ? part.text : text, attached, false)
                 }
                 if !printable.isEmpty {
                     parts = printable.map { (rawIndex: $0.rawIndex, text: $0.text) }
                     pasteAttached = printable.map { $0.attached }
+                    pasteKinds = printable.map { $0.card ? ScreenplayKind.centered : nil }
                 }
             }
         }
@@ -443,6 +493,14 @@ public struct ScreenplayEditPlanner {
                     let parsed = Emphasis.parse(partText)
                     partText = parsed.text
                     parsedRuns = parsed.runs.isEmpty ? nil : parsed.runs
+                    // Structural grammar outranks alignment, the way the
+                    // TypeScript classifier orders it (scene arms before the
+                    // alignment arm): the omitted-scene card a printed title
+                    // sequence carries — corpus-6's centered "128 OMITTED" —
+                    // is the scene, not the card's styling.
+                    if suggestedKind == .centered, PasteHeuristics.looksLikeSceneHeading(partText) {
+                        suggestedKind = .scene
+                    }
                 }
                 let kind = suggestedKind
                     ?? kindForNewElement(previous, partText, pasteDepths[partIndex], pasteAttached[partIndex])

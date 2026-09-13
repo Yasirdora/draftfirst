@@ -107,6 +107,27 @@ export function isPaginationArtifact(text: string): boolean {
 const TYPEWRITER_TAB_INCHES = 0.8;
 const TYPEWRITER_SPACE_INCHES = 0.1;
 
+/* The marked card (corpus: gone-girl ×24, emilia-perez ×4, episode-101 ×2,
+   from-the-black ×6): a marker line opens the card, then its content in
+   witnessed order — a date line, a time line, and one all-caps line that is
+   the card's message and closes it. The first prose line closes the card
+   unread. Two shapes carry no message: a marker whose content is prose
+   (from-the-black's "Harvard University / Fall 2003", which closes the card
+   and types as action — the accepted loss), and the bare time stamp: no
+   witnessed card follows a time-only opening with a message, so after a
+   time line with no date above it the message slot is shut — the all-caps
+   line there is the next cue (from-the-black's "9:48 PM / MARK (V.O.)"),
+   never the card's text. A marker carrying its content on the same line
+   ("INSERT CHYRON: 1994") is the whole card at once. */
+const TITLE_CARD_MARKER = /^(?:TITLE(?:\s+CARD)?|SUPER|INSERT\s+CHYRON)\s*:\s*(.*)$/i;
+const CARD_DATE = /^[A-Za-z]+,? \d{1,2}(?:st|nd|rd|th)?,? \d{4}[,.]?$/;
+const CARD_TIME = /^\d{1,2}:\d{2}\s*(?:[AP]\.?M\.?)?$/i;
+
+/** An all-caps line, the card's message shape — "ONE DAY GONE". */
+function isCardMessage(text: string): boolean {
+	return /[A-Z]/.test(text) && text === text.toUpperCase();
+}
+
 function leadingIndentInches(text: string): number {
 	const lead = /^[\t ]*/.exec(text)?.[0] ?? '';
 	let inches = 0;
@@ -129,6 +150,9 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 	let endCards = 0;
 	let attached = false;
 	let pageBreakPending = false;
+	let cardOpen = false;
+	let cardHasDate = false;
+	let cardSawTime = false;
 
 	/* a stray NUL is a UTF-16 paste leak, never text (pasted-26 ×199) */
 	for (const physicalLine of source.replace(/\0/g, '').replace(/\r\n?/g, '\n').split('\n')) {
@@ -144,6 +168,7 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 			const trimmed = segment.trim();
 			if (trimmed === '') {
 				attached = false;
+				cardOpen = false;
 				continue;
 			}
 			/* the revision mark is furniture riding on content, not content:
@@ -164,7 +189,44 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 				   (MORE), no thought continues across it, so attachment dies here */
 				endCards++;
 				attached = false;
+				cardOpen = false;
 				continue;
+			}
+			const cardMarker = TITLE_CARD_MARKER.exec(text);
+			if (cardMarker) {
+				/* the marker is the card's meaning, not its text — the lines
+				   it opens print centered, and nothing continues across it */
+				attached = false;
+				const inline = (cardMarker[1] ?? '').trim();
+				if (inline === '') {
+					cardOpen = true;
+					cardHasDate = false;
+					cardSawTime = false;
+				} else {
+					rawLines.push({ text: inline, align: 'center' });
+				}
+				continue;
+			}
+			if (cardOpen) {
+				if (CARD_DATE.test(text)) {
+					rawLines.push({ text, align: 'center' });
+					cardHasDate = true;
+					continue;
+				}
+				if (CARD_TIME.test(text)) {
+					rawLines.push({ text, align: 'center' });
+					cardSawTime = true;
+					continue;
+				}
+				/* the message slot: open at the marker and under a date —
+				   shut after a bare time stamp, where the caps line is the
+				   next speaker, not the card's text */
+				if (isCardMessage(text) && (cardHasDate || !cardSawTime)) {
+					rawLines.push({ text, align: 'center' });
+					cardOpen = false;
+					continue;
+				}
+				cardOpen = false; /* the first prose line closes the card */
 			}
 			const line: RawLine = { text: text.replace(/\t/g, ' ').replace(/ {2,}/g, ' ') };
 			const indent = leadingIndentInches(segment);

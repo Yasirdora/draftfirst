@@ -12,12 +12,14 @@
  *   every other file  zero actbreaks, zero end-of-act drops — measured
  *                     true of the corpus before this gate existed, so a
  *                     change here is a false positive introduced, named.
- *   every file        zero pagination artifacts stored — page numbers,
- *                     (MORE), CONTINUED are the printed page's furniture;
- *                     and the numbered scene headings and OMITTED cards
- *                     the corpus witnesses (gone-girl's 244 flanked
- *                     headings, corpus-6's 40 numbered and 13 omitted)
- *                     land as scenes with their numbers homed.
+ *   every file        zero pagination artifacts stored among the prose —
+ *                     page numbers, (MORE), CONTINUED are the printed
+ *                     page's furniture (a centered line answers to its
+ *                     alignment: a card's "1994" is content, not a page
+ *                     number); and the numbered scene headings and OMITTED
+ *                     cards the corpus witnesses (gone-girl's 271 numbered
+ *                     scenes, corpus-6's 40 numbered and 13 omitted) land
+ *                     as scenes with their numbers homed.
  *
  * The corpus is not committed (the scripts are not ours to ship), so the
  * golden facts are: scripts/fixtures/paste-corpus-golden.json. Without the
@@ -70,9 +72,15 @@ function panelOf(file) {
 		endCardsDropped: dropped,
 		cardCues: report.characters.filter((name) => CARD_CUE.test(name)),
 		artifactsStripped: stripped,
-		artifactElements: script.elements.filter((e) => isPaginationArtifact(e.text)).length,
+		/* a centered line answers to its alignment — a card's year ("1994")
+		   is its content, not a stray page number; the artifact rule holds
+		   over prose only */
+		artifactElements: script.elements.filter((e) => e.type !== 'centered' && isPaginationArtifact(e.text)).length,
 		numberedScenes: script.elements.filter((e) => e.sceneNumber !== undefined).length,
 		omittedScenes: script.elements.filter((e) => e.type === 'scene' && e.text === 'OMITTED').length,
+		/* the marked cards' content lines land centered — the pin that keeps
+		   "ONE DAY GONE" out of the cast list */
+		centeredElements: script.elements.filter((e) => e.type === 'centered').length,
 		/* a revision asterisk left sitting on stored text — gone-girl carried
 		   616 of them before the strip; zero is the rule now */
 		starTailedElements: script.elements.filter((e) => /[^*]\*$|^\*$/.test(e.text)).length,
@@ -153,6 +161,11 @@ for (const [file, panel] of Object.entries(panels)) {
 			'matches the recorded golden (omitted scenes)',
 			panel.omittedScenes,
 			golden[file].omittedScenes
+		);
+		check(
+			'matches the recorded golden (centered lines)',
+			panel.centeredElements,
+			golden[file].centeredElements
 		);
 	}
 	check('no pagination artifact is stored', panel.artifactElements, 0);

@@ -198,6 +198,77 @@ describe('importPlainText', () => {
 		expect(script.elements.map((element) => element.type)).toEqual(['character', 'dialogue', 'actbreak']);
 	});
 
+	it('reads a marked title card as centered lines and never eats the cue that follows it (gone-girl @1211)', () => {
+		/* the marker line opens the card; the date under it prints centered;
+		   one all-caps line is the message and closes the card — and the
+		   dialogue that follows with no blank line is still a speech */
+		const source = [
+			'Nick walks to the door.',
+			'TITLE CARD:',
+			'July 6, 2012',
+			'ONE DAY GONE',
+			'NICK',
+			'I should shower.'
+		].join('\n');
+		const { script } = importPlainText(source);
+		expect(script.elements.map((element) => element.type)).toEqual([
+			'action',
+			'centered',
+			'centered',
+			'character',
+			'dialogue'
+		]);
+		expect(script.elements.map((element) => element.text)).toEqual([
+			'Nick walks to the door.',
+			'July 6, 2012',
+			'ONE DAY GONE',
+			'NICK',
+			'I should shower.'
+		]);
+	});
+
+	it('reads the card’s date and time variants (gone-girl, from-the-black)', () => {
+		for (const dateLine of ['JULY 5th, 2012', 'JULY, 5, 2012', 'July 6, 2012,']) {
+			const { script } = importPlainText(['TITLE CARD:', dateLine, 'GONE'].join('\n'));
+			expect(script.elements.map((element) => element.type)).toEqual(['centered', 'centered']);
+			expect(script.elements[0]?.text).toBe(dateLine);
+		}
+		for (const timeLine of ['11:17 A.m.', '4:17 PM', '6:17PM']) {
+			/* a time stamp prints centered — and a time-only card carries no
+			   message, so the caps line under it is the next speaker */
+			const { script } = importPlainText(['TITLE CARD:', timeLine, 'GONE'].join('\n'));
+			expect(script.elements.map((element) => element.type)).toEqual(['centered', 'character']);
+			expect(script.elements[0]?.text).toBe(timeLine);
+		}
+	});
+
+	it('reads a marker carrying its content on the same line as the whole card at once (episode-101 ×2)', () => {
+		const { script } = importPlainText('INSERT CHYRON: 1994');
+		expect(script.elements).toEqual([{ type: 'centered', text: '1994' }]);
+	});
+
+	it('closes the card at the first prose line, unread', () => {
+		/* from-the-black’s cards are mixed case ("Harvard University"), so
+		   they trip this arm: the card closes and the lines type as action —
+		   attached prose folds into one paragraph, as anywhere else */
+		const source = ['TITLE:', 'Harvard University', 'Fall 2003', 'A boat on the water.'].join('\n');
+		const { script } = importPlainText(source);
+		expect(script.elements).toEqual([{ type: 'action', text: 'Harvard University Fall 2003 A boat on the water.' }]);
+	});
+
+	it('keeps the message slot shut after a bare time stamp — the caps line there is the next speaker (from-the-black)', () => {
+		/* no witnessed card follows a time-only opening with a message, so
+		   9:48 PM's card ends at the stamp and MARK (V.O.) keeps his cue */
+		const source = ['TITLE:', '9:48 PM', 'MARK (V.O.)', 'The truth is she has a nice face.'].join('\n');
+		const { script } = importPlainText(source);
+		expect(script.elements.map((element) => element.type)).toEqual(['centered', 'character', 'dialogue']);
+		/* …while a card that took a date still reads its message after the
+		   time line (gone-girl's "1:17 PM / TWO HOURS GONE") */
+		const dated = ['TITLE CARD:', 'JULY, 5, 2012', '1:17 PM', 'TWO HOURS GONE'].join('\n');
+		const { script: datedScript } = importPlainText(dated);
+		expect(datedScript.elements.map((element) => element.type)).toEqual(['centered', 'centered', 'centered']);
+	});
+
 	it('turns form feeds into pagebreak elements', () => {
 		const { script } = importPlainText('INT. A - DAY\f\n\nINT. B - NIGHT');
 		expect(script.elements.map((element) => element.type)).toEqual(['scene', 'pagebreak', 'scene']);

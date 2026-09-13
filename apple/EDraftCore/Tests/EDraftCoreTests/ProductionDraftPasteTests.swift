@@ -396,4 +396,75 @@ final class ProductionDraftPasteTests: XCTestCase {
         XCTAssertEqual(plan?.elements[0].text, "OMITTED")
         XCTAssertEqual(plan?.elements[0].sceneNumber, "139")
     }
+
+    /// The marked card, gone-girl @1211: the marker opens the card, the
+    /// date prints centered, one all-caps message closes it — and the
+    /// speech that follows with no blank line keeps its cue.
+    func testAMarkedTitleCardCentersItsContentAndKeepsTheCue() {
+        let plan = paste([
+            "Nick walks to the door.",
+            "TITLE CARD:",
+            "July 6, 2012",
+            "ONE DAY GONE",
+            "NICK",
+            "I should shower."
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(
+            plan?.elements.map(\.type),
+            [.action, .centered, .centered, .character, .dialogue]
+        )
+        XCTAssertEqual(plan?.elements[1].text, "July 6, 2012")
+        XCTAssertEqual(plan?.elements[2].text, "ONE DAY GONE")
+        XCTAssertEqual(plan?.elements[3].text, "NICK")
+    }
+
+    /// episode-101's shape: the marker carries the whole card on its own
+    /// line.
+    func testAnInlineChyronMarkerIsTheWholeCard() {
+        let plan = paste("INSERT CHYRON: 1994")
+        XCTAssertEqual(plan?.elements.map(\.type), [.centered])
+        XCTAssertEqual(plan?.elements[0].text, "1994")
+    }
+
+    /// No witnessed card follows a time-only opening with a message, so a
+    /// bare time stamp shuts the message slot: the caps line under it is
+    /// the next speaker (from-the-black's "9:48 PM / MARK (V.O.)"). A card
+    /// that took a date still reads its message after the time line
+    /// (gone-girl's "1:17 PM / TWO HOURS GONE").
+    func testABareTimeStampShutsTheMessageSlot() {
+        let timeOnly = paste([
+            "TITLE:",
+            "9:48 PM",
+            "MARK (V.O.)",
+            "The truth is she has a nice face."
+        ].joined(separator: "\n"))
+        XCTAssertEqual(timeOnly?.elements.map(\.type), [.centered, .character, .dialogue])
+
+        let dated = paste([
+            "TITLE CARD:",
+            "JULY, 5, 2012",
+            "1:17 PM",
+            "TWO HOURS GONE"
+        ].joined(separator: "\n"))
+        XCTAssertEqual(dated?.elements.map(\.type), [.centered, .centered, .centered])
+    }
+
+    /// corpus-6's title sequence prints the omitted scene's card inside the
+    /// card block: structural grammar outranks alignment, the way the
+    /// TypeScript classifier orders it — the line is the scene, not the
+    /// card's styling.
+    func testACardCarryingAnOmittedSceneTypesAsTheScene() {
+        let plan = paste([
+            "CUT TO BLACK.",
+            "TITLE CARD:",
+            "128 OMITTED",
+            "FADE UP:"
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(plan?.elements.map(\.type), [.action, .scene, .action])
+        XCTAssertEqual(plan?.elements[1].text, "OMITTED")
+        XCTAssertEqual(plan?.elements[1].sceneNumber, "128")
+    }
+
 }
