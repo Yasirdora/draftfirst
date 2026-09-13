@@ -51,9 +51,9 @@ a number drops, you broke something.
 npm test                                              # 642 TypeScript (613 engine package + 29 web app)
 npm run check:paste-corpus                            # 15 scripts hold (skips without the corpus)
 swift test --package-path apple/eDraftEngine          # 150 engine
-swift test --package-path apple/EDraftCore            # 293 core        (macOS)
-swift test --package-path apple/EDraftUI              #  29 document    (macOS)
-swift test --package-path apple/EDraftMacSurface      # 238 Mac surface (macOS)
+swift test --package-path apple/EDraftCore            # 294 core        (macOS)
+swift test --package-path apple/EDraftUI              #  35 document    (macOS)
+swift test --package-path apple/EDraftMacSurface      # 249 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
 xcodebuild test -project apple/eDraft.xcodeproj -scheme eDraft \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro'    # 108 app
@@ -62,10 +62,16 @@ xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   DEVELOPMENT_TEAM=""                                        # the Mac app
 ```
 
-*Recounted 2026-09-14 (fourth pass, at 738f91d): TypeScript 642 (613 engine +
+*Recounted 2026-09-14 (fifth pass, at 5f3932c): TypeScript 642 (613 engine +
+29 web), engine 150, core 294, document 35, Mac surface 249 (5 skipped) —
+the layout lane (two-page book mode, grid overview, scene filter) committed
+into the fourth-pass docs, so every suite was re-run at the merged tip in
+the working tree, which was clean; the paste-corpus gate's 15 scripts hold
+and the iOS app's 108 passed (xcresult bundle).
+Fourth pass, at 738f91d: TypeScript 642 (613 engine +
 29 web), engine 150, core 293, document 29 and Mac surface 238 (5 skipped)
 were all run against the tip in a scratch worktree, so the other sessions'
-uncommitted files (zoom, scene filter) are not in these numbers; the
+uncommitted files (zoom, scene filter) are not in those numbers; the
 paste-corpus gate's 15 scripts and the iOS app's 108 were verified in the
 working tree (the corpus is never committed, and the iOS count comes from
 the `.xcresult` bundle).
