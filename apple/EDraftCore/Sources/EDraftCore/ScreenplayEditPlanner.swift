@@ -295,8 +295,11 @@ public struct ScreenplayEditPlanner {
                     let text = $0.text.trimmingCharacters(in: .whitespacesAndNewlines)
                     // End-of-act cards are furniture (RFC-ACT-BREAK §5): an
                     // act ends where the next one begins, so the closing
-                    // card is dropped here, never stored.
+                    // card is dropped here, never stored. Page numbers,
+                    // (MORE) and CONTINUED are furniture of the printed
+                    // page, dropped the same way.
                     return !text.isEmpty && !Acts.isEndActCard(text)
+                        && !PasteHeuristics.isPaginationArtifact(text)
                 }
                 if !printable.isEmpty { parts = printable }
             }
@@ -408,8 +411,18 @@ public struct ScreenplayEditPlanner {
                 }
                 let kind = suggestedKind
                     ?? kindForNewElement(previous, partText, pasteDepths[partIndex])
+                var sceneNumber: String?
+                if kind == .scene, intent == .multilinePaste,
+                   let numbered = SceneNumbering.parseNumberedHeading(partText) {
+                    // The number a production draft prints at the heading's
+                    // edge is furniture with a home — sceneNumber — not
+                    // part of the writer's heading.
+                    partText = numbered.text
+                    sceneNumber = numbered.number
+                }
                 let finalText = kind.uppercasesInput ? partText.uppercased() : partText
                 var created = ScriptElement(type: kind, text: finalText)
+                created.sceneNumber = sceneNumber
                 if let parsedRuns {
                     // A case expansion (ß→SS) shifts the spans the parser
                     // measured; where the length moved, no run can be trusted.

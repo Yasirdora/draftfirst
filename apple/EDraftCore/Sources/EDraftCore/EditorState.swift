@@ -934,15 +934,25 @@ public final class EditorState {
     /// and the depth is the only honest thing left that says dialogue from
     /// action. It decides nothing else — the lexical checks above stay the
     /// authority on headings, parentheticals, transitions and cues.
+    ///
+    /// `fallback` answers the line no signal claims. Typing has no use for
+    /// it: the choreography's guess after the writer's own Return is the
+    /// right one. A paste is not typing — the writer never pressed those
+    /// Returns, so a signal-less pasted line is prose, not the next thing
+    /// the choreography expects. The breaking-bad paste made the failure
+    /// concrete: "1148. So my records show I paid" arrived after a speech,
+    /// and nextKind(after: .dialogue) adopted it as a cue named
+    /// "1148. SO MY RECORDS SHOW I PAID".
     public func kindForInsertedElement(
         after previous: ScriptElement?,
         text: String,
-        pasteDepth: Int? = nil
+        pasteDepth: Int? = nil,
+        fallback: ScreenplayKind? = nil
     ) -> ScreenplayKind {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let uppercase = trimmed.uppercased()
 
-        if Self.looksLikeSceneHeading(uppercase) { return .scene }
+        if Self.looksLikeSceneHeading(trimmed) { return .scene }
         // The card is structural, never a speaker (RFC-ACT-BREAK §5) —
         // without this arm the cue check below adopts ACT ONE, and speech
         // position would read it as dialogue under a cue.
@@ -955,6 +965,7 @@ public final class EditorState {
             // Eight columns past the action margin is where speeches live.
             return depth >= 8 ? .dialogue : .action
         }
+        if let fallback { return fallback }
         guard let previous else { return .action }
         return nextKind(after: previous.type, text: previous.text)
     }
@@ -1486,7 +1497,7 @@ public final class EditorState {
         let elements = blocks.map { block -> ScriptElement in
             let text = block.trimmingCharacters(in: .newlines)
             let upper = text.uppercased()
-            if looksLikeSceneHeading(upper) { return ScriptElement(type: .scene, text: upper) }
+            if looksLikeSceneHeading(text) { return ScriptElement(type: .scene, text: upper) }
             if looksLikeTransition(upper) { return ScriptElement(type: .transition, text: upper) }
             return ScriptElement(type: .action, text: text)
         }

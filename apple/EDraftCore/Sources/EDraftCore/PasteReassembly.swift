@@ -6,8 +6,14 @@ import Foundation
 /// paste classifier (which types the results). Two readers, one rule.
 nonisolated enum PasteHeuristics {
 
-    static func looksLikeSceneHeading(_ uppercased: String) -> Bool {
-        ["INT.", "EXT.", "EST.", "INT/EXT.", "I/E."].contains { uppercased.hasPrefix($0) }
+    /// Reads the line in its original case: the prefix tells are
+    /// case-insensitive, but the numbered heading grammar is the engine's
+    /// own — `SceneNumbering.parseNumberedHeading` — and its OMITTED card
+    /// is case-sensitive the way the TypeScript pattern is.
+    static func looksLikeSceneHeading(_ text: String) -> Bool {
+        let uppercased = text.uppercased()
+        return ["INT.", "EXT.", "EST.", "INT/EXT.", "I/E."].contains { uppercased.hasPrefix($0) }
+            || SceneNumbering.parseNumberedHeading(text) != nil
     }
 
     static func looksLikeTransition(_ uppercased: String) -> Bool {
@@ -22,6 +28,37 @@ nonisolated enum PasteHeuristics {
               text.utf16.count <= 48,
               text.rangeOfCharacter(from: .letters) != nil else { return false }
         return !text.hasSuffix(".") && !text.hasSuffix(":")
+    }
+
+    /// Artifacts of a printed page, meaningful only to a reader of paper:
+    /// page numbers, (MORE), CONTINUED. Ported from the TypeScript engine's
+    /// plaintext.ts — the same four shapes, answered without a regex, with
+    /// ASCII digits the way JavaScript's `\d` is. 1,233 page-number lines,
+    /// 88 (MORE)s and 394 CONTINUEDs stand witness across the corpus.
+    static func isPaginationArtifact(_ text: String) -> Bool {
+        // ^\d{1,4}\.?$
+        let digits = text.prefix(while: { $0.isASCII && $0.isNumber })
+        if !digits.isEmpty, digits.count <= 4 {
+            let rest = text.dropFirst(digits.count)
+            if rest.isEmpty || rest == "." { return true }
+        }
+        let upper = text.uppercased()
+        // ^\(MORE\)$, case-insensitively
+        if upper == "(MORE)" { return true }
+        // ^\(CONT['’]?D\)$, case-insensitively
+        if upper.hasPrefix("(CONT"), upper.hasSuffix("D)") {
+            let middle = upper.dropFirst(5).dropLast(2)
+            if middle.isEmpty || middle == "'" || middle == "’" { return true }
+        }
+        // ^\(?CONTINUED\)?[.:]?$, case-insensitively
+        var continued = Substring(upper)
+        if continued.hasPrefix("(") { continued = continued.dropFirst() }
+        if continued.hasPrefix("CONTINUED") {
+            continued = continued.dropFirst("CONTINUED".count)
+            if continued.hasSuffix(")") { continued = continued.dropLast() }
+            return continued.isEmpty || continued == "." || continued == ":"
+        }
+        return false
     }
 }
 
@@ -113,7 +150,15 @@ public nonisolated enum PasteReassembly {
                 column = -1
                 continue
             }
-            if Acts.isEndActCard(Emphasis.parse(trimmed).text) {
+            let cleaned = Emphasis.parse(trimmed).text
+            if PasteHeuristics.isPaginationArtifact(cleaned) {
+                // A page number or a (MORE) is furniture of the printed
+                // page, and it splits a speech, not a thought: the
+                // paragraph under way continues across it — nothing
+                // flushes, no column moves.
+                continue
+            }
+            if Acts.isEndActCard(cleaned) {
                 // An act ends where the next one begins: the closing card
                 // is furniture (RFC-ACT-BREAK §5), and a hard boundary —
                 // the paragraph under way ends here, nothing joins across.
@@ -209,6 +254,13 @@ public nonisolated enum PasteReassembly {
             // joins, so the markers survive to the planner's own parse.
             let cleaned = Emphasis.parse(trimmed).text
             let upper = cleaned.uppercased()
+            if PasteHeuristics.isPaginationArtifact(cleaned) {
+                // A page number or a (MORE) is furniture of the printed
+                // page, and it splits a speech, not a thought: the
+                // paragraph under way continues across it — nothing
+                // flushes, the kind stands.
+                continue
+            }
             if Acts.isEndActCard(cleaned) {
                 // An act ends where the next one begins: the closing card
                 // is furniture (RFC-ACT-BREAK §5), and a hard boundary —
@@ -216,7 +268,7 @@ public nonisolated enum PasteReassembly {
                 flush()
                 continue
             }
-            if PasteHeuristics.looksLikeSceneHeading(upper) {
+            if PasteHeuristics.looksLikeSceneHeading(cleaned) {
                 flush()
                 kind = .scene
                 current = [trimmed]

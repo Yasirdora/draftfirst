@@ -2365,7 +2365,13 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 with: replacement,
                 intent: intent,
                 kindForNewElement: { previous, text, depth in
-                    editor.kindForInsertedElement(after: previous, text: text, pasteDepth: depth)
+                    // A paste is not typing: a line no signal claims is
+                    // prose, not the choreography's next guess (the writer
+                    // never pressed those Returns).
+                    editor.kindForInsertedElement(
+                        after: previous, text: text, pasteDepth: depth,
+                        fallback: intent == .multilinePaste ? .action : nil
+                    )
                 }
               ) else { return false }
         applyModelEdit(
