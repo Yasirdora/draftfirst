@@ -48,10 +48,10 @@ reading a number, not by reasoning about what ought to happen.
 a number drops, you broke something.
 
 ```bash
-npm test                                              # 608 TypeScript (579 engine package + 29 web app)
+npm test                                              # 617 TypeScript (588 engine package + 29 web app)
 npm run check:paste-corpus                            # 14 scripts hold (skips without the corpus)
 swift test --package-path apple/eDraftEngine          # 145 engine
-swift test --package-path apple/EDraftCore            # 246 core        (macOS)
+swift test --package-path apple/EDraftCore            # 257 core        (macOS)
 swift test --package-path apple/EDraftUI              #  29 document    (macOS)
 swift test --package-path apple/EDraftMacSurface      # 240 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
@@ -62,11 +62,13 @@ xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   DEVELOPMENT_TEAM=""                                        # the Mac app
 ```
 
-*Recounted 2026-09-13: the engine (608/579), paste-corpus gate, engine (145)
-and core (246) numbers were run against this tree at 6b3bcec, not carried
-over; the Mac surface 240 was run this session with the zoom session's
-uncommitted files in the tree (they touch PageZoomControl/ScriptSurface, not
-the paste route). The iOS count comes from the `.xcresult` bundle —
+*Recounted 2026-09-13 (second pass, at 1e0dc85): TypeScript 617 (588 engine +
+29 web) and core 257 were run against the tip after cue confirmation landed;
+the engine (145), document (29) and Mac surface (240, 5 skipped) numbers were
+run in the same session with the zoom session's uncommitted files in the tree
+(they touch PageZoomControl/ScriptSurface/ScriptMenus, not the paste route).
+Earlier pass at 6b3bcec: 608 TypeScript (579 engine), 246 core. The iOS count
+comes from the `.xcresult` bundle —
 xcodebuild's stdout does not print it. Note: `apple/eDraftTests` holds two
 files no target references — `HighlightPdfTests.swift` and
 `HighlightRenderingTests.swift` (4 tests); they compile nowhere and run
@@ -433,7 +435,7 @@ each one keeps to its lane:
 | [VISION.md](VISION.md) | The product — the writer never formats |
 | [rfc-viewport-editing-model.md](rfc-viewport-editing-model.md) | **RFC v2.1, the live editing-model design** — runs in the model, markers at the boundary; cited by code comments and commit messages as "RFC v2.1" (§3.3, D6, §5.x) |
 | [RFC-HIGHLIGHTER.md](RFC-HIGHLIGHTER.md) | The highlighter: single yellow attention mark on the run, FDX namespace round-trip, PDF prints it, note-wash stacking rule |
-| [RFC-ACT-BREAK.md](RFC-ACT-BREAK.md) | **Phases 1–3 landed** (model + boundaries: b3d1fc5, de1406a, 442d720; derivation, selector, renumber, navigator — Mac first: 1f90e5c, e6babe6, e58b3d9, 0558928, d3da099; paste route + corpus gate: 9b16b74, b7c9189, b3bfd95, 34ad3c1; the production draft's furniture + the raw route's attachment channel: 1fe01c3, b0913af; the OMIT dash-heading, the marked title card, and the edge tell: ca95d69, 3d4dd47, 6b3bcec) — the act break: printing element, break-before, derived act ends, generated FDX `End of Act` mirroring the act's own card, canonical renumber, paste route |
+| [RFC-ACT-BREAK.md](RFC-ACT-BREAK.md) | **Phases 1–3 landed** (model + boundaries: b3d1fc5, de1406a, 442d720; derivation, selector, renumber, navigator — Mac first: 1f90e5c, e6babe6, e58b3d9, 0558928, d3da099; paste route + corpus gate: 9b16b74, b7c9189, b3bfd95, 34ad3c1; the production draft's furniture + the raw route's attachment channel: 1fe01c3, b0913af; the OMIT dash-heading, the marked title card, and the edge tell: ca95d69, 3d4dd47, 6b3bcec; cue confirmation — a pasted cue keeps `character` only when speech follows, on both engines, with the cast pinned by name in both gates: 1e0dc85) — the act break: printing element, break-before, derived act ends, generated FDX `End of Act` mirroring the act's own card, canonical renumber, paste route |
 | [rfc-emphasis-layout-model.md](rfc-emphasis-layout-model.md) | RFC v1, superseded by v2 — kept for the audit trail; its §3 consumer list was Phase 0's checklist |
 | [bold-italic-underline-review.md](bold-italic-underline-review.md) | The peer review the RFCs stand on — claim-by-claim verdicts, the Beat architecture read, the landscape survey |
 | [evaluation-draft-format-plan.md](evaluation-draft-format-plan.md) | The `.draft` format evaluation — the tier rule (anything pointing at text positions must be modelled) that flipped D1 |
