@@ -146,23 +146,27 @@ final class PasteCorpusGateTests: XCTestCase {
         /// Measured on this route and pinned — the edge tell's deliberate
         /// boundaries, element for element. Twelve counts moved when the
         /// cue-confirmation pass landed (a demoted cue's speech block becomes
-        /// action, redrawing the boundary it sat on); each move was reviewed
-        /// against the file before re-pinning.
+        /// action, redrawing the boundary it sat on), and they moved again
+        /// when the camera grammar, the cue shape and speech position reached
+        /// parity with the TypeScript engine (a labelled frame is a shot, a
+        /// shouted question is speech, and a colon line is never a speaker);
+        /// each move was reviewed against the file before re-pinning.
         let expectedSplits: [String: Int] = [
-            "breaking-bad.txt": 120,
-            "corpus-1.txt": 133,
-            "corpus-6.txt": 79,
-            "emilia-perez.txt": 205,
-            "episode-101.txt": 143,
-            "foryourcon.txt": 221,
-            "from-the-black.txt": 140,
+            "breaking-bad.txt": 122,
+            "corpus-1.txt": 127,
+            "corpus-6.txt": 76,
+            "emilia-perez.txt": 190,
+            "episode-101.txt": 145,
+            "foryourcon.txt": 219,
+            "from-the-black.txt": 139,
+            "godfather-2.txt": 361,
             "gone-girl.txt": 270,
-            "heat.txt": 171,
+            "heat.txt": 159,
             "lalaland.txt": 142,
-            "manchester.txt": 125,
-            "no-country.txt": 131,
+            "manchester.txt": 123,
+            "no-country.txt": 129,
             "pasted-26.txt": 235,
-            "whiplash.txt": 252
+            "whiplash.txt": 257
         ]
         for file in try corpusFiles() {
             let source = try String(contentsOfFile: "\(corpusDir)/\(file)", encoding: .utf8)
@@ -243,6 +247,7 @@ final class PasteCorpusGateTests: XCTestCase {
             "episode-101.txt": (0, 9),
             "foryourcon.txt": (0, 0),
             "from-the-black.txt": (0, 0),
+            "godfather-2.txt": (0, 0),
             "gone-girl.txt": (271, 27),
             "heat.txt": (0, 0),
             "lalaland.txt": (0, 45),

@@ -79,6 +79,58 @@ export interface ImportResult {
 const SCENE_INTRO = /^(INT\.?\/EXT\.?|INT\/EXT|EXT\.?\/INT\.?|EXT\/INT|I\/E|INT|EXT|EST)[.\s]/i;
 const FADE_OR_IRIS = /^(FADE (IN|OUT|TO)\b|IRIS (IN|OUT)\b)/i;
 const SHOT_INTRO = /^(ANGLE ON|CLOSER? ON|CLOSEUP|INSERT|POV|WIDE( ON| SHOT)?|CRANE SHOT|TRACKING SHOT|AERIAL( SHOT)?|ESTABLISHING SHOT|SHOT)\b/;
+/* The camera's own grammar beyond the prefix forms — the corpus's witness
+   list: godfather-2's VIEW idiom (167 lines: VIEW ON X, MED. VIEW, CLOSE
+   MOVING VIEW, MICHAEL'S VIEW, VIEW ALTERS), heat's ANGLE/POV cards (ANGLE -
+   WAINGRO, CERRITO'S POV: JAMMING, 3/4 REAR SHOT), corpus-6's numbered
+   angles (35A ANGLE, MOMENTS LATER. 35A), no-country's POINT-OF-VIEW THROUGH
+   WINDSHIELD. Every family fired the cue arm before this rule existed, so
+   these lines sat in cast lists and speeches alike; the arm must fire before
+   speech position (rule 7) adopts them. */
+const CAMERA_LINE = new RegExp(
+	[
+		/* ANGLE family: ANGLE, ANGLE - X, ANGLE, X, NEW/CLOSER/ANOTHER ANGLE …,
+		   with a scene number's furniture allowed at the edge */
+		String.raw`^(?:\d{1,3}[A-Z]?\s+)?(?:NEW |CLOSER |ANOTHER |REVERSE |WIDER )?ANGLE(?:\s+ON\b|\s+-|\s*,|$)`,
+		/* the VIEW idiom: VIEW ON X (mid-line too — MOVING VIEW ON THE PRIEST),
+		   VIEW THROUGH/BY/FROM/ACROSS X, VIEW ALTERS/MOVES/BEGINS — Godfather
+		   II's own dialect */
+		String.raw`\bVIEW\s+ON\b`,
+		String.raw`^(?:THE )?VIEW\s+(?:THROUGH|BY|UP|FROM|ACROSS|INTO|OVER|ALTERS|MOVES|BEGINS|HOLDS|WIDENS|SHIFTS|TIGHTENS|CHANGES)\b`,
+		String.raw`\bPOINT[- ]OF[- ]VIEW\b`,
+		/* a possessive's framing: MOSS'S POV, MICHAEL'S VIEW */
+		String.raw`\b[A-Z][A-Z.'-]*'S (?:VIEW|POV)\b`,
+		String.raw`\bPOV\b`,
+		/* the qualified SHOT, mid-line too: REAR SHOT - MAN, CLOSE - TWO SHOT */
+		String.raw`\b(?:TWO|REAR|LONG|WIDE|FULL|MASTER|REVERSE|MOVING|TRACKING|CRANE|AERIAL|ESTABLISHING|CLOSE|MEDIUM|MED\.?|OVERHEAD) SHOT\b`,
+		/* Godfather II's two remaining idioms: MED. CLOSE (ON X / - X), and the
+		   WHAT HE SEES card (its colon twin reads as a label already) */
+		String.raw`^(?:MED\.?|MEDIUM)\s+CLOSE(?:\s+ON\b|\s+-|$)`,
+		String.raw`^WHAT\s+(?:HE|SHE|THEY)\s+SEES:?$`,
+		/* the labelled frame — the framing word wears its colon: ECU: X,
+		   CLOSE: HANNA, FRONTAL: HANNA, TIGHTER: CHRIS, VIDEO MONITOR: HANNA,
+		   SIDE ANGLE: NEIL, REVERSE: BLACK + WHITE, OVER HANNA'S SHOULDER:
+		   CERRITO'S (heat ×14 — they used to land in somebody's speech) */
+		String.raw`^(?:ECU|CLOSER?|FRONTAL|TIGHTER|WIDER|HIGH \+ WIDE|VIDEO MONITOR|REVERSE|SIDE ANGLE)\s*:`,
+		String.raw`^OVER\s+(?:[A-Z][A-Z']*\s+)?SHOULDERS?\s*:`,
+		/* the dash twin of CLOSE ON: CLOSE - DRILL BIT, CLOSER - NEIL */
+		String.raw`^CLOSER?\s+-`,
+		/* the verb carries the frame without the noun: TRACKING HANNA */
+		String.raw`^TRACKING\s+\S`,
+		/* ends on the camera noun: MED. VIEW, CLOSE MOVING VIEW, LONG SHOT,
+		   TWO SHOT, 3/4 REAR SHOT, REAR SHOTS, DANIEL'S POV, */
+		String.raw`\b(?:VIEW|SHOTS?|ANGLE|POV),?$`
+	].join('|')
+);
+/* A scene heading's time-of-day ending — the wrap tell for a heading whose
+   source line broke before it. */
+const HEADING_TIME_ENDING =
+	/ - (DAY|NIGHT|DAWN|DUSK|MORNING|EVENING|LATER|CONTINUOUS|SAME|SAME TIME|MOMENTS LATER)$/;
+/* The wrapped tail that carries it: all-caps, ends " - DAY" (godfather-2's
+   "CORLEONE - DAY", heat's "PROFILE - DAY" ×5, corpus-1's OCR-spaced
+   "- HAVENHURST - DAY" ×5). Never itself a new heading. */
+const HEADING_TIME_TAIL =
+	/^[A-Z0-9 .,'&()\-]+? - (DAY|NIGHT|DAWN|DUSK|MORNING|EVENING|LATER|CONTINUOUS|SAME|SAME TIME|MOMENTS LATER)$/;
 const MAX_CUE_CHARACTERS = 42;
 const TERMINAL_PUNCT = /[.!?…]$/;
 /* a speech's last line closes a sentence — punctuation first, then any
@@ -154,6 +206,20 @@ function classifyLine(
 		return verdict(raw, 'scene', 'high', 'numbered scene heading');
 	}
 
+	/* 2½. a wrapped heading's tail: the heading above never reached its
+	   time-of-day and this attached line carries it. The fold happens at
+	   assembly (toScreenplay); here the line answers to the heading, not to
+	   the cue shape it wears. */
+	if (
+		attached &&
+		prev?.type === 'scene' &&
+		!HEADING_TIME_ENDING.test(prev.raw.text) &&
+		isUppercaseForm(text) &&
+		HEADING_TIME_TAIL.test(text)
+	) {
+		return verdict(raw, 'scene', 'high', "a wrapped heading's time-of-day tail");
+	}
+
 	/* 3. an act card announces itself — the canonical spelling or one of
 	   television's unnumbered openers (RFC-ACT-BREAK §5). Without this arm
 	   the cue shape below adopts ACT ONE as a speaker. */
@@ -166,7 +232,7 @@ function classifyLine(
 	}
 
 	/* 5. uppercase camera framing is a shot designation, never a speaker */
-	if (uppercase && SHOT_INTRO.test(text)) {
+	if (uppercase && (SHOT_INTRO.test(text) || CAMERA_LINE.test(text))) {
 		return verdict(raw, 'shot', 'medium', 'camera framing reads as a shot');
 	}
 
@@ -444,6 +510,23 @@ export function toScreenplay(classified: readonly ClassifiedLine[]): Screenplay 
 	for (const line of classified) {
 		if (line.raw.pageBreak === true) elements.push({ type: 'pagebreak', text: '' });
 		const prev = elements[elements.length - 1];
+		/* a wrapped heading's tail folds into the heading it completes: the
+		   heading never reached its time-of-day and this attached line
+		   carries it — one scene element, whatever column the tail sat at
+		   (the classify arm types it scene; only the fold needs the same
+		   evidence again so a bare back-to-back heading never merges) */
+		if (
+			line.raw.attached === true &&
+			prev !== undefined &&
+			prev.type === 'scene' &&
+			line.type === 'scene' &&
+			!SCENE_INTRO.test(line.raw.text) &&
+			!HEADING_TIME_ENDING.test(prev.text) &&
+			HEADING_TIME_TAIL.test(line.raw.text)
+		) {
+			prev.text = `${prev.text} ${line.raw.text}`;
+			continue;
+		}
 		if (line.raw.attached === true && prev !== undefined && prev.type === line.type && MERGEABLE.has(line.type)) {
 			prev.text = `${prev.text} ${line.raw.text}`;
 			continue;

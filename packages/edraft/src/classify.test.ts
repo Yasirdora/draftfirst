@@ -421,6 +421,121 @@ describe('classifyLines', () => {
 		]);
 		expect(transition?.confidence).toBe('high');
 	});
+
+	it('types the camera’s own grammar as shots, never speakers — the corpus’s witness list', () => {
+		/* godfather-2's VIEW idiom flooded the cast panel (69 of 179 names);
+		   heat and corpus-6 carried the ANGLE/POV families. Rule 5 fires
+		   before speech position, so these never sit under a cue as speech */
+		const witnesses = [
+			'VIEW ON HAGEN',
+			'VIEW ON THE PAVILION',
+			'MOVING VIEW ON THE PRIEST',
+			'VIEW ALTERS',
+			'THE VIEW BEGINS',
+			'VIEW THROUGH THE WINDOW',
+			'MED. VIEW',
+			'CLOSE VIEW',
+			'CLOSE MOVING VIEW',
+			'FULL VIEW',
+			'HIS VIEW',
+			'THEIR VIEW',
+			"MICHAEL'S VIEW",
+			'LONG SHOT',
+			'REAR SHOT - MAN',
+			'CLOSE - TWO SHOT',
+			'MED. CLOSE',
+			'MED. CLOSE ON CLEMENZA',
+			'MED. CLOSE - THE PHONE BOOTH',
+			'CLOSE ON MICHAEL',
+			'WHAT HE SEES',
+			'VERY TIGHT ON HANNA IN 3/4 REAR SHOT',
+			'ANGLE',
+			'ANGLE - WAINGRO',
+			'ANGLE, ELI',
+			'NEW ANGLE - AN RV',
+			'ANOTHER ANGLE',
+			'35A ANGLE, MOMENTS LATER. 35A',
+			"MOSS'S POV",
+			"DANIEL'S POV,",
+			"CERRITO'S POV: JAMMING",
+			'POINT-OF-VIEW THROUGH WINDSHIELD',
+			'TRAVELING POINT OF VIEW',
+			/* the labelled frame — heat's colon family, which used to land in
+			   somebody's speech or in the cast itself */
+			'ECU: CHRIS\' FINGERS',
+			'CLOSE: ENVELOPE',
+			'CLOSER: HANNA',
+			'FRONTAL: GARBAGE TRUCK',
+			'TIGHTER: CHRIS',
+			'WIDER: NEIL',
+			'HIGH + WIDE: HANNA',
+			'VIDEO MONITOR: HANNA',
+			'REVERSE: BLACK + WHITE',
+			'SIDE ANGLE: NEIL',
+			"OVER HANNA'S SHOULDER: CERRITO'S",
+			/* the dash twin of CLOSE ON, and the verb without the noun */
+			'CLOSE - DRILL BIT',
+			'CLOSER - NEIL',
+			'TRACKING HANNA',
+			/* the plural terminal */
+			'REAR SHOTS',
+			'SHOTS',
+			'A SERIES OF SHOTS'
+		];
+		for (const witness of witnesses) {
+			const [line] = classifyLines([{ text: witness }]);
+			expect(`${witness} → ${line?.type}`).toBe(`${witness} → shot`);
+		}
+	});
+
+	it('types a camera line sitting under a cue as the shot it is — and the cue above was no speaker', () => {
+		/* the user's Godfather II paste: prose under a VIEW line sat in the
+		   speech slot, and the VIEW line sat in the cast */
+		const types = typesOf([
+			{ text: 'VIEW ON MICHAEL' },
+			{ text: 'He had no hint, not in his wildest imagination could he have' },
+			{ text: 'guessed that she would do such a thing.', attached: true }
+		]);
+		expect(types).toEqual(['shot', 'action', 'action']);
+	});
+
+	it('leaves a mixed-case VIEW sentence to action — the camera grammar is uppercase-only', () => {
+		const types = typesOf([
+			{ text: 'VIEW ON MICHAEL, calm, thoughtful.  One can tell that he has' },
+			{ text: 'special affection for his niece.', attached: true }
+		]);
+		expect(types).toEqual(['action', 'action']);
+	});
+
+	it('does not read a colon line whose label is no framing word as a shot', () => {
+		/* the labelled-frame family names the camera's words only — a label
+		   like SYNOPSIS: or CUE MUSIC: is furniture of its own kind */
+		const [synopsis] = classifyLines([{ text: 'SYNOPSIS: THE FAMILY' }]);
+		expect(synopsis?.type).not.toBe('shot');
+		const [cue] = classifyLines([{ text: 'CUE MUSIC -- P.J. HARVEY' }]);
+		expect(cue?.type).not.toBe('shot');
+	});
+
+	it('keeps a heading that merely contains a camera noun a scene — rule 2 answers first', () => {
+		const [line] = classifyLines([{ text: 'EXT. A SICILIAN LANDSCAPE - FULL VIEW - DAY' }]);
+		expect(line?.type).toBe('scene');
+	});
+
+	it('types a wrapped heading’s time-of-day tail as scene, not as the cue it wears', () => {
+		const types = typesOf([
+			{ text: "INT. DON CORLEONE'S OLD OFFICE - CLOSE VIEW ON MICHAEL" },
+			{ text: 'CORLEONE - DAY', attached: true }
+		]);
+		expect(types).toEqual(['scene', 'scene']);
+	});
+
+	it('never types a tail under a finished heading — the tell needs the opening', () => {
+		const types = typesOf([
+			{ text: 'INT. BOATHOUSE - DAY' },
+			{ text: 'CORLEONE - DAY', attached: true }
+		]);
+		expect(types[1]).not.toBe('scene');
+	});
 });
 
 describe('toScreenplay', () => {
@@ -443,6 +558,37 @@ describe('toScreenplay', () => {
 			classifyLines([{ text: 'INT. A - DAY' }, { text: 'INT. B - NIGHT', pageBreak: true }])
 		);
 		expect(script.elements.map((element) => element.type)).toEqual(['scene', 'pagebreak', 'scene']);
+	});
+
+	it('folds a wrapped heading’s time-of-day tail into the heading it completes (godfather-2)', () => {
+		const script = toScreenplay(
+			classifyLines([
+				{ text: "INT. DON CORLEONE'S OLD OFFICE - CLOSE VIEW ON MICHAEL" },
+				{ text: 'CORLEONE - DAY', attached: true },
+				{ text: 'standing impassively, like a young Prince, recently crowned' }
+			])
+		);
+		expect(script.elements).toEqual([
+			{ type: 'scene', text: "INT. DON CORLEONE'S OLD OFFICE - CLOSE VIEW ON MICHAEL CORLEONE - DAY" },
+			{ type: 'action', text: 'standing impassively, like a young Prince, recently crowned' }
+		]);
+	});
+
+	it('never folds a real back-to-back heading into the unfinished one above it', () => {
+		const script = toScreenplay(
+			classifyLines([{ text: 'INT. BOATHOUSE' }, { text: 'EXT. TAHOE GATE - DAY', attached: true }])
+		);
+		expect(script.elements.map((element) => element.text)).toEqual(['INT. BOATHOUSE', 'EXT. TAHOE GATE - DAY']);
+	});
+
+	it('never folds across a blank line — attachment is the wrap’s evidence', () => {
+		const script = toScreenplay(
+			classifyLines([
+				{ text: 'INT. BOATHOUSE' },
+				{ text: 'CORLEONE - DAY' } /* not attached */
+			])
+		);
+		expect(script.elements).toHaveLength(2);
 	});
 });
 

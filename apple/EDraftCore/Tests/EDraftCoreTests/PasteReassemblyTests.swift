@@ -132,24 +132,28 @@ final class PasteReassemblyTests: XCTestCase {
         """
 
     /// A speech is one paragraph: the wrap column is not a paragraph break,
-    /// and a cue is never its dialogue's continuation.
+    /// and a cue is never its dialogue's continuation. The opening sound
+    /// line types as a cue (it wears the cue shape — a front-matter tell is
+    /// the deferred RFC's, both engines agree), and under speech position
+    /// (classify.ts rule 7) the cue beneath it reads as its speech, so
+    /// MARK (V.O.) opens the speech paragraph it introduces.
     func testAnUnindentedHardWrapKeepsSpeechesWhole() {
         let paragraphs = PasteReassembly.paragraphs(from: unindented)
 
         XCTAssertEqual(
             paragraphs?.map(\.kind),
-            [.character, .character, .dialogue, .character, .dialogue,
+            [.character, .dialogue, .character, .dialogue,
              .transition, .scene, .action,
              .character, .dialogue, .character, .dialogue, .character, .dialogue,
              .transition, .scene, .action]
         )
         XCTAssertEqual(
-            paragraphs?[2].text,
-            "Did you know there are more people with genius IQ's living in China "
+            paragraphs?[1].text,
+            "MARK (V.O.) Did you know there are more people with genius IQ's living in China "
                 + "than there are people of any kind living in the United States?"
         )
         XCTAssertEqual(
-            paragraphs?[7].text,
+            paragraphs?[6].text,
             "MARK ZUCKERBERG is a sweet looking 19 year old whose lack of "
                 + "any physically intimidating attributes masks a very "
                 + "complicated and dangerous anger."

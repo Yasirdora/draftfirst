@@ -147,13 +147,15 @@ final class PasteCueConfirmationTests: XCTestCase {
         )
     }
 
-    /// episode-101's cast table on the reassembled route, where a cue-shaped
-    /// row types as a new cue — shape answers first there. MAID, CODY and
-    /// THE SHAMAN each sit over a wide dotted-leader description cut off by
-    /// the next row (or the paste's end) — demoted. TRAVIS MARTINEZ and
-    /// ACOLYTES sit over another bare name row: nothing to measure — kept,
-    /// the table's own residue, named rather than hidden.
-    func testACastTableKeepsItsBareNameRowsAndDropsItsWideDescriptions() {
+    /// episode-101's cast table under speech position (classify.ts rule 7):
+    /// a bare row stands as a cue and the row beneath it reads as its
+    /// "speech" — MAID dissolves over its wide dotted-leader description,
+    /// TRAVIS MARTINEZ and ACOLYTES stand, CODY MARTINEZ and THE SHAMAN
+    /// read as the lines under them. The TypeScript engine produces the
+    /// same table element for element: a cast table is not a screenplay
+    /// structure, and the alternation is the honest residue until a
+    /// front-matter tell exists.
+    func testACastTableAlternatesUnderSpeechPosition() {
         let elements = paste([
             "MAID",
             "VAN’S MOM.....................................DEBORAH VANCELETTE",
@@ -167,11 +169,19 @@ final class PasteCueConfirmationTests: XCTestCase {
 
         XCTAssertEqual(
             elements.map(\.type),
-            [.action, .action, .character, .action, .action, .character, .action, .action],
-            "wide description rows dissolve with the names above them; bare rows over bare rows stand"
+            [.action, .action, .character, .dialogue, .character, .dialogue],
+            "bare rows alternate cue and speech the way the TypeScript engine's rule 7 reads them"
         )
         XCTAssertEqual(elements[2].text, "TRAVIS MARTINEZ")
-        XCTAssertEqual(elements[5].text, "ACOLYTES")
+        XCTAssertEqual(
+            elements[3].text,
+            "CODY MARTINEZ FACILITY MANAGER....................................VAN EPPERSON"
+        )
+        XCTAssertEqual(elements[4].text, "ACOLYTES")
+        XCTAssertEqual(
+            elements[5].text,
+            "THE SHAMAN MISTY QUIGLEY....................................CHRISTINA RICCI"
+        )
     }
 
     /// The raw route (blank-separated, unwrapped paragraphs): a cue whose

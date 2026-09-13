@@ -459,6 +459,11 @@ public struct ScreenplayEditPlanner {
         /// The running right edge of the pasted speech in progress — the
         /// witness the edge tell measures a rejoining action line against.
         var speechEdge = 0
+        /// Raw-route parts that folded into the heading above them (the
+        /// wrapped-heading tail): they produce no element of their own, so
+        /// every part-indexed structure downstream — cue confirmation's
+        /// owners and the caret arithmetic — compacts them out below.
+        var foldedParts = Set<Int>()
         for (partIndex, part) in parts.enumerated() {
             let element: ScriptElement
             // A reassembled paste carries no runs across: the target was
@@ -527,6 +532,20 @@ public struct ScreenplayEditPlanner {
                     kind = suggested
                 }
                 var sceneNumber: String?
+                // The wrapped heading's tail on the raw route (the reassembled
+                // route folds it in PasteReassembly, where the columns are):
+                // the element above never reached its time-of-day and this
+                // attached line carries it — join the heading, the way
+                // classify.ts's toScreenplay fold does.
+                if intent == .multilinePaste, pasteAttached[partIndex],
+                   let heading = result.last, heading.type == .scene,
+                   !PasteHeuristics.hasTimeOfDayEnding(heading.text),
+                   PasteHeuristics.isHeadingTimeTail(partText) {
+                    let tail = partText.trimmingCharacters(in: .whitespaces)
+                    result[result.count - 1].text = "\(heading.text) \(tail)"
+                    foldedParts.insert(partIndex)
+                    continue
+                }
                 if kind == .scene, intent == .multilinePaste,
                    let numbered = SceneNumbering.parseNumberedHeading(partText) {
                     // The number a production draft prints at the heading's
@@ -570,7 +589,12 @@ public struct ScreenplayEditPlanner {
         if intent == .multilinePaste {
             // Cue confirmation, mirrored from the TypeScript engine's
             // confirmCues (classify.ts): a pasted cue keeps its character
-            // kind only when speech follows it.
+            // kind only when speech follows it. A folded heading tail made
+            // no element, so its part leaves the bookkeeping here.
+            if !foldedParts.isEmpty {
+                owners = owners.enumerated().compactMap { foldedParts.contains($0.offset) ? nil : $0.element }
+                pasteSourceLines = pasteSourceLines.enumerated().compactMap { foldedParts.contains($0.offset) ? nil : $0.element }
+            }
             confirmPastedCues(&result, pasteStart: start.index, owners: owners, pasteSourceLines: pasteSourceLines)
         }
         if end.index + 1 < elements.count {
@@ -602,7 +626,11 @@ public struct ScreenplayEditPlanner {
             caretPartIndex = 0
             rawOffset = 0
         }
-        let activeIndex = start.index + caretPartIndex
+        // A folded heading tail made no element: the caret's part index runs
+        // ahead of the result by every fold at or beneath it (a caret on the
+        // tail itself lands on the heading it joined, offset clamped below).
+        let foldsAtOrBeforeCaret = foldedParts.filter { $0 <= caretPartIndex }.count
+        let activeIndex = start.index + caretPartIndex - foldsAtOrBeforeCaret
         guard result.indices.contains(activeIndex), resultRanges.indices.contains(activeIndex) else {
             return nil
         }

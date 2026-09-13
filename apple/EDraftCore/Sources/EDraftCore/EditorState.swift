@@ -967,6 +967,10 @@ public final class EditorState {
         if Acts.isActCard(trimmed) { return .actbreak }
         if trimmed.hasPrefix("(") { return .parenthetical }
         if Self.looksLikeTransition(uppercase) { return .transition }
+        // Uppercase camera framing is a shot designation, never a speaker —
+        // classify.ts rule 5, and it fires before speech position for the
+        // same reason: a "VIEW ON …" under a cue is the shot, not the speech.
+        if PasteHeuristics.looksLikeCameraShot(trimmed) { return .shot }
         if previous?.type == .character || previous?.type == .parenthetical { return .dialogue }
         // An attached line under a speech continues it — unless it wears a
         // cue's shape, in which case a new speaker interrupts (pasted

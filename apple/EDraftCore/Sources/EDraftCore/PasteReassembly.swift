@@ -11,9 +11,31 @@ nonisolated enum PasteHeuristics {
     /// own — `SceneNumbering.parseNumberedHeading` — and its OMITTED card
     /// is case-sensitive the way the TypeScript pattern is.
     static func looksLikeSceneHeading(_ text: String) -> Bool {
-        let uppercased = text.uppercased()
-        return ["INT.", "EXT.", "EST.", "INT/EXT.", "EXT/INT.", "EXT./INT.", "I/E."].contains { uppercased.hasPrefix($0) }
+        opensWithSceneIntro(text.uppercased())
             || SceneNumbering.parseNumberedHeading(text) != nil
+    }
+
+    /// classify.ts's SCENE_INTRO, `/^(INT\.?\/EXT\.?|INT\/EXT|EXT\.?\/INT\.?
+    /// |EXT\/INT|I\/E|INT|EXT|EST)[.\s]/i`, without the regex: the compound
+    /// or single prefix, then a dot or whitespace. The dotless forms are
+    /// production spelling too — heat's "INT - MERCEDES - NEIL + EADY -
+    /// NIGHT" sat in the cast panel until the prefix list learned it.
+    private static func opensWithSceneIntro(_ uppercased: String) -> Bool {
+        for compound in ["INT./EXT", "INT/EXT", "EXT./INT", "EXT/INT"]
+        where uppercased.hasPrefix(compound) {
+            return followedByDotOrWhitespace(uppercased, after: compound.count)
+        }
+        for single in ["INT", "EXT", "EST", "I/E"] where uppercased.hasPrefix(single) {
+            return followedByDotOrWhitespace(uppercased, after: single.count)
+        }
+        return false
+    }
+
+    /// The `[.\s]` the prefix must be followed by — anchored, so "INTO" and
+    /// "EXTRA" never open a scene.
+    private static func followedByDotOrWhitespace(_ text: String, after count: Int) -> Bool {
+        guard let next = text.dropFirst(count).first else { return false }
+        return next == "." || next == " " || next == "\t"
     }
 
     static func looksLikeTransition(_ uppercased: String) -> Bool {
@@ -22,12 +44,187 @@ nonisolated enum PasteHeuristics {
             || uppercased.hasSuffix("DISSOLVE:")
     }
 
+    /// The cue shape, mirrored from the TypeScript engine's `cueShape`
+    /// (classify.ts): an uppercase line whose name — once the trailing
+    /// parentheticals ride off — runs no longer than 42 characters and
+    /// carries none of the marks a speaker never wears. A colon anywhere
+    /// makes the line a label, not a person ("SYNOPSIS: …", "CONTINUED:
+    /// (2)"), and terminal sentence punctuation makes it a shout, not a
+    /// speaker ("DO YOU ACCEPT JESUS CHRIST AS YOUR SAVIOR?" — corpus-6's
+    /// revival tent carries sixty of them, and each one used to open a new
+    /// "speaker" in the cast panel).
     static func looksLikeCharacterCue(_ text: String, uppercase: String) -> Bool {
         guard !text.isEmpty,
               text == uppercase,
-              text.utf16.count <= 48,
               text.rangeOfCharacter(from: .letters) != nil else { return false }
-        return !text.hasSuffix(".") && !text.hasSuffix(":")
+        // TRAILING_PARENS: the extensions ride along — "HANNA (V.O.)
+        // (CONT'D)" answers as HANNA; "(SHOUTING)" answers as nothing.
+        var core = Substring(text)
+        while core.hasSuffix(")"), let open = core.lastIndex(of: "(") {
+            let inner = core[core.index(after: open)...].dropLast()
+            guard !inner.contains("("), !inner.contains(")") else { break }
+            core = core[..<open]
+            while core.last == " " || core.last == "\t" { core = core.dropLast() }
+        }
+        guard !core.isEmpty, core.utf16.count <= 42 else { return false }
+        if core.contains(":") { return false }
+        if let last = core.last, ".!?…".contains(last) { return false }
+        return true
+    }
+
+    /// The camera's own grammar, mirrored from the TypeScript engine's
+    /// CAMERA_LINE (classify.ts rule 5) and read by hand, the way this file
+    /// reads everything — word tokens over ASCII letters, digits and the
+    /// apostrophes, no regex semantics to drift. The corpus's witness list:
+    /// godfather-2's VIEW idiom (167 lines), heat's ANGLE/POV cards,
+    /// corpus-6's numbered angles, no-country's POINT-OF-VIEW. An uppercase
+    /// line naming the framing is a shot designation, never a speaker.
+    static func looksLikeCameraShot(_ text: String) -> Bool {
+        // isUppercaseForm, with JavaScript's ASCII alphabet: at least one
+        // A–Z, no a–z — an accented lowercase letter says nothing here.
+        guard text.rangeOfCharacter(from: CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZ")) != nil,
+              text.rangeOfCharacter(from: CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz")) == nil
+        else { return false }
+        // Words: split on anything that is not an ASCII letter, digit or
+        // apostrophe — "POINT-OF-VIEW" and "POINT OF VIEW" read alike, and
+        // "MED." is the word MED.
+        func wordsOf(_ s: Substring) -> [Substring] {
+            var out: [Substring] = []
+            var word = Substring()
+            for unit in s {
+                let isWordChar = unit.isASCII && (unit.isLetter || unit.isNumber) || unit == "'" || unit == "’"
+                if isWordChar { word.append(unit) } else {
+                    if !word.isEmpty { out.append(word); word = "" }
+                }
+            }
+            if !word.isEmpty { out.append(word) }
+            return out
+        }
+        let words = wordsOf(Substring(text))
+        guard let first = words.first else { return false }
+
+        // POV anywhere — the word means one thing in a screenplay.
+        if words.contains("POV") { return true }
+        // POINT OF VIEW, hyphenated or spaced.
+        if words.count >= 3 {
+            for i in 0...(words.count - 3) where words[i] == "POINT" && words[i + 1] == "OF" && words[i + 2] == "VIEW" {
+                return true
+            }
+        }
+        // A possessive's framing: MOSS'S POV, MICHAEL'S VIEW.
+        for i in 0..<words.count - 1
+        where (words[i].hasSuffix("'S") || words[i].hasSuffix("’S")) && (words[i + 1] == "VIEW" || words[i + 1] == "POV") {
+            return true
+        }
+        // Ends on the camera noun: MED. VIEW, CLOSE MOVING VIEW, LONG SHOT,
+        // TWO SHOT, 3/4 REAR SHOT, REAR SHOTS, ANGLE, DANIEL'S POV.
+        if ["VIEW", "SHOT", "SHOTS", "ANGLE", "POV"].contains(words.last) { return true }
+        // The qualified SHOT, mid-line too: REAR SHOT - MAN, TWO SHOT.
+        let shotQualifiers: Set<Substring> = ["TWO", "REAR", "LONG", "WIDE", "FULL", "MASTER", "REVERSE",
+                                              "MOVING", "TRACKING", "CRANE", "AERIAL", "ESTABLISHING",
+                                              "CLOSE", "MEDIUM", "MED", "OVERHEAD"]
+        for i in 0..<words.count - 1 where shotQualifiers.contains(words[i]) && words[i + 1] == "SHOT" {
+            return true
+        }
+        // The ANGLE lead, with a scene number's furniture and one qualifier
+        // allowed at the edge: ANGLE, ANGLE - WAINGRO, ANGLE, ELI, NEW ANGLE -
+        // AN RV, 35A ANGLE, MOMENTS LATER. 35A.
+        var lead = words[...]
+        if let head = lead.first, head.allSatisfy({ $0.isASCII && ($0.isNumber || ($0.isLetter && $0.isUppercase)) }),
+           head.prefix(while: { $0.isNumber }).count >= 1, head.prefix(while: { $0.isNumber }).count <= 3,
+           head.drop(while: { $0.isNumber }).allSatisfy({ $0.isLetter }) {
+            lead = lead.dropFirst()
+        }
+        if let head = lead.first, ["NEW", "CLOSER", "ANOTHER", "REVERSE", "WIDER"].contains(head) {
+            lead = lead.dropFirst()
+        }
+        if lead.first == "ANGLE" {
+            // ANGLE alone, ANGLE ON X — or ANGLE - X / ANGLE, X, the
+            // separators the word tokens no longer carry.
+            if lead.count == 1 { return true }
+            if lead[lead.index(after: lead.startIndex)] == "ON" { return true }
+            if text.contains("ANGLE -") || text.contains("ANGLE,") { return true }
+        }
+        // The VIEW idiom: VIEW ON X (mid-line too — MOVING VIEW ON THE
+        // PRIEST), VIEW THROUGH/BY/FROM X, VIEW ALTERS/MOVES/BEGINS.
+        for i in 0..<words.count - 1 where words[i] == "VIEW" && words[i + 1] == "ON" {
+            return true
+        }
+        if first == "VIEW" || (first == "THE" && words.count > 1 && words[1] == "VIEW"),
+           let after = words.dropFirst(first == "THE" ? 2 : 1).first,
+           ["THROUGH", "BY", "UP", "FROM", "ACROSS", "INTO", "OVER", "ALTERS", "MOVES",
+            "BEGINS", "HOLDS", "WIDENS", "SHIFTS", "TIGHTENS", "CHANGES"].contains(after) {
+            return true
+        }
+        // The prefix forms (the TypeScript SHOT_INTRO): CLOSE ON X, CLOSER ON,
+        // CLOSEUP, INSERT, WIDE (ON/SHOT), CRANE/TRACKING/ESTABLISHING SHOT,
+        // AERIAL, SHOT itself.
+        if ["CLOSEUP", "INSERT", "SHOT", "WIDE", "AERIAL"].contains(first) { return true }
+        if (first == "CLOSE" || first == "CLOSER"), words.count > 1, words[1] == "ON" { return true }
+        if ["CRANE", "TRACKING", "ESTABLISHING"].contains(first), words.count > 1, words[1] == "SHOT" { return true }
+        // Godfather II's two remaining idioms: MED. CLOSE (ON X / - X) and
+        // the WHAT HE SEES card.
+        if (first == "MED" || first == "MEDIUM"), words.count >= 2, words[1] == "CLOSE",
+           words.count == 2 || words[2] == "ON" || text.contains("CLOSE -") {
+            return true
+        }
+        if first == "WHAT", words.count == 3, ["HE", "SHE", "THEY"].contains(words[1]),
+           words[2] == "SEES" {
+            return true
+        }
+        // The labelled frame: the framing word wears its colon — ECU: X,
+        // CLOSE: HANNA, FRONTAL: HANNA, TIGHTER: CHRIS, VIDEO MONITOR:
+        // HANNA, SIDE ANGLE: NEIL, REVERSE: BLACK + WHITE, OVER HANNA'S
+        // SHOULDER: CERRITO'S (heat ×14 — classify.ts's colon family).
+        if let colon = text.firstIndex(of: ":") {
+            let label = wordsOf(text[..<colon])
+            switch label.count {
+            case 1:
+                if ["ECU", "CLOSE", "CLOSER", "FRONTAL", "TIGHTER", "WIDER", "REVERSE"].contains(label[0]) { return true }
+            case 2:
+                if (label[0] == "VIDEO" && label[1] == "MONITOR")
+                    || (label[0] == "HIGH" && label[1] == "WIDE")
+                    || (label[0] == "SIDE" && label[1] == "ANGLE")
+                    || (label[0] == "OVER" && (label[1] == "SHOULDER" || label[1] == "SHOULDERS")) { return true }
+            case 3:
+                if label[0] == "OVER", label[2] == "SHOULDER" || label[2] == "SHOULDERS" { return true }
+            default:
+                break
+            }
+        }
+        // CLOSE - DRILL BIT, CLOSER - NEIL — the dash twin of CLOSE ON.
+        if first == "CLOSE" || first == "CLOSER" {
+            var rest = Substring(text)
+            while let c = rest.first, !(c.isASCII && (c.isLetter || c.isNumber)) { rest = rest.dropFirst() }
+            rest = rest.dropFirst(first.count)
+            while rest.first == " " || rest.first == "\t" { rest = rest.dropFirst() }
+            if rest.first == "-" { return true }
+        }
+        // TRACKING HANNA — the verb carries the frame without the noun.
+        if first == "TRACKING", words.count > 1 { return true }
+        return false
+    }
+
+    /// The time-of-day ending a scene heading wraps before reaching —
+    /// classify.ts's HEADING_TIME_ENDING.
+    static func hasTimeOfDayEnding(_ text: String) -> Bool {
+        guard let dash = text.range(of: " - ", options: .backwards) else { return false }
+        let tail = text[dash.upperBound...]
+        return ["DAY", "NIGHT", "DAWN", "DUSK", "MORNING", "EVENING", "LATER",
+                "CONTINUOUS", "SAME", "SAME TIME", "MOMENTS LATER"].contains(tail)
+    }
+
+    /// The wrapped tail that carries the time-of-day: all-caps (ASCII), ends
+    /// " - DAY", at least a word before the dash, never itself a heading —
+    /// classify.ts's HEADING_TIME_TAIL. godfather-2's "CORLEONE - DAY",
+    /// heat's "PROFILE - DAY" ×5, corpus-1's OCR-spaced "- HAVENHURST - DAY".
+    static func isHeadingTimeTail(_ text: String) -> Bool {
+        guard text.rangeOfCharacter(from: CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZ")) != nil,
+              text.rangeOfCharacter(from: CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz")) == nil,
+              hasTimeOfDayEnding(text),
+              !looksLikeSceneHeading(text) else { return false }
+        let head = text.prefix(while: { $0 != "-" }).trimmingCharacters(in: .whitespaces)
+        return !head.isEmpty || text.hasPrefix("- ")
     }
 
     /// Artifacts of a printed page, meaningful only to a reader of paper:
@@ -621,7 +818,23 @@ public nonisolated enum PasteReassembly {
             // A column change is a paragraph break: the cue and its speech
             // share no blank line. One column of drift is the copier's
             // noise, not the writer's structure.
-            if column >= 0, abs(indent - column) > 1 { flush() }
+            if column >= 0, abs(indent - column) > 1 {
+                // The wrapped heading's tail (classify.ts's HEADING_TIME_TAIL):
+                // the paragraph under way is a heading that never reached its
+                // time-of-day, and this line — directly beneath it, whatever
+                // column the copier gave it — carries it. Join, don't break.
+                // (A blank line flushed `current` already, so attachment is
+                // guaranteed by the time `current` still holds the heading.)
+                let underway = current.joined(separator: " ")
+                if !current.isEmpty,
+                   PasteHeuristics.looksLikeSceneHeading(underway),
+                   !PasteHeuristics.hasTimeOfDayEnding(underway),
+                   PasteHeuristics.isHeadingTimeTail(unstarred) {
+                    current.append(unstarred)
+                    continue
+                }
+                flush()
+            }
             if current.isEmpty {
                 depth = max(0, indent - base)
                 column = indent
@@ -771,6 +984,17 @@ public nonisolated enum PasteReassembly {
                 }
                 cardOpen = false  // the first prose line closes the card
             }
+            // The wrapped heading's tail (classify.ts's HEADING_TIME_TAIL
+            // fold): the paragraph under way is a heading that never reached
+            // its time-of-day, and this line — directly beneath it — carries
+            // it. (`current` standing means no blank line intervened: a
+            // blank flushes.)
+            if kind == .scene, !current.isEmpty,
+               !PasteHeuristics.hasTimeOfDayEnding(current.joined(separator: " ")),
+               PasteHeuristics.isHeadingTimeTail(cleaned) {
+                current.append(unstarred)
+                continue
+            }
             if PasteHeuristics.looksLikeSceneHeading(cleaned) {
                 flush()
                 kind = .scene
@@ -785,26 +1009,42 @@ public nonisolated enum PasteReassembly {
                 flush()
                 kind = .transition
                 current = [unstarred]
-            } else if PasteHeuristics.looksLikeCharacterCue(cleaned, uppercase: upper) {
+            } else if PasteHeuristics.looksLikeCameraShot(cleaned) {
+                // Uppercase camera framing is a shot designation, never a
+                // speaker (classify.ts rule 5) — godfather-2's VIEW idiom,
+                // heat's ANGLE/POV cards.
                 flush()
-                kind = .character
+                kind = .shot
                 current = [unstarred]
             } else if trimmed.hasPrefix("(") {
                 flush()
                 kind = .parenthetical
+                current = [unstarred]
+            } else if kind == .parenthetical, !current.isEmpty,
+                      !current.joined().hasSuffix(")") {
+                // an open parenthetical runs to its close
+                current.append(unstarred)
+            } else if kind == .character || kind == .parenthetical {
+                // Speech position (classify.ts rule 7): what stands under a
+                // cue is what the character says, whatever shape it wears —
+                // a shouted question keeps its "?" and stays speech
+                // (corpus-6's revival tent runs sixty shouts, and every one
+                // used to open a new "speaker"). The structural tells above
+                // still answer first: a heading under a cue opens its scene,
+                // it doesn't join the speech.
+                flush()
+                kind = .dialogue
+                current = [unstarred]
+            } else if PasteHeuristics.looksLikeCharacterCue(cleaned, uppercase: upper) {
+                flush()
+                kind = .character
                 current = [unstarred]
             } else if paragraphs.isEmpty && current.isEmpty {
                 kind = .action
                 current = [unstarred]
             } else {
                 switch kind {
-                case .parenthetical where !current.joined().hasSuffix(")"):
-                    break   // an open parenthetical runs to its close
-                case .character, .parenthetical:
-                    flush()
-                    kind = .dialogue
-                    current = []
-                case .scene, .transition, .actbreak:
+                case .scene, .transition, .actbreak, .shot:
                     flush() // a card stands alone; what follows it is prose
                     kind = .action
                     current = []
