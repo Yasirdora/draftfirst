@@ -283,6 +283,11 @@ public struct ScreenplayEditPlanner {
         /// its own, so attachment is the only witness a wrapped speech has
         /// left; the reassembly joins its own wraps and never needs it.
         var pasteAttached: [Bool] = Array(repeating: false, count: parts.count)
+        /// The source lines behind each part — the reassembled route's
+        /// paragraphs keep the wrapped lines they joined, the raw route's
+        /// parts each are one. Cue confirmation measures a speech's width
+        /// and sentence shape on these, never on the joined text.
+        var pasteSourceLines: [[String]] = parts.map { [$0.text] }
         var pasteWasReassembled = false
         if intent == .multilinePaste {
             // A hard-wrapped paste into an empty place is reassembled into
@@ -295,6 +300,7 @@ public struct ScreenplayEditPlanner {
                 pasteDepths = reassembled.map { $0.depth }
                 pasteKinds = reassembled.map { $0.kind }
                 pasteAttached = Array(repeating: false, count: parts.count)
+                pasteSourceLines = reassembled.map { $0.sourceLines }
                 pasteWasReassembled = true
             } else {
                 /// The card grammar's state (plaintext.ts): a marker opens
@@ -386,6 +392,7 @@ public struct ScreenplayEditPlanner {
                     parts = printable.map { (rawIndex: $0.rawIndex, text: $0.text) }
                     pasteAttached = printable.map { $0.attached }
                     pasteKinds = printable.map { $0.card ? ScreenplayKind.centered : nil }
+                    pasteSourceLines = parts.map { [$0.text] }
                 }
             }
         }
@@ -560,6 +567,12 @@ public struct ScreenplayEditPlanner {
                 }
             }
         }
+        if intent == .multilinePaste {
+            // Cue confirmation, mirrored from the TypeScript engine's
+            // confirmCues (classify.ts): a pasted cue keeps its character
+            // kind only when speech follows it.
+            confirmPastedCues(&result, pasteStart: start.index, owners: owners, pasteSourceLines: pasteSourceLines)
+        }
         if end.index + 1 < elements.count {
             result.append(contentsOf: elements[(end.index + 1)...])
         }
@@ -616,6 +629,86 @@ public struct ScreenplayEditPlanner {
     /// out of the end element; inserted text takes the donor's whole property
     /// set (§4). Returns nil when no run survives, or when casing changed the
     /// text length (ß→SS) and no offset can be trusted.
+    /// Cue confirmation, mirrored from the TypeScript engine's confirmCues
+    /// (classify.ts — the comment there carries the witnesses). A pasted cue
+    /// keeps its character kind only when speech follows it: the cue shape is
+    /// cheap to fake — every season card (lalaland's WINTER ×2), time card
+    /// (manchester ×29), subject slug (whiplash's ON STAGE ×4) and title-page
+    /// line is uppercase and short — so shape alone is an application and the
+    /// speech beneath it is the interview. Two failures rescind it:
+    ///
+    ///   structural — the next element is a heading, transition, act card,
+    ///     centered card or shot, or the paste ends under it (a whole-script
+    ///     load's "THE END"). A cue introduces speech; these are not speech.
+    ///
+    ///   wide block — a "speech" follows but runs prose-wide: its first line
+    ///     outruns the dialogue column without ending a sentence or opening
+    ///     as a continuation, and either its second line runs just as wide or
+    ///     a structural line (or the paste's end) cuts the block off. A
+    ///     single wide line is also cut off by the next cue — a cast table's
+    ///     description row (episode-101's MAID).
+    ///
+    /// Demotion converts the cue and its whole block — parentheticals and
+    /// dialogue — to action: the words all survive, only the false speaker
+    /// leaves the cast. Only elements this paste typed are retyped; an
+    /// owner-preserved element keeps the kind its document gave it. The
+    /// evidence is the paste's own slice: a cue closing the paste is
+    /// unconfirmed — its speech must ride in with it (unwitnessed beyond
+    /// whole-document loads, and a single-line paste never reaches here).
+    private static func confirmPastedCues(
+        _ result: inout [ScriptElement],
+        pasteStart: Int,
+        owners: [Int?],
+        pasteSourceLines: [[String]]
+    ) {
+        let pasteEnd = pasteStart + owners.count
+        guard pasteStart >= 0, pasteEnd <= result.count, pasteSourceLines.count == owners.count else { return }
+        /// The kinds that end a cue's candidacy when one sits directly under
+        /// it (the TypeScript CUE_ENDING_FOLLOWER set).
+        let cueEnding: Set<ScreenplayKind> = [.scene, .transition, .actbreak, .centered, .shot]
+        var index = pasteStart
+        while index < pasteEnd {
+            defer { index += 1 }
+            guard owners[index - pasteStart] == nil, result[index].type == .character else { continue }
+            let next = index + 1 < pasteEnd ? result[index + 1] : nil
+            var block: [Int] = []
+            let demote: Bool
+            if next == nil || cueEnding.contains(next!.type) {
+                demote = true
+            } else {
+                // A cue-shaped line directly under a cue is typed its speech
+                // (position answers first), so the block scan also covers the
+                // cast table's name rows.
+                var speechLines: [String] = []
+                var cursor = index + 1
+                while cursor < pasteEnd,
+                      result[cursor].type == .parenthetical || result[cursor].type == .dialogue {
+                    if result[cursor].type == .dialogue {
+                        let lines = pasteSourceLines[cursor - pasteStart]
+                        speechLines.append(contentsOf: lines.isEmpty ? [result[cursor].text] : lines)
+                    }
+                    block.append(cursor)
+                    cursor += 1
+                }
+                guard let first = speechLines.first else { continue }  // brackets and no words — unwitnessed; left flagged
+                let wide = first.utf16.count > PasteHeuristics.speechColumnCeiling
+                    && !PasteHeuristics.endsWithTerminalSentence(first)
+                    && !PasteHeuristics.opensAsSentenceContinuation(first)
+                guard wide else { continue }
+                let after = cursor < pasteEnd ? result[cursor].type : nil
+                let cutOff = after == nil || cueEnding.contains(after!)
+                let secondWide = speechLines.count >= 2
+                    && speechLines[1].utf16.count > PasteHeuristics.speechColumnCeiling
+                demote = secondWide || cutOff || (speechLines.count == 1 && after == .character)
+            }
+            guard demote else { continue }
+            result[index].type = .action
+            for member in block where owners[member - pasteStart] == nil {
+                result[member].type = .action
+            }
+        }
+    }
+
     private static func runsForPart(
         sourceRange: Range<Int>,
         partText: String,

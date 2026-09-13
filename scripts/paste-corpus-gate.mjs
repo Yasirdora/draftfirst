@@ -27,6 +27,9 @@
  *                     the rule was hard zero (no wrap ever split a speech);
  *                     now the golden holds each file's count, and a move
  *                     means the tell's behaviour moved — review it.
+ *   every file        the cast list, name for name. Cue confirmation keeps
+ *                     a pasted cue only when speech follows it; a name
+ *                     leaving the list is a demotion to review by name.
  *
  * The corpus is not committed (the scripts are not ours to ship), so the
  * golden facts are: scripts/fixtures/paste-corpus-golden.json. Without the
@@ -78,6 +81,10 @@ function panelOf(file) {
 		actbreaks: script.elements.filter((e) => e.type === 'actbreak').map((e) => e.text),
 		endCardsDropped: dropped,
 		cardCues: report.characters.filter((name) => CARD_CUE.test(name)),
+		/* the cast list, name for name — cue confirmation keeps a pasted cue
+		   only when speech follows it, so this pin is the rule's witness:
+		   a name leaving the list is a demotion to review by name */
+		cast: report.characters,
 		artifactsStripped: stripped,
 		/* a centered line answers to its alignment — a card's year ("1994")
 		   is its content, not a stray page number; the artifact rule holds
@@ -155,6 +162,11 @@ for (const [file, panel] of Object.entries(panels)) {
 			'matches the recorded golden (card cues)',
 			panel.cardCues,
 			golden[file].cardCues
+		);
+		check(
+			'matches the recorded golden (cast list)',
+			panel.cast,
+			golden[file].cast
 		);
 		check(
 			'matches the recorded golden (artifacts stripped)',

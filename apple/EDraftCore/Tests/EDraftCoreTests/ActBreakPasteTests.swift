@@ -80,12 +80,14 @@ final class ActBreakPasteTests: XCTestCase {
 
     /// The hard-wrapped path reads its tells from the words: the card is
     /// structural there too, and the end card ends the paragraph under
-    /// way — nothing joins across it.
+    /// way — nothing joins across it. (The speech wraps at the dialogue
+    /// column, the way a printed script sets it — a prose-width "speech"
+    /// is cue confirmation's ground, not this test's.)
     func testAHardWrappedPasteDropsTheEndCardBetweenParagraphs() {
         let plan = paste([
             "WALTER",
-            "I am the one who knocks, and this speech runs long enough to wrap",
-            "under the courier's right edge.",
+            "I am the one who knocks, and this speech",
+            "runs long enough to wrap under the edge.",
             "END OF ACT ONE",
             "ACT TWO",
             "The desert lies quiet and wide under a hard midday sun, heat rising",
@@ -97,8 +99,8 @@ final class ActBreakPasteTests: XCTestCase {
         XCTAssertEqual(types, [.character, .dialogue, .actbreak, .action])
         XCTAssertEqual(
             plan?.elements[1].text,
-            "I am the one who knocks, and this speech runs long enough to wrap "
-                + "under the courier's right edge.",
+            "I am the one who knocks, and this speech "
+                + "runs long enough to wrap under the edge.",
             "the speech ends at the boundary — nothing joins across it"
         )
         XCTAssertEqual(

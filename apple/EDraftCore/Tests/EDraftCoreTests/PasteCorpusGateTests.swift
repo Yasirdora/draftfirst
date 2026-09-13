@@ -144,22 +144,25 @@ final class PasteCorpusGateTests: XCTestCase {
             throw XCTSkip("no corpus at \(corpusDir) — the scripts are not committed")
         }
         /// Measured on this route and pinned — the edge tell's deliberate
-        /// boundaries, element for element.
+        /// boundaries, element for element. Twelve counts moved when the
+        /// cue-confirmation pass landed (a demoted cue's speech block becomes
+        /// action, redrawing the boundary it sat on); each move was reviewed
+        /// against the file before re-pinning.
         let expectedSplits: [String: Int] = [
             "breaking-bad.txt": 120,
-            "corpus-1.txt": 124,
-            "corpus-6.txt": 76,
-            "emilia-perez.txt": 201,
-            "episode-101.txt": 142,
-            "foryourcon.txt": 217,
-            "from-the-black.txt": 139,
-            "gone-girl.txt": 264,
-            "heat.txt": 153,
+            "corpus-1.txt": 133,
+            "corpus-6.txt": 79,
+            "emilia-perez.txt": 205,
+            "episode-101.txt": 143,
+            "foryourcon.txt": 221,
+            "from-the-black.txt": 140,
+            "gone-girl.txt": 270,
+            "heat.txt": 171,
             "lalaland.txt": 142,
-            "manchester.txt": 110,
-            "no-country.txt": 124,
-            "pasted-26.txt": 234,
-            "whiplash.txt": 248
+            "manchester.txt": 125,
+            "no-country.txt": 131,
+            "pasted-26.txt": 235,
+            "whiplash.txt": 252
         ]
         for file in try corpusFiles() {
             let source = try String(contentsOfFile: "\(corpusDir)/\(file)", encoding: .utf8)
@@ -173,6 +176,51 @@ final class PasteCorpusGateTests: XCTestCase {
                 splits, expectedSplits[file] ?? 0,
                 "\(file): the edge tell's boundary count moved — review whether the movement is genuine"
             )
+        }
+    }
+
+    /// The pasted cast, pinned name by name — the cue-confirmation rule's
+    /// witness. A pasted cue keeps `character` only when speech follows it;
+    /// the season headers, orphaned cards and trailing fragments that once
+    /// ended up as speakers (lalaland's WINTER, SPRING, SUMMER…) are demoted
+    /// to action, and this pin is what a regression has to move.
+    ///
+    /// The golden lives in Fixtures/paste-corpus-cast-golden.json as this
+    /// route's own observed truth, recorded at this route's granularity:
+    /// cue variants ("MIA (CONT'D)") are kept as their own entries where the
+    /// TypeScript gate's golden normalizes them away, so this list holds more
+    /// names per file than that one by design. A genuine behaviour move
+    /// changes the list name by name — review the diff, then re-record.
+    func testPastedCastsMatchTheRecordedGolden() throws {
+        guard FileManager.default.fileExists(atPath: corpusDir) else {
+            throw XCTSkip("no corpus at \(corpusDir) — the scripts are not committed")
+        }
+        let fixtureURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/paste-corpus-cast-golden.json")
+        let data = try Data(contentsOf: fixtureURL)
+        let golden = try JSONDecoder().decode([String: [String]].self, from: data)
+        for file in try corpusFiles() {
+            let source = try String(contentsOfFile: "\(corpusDir)/\(file)", encoding: .utf8)
+            var seen = Set<String>()
+            let cast = paste(source)
+                .filter { $0.type == .character }
+                .map(\.text)
+                .filter { seen.insert($0).inserted }
+            guard let expected = golden[file] else {
+                XCTFail("\(file): unmeasured — record its cast in the golden")
+                continue
+            }
+            if cast != expected {
+                let missing = expected.filter { !seen.contains($0) }
+                let added = cast.filter { !expected.contains($0) }
+                XCTFail("""
+                    \(file): the pasted cast moved — \
+                    dropped \(missing.sorted().prefix(6)), \
+                    adopted \(added.sorted().prefix(6)); \
+                    review whether the movement is genuine, then re-record
+                    """)
+            }
         }
     }
 

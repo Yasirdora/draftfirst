@@ -63,15 +63,17 @@ final class ProductionDraftPasteTests: XCTestCase {
     }
 
     /// A (MORE) splits a speech, not a thought: the hard-wrapped speech
-    /// under way joins straight across it.
+    /// under way joins straight across it. (The speech wraps at the
+    /// dialogue column, the way a printed script sets it — a prose-width
+    /// "speech" is cue confirmation's ground, not this test's.)
     func testAHardWrappedSpeechJoinsAcrossMore() {
         let plan = paste([
             "WALTER",
-            "I am the one who knocks, and this speech runs long enough to wrap",
-            "under the courier's right edge, the way a speech does.",
+            "I am the one who knocks, and this speech",
+            "runs long enough to wrap under the edge.",
             "(MORE)",
-            "And the speech continues on the page that follows, long enough to",
-            "keep wrapping past the courier's right edge once more.",
+            "And the speech continues on the page that",
+            "follows, long enough to wrap once more.",
             "SKYLER",
             "Walter, sit down. We need to talk about what happened last night."
         ].joined(separator: "\n"))
@@ -82,10 +84,10 @@ final class ProductionDraftPasteTests: XCTestCase {
         )
         XCTAssertEqual(
             plan?.elements[1].text,
-            "I am the one who knocks, and this speech runs long enough to wrap "
-                + "under the courier's right edge, the way a speech does. "
-                + "And the speech continues on the page that follows, long enough to "
-                + "keep wrapping past the courier's right edge once more.",
+            "I am the one who knocks, and this speech "
+                + "runs long enough to wrap under the edge. "
+                + "And the speech continues on the page that "
+                + "follows, long enough to wrap once more.",
             "one speech — the (MORE) neither stored nor splitting"
         )
     }
@@ -206,8 +208,9 @@ final class ProductionDraftPasteTests: XCTestCase {
         )
         XCTAssertEqual(
             paste(source, fallback: nil)?.elements.map(\.type),
-            [.character, .dialogue, .character],
-            "without it the choreography still answers a cue — typing's contract, kept"
+            [.character, .dialogue, .action],
+            "without the fallback the choreography adopts the line as a cue — then cue "
+                + "confirmation asks for its speech, and the paste ends under it: prose again"
         )
     }
 

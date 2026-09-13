@@ -35,23 +35,30 @@ final class PasteReassemblyTests: XCTestCase {
         let paragraphs = PasteReassembly.paragraphs(from: wrapped)
 
         XCTAssertEqual(
-            paragraphs,
+            paragraphs?.map { "\($0.depth)|\($0.kind?.rawValue ?? "-")|\($0.text)" },
             [
-                PasteReassembly.Paragraph(
-                    text: "EXT. XANADU - FAINT DAWN - 1940 (MINIATURE)", depth: 0
-                ),
-                PasteReassembly.Paragraph(
-                    text: "Window, very small in the distance, illuminated. "
-                        + "All around this is an almost totally black screen.",
-                    depth: 0
-                ),
-                PasteReassembly.Paragraph(text: "KANE", depth: 26),
-                PasteReassembly.Paragraph(text: "(a whisper)", depth: 21),
-                PasteReassembly.Paragraph(text: "Rosebud... the word echoes.", depth: 14),
-                PasteReassembly.Paragraph(text: "The screen stays black.", depth: 0),
-                PasteReassembly.Paragraph(text: "DISSOLVE:", depth: 62),
+                "0|-|EXT. XANADU - FAINT DAWN - 1940 (MINIATURE)",
+                "0|-|Window, very small in the distance, illuminated. "
+                    + "All around this is an almost totally black screen.",
+                "26|-|KANE",
+                "21|-|(a whisper)",
+                "14|-|Rosebud... the word echoes.",
+                "0|-|The screen stays black.",
+                "62|-|DISSOLVE:",
             ]
         )
+    }
+
+    /// The paragraph keeps the lines it joined — the wrap evidence cue
+    /// confirmation measures a speech's width and sentence shape from.
+    func testAParagraphCarriesTheSourceLinesItJoined() {
+        let paragraphs = PasteReassembly.paragraphs(from: wrapped)
+
+        XCTAssertEqual(
+            paragraphs?[1].sourceLines,
+            ["Window, very small in the distance,", "illuminated. All around this is an", "almost totally black screen."]
+        )
+        XCTAssertEqual(paragraphs?[2].sourceLines, ["KANE"])
     }
 
     /// A one-column drift between a line and its continuation is the

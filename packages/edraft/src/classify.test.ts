@@ -308,6 +308,107 @@ describe('classifyLines', () => {
 		expect(types).toEqual(['character', 'dialogue']);
 	});
 
+	it('rescinds a cue whose speech runs prose-wide — a season card, not a speaker (lalaland’s WINTER)', () => {
+		/* the card and the two prose lines under it all become action; every
+		   word survives, and the false speaker leaves the cast */
+		const { script, report } = finalizeImport(
+			classifyLines([
+				{ text: 'Flash title card:' },
+				{ text: 'WINTER', attached: true },
+				{ text: 'We settle on a new car. A 1983 Dodge Riviera. In it is', attached: true },
+				{ text: 'SEBASTIAN, 32, L.A. native. He’s listening to the radio. He’s', attached: true }
+			]),
+			'paste',
+			[]
+		);
+		expect(report.characters).toEqual([]);
+		expect(script.elements).toHaveLength(1);
+		expect(script.elements[0]?.type).toBe('action');
+		expect(script.elements[0]?.text).toContain('WINTER');
+		expect(script.elements[0]?.text).toContain('We settle on a new car.');
+	});
+
+	it('rescinds a cue directly above a structural line — it introduced no speech', () => {
+		const followers: Array<{ text: string; align?: 'center' }> = [
+			{ text: 'INT. AUDITION ROOMS - DAY' },
+			{ text: 'CUT TO:' },
+			{ text: 'ONE DAY GONE', align: 'center' },
+			{ text: 'CLOSE ON MARA' },
+			{ text: 'ACT ONE' }
+		];
+		for (const follower of followers) {
+			const classified = classifyLines([{ text: 'SPRING' }, follower]);
+			expect(classified[0]?.type).toBe('action');
+			expect(classified[0]?.confidence).toBe('low');
+		}
+	});
+
+	it('rescinds a cue the document ends under — THE END is a card here', () => {
+		const [line] = classifyLines([{ text: 'IRIS FADE OUT.' }, { text: 'THE END', attached: true }]);
+		expect(line?.type).toBe('action');
+	});
+
+	it('rescinds a cast table’s wide description row but keeps the bare name row above a narrow one (episode-101)', () => {
+		/* MAID sits over a wide dotted-leader line cut off by the next cue;
+		   TRAVIS MARTINEZ sits over CODY — a second cue-shaped line under a
+		   cue classifies as its speech (rule 7 answers to position first),
+		   and a narrow one is a real speech's shape */
+		const types = typesOf([
+			{ text: 'MAID' },
+			{ text: 'VAN’S MOM.....................................DEBORAH VANCELETTE', attached: true },
+			{ text: 'TRAVIS MARTINEZ', attached: true },
+			{ text: 'CODY MARTINEZ', attached: true }
+		]);
+		expect(types).toEqual(['action', 'action', 'character', 'dialogue']);
+	});
+
+	it('rescinds a cue whose wide block a heading cuts off, even when the second wrap runs short (lalaland’s other WINTER)', () => {
+		const types = typesOf([
+			{ text: 'WINTER' },
+			{ text: 'A palm tree, a cloudless sky. We PULL BACK -- to reveal it’s' },
+			{ text: 'all painted...', attached: true },
+			{ text: 'EXT. STUDIO LOT - DAY' }
+		]);
+		expect(types).toEqual(['action', 'action', 'action', 'scene']);
+	});
+
+	it('keeps a wide line that closes its sentence — a complete utterance, however wide (breaking-bad’s HANK)', () => {
+		const types = typesOf([
+			{ text: 'HANK' },
+			{ text: 'You’re not listening to me, and I am done here.' }
+		]);
+		expect(types).toEqual(['character', 'dialogue']);
+	});
+
+	it('keeps a fused wide line whose second wrap runs short — one long breath, not prose (whiplash)', () => {
+		const types = typesOf([
+			{ text: 'STUDIO CORE MEMBER #3' },
+			{ text: 'I don’t care what you think of me, or how many cheeseburgers' },
+			{ text: 'you had for lunch.', attached: true },
+			{ text: 'ANDREW', attached: true },
+			{ text: 'Yes.', attached: true }
+		]);
+		expect(types).toEqual(['character', 'dialogue', 'dialogue', 'character', 'dialogue']);
+	});
+
+	it('keeps a wide line opening with an ellipsis — it continues a sentence from above (corpus-6’s ELI)', () => {
+		const types = typesOf([
+			{ text: 'ELI' },
+			{ text: '... that’s enough now ... that’s enough ... he mu' },
+			{ text: 'take the Holy Spirit in on his own now-.', attached: true },
+			{ text: 'INT. CHURCH - DAY' }
+		]);
+		expect(types).toEqual(['character', 'dialogue', 'dialogue', 'scene']);
+	});
+
+	it('never retypes a cue an explicit source style named — the DOCX route keeps its evidence', () => {
+		const [line] = classifyLines([
+			{ text: 'WINTER', styleName: 'Character' },
+			{ text: 'INT. AUDITION ROOMS - DAY' }
+		]);
+		expect(line?.type).toBe('character');
+	});
+
 	it('reads a colon-bearing uppercase line as a label, not a cue', () => {
 		const [line] = classifyLines([{ text: 'SECTION HEADING: ACT I - THE CORE ELEMENTS' }]);
 		expect(line?.type).toBe('action');

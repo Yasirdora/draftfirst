@@ -248,6 +248,110 @@ function classifyLine(
 	return verdict(raw, 'action', 'medium', 'no stronger signal — treated as action');
 }
 
+/* Cue confirmation: what ends a cue's candidacy outright. A cue directly
+   above one of these was never introducing speech — the line below it has a
+   structure of its own. */
+const CUE_ENDING_FOLLOWER: ReadonlySet<ElementType> = new Set(['scene', 'transition', 'actbreak', 'centered', 'shot']);
+
+/* The widest a wrapped dialogue column is witnessed to run (the edge tell's
+   constant, rule 7): past it, a "speech" line is prose. */
+const SPEECH_COLUMN_CEILING = 46;
+
+/**
+ * Cue confirmation. A pasted cue keeps its character only when speech
+ * follows it. The cue shape is cheap to fake — every season card ("WINTER",
+ * lalaland ×2), time card ("SEVEN YEARS AGO --", manchester ×29), subject
+ * slug ("ON STAGE", whiplash ×4; "MOSS" mid-action, no-country ×5), and
+ * title-page line is uppercase and short — so shape alone is an application,
+ * and the speech beneath it is the interview. Two failures rescind it:
+ *
+ *   structural — the next line is a heading, transition, act card, centered
+ *     card or shot, or nothing at all ("THE END" at the document's end). A
+ *     cue introduces speech; these are not speech.
+ *
+ *   wide block — a "speech" follows, but it runs prose-wide: its first line
+ *     outruns the dialogue column without ending a sentence or opening as a
+ *     sentence's continuation, and either its second line runs just as wide
+ *     (two prose lines — WINTER's "We settle on a new car…" 54/61) or the
+ *     block ends and a structural line or the document's end cuts it off
+ *     (WINTER's other card, "A palm tree…" 60/14 before EXT. STUDIO LOT; a
+ *     single wide line is also cut off by the next cue — cast-table rows
+ *     with wide description text, episode-101's MAID).
+ *
+ * The escapes are where geometry alone lies, each corpus-witnessed: a wide
+ * line that closes its sentence is a complete utterance (breaking-bad's
+ * HANK, 51 wide, ends "."); a wide line opening lowercase, bracketed,
+ * inverted-marked or with an ellipsis continues a sentence from above
+ * (corpus-6's ELI, 52 wide, opens "…"); a fused scan line with a narrow
+ * second line is one long breath, not prose (whiplash's STUDIO CORE MEMBER
+ * #3, 75 then 19). What the rule cannot see stays and is named: a card whose
+ * follower wraps short ("FALL" over "Silence." — one narrow word is a real
+ * speech's exact shape) and the title page's own name ("LA LA LAND" over
+ * "by" — a title page is the deferred RFC's ground, not this rule's). A
+ * cast table's name rows answer to the same speech test as everything
+ * else: a second cue-shaped line directly under a cue classifies as its
+ * speech (rule 7 answers to position first), so a bare row over a narrow
+ * name survives (TRAVIS MARTINEZ over CODY, episode-101) and a row over a
+ * wide dotted-leader description does not (MAID) — both are the table's
+ * own residue, kept honest rather than hidden.
+ *
+ * Demotion converts the cue and its whole attached block — parentheticals
+ * and dialogue lines — to action: the words all survive, only the false
+ * speaker leaves the cast. A cue an explicit source style named (the DOCX
+ * route) is flagged by the confidence rules above, never retyped here.
+ */
+function confirmCues(classified: ClassifiedLine[]): void {
+	for (let i = 0; i < classified.length; i++) {
+		const cue = classified[i];
+		if (cue === undefined || cue.type !== 'character' || cue.raw.styleName !== undefined) continue;
+		const next = classified[i + 1];
+
+		let why: string | undefined;
+		let block: ClassifiedLine[] = [];
+		if (next === undefined) {
+			why = 'the document ends under it — a card, not a speaker';
+		} else if (CUE_ENDING_FOLLOWER.has(next.type)) {
+			why = `no speech beneath it — a ${next.type} follows`;
+		} else {
+			/* a cue-shaped line directly under a cue classified as its speech
+			   (rule 7 answers to position first), so the block scan below also
+			   covers the cast table's name rows */
+			for (let j = i + 1; j < classified.length; j++) {
+				const member = classified[j];
+				if (member === undefined || (member.type !== 'dialogue' && member.type !== 'parenthetical')) break;
+				block.push(member);
+			}
+			const speech = block.filter((member) => member.type === 'dialogue');
+			if (speech.length === 0) continue; /* brackets and no words — no corpus witness; left flagged */
+			const first = speech[0]?.raw.text ?? '';
+			const wide =
+				first.length > SPEECH_COLUMN_CEILING &&
+				!TERMINAL_SENTENCE.test(first) &&
+				!/^[.…a-z¿¡(]/.test(first);
+			if (!wide) continue;
+			const after = classified[i + 1 + block.length];
+			const cutOff = after === undefined || CUE_ENDING_FOLLOWER.has(after.type);
+			const secondWide = (speech[1]?.raw.text.length ?? 0) > SPEECH_COLUMN_CEILING;
+			if (secondWide) {
+				why = `the speech under it runs prose-wide (${first.length}/${speech[1]?.raw.text.length}) — a card or a slug, not a speaker`;
+			} else if (cutOff || (speech.length === 1 && after?.type === 'character')) {
+				why = `one wide line under it (${first.length}), then the thought is cut — a card or a slug, not a speaker`;
+			} else {
+				continue;
+			}
+		}
+
+		cue.type = 'action';
+		cue.confidence = 'low';
+		cue.why = `uppercase cue shape, but ${why} — treated as action`;
+		for (const member of block) {
+			member.type = 'action';
+			member.confidence = 'low';
+			member.why = `the cue above it was no speaker — treated as action`;
+		}
+	}
+}
+
 /**
  * Context repair pass. Classification is per-line; this pass checks each
  * verdict against its neighbours and downgrades (never upgrades past the
@@ -297,6 +401,7 @@ function repairContext(classified: ClassifiedLine[]): ClassifiedLine[] {
 			line.why = 'cue with no speech beneath it';
 		}
 	}
+	confirmCues(classified);
 	return classified;
 }
 

@@ -127,12 +127,13 @@ describe('importPlainText', () => {
 	it('strips the revision asterisk riding a line’s tail', () => {
 		/* gone-girl ×1,426, whiplash ×21 ("TRUMPETER #2 **"), corpus-6 ×189 */
 		const { script } = importPlainText(
-			['INT. CAFE - DAY', 'AMY wakes, turns, gives a look of alarm.*', 'TRUMPETER #2 **'].join('\n')
+			['INT. CAFE - DAY', 'AMY wakes, turns, gives a look of alarm.*', 'TRUMPETER #2 **', 'A high, clear note.'].join('\n')
 		);
 		expect(script.elements.map((element) => element.text)).toEqual([
 			'INT. CAFE - DAY',
 			'AMY wakes, turns, gives a look of alarm.',
-			'TRUMPETER #2'
+			'TRUMPETER #2',
+			'A high, clear note.'
 		]);
 	});
 
@@ -236,8 +237,8 @@ describe('importPlainText', () => {
 		for (const timeLine of ['11:17 A.m.', '4:17 PM', '6:17PM']) {
 			/* a time stamp prints centered — and a time-only card carries no
 			   message, so the caps line under it is the next speaker */
-			const { script } = importPlainText(['TITLE CARD:', timeLine, 'GONE'].join('\n'));
-			expect(script.elements.map((element) => element.type)).toEqual(['centered', 'character']);
+			const { script } = importPlainText(['TITLE CARD:', timeLine, 'GONE', 'We are gone.'].join('\n'));
+			expect(script.elements.map((element) => element.type)).toEqual(['centered', 'character', 'dialogue']);
 			expect(script.elements[0]?.text).toBe(timeLine);
 		}
 	});

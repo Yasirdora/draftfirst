@@ -401,6 +401,10 @@ nonisolated enum PasteHeuristics {
     /// A sentence's end — terminal punctuation, then any closing quotes or
     /// brackets riding its tail: the edge tell's witness that a speech's
     /// last line closed a thought before the wide line arrived.
+    /// The widest a wrapped dialogue column is witnessed to run — the edge
+    /// tell's constant (speechEndsHere): past it, a "speech" line is prose.
+    static let speechColumnCeiling = 46
+
     static func endsWithTerminalSentence(_ text: String) -> Bool {
         var tail = Substring(text)
         while let last = tail.last, ["'", "\"", "”", "’", ")"].contains(last) {
@@ -408,6 +412,19 @@ nonisolated enum PasteHeuristics {
         }
         guard let last = tail.last else { return false }
         return last == "." || last == "!" || last == "?" || last == "…"
+    }
+
+    /// Whether the line opens as a sentence's continuation rather than a
+    /// new sentence: a lowercase letter, a bracket, an inverted mark, or an
+    /// ellipsis. Cue confirmation's opening guard (classify.ts's
+    /// /^[.…a-z¿¡(]/) — it extends the edge tell's own guard with the
+    /// ellipsis, that rule's own witness (corpus-6's ELI, a 52-wide scan
+    /// line opening "…"). The edge tell keeps its narrower guard: its
+    /// witnesses never needed the mark.
+    static func opensAsSentenceContinuation(_ text: String) -> Bool {
+        guard let first = text.first else { return false }
+        if first == "(" || first == "¿" || first == "¡" || first == "." || first == "…" { return true }
+        return first.isLowercase
     }
 
     /// The edge tell (lalaland ×3 pinned in the engine's classify tests; the
@@ -471,11 +488,16 @@ public nonisolated enum PasteReassembly {
         /// paste has no margins to measure, so its paragraphs carry their
         /// kinds instead.
         public let kind: ScreenplayKind?
+        /// The source lines the paragraph joined, verbatim — the wrap
+        /// evidence cue confirmation measures: a joined speech's width and
+        /// sentence shape live on its lines, not on the joined text.
+        public let sourceLines: [String]
 
-        public init(text: String, depth: Int, kind: ScreenplayKind? = nil) {
+        public init(text: String, depth: Int, kind: ScreenplayKind? = nil, sourceLines: [String] = []) {
             self.text = text
             self.depth = depth
             self.kind = kind
+            self.sourceLines = sourceLines
         }
     }
 
@@ -518,7 +540,7 @@ public nonisolated enum PasteReassembly {
         var cardSawTime = false
         func flush() {
             guard !current.isEmpty else { return }
-            paragraphs.append(Paragraph(text: current.joined(separator: " "), depth: depth))
+            paragraphs.append(Paragraph(text: current.joined(separator: " "), depth: depth, sourceLines: current))
             current = []
         }
         for line in lines {
@@ -676,7 +698,7 @@ public nonisolated enum PasteReassembly {
         var cardSawTime = false
         func flush() {
             guard !current.isEmpty else { return }
-            paragraphs.append(Paragraph(text: current.joined(separator: " "), depth: 0, kind: kind))
+            paragraphs.append(Paragraph(text: current.joined(separator: " "), depth: 0, kind: kind, sourceLines: current))
             current = []
         }
         for line in lines {
