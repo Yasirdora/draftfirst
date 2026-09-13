@@ -90,4 +90,60 @@ struct SceneNumberingTests {
         let reread = try Fountain.parse(source)
         #expect(reread.elements.compactMap(\.sceneNumber) == ["1", "2"])
     }
+
+    // MARK: - Numbering honours the secondary (RFC-SECONDARY-SLUG §6, D3)
+
+    @Test("A secondary slug takes no number")
+    func secondarySlugsAreNotNumbered() {
+        let out = SceneNumbering.numberingAll([
+            scene("INT. SOMEWHERE - DAY"), action("The setup."),
+            scene("BASIN - DAY"), action("Inside the setup."),
+            scene("MINUTES LATER"), action("A beat later."),
+            scene("EXT. ELSEWHERE - NIGHT"), action("A new setup.")
+        ])
+        #expect(out.compactMap(\.sceneNumber) == ["1", "2"])
+        #expect(out[2].sceneNumber == nil)
+        #expect(out[4].sceneNumber == nil)
+    }
+
+    @Test("The OMITTED card keeps its number — that is what the card is for")
+    func omittedCardsAreNumbered() {
+        let out = SceneNumbering.numberingAll([
+            scene("INT. A - DAY"), action("Something happens."),
+            scene("OMITTED"),
+            scene("EXT. B - NIGHT")
+        ])
+        #expect(out.compactMap(\.sceneNumber) == ["1", "2", "3"])
+    }
+
+    @Test("The writer's own spelling of the card numbers the same way")
+    func theWritersOmitSpellingsAreNumbered() {
+        let out = SceneNumbering.numberingAll([
+            scene("Omit"), scene("OMITTED."), scene("omitted")
+        ])
+        #expect(out.compactMap(\.sceneNumber) == ["1", "2", "3"])
+    }
+
+    @Test("A heading the writer forced with a leading dot takes no number")
+    func forcedDotScenesAreNotNumbered() {
+        // D3's named change: the dot carries no intro token, so the line
+        // reads as a secondary — shown lighter, and now unnumbered.
+        let out = SceneNumbering.numberingAll([
+            scene(".BLACK SCREEN"), action("Darkness."),
+            scene("INT. A - DAY")
+        ])
+        #expect(out.compactMap(\.sceneNumber) == ["1"])
+        #expect(out[0].sceneNumber == nil)
+    }
+
+    @Test("Locked numbering letters around the secondaries without touching them")
+    func lockedNumberingSkipsSecondaries() {
+        let out = SceneNumbering.numberingNewScenes([
+            scene("INT. A - DAY", "12"),
+            scene("HALLWAY - CONTINUOUS"),
+            scene("EXT. B - NIGHT")
+        ])
+        #expect(out.compactMap(\.sceneNumber) == ["12", "12A"])
+        #expect(out[1].sceneNumber == nil)
+    }
 }

@@ -76,11 +76,13 @@ final class PasteCueConfirmationTests: XCTestCase {
     /// The paste's own end is the cue's end: a closing card answers to
     /// nothing beneath it. (lalaland's own closing line is "IRIS FADE
     /// OUT." — the IRIS family is a transition shape the paste route does
-    /// not read yet; named in the corpus plan, not this rule's ground.)
+    /// not read yet; named in the corpus plan, not this rule's ground.
+    /// "THE END" used to be this test's probe; it now means the closing
+    /// card — RFC-SECONDARY-SLUG §4 — so the season card stands in.)
     func testACueThePasteEndsUnderIsNoSpeaker() {
         let elements = paste([
             "CUT TO:",
-            "THE END"
+            "SPRING"
         ].joined(separator: "\n"))
 
         XCTAssertEqual(elements.map(\.type), [.transition, .action])

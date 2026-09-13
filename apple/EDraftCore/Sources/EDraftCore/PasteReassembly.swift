@@ -202,6 +202,11 @@ nonisolated enum PasteHeuristics {
         }
         // TRACKING HANNA — the verb carries the frame without the noun.
         if first == "TRACKING", words.count > 1 { return true }
+        // The ON-insert: the camera frames a surface — ON AMBULANCE, ON
+        // DODGE PICK UP, ON SIDE DOOR, ON STATION WAGON (heat ×5). The OCR
+        // twin "PAN 0N KEY" (zero for O) stays unseen on purpose
+        // (RFC-SECONDARY-SLUG §8).
+        if first == "ON", words.count > 1 { return true }
         return false
     }
 
@@ -226,6 +231,181 @@ nonisolated enum PasteHeuristics {
         let head = text.prefix(while: { $0 != "-" }).trimmingCharacters(in: .whitespaces)
         return !head.isEmpty || text.hasPrefix("- ")
     }
+
+    /// The ASCII-uppercase reading the JavaScript engine's isUppercaseForm
+    /// makes: at least one A–Z, no a–z. An accented lowercase letter says
+    /// nothing here.
+    static func isASCIIUppercaseForm(_ text: String) -> Bool {
+        text.rangeOfCharacter(from: CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZ")) != nil
+            && text.rangeOfCharacter(from: CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz")) == nil
+    }
+
+    /// The quantity-LATER card, whole-line: optional quantifiers, then a
+    /// time unit immediately before LATER — "MINUTES LATER", "A MINUTE
+    /// LATER" (no-country), "FOUR YEARS LATER" (emilia-perez). "LATER THAT
+    /// NIGHT" and "SEE YOU LATER" carry no unit before LATER and never
+    /// match. Reads uppercased text — the caller uppercases when it wants
+    /// the case-insensitive reading (typing, RFC-SECONDARY-SLUG D6).
+    static func isLaterCard(_ uppercased: String) -> Bool {
+        let words = uppercased.split(separator: " ")
+        guard words.count >= 2, words.last == "LATER" else { return false }
+        let units: Set<Substring> = [
+            "SECOND", "SECONDS", "MINUTE", "MINUTES", "MOMENT", "MOMENTS",
+            "HOUR", "HOURS", "DAY", "DAYS", "WEEK", "WEEKS",
+            "MONTH", "MONTHS", "YEAR", "YEARS"
+        ]
+        guard units.contains(words[words.count - 2]) else { return false }
+        let quantifiers: Set<Substring> = [
+            "A", "AN", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX",
+            "SEVEN", "EIGHT", "NINE", "TEN", "FEW", "SEVERAL", "COUPLE"
+        ]
+        return words.dropLast(2).allSatisfy {
+            quantifiers.contains($0) || $0.allSatisfy { c in c.isASCII && c.isNumber }
+        }
+    }
+
+    /// The secondary slug (RFC-SECONDARY-SLUG §2): no scene intro to answer
+    /// the heading tell, but the time-of-day ending ("BASIN - DAY",
+    /// no-country; "THE NEW YORK HARBOR - DAY", godfather-2), the
+    /// quantity-LATER card, or the ANOTHER PART insert ("ANOTHER PART OF THE
+    /// CASINO") names somewhere inside the setup — a scene the navigator
+    /// reads lighter, never a speaker. Uppercase-gated (D6); the cue
+    /// shape's own guards keep a shout and a label out. What it refuses on
+    /// purpose: the "X - NAME" card ("BEDROOM - JUSTINE" collides with
+    /// HAGEN'S SON), the possessive insert ("NEIL'S HAND"), the tailed LATER
+    /// card ("SEVEN YEARS LATER -- THE PRESENT", manchester) — named
+    /// residue, each one.
+    static func isSecondarySlug(_ text: String) -> Bool {
+        guard isASCIIUppercaseForm(text),
+              !text.contains(":"),
+              let last = text.last, !".!?…".contains(last),
+              !looksLikeSceneHeading(text) else { return false }
+        if hasTimeOfDayEnding(text) { return true }
+        if isLaterCard(text) { return true }
+        return text.hasPrefix("ANOTHER PART OF ")
+            && text.dropFirst("ANOTHER PART OF".count).contains(where: { !$0.isWhitespace })
+    }
+
+    /// The closing card (§4): "THE END", one optional period, the whole
+    /// line — a sentence that merely ends on the words ("THE END OF A
+    /// THIRTY FOOT METAL POLE-", corpus-6) never matches. Case-insensitive,
+    /// the way the TypeScript END_CARD reads it.
+    static func isEndCard(_ text: String) -> Bool {
+        var card = Substring(text)
+        if card.hasSuffix(".") { card = card.dropLast() }
+        return card.uppercased() == "THE END"
+    }
+
+    /// The credit line — the title-page block's anchor (§3). The lead
+    /// words are the industry's own ("by", "Written by", "Adapted
+    /// Screenplay by", "Created by"); the mid-line form catches "A musical
+    /// written and directed by Jacques Audiard" (emilia-perez — 49
+    /// characters, the line that killed the length rule). The ampersand
+    /// form resolves through the following "by"/"and" pair: "A film
+    /// written & directed by X" answers at "directed by".
+    static func isFrontMatterCredit(_ text: String) -> Bool {
+        let words = text.lowercased()
+            .split(whereSeparator: { !($0.isASCII && $0.isLetter) })
+        guard let first = words.first else { return false }
+        let leads: Set<Substring> = [
+            "by", "written", "screenplay", "teleplay", "based", "directed",
+            "produced", "story", "adapted", "adaptation", "created"
+        ]
+        if leads.contains(first) { return true }
+        let verbs: Set<Substring> = ["written", "directed", "screenplay", "teleplay"]
+        for index in 0..<words.count - 1
+        where verbs.contains(words[index]) && (words[index + 1] == "by" || words[index + 1] == "and") {
+            return true
+        }
+        return false
+    }
+
+    /// The cast table's row shape: a run of four or more dots —
+    /// "JESSE PINKMAN..............Aaron Paul" (episode-101).
+    static func isDottedLeader(_ text: String) -> Bool {
+        var run = 0
+        for char in text {
+            if char == "." {
+                run += 1
+                if run >= 4 { return true }
+            } else {
+                run = 0
+            }
+        }
+        return false
+    }
+
+    /// The extension a speaker's cue wears — "(V.O.)", "(O.S.)",
+    /// "(CONT'D)", "(PRELAP)", "(FILTERED)", and the OCR twin "(V.0.)"
+    /// (gone-girl). An extension-carrying cue closes the title-page block:
+    /// the story has started.
+    static func isExtensionCue(_ text: String) -> Bool {
+        var line = Substring(text)
+        if line.hasSuffix("."), !line.hasSuffix(".)") { line = line.dropLast() }
+        guard line.hasSuffix(")"), let open = line.lastIndex(of: "(") else { return false }
+        let inner = line[line.index(after: open)...].dropLast()
+        let normalized = inner.filter { $0.isASCII && ($0.isLetter || $0.isNumber) }.uppercased()
+        guard ["VO", "V0", "OS", "OC", "CONTD", "PRELAP", "FILTERED"].contains(normalized)
+        else { return false }
+        return looksLikeCharacterCue(text, uppercase: text.uppercased())
+    }
+
+    /// The title-page block a plain-text paste carries (§3) — the walk and
+    /// the credit anchor are the TypeScript `frontMatterIndexes`' own, and
+    /// the witnesses are walked there one by one. A paste has no title
+    /// page, only its opening lines, which the cue shape otherwise adopts
+    /// ("MANCHESTER BY THE SEA" was a cast member). The walk collects the
+    /// opening run of credit lines, dotted-leader rows and short lines,
+    /// stopping at the first line with a structure of its own — a scene
+    /// intro, an act card, a transition, a title-card marker, a camera
+    /// line — or the first extension-carrying cue, or the first line too
+    /// long to be a title page's, or twenty-five lines in. The block
+    /// engages only when a credit line appeared inside it: no fragment of
+    /// script opens with "Written by", and every corpus title page carries
+    /// one — which is what leaves the Social Network opening ("FROM THE
+    /// BLACK WE HEAR--" over "MARK (V.O.)") untouched.
+    ///
+    /// Returns the engaged lines' indexes into `lines` — empty when the
+    /// block never engages, which is every mid-document paste and every
+    /// script-proper opening.
+    static func frontMatterLineIndexes(_ lines: [String]) -> Set<Int> {
+        var indexes: [Int] = []
+        var sawCredit = false
+        for (index, line) in lines.enumerated() {
+            if indexes.count >= 25 { break }
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { continue }
+            let cleaned = Emphasis.parse(strippingRevisionStar(trimmed)).text
+            if cleaned.isEmpty || isPaginationArtifact(cleaned) { continue }
+            let upper = cleaned.uppercased()
+            if looksLikeSceneHeading(cleaned) || Acts.isActCard(cleaned) || Acts.isEndActCard(cleaned)
+                || looksLikeTransition(upper) || opensWithFadeOrIris(upper)
+                || titleCardMarker(cleaned) != nil
+                || (isASCIIUppercaseForm(cleaned) && looksLikeCameraShot(cleaned))
+                || isExtensionCue(cleaned) {
+                break
+            }
+            let credit = isFrontMatterCredit(cleaned)
+            if !credit && !isDottedLeader(cleaned) && cleaned.utf16.count > 40 { break }
+            sawCredit = sawCredit || credit
+            indexes.append(index)
+        }
+        return sawCredit ? Set(indexes) : []
+    }
+
+    /// classify.ts's FADE_OR_IRIS — the walk's stop for lalaland's "FADE
+    /// IN...", which the transition tell's exact-spelling list does not
+    /// carry. A word boundary follows the prefix, the way the pattern's
+    /// `\b` reads.
+    private static func opensWithFadeOrIris(_ uppercased: String) -> Bool {
+        for prefix in ["FADE IN", "FADE OUT", "FADE TO", "IRIS IN", "IRIS OUT"]
+        where uppercased.hasPrefix(prefix) {
+            guard let next = uppercased.dropFirst(prefix.count).first else { return true }
+            return !next.isLetter
+        }
+        return false
+    }
+
 
     /// Artifacts of a printed page, meaningful only to a reader of paper:
     /// page numbers, loose scene numbers, draft stamps, (MORE), CONTINUED.
@@ -735,12 +915,16 @@ public nonisolated enum PasteReassembly {
         var cardOpen = false
         var cardHasDate = false
         var cardSawTime = false
+        /// The title-page block (RFC-SECONDARY-SLUG §3), read before any
+        /// column is measured: the block's lines print centered whatever
+        /// indent the copier gave them.
+        let frontMatter = PasteHeuristics.frontMatterLineIndexes(lines)
         func flush() {
             guard !current.isEmpty else { return }
             paragraphs.append(Paragraph(text: current.joined(separator: " "), depth: depth, sourceLines: current))
             current = []
         }
-        for line in lines {
+        for (lineIndex, line) in lines.enumerated() {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else {
                 flush()
@@ -761,6 +945,15 @@ public nonisolated enum PasteReassembly {
                 // page, and it splits a speech, not a thought: the
                 // paragraph under way continues across it — nothing
                 // flushes, no column moves.
+                continue
+            }
+            if frontMatter.contains(lineIndex) {
+                // The block read this line as the title page's own: it
+                // stands alone, centered, and no paragraph crosses it.
+                flush()
+                column = -1
+                cardOpen = false
+                paragraphs.append(Paragraph(text: unstarred, depth: 0, kind: .centered))
                 continue
             }
             if Acts.isEndActCard(cleaned) {
@@ -909,12 +1102,15 @@ public nonisolated enum PasteReassembly {
         var cardOpen = false
         var cardHasDate = false
         var cardSawTime = false
+        /// The title-page block (RFC-SECONDARY-SLUG §3), read before the
+        /// first line is typed.
+        let frontMatter = PasteHeuristics.frontMatterLineIndexes(lines)
         func flush() {
             guard !current.isEmpty else { return }
             paragraphs.append(Paragraph(text: current.joined(separator: " "), depth: 0, kind: kind, sourceLines: current))
             current = []
         }
-        for line in lines {
+        for (lineIndex, line) in lines.enumerated() {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else {
                 flush()
@@ -940,12 +1136,31 @@ public nonisolated enum PasteReassembly {
                 // flushes, the kind stands.
                 continue
             }
+            if frontMatter.contains(lineIndex) {
+                // The block read this line as the title page's own: it
+                // stands alone, centered, and no paragraph crosses it.
+                flush()
+                kind = .action
+                cardOpen = false
+                paragraphs.append(Paragraph(text: unstarred, depth: 0, kind: .centered))
+                continue
+            }
             if Acts.isEndActCard(cleaned) {
                 // An act ends where the next one begins: the closing card
                 // is furniture (RFC-ACT-BREAK §5), and a hard boundary —
                 // the paragraph under way ends here, nothing joins across.
                 flush()
                 cardOpen = false
+                continue
+            }
+            if PasteHeuristics.isEndCard(cleaned) {
+                // The closing card (RFC-SECONDARY-SLUG §4): it answers
+                // before the card marker, the cue shape and the speech
+                // under way — and it stands alone, centered.
+                flush()
+                cardOpen = false
+                kind = .centered
+                current = [unstarred]
                 continue
             }
             if let cardInline = PasteHeuristics.titleCardMarker(unstarred) {
@@ -999,6 +1214,14 @@ public nonisolated enum PasteReassembly {
                 flush()
                 kind = .scene
                 current = [unstarred]
+            } else if PasteHeuristics.isSecondarySlug(cleaned) {
+                // The secondary slug (RFC-SECONDARY-SLUG §2): no intro to
+                // answer the heading tell, but the card names somewhere
+                // inside the setup — typed scene, ahead of the act card and
+                // the cue shape, so it is never interviewed as a speaker.
+                flush()
+                kind = .scene
+                current = [unstarred]
             } else if Acts.isActCard(cleaned) {
                 // The card is structural, never a speaker — without this
                 // tell the cue shape below adopts ACT ONE (RFC-ACT-BREAK §5).
@@ -1044,7 +1267,7 @@ public nonisolated enum PasteReassembly {
                 current = [unstarred]
             } else {
                 switch kind {
-                case .scene, .transition, .actbreak, .shot:
+                case .scene, .transition, .actbreak, .shot, .centered:
                     flush() // a card stands alone; what follows it is prose
                     kind = .action
                     current = []

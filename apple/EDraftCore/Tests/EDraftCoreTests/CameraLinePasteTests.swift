@@ -178,13 +178,16 @@ final class CameraLinePasteTests: XCTestCase {
 
     func testAFinishedHeadingKeepsTheNextLineToItself() {
         // The tell needs the opening: a heading that already carries its
-        // time-of-day takes no tail.
+        // time-of-day takes no tail. The line below is its own element — a
+        // standalone secondary slug, typed scene (RFC-SECONDARY-SLUG §2),
+        // never folded into the finished heading above it.
         let elements = paste("""
             INT. BOATHOUSE - DAY
             CORLEONE - DAY
             """)
         XCTAssertEqual(elements.count, 2)
-        XCTAssertNotEqual(elements[1].type, .scene)
+        XCTAssertEqual(elements.map(\.type), [.scene, .scene])
+        XCTAssertEqual(elements.map(\.text), ["INT. BOATHOUSE - DAY", "CORLEONE - DAY"])
     }
 
     func testBackToBackHeadingsNeverMerge() {

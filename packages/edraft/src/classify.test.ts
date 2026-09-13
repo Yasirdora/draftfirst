@@ -159,7 +159,10 @@ describe('classifyLines', () => {
 	});
 
 	it('reads far-right uppercase layout as a transition', () => {
-		const [line] = classifyLines([{ text: 'THE END', indentInches: 6.0 }]);
+		/* "DISSOLVE." carries no shape tell, so only the layout band answers —
+		   "THE END" used to stand in here and now means the closing card
+		   (RFC-SECONDARY-SLUG §4) */
+		const [line] = classifyLines([{ text: 'DISSOLVE.', indentInches: 6.0 }]);
 		expect(line?.type).toBe('transition');
 		expect(line?.confidence).toBe('medium');
 	});
@@ -529,12 +532,21 @@ describe('classifyLines', () => {
 		expect(types).toEqual(['scene', 'scene']);
 	});
 
-	it('never types a tail under a finished heading — the tell needs the opening', () => {
-		const types = typesOf([
-			{ text: 'INT. BOATHOUSE - DAY' },
-			{ text: 'CORLEONE - DAY', attached: true }
+	it('types a tail-shaped line under a finished heading as its own slug — and never folds it in', () => {
+		/* the fold's tell needs the opening: the heading above already carries
+		   its time-of-day, so the card is no continuation. It is a standalone
+		   secondary slug (RFC-SECONDARY-SLUG §2) — typed scene, kept its own
+		   element */
+		const script = toScreenplay(
+			classifyLines([
+				{ text: 'INT. BOATHOUSE - DAY' },
+				{ text: 'CORLEONE - DAY', attached: true }
+			])
+		);
+		expect(script.elements).toEqual([
+			{ type: 'scene', text: 'INT. BOATHOUSE - DAY' },
+			{ type: 'scene', text: 'CORLEONE - DAY' }
 		]);
-		expect(types[1]).not.toBe('scene');
 	});
 });
 
@@ -615,5 +627,233 @@ describe('finalizeImport', () => {
 		const { report } = finalizeImport(classifyLines([{ text: '(beat)' }]), 'text', []);
 		expect(report.flagged).toHaveLength(1);
 		expect(report.flagged[0]?.why).toMatch(/brackets outside a speech/);
+	});
+});
+
+describe('classifyLines · secondary slugs, the title-page block, and the closing card (RFC-SECONDARY-SLUG)', () => {
+	it('types the corpus’s time-ending secondary slugs as scenes, never speakers', () => {
+		/* every line here is a corpus witness: corpus-1, godfather-2, heat,
+		   no-country ×5 */
+		const types = typesOf([
+			{ text: 'INT. SOMEWHERE - DAY' },
+			{ text: 'Action under the master heading.' },
+			{ text: 'COURTYARD - 1612 HAVENHURST - DAY' },
+			{ text: 'THE NEW YORK HARBOR - DAY' },
+			{ text: "MARCIAN0'S OFFICE - MARCIANO - DAY" },
+			{ text: 'BASIN - DAY' },
+			{ text: '2ND HOTEL EAGLE ROOM - NIGHT' },
+			{ text: 'OFFICE HALLWAY - DAY' },
+			{ text: "SHERIFF BELL'S OFFICE - DAY" },
+			{ text: 'COFFEE SHOP - EL PASO - NIGHT' }
+		]);
+		expect(types).toEqual([
+			'scene',
+			'action',
+			'scene',
+			'scene',
+			'scene',
+			'scene',
+			'scene',
+			'scene',
+			'scene',
+			'scene'
+		]);
+	});
+
+	it('types the quantity-LATER cards as scenes (no-country)', () => {
+		const types = typesOf([
+			{ text: 'INT. SOMEWHERE - DAY' },
+			{ text: 'Action.' },
+			{ text: 'MINUTES LATER' },
+			{ text: 'More action.' },
+			{ text: 'A MINUTE LATER' },
+			{ text: 'Still more.' }
+		]);
+		expect(types).toEqual(['scene', 'action', 'scene', 'action', 'scene', 'action']);
+	});
+
+	it('types the ANOTHER PART insert as a scene (godfather-2)', () => {
+		const types = typesOf([
+			{ text: 'INT. CASINO - NIGHT' },
+			{ text: 'Action.' },
+			{ text: 'ANOTHER PART OF THE CASINO' },
+			{ text: 'More action.' }
+		]);
+		expect(types).toEqual(['scene', 'action', 'scene', 'action']);
+	});
+
+	it('refuses the shapes the grammar names as residue', () => {
+		/* X - NAME collides with real speakers (HAGEN'S SON); the tailed LATER
+		   card is manchester's "SEVEN YEARS LATER -- THE PRESENT"; "LATER THAT
+		   NIGHT" and "SEE YOU LATER" carry no quantity before LATER */
+		for (const text of [
+			'BEDROOM - JUSTINE',
+			"NEIL'S HAND",
+			'SEVEN YEARS LATER -- THE PRESENT',
+			'LATER THAT NIGHT',
+			'SEE YOU LATER',
+			'ANOTHER COUNTER'
+		]) {
+			const types = typesOf([
+				{ text: 'INT. SOMEWHERE - DAY' },
+				{ text: 'Action.' },
+				{ text },
+				{ text: 'More action follows here.' }
+			]);
+			expect(types[2]).not.toBe('scene');
+		}
+	});
+
+	it('still folds a time-ending card attached under an open heading (rule 2½ answers first)', () => {
+		const script = toScreenplay(
+			classifyLines([
+				{ text: "INT. DON CORLEONE'S OLD OFFICE" },
+				{ text: 'CORLEONE - DAY', attached: true }
+			])
+		);
+		expect(script.elements).toEqual([
+			{ type: 'scene', text: "INT. DON CORLEONE'S OLD OFFICE CORLEONE - DAY" }
+		]);
+	});
+
+	it('types the ON-insert as a shot (heat ×5)', () => {
+		const types = typesOf([
+			{ text: 'INT. SOMEWHERE - DAY' },
+			{ text: 'Action.' },
+			{ text: 'ON AMBULANCE' },
+			{ text: 'It screams through traffic.' },
+			{ text: 'ON STATION WAGON' },
+			{ text: 'It waits at the light.' }
+		]);
+		expect(types).toEqual(['scene', 'action', 'shot', 'action', 'shot', 'action']);
+	});
+
+	it('types the closing card as centered and keeps it out of the last speech', () => {
+		const script = toScreenplay(
+			classifyLines([
+				{ text: 'EXT. ROOF - NIGHT' },
+				{ text: 'MARA' },
+				{ text: 'Goodnight.' },
+				{ text: 'THE END' }
+			])
+		);
+		expect(script.elements.map((element) => element.type)).toEqual([
+			'scene',
+			'character',
+			'dialogue',
+			'centered'
+		]);
+		expect(script.elements[3]?.text).toBe('THE END');
+	});
+
+	it('types THE END. with its period, and never the sentence that ends on the words', () => {
+		expect(typesOf([{ text: 'EXT. X - DAY' }, { text: 'Action.' }, { text: 'THE END.' }])[2]).toBe('centered');
+		const types = typesOf([
+			{ text: 'EXT. X - DAY' },
+			{ text: 'Action.' },
+			{ text: 'THE END OF A THIRTY FOOT METAL POLE-' },
+			{ text: 'More action follows here.' }
+		]);
+		expect(types[2]).not.toBe('centered');
+	});
+
+	it('centers a pasted title page — manchester’s four lines, then the story untouched', () => {
+		const script = toScreenplay(
+			classifyLines([
+				{ text: 'MANCHESTER BY THE SEA' },
+				{ text: 'Written & Directed' },
+				{ text: 'by' },
+				{ text: 'Kenneth Lonergan' },
+				{ text: 'EXT. MANCHESTER HARBOR -- SEA. DAY.' },
+				{ text: 'A small commercial fishing boat heads out of Manchester.' }
+			])
+		);
+		expect(script.elements.map((element) => element.type)).toEqual([
+			'centered',
+			'centered',
+			'centered',
+			'centered',
+			'scene',
+			'action'
+		]);
+		/* centered lines never merge — each title line stands on its own */
+		expect(script.elements).toHaveLength(6);
+	});
+
+	it('centers the block through its dotted-leader cast table (episode-101)', () => {
+		const types = typesOf([
+			{ text: 'Episode 101' },
+			{ text: '"PILOT"' },
+			{ text: 'Written by' },
+			{ text: 'Vince Gilligan' },
+			{ text: 'WALTER WHITE..............Bryan Cranston' },
+			{ text: 'JESSE PINKMAN..............Aaron Paul' },
+			{ text: 'TEASER' },
+			{ text: 'EXT. COW PASTURE - DAY' }
+		]);
+		expect(types).toEqual([
+			'centered',
+			'centered',
+			'centered',
+			'centered',
+			'centered',
+			'centered',
+			'actbreak',
+			'scene'
+		]);
+	});
+
+	it('engages on the credit words, however long the credit line runs (emilia-perez)', () => {
+		const types = typesOf([
+			{ text: 'EMILIA PÉREZ' },
+			{ text: 'A musical written and directed by Jacques Audiard' },
+			{ text: 'EXT. MEXICO CITY - NIGHT' },
+			{ text: 'Top shot and perpendicular zoom: Mexico City.' }
+		]);
+		expect(types).toEqual(['centered', 'centered', 'scene', 'action']);
+	});
+
+	it('closes the block at an extension cue — gone-girl’s opening speech stays speech', () => {
+		const types = typesOf([
+			{ text: 'GONE GIRL' },
+			{ text: 'GONE GIRL' },
+			{ text: 'by Gillian Flynn' },
+			{ text: 'NICK (V.0.)' },
+			{ text: 'When I think of my wife, I picture cracking her lovely skull.' }
+		]);
+		expect(types).toEqual(['centered', 'centered', 'centered', 'character', 'dialogue']);
+	});
+
+	it('never engages without a credit line — a pasted fragment opening at a cue is untouched', () => {
+		const types = typesOf([{ text: 'ELI' }, { text: 'DO YOU ACCEPT JESUS CHRIST AS YOUR SAVIOR?' }]);
+		expect(types).toEqual(['character', 'dialogue']);
+		const plain = typesOf([{ text: 'JOHN' }, { text: 'Yeah.' }]);
+		expect(plain).toEqual(['character', 'dialogue']);
+	});
+
+	it('never engages when the opening lines run prose-wide before any credit', () => {
+		/* a block that hits its forty-character ceiling before a credit is no
+		   title page — the walk stops and the lines classify as they always did */
+		const types = typesOf([
+			{ text: 'A line of opening prose that runs well past forty characters, the way a story does.' },
+			{ text: 'Written by' },
+			{ text: 'SOMEBODY' }
+		]);
+		expect(types[0]).not.toBe('centered');
+	});
+
+	it('keeps an explicit source style above the block (the DOCX route)', () => {
+		const [line] = classifyLines([
+			{ text: 'MANCHESTER BY THE SEA' },
+			{ text: 'Written & Directed' },
+			{ text: 'by Kenneth Lonergan', styleName: 'Byline' }
+		]);
+		expect(line?.type).toBe('centered');
+		const classified = classifyLines([
+			{ text: 'MANCHESTER BY THE SEA' },
+			{ text: 'Written & Directed' },
+			{ text: 'by Kenneth Lonergan', styleName: 'Character' }
+		]);
+		expect(classified[2]?.type).toBe('character');
 	});
 });

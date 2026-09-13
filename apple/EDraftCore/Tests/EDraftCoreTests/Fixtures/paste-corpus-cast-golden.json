@@ -1,7 +1,5 @@
 {
   "breaking-bad.txt": [
-    "BREAKING BAD",
-    "AMC",
     "UNDERPANTS MAN",
     "SKYLER",
     "WALT",
@@ -123,7 +121,6 @@
     "CAROL",
     "HANK",
     "JASON",
-    "COURTYARD - 1612 HAVENHURST - DAY",
     "BE!TY",
     "CORNELL DUMONT",
     "MIDDLE-AGED WOMAN",
@@ -303,7 +300,6 @@
     "EPIFAN\u00cdA (O.S.)"
   ],
   "episode-101.txt": [
-    "\u201cPILOT\u201d",
     "DATE",
     "PAGES",
     "WHITE PRODUCTION DRAFT",
@@ -427,8 +423,6 @@
     "MISTY (CONT'D)"
   ],
   "foryourcon.txt": [
-    "F O R Y O U R C O N S I D E R A T I O N",
-    "BEST ORIGINAL SCREENPLAY",
     "BLACK",
     "MAN (V.O.)",
     "RIGGAN",
@@ -648,15 +642,12 @@
     "SNAP TO BLACK"
   ],
   "godfather-2.txt": [
-    "THE GODFATHER",
-    "SECOND DRAFT",
     "WOMAN",
     "WIDOW",
     "DON FRANCESCO",
     "MOSCA",
     "STROLLO",
     "FATHER",
-    "THE NEW YORK HARBOR - DAY",
     "OFFICIAL",
     "DOCTOR",
     "GUARD",
@@ -727,7 +718,6 @@
     "ROCCO (O.S.)",
     "LOUDSPEAKER",
     "PIT BOSS",
-    "ANOTHER PART OF THE CASINO",
     "STAGEHAND",
     "ONE OF THE GIRLS",
     "COP",
@@ -864,8 +854,6 @@
     "AMY (O.S.)"
   ],
   "heat.txt": [
-    "HEAT",
-    "FOR EDUCATIONAL PURPOSES ONLY",
     "PROFILE",
     "CLERK",
     "CHRIS",
@@ -892,7 +880,6 @@
     "WAINGRO (O.S.)",
     "DRIVER",
     "CERRITO'S AR15",
-    "ON AMBULANCE",
     "BLACK + WHITE",
     "NATE",
     "HANNA (O.S.)",
@@ -947,7 +934,6 @@
     "RICHIE (O.S.)",
     "RICHIE + HANNA",
     "MOTHER",
-    "ON DODGE PICK UP",
     "MAN",
     "GUNMAN",
     "NEIL (O.S.)",
@@ -969,7 +955,6 @@
     "JACKSON (O.S.)",
     "JACKSON (V.O.)",
     "RADIO",
-    "MARCIAN0'S OFFICE - MARCIANO - DAY",
     "SCHWARTZ (O.S.)",
     "HUGH BENNY",
     "HANNA (CONT'D)",
@@ -978,7 +963,6 @@
     "BOOTH - CERRITO",
     "TOWNER (CONT'D)",
     "DIETER",
-    "ON SIDE DOOR",
     "JOHN",
     "TIMMONS",
     "FACES",
@@ -987,7 +971,6 @@
     "COP # 1",
     "BOSKO (O.S.)",
     "PARKING LOT",
-    "ON STATION WAGON",
     "STATION WAGON",
     "WIDER",
     "BOB (O.S.)",
@@ -1044,7 +1027,6 @@
     "HANNA (SLO MO)"
   ],
   "lalaland.txt": [
-    "LA LA LAND",
     "MIA",
     "MIA (CONT\u2019D)",
     "CUSTOMER #1",
@@ -1111,7 +1093,6 @@
     "DAVID (CONT\u2019D)"
   ],
   "manchester.txt": [
-    "MANCHESTER BY THE SEA",
     "MR MARTINEZ",
     "LEE",
     "MARTINEZ",
@@ -1220,8 +1201,6 @@
     "HOMEOWNER"
   ],
   "no-country.txt": [
-    "\"NO COUNTRY FOR OLD MEN\"",
-    "JOEL COEN & ETHAN COEN",
     "VOICE OVER",
     "DEPUTY",
     "MAN",
@@ -1235,7 +1214,7 @@
     "LORETTA",
     "BELL",
     "WENDELL",
-    "BASIN - DAY",
+    "BY THE BODIES",
     "AIR TANK",
     "WOMAN",
     "CABBIE",
@@ -1246,7 +1225,6 @@
     "WAITRESS",
     "CLERK",
     "ANOTHER COUNTER",
-    "MINUTES LATER",
     "DOOR",
     "STOCKINGED FEET",
     "OLD MAN",
@@ -1257,21 +1235,16 @@
     "BLACK",
     "VOICE",
     "MOLLY",
-    "A MINUTE LATER",
     "LOOKING DOWN THE WALKWAY",
-    "2ND HOTEL EAGLE ROOM - NIGHT",
     "MOSS'S VOICE",
     "OFFICIAL",
     "GUARD",
     "MOTHER",
-    "OFFICE HALLWAY - DAY",
     "MAN AT CHAIR",
     "MOTHER'S VOICE",
     "MEXICAN",
     "SHERIFF BELL",
-    "SHERIFF BELL'S OFFICE - DAY",
     "ROSCOE",
-    "COFFEE SHOP - EL PASO - NIGHT",
     "INSIDE",
     "A CAT",
     "ELLIS",
@@ -1279,8 +1252,6 @@
     "BOY 2"
   ],
   "pasted-26.txt": [
-    "T H E I R I S H M A N",
-    "HANDHELD VIDEO IMAGE",
     "VOICE",
     "FRANK",
     "REALTOR",
@@ -1332,7 +1303,6 @@
     "SALESMAN"
   ],
   "whiplash.txt": [
-    "WHIPLASH",
     "ANDREW",
     "MAN",
     "FLETCHER",
@@ -1407,7 +1377,6 @@
     "NICOLE (O.S.) (CONT\u2019D)",
     "BASSIST (CONT\u2019D)",
     "IN THE AUDIENCE",
-    "ON STAGE",
     "AT THE LOBBY DOORS"
   ]
 }

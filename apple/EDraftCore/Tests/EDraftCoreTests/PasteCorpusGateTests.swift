@@ -151,6 +151,10 @@ final class PasteCorpusGateTests: XCTestCase {
         /// parity with the TypeScript engine (a labelled frame is a shot, a
         /// shouted question is speech, and a colon line is never a speaker);
         /// each move was reviewed against the file before re-pinning.
+        /// RFC-SECONDARY-SLUG moved five: a secondary slug or card leaving
+        /// the speech columns redraws the boundary its false speech sat on
+        /// (godfather-2 −2, lalaland −1, no-country −4, pasted-26 −2,
+        /// whiplash −3), reviewed name by name against the cast golden.
         let expectedSplits: [String: Int] = [
             "breaking-bad.txt": 122,
             "corpus-1.txt": 127,
@@ -159,14 +163,14 @@ final class PasteCorpusGateTests: XCTestCase {
             "episode-101.txt": 145,
             "foryourcon.txt": 219,
             "from-the-black.txt": 139,
-            "godfather-2.txt": 361,
+            "godfather-2.txt": 359,
             "gone-girl.txt": 270,
             "heat.txt": 159,
-            "lalaland.txt": 142,
+            "lalaland.txt": 141,
             "manchester.txt": 123,
-            "no-country.txt": 129,
-            "pasted-26.txt": 235,
-            "whiplash.txt": 257
+            "no-country.txt": 125,
+            "pasted-26.txt": 233,
+            "whiplash.txt": 254
         ]
         for file in try corpusFiles() {
             let source = try String(contentsOfFile: "\(corpusDir)/\(file)", encoding: .utf8)

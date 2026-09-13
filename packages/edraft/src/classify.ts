@@ -117,6 +117,11 @@ const CAMERA_LINE = new RegExp(
 		String.raw`^CLOSER?\s+-`,
 		/* the verb carries the frame without the noun: TRACKING HANNA */
 		String.raw`^TRACKING\s+\S`,
+		/* the ON-insert: the camera frames a surface — ON AMBULANCE, ON DODGE
+		   PICK UP, ON SIDE DOOR, ON STATION WAGON (heat ×5). Uppercase-gated
+		   at rule 5 like the rest of the grammar; the OCR twin "PAN 0N KEY"
+		   stays unseen on purpose (RFC-SECONDARY-SLUG §8). */
+		String.raw`^ON\s+\S`,
 		/* ends on the camera noun: MED. VIEW, CLOSE MOVING VIEW, LONG SHOT,
 		   TWO SHOT, 3/4 REAR SHOT, REAR SHOTS, DANIEL'S POV, */
 		String.raw`\b(?:VIEW|SHOTS?|ANGLE|POV),?$`
@@ -131,12 +136,47 @@ const HEADING_TIME_ENDING =
    "- HAVENHURST - DAY" ×5). Never itself a new heading. */
 const HEADING_TIME_TAIL =
 	/^[A-Z0-9 .,'&()\-]+? - (DAY|NIGHT|DAWN|DUSK|MORNING|EVENING|LATER|CONTINUOUS|SAME|SAME TIME|MOMENTS LATER)$/;
+/* RFC-SECONDARY-SLUG §2 — the secondary slug's remaining shapes, both
+   whole-line so prose never wanders in. The quantity-LATER card: optional
+   quantifiers, a time unit immediately before LATER (no-country's "MINUTES
+   LATER", "A MINUTE LATER") — "LATER THAT NIGHT" and "SEE YOU LATER" never
+   match. The ANOTHER PART insert: godfather-2's "ANOTHER PART OF THE
+   CASINO" — narrow because the witness list is narrow. */
+const LATER_CARD =
+	/^(?:(?:A|AN|ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|FEW|SEVERAL|COUPLE|\d+)\s+)*(?:SECONDS?|MINUTES?|MOMENTS?|HOURS?|DAYS?|WEEKS?|MONTHS?|YEARS?)\s+LATER$/;
+const ANOTHER_PART = /^ANOTHER PART OF \S/;
+/* The closing card (§4): the whole line, one optional period — a sentence
+   that merely ends on the words ("THE END OF A THIRTY FOOT METAL POLE-",
+   corpus-6) never matches. */
+const END_CARD = /^THE END\.?$/i;
 const MAX_CUE_CHARACTERS = 42;
 const TERMINAL_PUNCT = /[.!?…]$/;
 /* a speech's last line closes a sentence — punctuation first, then any
    closing quotes or brackets riding its tail */
 const TERMINAL_SENTENCE = /[.!?…]['"”’)]*$/;
 const TRAILING_PARENS = /(\s*\([^()]*\)\s*)+$/;
+
+/* RFC-SECONDARY-SLUG §3 — the title-page block. The credit line is the
+   block's anchor: a fragment of script never opens with one, a title page
+   always carries one (every corpus opening verified — manchester, heat,
+   breaking-bad line 2; no-country lines 2/4; emilia-perez's 49-character
+   musical credit, which is why the anchor is the credit words and not a
+   length ceiling). */
+const CREDIT_LEAD =
+	/^(?:by|written|screenplay|teleplay|based|directed|produced|story|adapted|adaptation|created)\b/i;
+const CREDIT_MIDLINE = /\b(?:written|directed|screenplay|teleplay)\s+(?:by|&|and)\b/i;
+/* the cast table's row shape: "JESSE PINKMAN..............Aaron Paul"
+   (episode-101) */
+const DOTTED_LEADER = /\.{4,}/;
+/* the extension a speaker's cue wears — "(V.O.)", "(O.S.)", "(CONT'D)",
+   and the OCR twin "(V.0.)" (gone-girl). An extension-carrying cue closes
+   the block: the story has started. */
+const EXTENSION_CUE = /\((?:V\.?[O0]\.?|O\.?S\.?|O\.?C\.?|CONT'?D\.?|PRELAP|FILTERED)\)\.?$/;
+/* a title page is a page; past twenty-five lines of front matter the walk
+   stops trusting itself */
+const FRONT_MATTER_MAX_LINES = 25;
+const FRONT_MATTER_MAX_LINE = 40;
+const PAGE_NUMBER_LINE = /^\d{1,4}\.?$/;
 
 /** Types whose wrapped continuation lines merge back into one element. */
 const MERGEABLE: ReadonlySet<ElementType> = new Set(['action', 'dialogue', 'parenthetical']);
@@ -220,13 +260,32 @@ function classifyLine(
 		return verdict(raw, 'scene', 'high', "a wrapped heading's time-of-day tail");
 	}
 
+	const uppercase = isUppercaseForm(text);
+
+	/* 2¾. the secondary slug (RFC-SECONDARY-SLUG §2): a time-of-day card, a
+	   quantity-LATER card or an ANOTHER PART insert with no scene intro
+	   names somewhere inside the setup. Typed scene so the navigator reads
+	   it (lighter, and unnumbered once numbering honours isSecondary), and
+	   typed here — ahead of the act card, the camera and the cue shape — so
+	   it is never interviewed as a speaker. The tail fold above answers
+	   first: attached under an open heading, the card folds into it. The
+	   uppercase gate is the paste path's doctrine (D6): a pasted mixed-case
+	   line is prose until the writer's own capitalisation says otherwise. */
+	if (
+		uppercase &&
+		!text.includes(':') &&
+		!TERMINAL_PUNCT.test(text) &&
+		(HEADING_TIME_ENDING.test(text) || LATER_CARD.test(text) || ANOTHER_PART.test(text))
+	) {
+		return verdict(raw, 'scene', 'medium', 'secondary slug — names somewhere inside the scene');
+	}
+
 	/* 3. an act card announces itself — the canonical spelling or one of
 	   television's unnumbered openers (RFC-ACT-BREAK §5). Without this arm
 	   the cue shape below adopts ACT ONE as a speaker. */
 	if (isActCard(text)) return verdict(raw, 'actbreak', 'high', 'act card');
 
 	/* 4. transitions: uppercase ending "TO:", or the unambiguous FADE/IRIS family */
-	const uppercase = isUppercaseForm(text);
 	if ((uppercase && text.endsWith('TO:')) || FADE_OR_IRIS.test(text)) {
 		return verdict(raw, 'transition', 'high', 'transition shape');
 	}
@@ -235,6 +294,11 @@ function classifyLine(
 	if (uppercase && (SHOT_INTRO.test(text) || CAMERA_LINE.test(text))) {
 		return verdict(raw, 'shot', 'medium', 'camera framing reads as a shot');
 	}
+
+	/* 5½. the closing card (RFC-SECONDARY-SLUG §4) — whole-line, ahead of
+	   the parenthetical and speech position, so it never fuses into the
+	   scene's last speech. */
+	if (END_CARD.test(text)) return verdict(raw, 'centered', 'high', 'the closing card');
 
 	/* 6. a fully bracketed line reads as a parenthetical */
 	if (text.startsWith('(') && text.endsWith(')')) {
@@ -472,18 +536,81 @@ function repairContext(classified: ClassifiedLine[]): ClassifiedLine[] {
 }
 
 /**
+ * The title-page block a plain-text paste carries (RFC-SECONDARY-SLUG §3).
+ *
+ * A paste has no title page — only its opening lines, which the cue shape
+ * otherwise adopts ("MANCHESTER BY THE SEA" was a cast member). The block
+ * is read as a block: the opening run of credit lines, dotted-leader rows
+ * and short lines, walked from the top, stopping at the first line with a
+ * structure of its own (a scene intro, a numbered heading, an act card, a
+ * transition, a camera line) or the first extension-carrying cue — the
+ * story has started — or the first line too long to be a title page's, or
+ * twenty-five lines in.
+ *
+ * The block engages only when a credit line appears inside it. Length
+ * cannot tell a film's title from a speaker — both are short, uppercase
+ * and unpunctuated — so the credit words are the anchor: no fragment of
+ * script opens with "Written by", and every corpus title page carries one.
+ * That is what leaves the Social Network opening untouched: "FROM THE
+ * BLACK WE HEAR--" qualifies by length, but "MARK (V.O.)" closes the walk
+ * at line 2 with no credit seen, and nothing changes.
+ *
+ * Returns the engaged lines' indexes into `rawLines` — empty when the
+ * block never engages, which is every mid-document paste and every
+ * script-proper opening.
+ */
+function frontMatterIndexes(rawLines: readonly RawLine[]): Set<number> {
+	const indexes: number[] = [];
+	let sawCredit = false;
+	for (let i = 0; i < rawLines.length && indexes.length < FRONT_MATTER_MAX_LINES; i++) {
+		const raw = rawLines[i];
+		if (raw === undefined) continue;
+		const text = raw.text.trim();
+		if (text === '' || PAGE_NUMBER_LINE.test(text)) continue;
+		const uppercase = isUppercaseForm(text);
+		if (
+			SCENE_INTRO.test(text) ||
+			parseNumberedSceneHeading(text) !== undefined ||
+			isActCard(text) ||
+			FADE_OR_IRIS.test(text) ||
+			(uppercase && text.endsWith('TO:')) ||
+			(uppercase && (SHOT_INTRO.test(text) || CAMERA_LINE.test(text))) ||
+			(cueShape(text) && EXTENSION_CUE.test(text))
+		) {
+			break;
+		}
+		const credit = CREDIT_LEAD.test(text) || CREDIT_MIDLINE.test(text);
+		if (!credit && !DOTTED_LEADER.test(text) && text.length > FRONT_MATTER_MAX_LINE) break;
+		sawCredit = sawCredit || credit;
+		indexes.push(i);
+	}
+	return sawCredit ? new Set(indexes) : new Set();
+}
+
+/**
  * Classify raw lines into typed elements. Blank lines carry no meaning in
  * the element model and are dropped; attachment between lines is read from
  * `raw.attached`, which the source extractor is responsible for setting.
  */
 export function classifyLines(rawLines: readonly RawLine[]): ClassifiedLine[] {
 	const classified: ClassifiedLine[] = [];
+	/* the engaged title-page block's lines answer to the block, not to the
+	   per-line cascade — read once, before any line is typed */
+	const frontMatter = frontMatterIndexes(rawLines);
 	/* the running right edge of the speech in progress — the edge tell in
 	   rule 7 measures a rejoining action line against it */
 	let speechEdge = 0;
-	for (const raw of rawLines) {
+	for (let index = 0; index < rawLines.length; index++) {
+		const raw = rawLines[index];
+		if (raw === undefined) continue;
 		const text = raw.text.trim();
 		if (text === '') continue;
+		if (frontMatter.has(index) && raw.styleName === undefined) {
+			/* an explicit source style (the DOCX route) outranks the block */
+			classified.push(verdict(raw, 'centered', 'high', 'title-page front matter'));
+			speechEdge = 0;
+			continue;
+		}
 		const prev = classified[classified.length - 1];
 		const attached = raw.attached === true && prev !== undefined;
 		const line = classifyLine(raw, text, prev, attached, speechEdge);

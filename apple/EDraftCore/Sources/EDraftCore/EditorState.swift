@@ -971,6 +971,12 @@ public final class EditorState {
         // classify.ts rule 5, and it fires before speech position for the
         // same reason: a "VIEW ON …" under a cue is the shot, not the speech.
         if PasteHeuristics.looksLikeCameraShot(trimmed) { return .shot }
+        // The closing card (RFC-SECONDARY-SLUG §4) and the secondary slug
+        // (§2) answer before speech position on the camera arm's doctrine:
+        // under a cue, "THE END" is the card and "BASIN - DAY" is the slug,
+        // never the speech.
+        if PasteHeuristics.isEndCard(trimmed) { return .centered }
+        if PasteHeuristics.isSecondarySlug(trimmed) { return .scene }
         if previous?.type == .character || previous?.type == .parenthetical { return .dialogue }
         // An attached line under a speech continues it — unless it wears a
         // cue's shape, in which case a new speaker interrupts (pasted

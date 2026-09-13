@@ -312,6 +312,11 @@ public struct ScreenplayEditPlanner {
                 var cardHasDate = false
                 var cardSawTime = false
                 var cardBoundaryRawIndexes = Set<Int>()
+                /// The title-page block (RFC-SECONDARY-SLUG §3), read before
+                /// the first line is filtered: its lines ride the card
+                /// channel — centered, and a boundary attachment never
+                /// crosses.
+                let frontMatter = PasteHeuristics.frontMatterLineIndexes(rawParts)
                 let printable = parts.compactMap { part -> (rawIndex: Int, text: String, attached: Bool, card: Bool)? in
                     let trimmed = part.text.trimmingCharacters(in: .whitespacesAndNewlines)
                     // The revision asterisk comes off before any other test:
@@ -330,6 +335,13 @@ public struct ScreenplayEditPlanner {
                         return nil
                     }
                     guard !PasteHeuristics.isPaginationArtifact(text) else { return nil }
+                    // The title page's own lines and the closing card
+                    // (RFC-SECONDARY-SLUG §3, §4) ride the card channel.
+                    if frontMatter.contains(part.rawIndex) || PasteHeuristics.isEndCard(text) {
+                        cardOpen = false
+                        cardBoundaryRawIndexes.insert(part.rawIndex)
+                        return (part.rawIndex, text, false, true)
+                    }
                     if let cardInline = PasteHeuristics.titleCardMarker(text) {
                         cardBoundaryRawIndexes.insert(part.rawIndex)
                         guard cardInline.isEmpty else {

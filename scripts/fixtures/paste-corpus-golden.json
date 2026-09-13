@@ -10,8 +10,6 @@
     "endCardsDropped": 4,
     "cardCues": [],
     "cast": [
-      "BREAKING BAD",
-      "AMC",
       "UNDERPANTS MAN",
       "SKYLER",
       "WALT",
@@ -41,7 +39,7 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
-    "centeredElements": 0,
+    "centeredElements": 7,
     "starTailedElements": 0,
     "dialogueActionSplits": 122,
     "scenes": 69
@@ -145,7 +143,6 @@
       "CAROL",
       "HANK",
       "JASON",
-      "COURTYARD - 1612 HAVENHURST - DAY",
       "BE!TY",
       "CORNELL DUMONT",
       "MIDDLE-AGED WOMAN",
@@ -156,10 +153,10 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
-    "centeredElements": 0,
+    "centeredElements": 1,
     "starTailedElements": 0,
     "dialogueActionSplits": 127,
-    "scenes": 90
+    "scenes": 98
   },
   "corpus-6.txt": {
     "actbreaks": [],
@@ -254,7 +251,7 @@
     "artifactElements": 0,
     "numberedScenes": 62,
     "omittedScenes": 13,
-    "centeredElements": 1,
+    "centeredElements": 7,
     "starTailedElements": 0,
     "dialogueActionSplits": 75,
     "scenes": 136
@@ -294,7 +291,6 @@
       "JESSI",
       "ANCHORMAN",
       "EMILIA",
-      "LONDON",
       "WOMAN",
       "END 3M19 POR CASUALIDAD",
       "JESSI (OFF)",
@@ -332,17 +328,16 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
-    "centeredElements": 3,
+    "centeredElements": 11,
     "starTailedElements": 0,
     "dialogueActionSplits": 213,
-    "scenes": 111
+    "scenes": 112
   },
   "episode-101.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
     "cast": [
-      "“PILOT”",
       "DATE",
       "PAGES",
       "WHITE PRODUCTION DRAFT",
@@ -435,7 +430,7 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 9,
-    "centeredElements": 2,
+    "centeredElements": 8,
     "starTailedElements": 0,
     "dialogueActionSplits": 145,
     "scenes": 99
@@ -445,8 +440,6 @@
     "endCardsDropped": 0,
     "cardCues": [],
     "cast": [
-      "F O R Y O U R C O N S I D E R A T I O N",
-      "BEST ORIGINAL SCREENPLAY",
       "BLACK",
       "MAN",
       "RIGGAN",
@@ -508,7 +501,7 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
-    "centeredElements": 0,
+    "centeredElements": 13,
     "starTailedElements": 0,
     "dialogueActionSplits": 222,
     "scenes": 57
@@ -608,22 +601,19 @@
     "centeredElements": 5,
     "starTailedElements": 0,
     "dialogueActionSplits": 139,
-    "scenes": 189
+    "scenes": 190
   },
   "godfather-2.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
     "cast": [
-      "THE GODFATHER",
-      "SECOND DRAFT",
       "WOMAN",
       "WIDOW",
       "DON FRANCESCO",
       "MOSCA",
       "STROLLO",
       "FATHER",
-      "THE NEW YORK HARBOR - DAY",
       "OFFICIAL",
       "DOCTOR",
       "GUARD",
@@ -683,7 +673,6 @@
       "OPERATOR",
       "LOUDSPEAKER",
       "PIT BOSS",
-      "ANOTHER PART OF THE CASINO",
       "STAGEHAND",
       "ONE OF THE GIRLS",
       "COP",
@@ -725,10 +714,10 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
-    "centeredElements": 0,
+    "centeredElements": 8,
     "starTailedElements": 0,
     "dialogueActionSplits": 0,
-    "scenes": 241
+    "scenes": 244
   },
   "gone-girl.txt": {
     "actbreaks": [],
@@ -803,7 +792,7 @@
     "artifactElements": 0,
     "numberedScenes": 271,
     "omittedScenes": 27,
-    "centeredElements": 57,
+    "centeredElements": 64,
     "starTailedElements": 0,
     "dialogueActionSplits": 270,
     "scenes": 272
@@ -813,8 +802,6 @@
     "endCardsDropped": 0,
     "cardCues": [],
     "cast": [
-      "HEAT",
-      "FOR EDUCATIONAL PURPOSES ONLY",
       "PROFILE",
       "CLERK",
       "CHRIS",
@@ -839,7 +826,6 @@
       "DRIVER",
       "NEIL'S 9MM. BROWNING",
       "CERRITO'S AR15",
-      "ON AMBULANCE",
       "BLACK + WHITE",
       "NATE",
       "HEINZ",
@@ -878,7 +864,6 @@
       "POLAROID - BLACK PROSTITUTE",
       "RICHIE + HANNA",
       "MOTHER",
-      "ON DODGE PICK UP",
       "MAN",
       "GUNMAN",
       "KELSO",
@@ -891,12 +876,10 @@
       "TOP OF POLE - CERRITO",
       "JACKSON",
       "RADIO",
-      "MARCIAN0'S OFFICE - MARCIANO - DAY",
       "HUGH BENNY",
       "CASHIER",
       "BOOTH - CERRITO",
       "DIETER",
-      "ON SIDE DOOR",
       "JOHN",
       "TIMMONS",
       "FACES",
@@ -904,7 +887,6 @@
       "THE CANVAS BAG",
       "COP # 1",
       "PARKING LOT",
-      "ON STATION WAGON",
       "STATION WAGON",
       "WIDER",
       "BOB",
@@ -954,17 +936,16 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
-    "centeredElements": 0,
+    "centeredElements": 7,
     "starTailedElements": 0,
     "dialogueActionSplits": 158,
-    "scenes": 246
+    "scenes": 250
   },
   "lalaland.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
     "cast": [
-      "LA LA LAND",
       "MIA",
       "CUSTOMER #1",
       "WOMAN",
@@ -1010,7 +991,7 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 45,
-    "centeredElements": 0,
+    "centeredElements": 4,
     "starTailedElements": 0,
     "dialogueActionSplits": 142,
     "scenes": 158
@@ -1020,7 +1001,6 @@
     "endCardsDropped": 0,
     "cardCues": [],
     "cast": [
-      "MANCHESTER BY THE SEA",
       "MR MARTINEZ",
       "LEE",
       "MARTINEZ",
@@ -1091,7 +1071,7 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
-    "centeredElements": 0,
+    "centeredElements": 5,
     "starTailedElements": 0,
     "dialogueActionSplits": 126,
     "scenes": 179
@@ -1101,8 +1081,6 @@
     "endCardsDropped": 0,
     "cardCues": [],
     "cast": [
-      "\"NO COUNTRY FOR OLD MEN\"",
-      "JOEL COEN & ETHAN COEN",
       "VOICE OVER",
       "DEPUTY",
       "MAN",
@@ -1116,7 +1094,7 @@
       "LORETTA",
       "BELL",
       "WENDELL",
-      "BASIN - DAY",
+      "BY THE BODIES",
       "AIR TANK",
       "WOMAN",
       "CABBIE",
@@ -1127,7 +1105,6 @@
       "WAITRESS",
       "CLERK",
       "ANOTHER COUNTER",
-      "MINUTES LATER",
       "DOOR",
       "STOCKINGED FEET",
       "OLD MAN",
@@ -1138,21 +1115,16 @@
       "BLACK",
       "VOICE",
       "MOLLY",
-      "A MINUTE LATER",
       "LOOKING DOWN THE WALKWAY",
-      "2ND HOTEL EAGLE ROOM - NIGHT",
       "MOSS'S VOICE",
       "OFFICIAL",
       "GUARD",
       "MOTHER",
-      "OFFICE HALLWAY - DAY",
       "MAN AT CHAIR",
       "MOTHER'S VOICE",
       "MEXICAN",
       "SHERIFF BELL",
-      "SHERIFF BELL'S OFFICE - DAY",
       "ROSCOE",
-      "COFFEE SHOP - EL PASO - NIGHT",
       "INSIDE",
       "A CAT",
       "ELLIS",
@@ -1163,18 +1135,16 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
-    "centeredElements": 0,
+    "centeredElements": 6,
     "starTailedElements": 0,
-    "dialogueActionSplits": 128,
-    "scenes": 150
+    "dialogueActionSplits": 124,
+    "scenes": 162
   },
   "pasted-26.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
     "cast": [
-      "T H E I R I S H M A N",
-      "HANDHELD VIDEO IMAGE",
       "VOICE",
       "FRANK",
       "REALTOR",
@@ -1225,7 +1195,7 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
-    "centeredElements": 0,
+    "centeredElements": 9,
     "starTailedElements": 0,
     "dialogueActionSplits": 227,
     "scenes": 277
@@ -1235,7 +1205,6 @@
     "endCardsDropped": 0,
     "cardCues": [],
     "cast": [
-      "WHIPLASH",
       "ANDREW",
       "MAN",
       "FLETCHER",
@@ -1283,16 +1252,15 @@
       "DRUMMER",
       "BASSIST",
       "IN THE AUDIENCE",
-      "ON STAGE",
       "AT THE LOBBY DOORS"
     ],
     "artifactsStripped": 256,
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 17,
-    "centeredElements": 0,
+    "centeredElements": 5,
     "starTailedElements": 0,
-    "dialogueActionSplits": 257,
+    "dialogueActionSplits": 253,
     "scenes": 134
   }
 }

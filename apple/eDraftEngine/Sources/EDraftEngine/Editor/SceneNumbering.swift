@@ -135,6 +135,32 @@ public enum SceneNumbering {
         return text[index...]
     }
 
+    /// Whether a scene takes a number (RFC-SECONDARY-SLUG §6, D3).
+    ///
+    /// A master scene heading — one that opens with the INT./EXT. family —
+    /// is a new setup: it takes a number, it appears on a schedule. A
+    /// secondary slug (`BASIN - DAY`, `MINUTES LATER`, a heading the writer
+    /// forced with a leading dot) names somewhere inside that setup and
+    /// takes none of those things; `SceneRow.isSecondary` has read it
+    /// lighter in the Navigator all along, and this is the numbering half of
+    /// the same doctrine. The OMITTED card is the one exception: it retired
+    /// a numbered scene, so it keeps a number — that is what the card is
+    /// for.
+    private static func takesSceneNumber(_ element: ScreenplayElement) -> Bool {
+        element.type == .scene
+            && (hasSceneIntro(Substring(element.text)) || isOmittedCard(element.text))
+    }
+
+    /// The OMITTED card, one optional period, any case — the spelling the
+    /// writer's hand produces ("Omit"), which the import boundary normalises
+    /// to the model's one spelling.
+    private static func isOmittedCard(_ text: String) -> Bool {
+        var card = Substring(text.trimmingCharacters(in: .whitespaces))
+        if card.hasSuffix(".") { card = card.dropLast() }
+        let upper = card.uppercased()
+        return upper == "OMITTED" || upper == "OMIT"
+    }
+
     /// Numbers every scene from 1, discarding whatever was there.
     ///
     /// For a script that has not gone out yet. On one that has, this is the
@@ -142,7 +168,7 @@ public enum SceneNumbering {
     public static func numberingAll(_ elements: [ScreenplayElement]) -> [ScreenplayElement] {
         var result = elements
         var next = 1
-        for index in result.indices where result[index].type == .scene {
+        for index in result.indices where takesSceneNumber(result[index]) {
             result[index].sceneNumber = String(next)
             next += 1
         }
@@ -157,7 +183,7 @@ public enum SceneNumbering {
     /// with no numbers at all has nothing to preserve, so it is numbered
     /// outright.
     public static func numberingNewScenes(_ elements: [ScreenplayElement]) -> [ScreenplayElement] {
-        let scenes = elements.indices.filter { elements[$0].type == .scene }
+        let scenes = elements.indices.filter { takesSceneNumber(elements[$0]) }
         var used = Set(scenes.compactMap { elements[$0].sceneNumber }.filter { !$0.isEmpty })
         guard !used.isEmpty else { return numberingAll(elements) }
 
