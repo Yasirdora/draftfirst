@@ -21,7 +21,8 @@ public enum SceneNumbering {
     /// 128A*" (corpus-6, 9 witnesses). An omitted scene keeps its number and
     /// prints the OMITTED card, numbered or bare: "113 OMITTED." (corpus-6),
     /// "OMITTED" (episode-101, whiplash) — or short, in La La Land's hand:
-    /// "OMIT" (lalaland ×45).
+    /// "OMIT" (lalaland ×45), or over the heading it retires: "139 OMIT-
+    /// INT. DUNNE BEDROOM- NIGHT 139*" (gone-girl ×27).
     ///
     /// The number is furniture with a home — the element's sceneNumber —
     /// and the words are the writer's. Ported from the TypeScript engine's
@@ -48,6 +49,17 @@ public enum SceneNumbering {
             if tail.hasPrefix("TED") { tail = tail.dropFirst(3) }
             if tail.isEmpty || tail == "." {
                 return (cardNumber, "OMITTED")
+            }
+            /* the dash-heading retires a scene and prints its number over
+               the heading it replaces — "139 OMIT- INT. DUNNE BEDROOM-
+               NIGHT 139*" (gone-girl, 27 witnesses). The number is the
+               scene's and the words are OMITTED; the dash alone is not
+               enough — what follows it must be a heading */
+            if cardNumber != nil, tail.hasPrefix("-") {
+                let heading = tail.dropFirst().drop(while: { $0.isWhitespace })
+                if !heading.isEmpty, hasSceneIntro(heading) {
+                    return (cardNumber, "OMITTED")
+                }
             }
         }
 

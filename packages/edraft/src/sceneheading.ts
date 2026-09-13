@@ -29,6 +29,7 @@ const SCENE_INTRO = /^(INT\.?\/EXT\.?|INT\/EXT|EXT\.?\/INT\.?|EXT\/INT|I\/E|INT|
 const LEADING_NUMBER = /^(\d+[A-Z]?)\s+(.+)$/;
 const FLANKING_NUMBER = /\s+(\d+[A-Z]?)\*?$/;
 const OMITTED_CARD = /^(\d+\s+)?OMIT(?:TED)?\.?$/;
+const OMITTED_HEADING = /^(\d+)\s+OMIT(?:TED)?-\s*(.+)$/;
 
 /**
  * Parse a numbered scene heading, or undefined when the line is not one.
@@ -37,13 +38,21 @@ const OMITTED_CARD = /^(\d+\s+)?OMIT(?:TED)?\.?$/;
  * keeps "APARTMENT 4" a place rather than a coincidence. A bare OMITTED
  * card parses with no number; its trailing period is not meaning. The card
  * has one spelling in the model: La La Land's short "OMIT" and the
- * production's "OMITTED." are the same card, held in full.
+ * production's "OMITTED." are the same card, held in full. And when the
+ * omitted scene's heading rides the card — "139 OMIT- INT. DUNNE
+ * BEDROOM- NIGHT 139*" (gone-girl ×27) — the number still homes; the
+ * heading itself goes the way of the card, as Final Draft prints it.
  */
 export function parseNumberedSceneHeading(text: string): NumberedSceneHeading | undefined {
 	const omitted = OMITTED_CARD.exec(text);
 	if (omitted) {
 		const number = omitted[1]?.trim();
 		return number ? { number, text: 'OMITTED' } : { text: 'OMITTED' };
+	}
+
+	const omittedHeading = OMITTED_HEADING.exec(text);
+	if (omittedHeading && SCENE_INTRO.test(omittedHeading[2] as string)) {
+		return { number: omittedHeading[1] as string, text: 'OMITTED' };
 	}
 
 	const leading = LEADING_NUMBER.exec(text);

@@ -220,6 +220,16 @@ describe('classifyLines', () => {
 		expect(types).toEqual(['character', 'dialogue', 'dialogue']);
 	});
 
+	it('types the OMIT dash-heading as its retired scene, never as a cue (gone-girl ×27)', () => {
+		const { script, report } = finalizeImport(
+			classifyLines([{ text: '139 OMIT- INT. DUNNE BEDROOM- NIGHT 139*' }, { text: 'Nick drives.' }]),
+			'text',
+			[]
+		);
+		expect(script.elements[0]).toMatchObject({ type: 'scene', text: 'OMITTED', sceneNumber: '139' });
+		expect(report.characters).toEqual([]);
+	});
+
 	it('keeps shouted dialogue with terminal punctuation inside the speech', () => {
 		const types = typesOf([{ text: 'MARA' }, { text: 'GET OUT!', attached: true }]);
 		expect(types).toEqual(['character', 'dialogue']);

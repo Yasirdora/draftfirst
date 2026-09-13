@@ -13,8 +13,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "centeredElements": 0,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 122,
     "scenes": 69
   },
   "corpus-1.txt": {
@@ -25,8 +26,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "centeredElements": 0,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 126,
     "scenes": 90
   },
   "corpus-6.txt": {
@@ -37,8 +39,9 @@
     "artifactElements": 0,
     "numberedScenes": 62,
     "omittedScenes": 13,
+    "centeredElements": 1,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 76,
     "scenes": 136
   },
   "emilia-perez.txt": {
@@ -53,8 +56,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "centeredElements": 3,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 210,
     "scenes": 111
   },
   "episode-101.txt": {
@@ -65,8 +69,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 9,
+    "centeredElements": 2,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 142,
     "scenes": 99
   },
   "foryourcon.txt": {
@@ -77,8 +82,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "centeredElements": 0,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 218,
     "scenes": 57
   },
   "from-the-black.txt": {
@@ -89,8 +95,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "centeredElements": 5,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 139,
     "scenes": 189
   },
   "gone-girl.txt": {
@@ -99,11 +106,12 @@
     "cardCues": [],
     "artifactsStripped": 232,
     "artifactElements": 0,
-    "numberedScenes": 244,
-    "omittedScenes": 0,
+    "numberedScenes": 271,
+    "omittedScenes": 27,
+    "centeredElements": 57,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
-    "scenes": 245
+    "dialogueActionSplits": 265,
+    "scenes": 272
   },
   "heat.txt": {
     "actbreaks": [],
@@ -113,8 +121,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "centeredElements": 0,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 151,
     "scenes": 246
   },
   "lalaland.txt": {
@@ -125,8 +134,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 45,
+    "centeredElements": 0,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 142,
     "scenes": 158
   },
   "manchester.txt": {
@@ -137,8 +147,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "centeredElements": 0,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 112,
     "scenes": 179
   },
   "no-country.txt": {
@@ -149,8 +160,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "centeredElements": 0,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 123,
     "scenes": 150
   },
   "pasted-26.txt": {
@@ -161,8 +173,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "centeredElements": 0,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 226,
     "scenes": 277
   },
   "whiplash.txt": {
@@ -173,8 +186,9 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 17,
+    "centeredElements": 0,
     "starTailedElements": 0,
-    "dialogueActionSplits": 0,
+    "dialogueActionSplits": 254,
     "scenes": 134
   }
 }

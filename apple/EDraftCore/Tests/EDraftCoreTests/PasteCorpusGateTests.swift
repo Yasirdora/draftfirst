@@ -159,8 +159,9 @@ final class PasteCorpusGateTests: XCTestCase {
 
     /// The numbered headings and OMITTED cards the corpus witnesses land
     /// as scenes with their numbers homed — gone-girl's 244 flanked
-    /// headings, corpus-6's 62 numbered scenes and 13 omitted cards. The
-    /// counts are this route's own observed truth, pinned file by file.
+    /// headings plus its 27 OMIT dash-headings, corpus-6's 62 numbered
+    /// scenes and 13 omitted cards. The counts are this route's own
+    /// observed truth, pinned file by file.
     func testNumberedAndOmittedScenesCarryTheirNumbers() throws {
         guard FileManager.default.fileExists(atPath: corpusDir) else {
             throw XCTSkip("no corpus at \(corpusDir) — the scripts are not committed")
@@ -175,7 +176,7 @@ final class PasteCorpusGateTests: XCTestCase {
             "episode-101.txt": (0, 9),
             "foryourcon.txt": (0, 0),
             "from-the-black.txt": (0, 0),
-            "gone-girl.txt": (244, 0),
+            "gone-girl.txt": (271, 27),
             "heat.txt": (0, 0),
             "lalaland.txt": (0, 45),
             "manchester.txt": (0, 0),

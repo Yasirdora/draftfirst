@@ -381,4 +381,19 @@ final class ProductionDraftPasteTests: XCTestCase {
             editor.kindForInsertedElement(after: nil, text: "EXT/INT. CAR - NIGHT"), .scene
         )
     }
+
+    /// gone-girl's dash-heading retires a scene and prints its number over
+    /// the heading it replaces — 27 witnesses, every one adopted by the cue
+    /// check before this arm existed.
+    func testTheOmitDashHeadingIsTheSceneItRetires() {
+        let plan = paste([
+            "139 OMIT- INT. DUNNE BEDROOM- NIGHT 139*",
+            "",
+            "Nick drives."
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(plan?.elements.map(\.type), [.scene, .action])
+        XCTAssertEqual(plan?.elements[0].text, "OMITTED")
+        XCTAssertEqual(plan?.elements[0].sceneNumber, "139")
+    }
 }

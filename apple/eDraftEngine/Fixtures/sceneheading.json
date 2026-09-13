@@ -96,6 +96,24 @@
       }
     },
     {
+      "text": "139 OMIT- INT. DUNNE BEDROOM- NIGHT 139*",
+      "result": {
+        "number": "139",
+        "text": "OMITTED"
+      }
+    },
+    {
+      "text": "50 OMIT- INT. CAR- DAY 50*",
+      "result": {
+        "number": "50",
+        "text": "OMITTED"
+      }
+    },
+    {
+      "text": "139 OMIT- THE WHOLE BEDROOM SCENE",
+      "result": null
+    },
+    {
       "text": "128A EXT./INT. P~~BW MANSION - DUSK. 128A*",
       "result": {
         "number": "128A",

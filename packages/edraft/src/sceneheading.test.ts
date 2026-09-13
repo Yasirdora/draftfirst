@@ -43,6 +43,20 @@ describe('parseNumberedSceneHeading', () => {
 		expect(parseNumberedSceneHeading('43 OMIT')).toEqual({ number: '43', text: 'OMITTED' });
 	});
 
+	it('reads the OMIT dash-heading as the omitted scene it retires (gone-girl ×27)', () => {
+		expect(parseNumberedSceneHeading('139 OMIT- INT. DUNNE BEDROOM- NIGHT 139*')).toEqual({
+			number: '139',
+			text: 'OMITTED'
+		});
+		expect(parseNumberedSceneHeading('50 OMIT- INT. CAR- DAY 50*')).toEqual({
+			number: '50',
+			text: 'OMITTED'
+		});
+		/* the dash alone is not enough — what follows it must be a heading,
+		   or the line is prose that happens to open with a number */
+		expect(parseNumberedSceneHeading('139 OMIT- THE WHOLE BEDROOM SCENE')).toBeUndefined();
+	});
+
 	it('reads the lettered number a scene added after distribution carries (corpus-6 ×9)', () => {
 		expect(parseNumberedSceneHeading('128A EXT./INT. P~~BW MANSION - DUSK. 128A*')).toEqual({
 			number: '128A',
