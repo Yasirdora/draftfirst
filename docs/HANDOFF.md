@@ -48,10 +48,10 @@ reading a number, not by reasoning about what ought to happen.
 a number drops, you broke something.
 
 ```bash
-npm test                                              # 578 TypeScript (549 engine package + 29 web app)
+npm test                                              # 585 TypeScript (556 engine package + 29 web app)
 npm run check:paste-corpus                            # 14 scripts hold (skips without the corpus)
-swift test --package-path apple/eDraftEngine          # 142 engine
-swift test --package-path apple/EDraftCore            # 214 core        (macOS)
+swift test --package-path apple/eDraftEngine          # 144 engine
+swift test --package-path apple/EDraftCore            # 225 core        (macOS)
 swift test --package-path apple/EDraftUI              #  29 document    (macOS)
 swift test --package-path apple/EDraftMacSurface      # 238 Mac surface (macOS)
 npm run check:boundaries                              #  layer imports
@@ -62,16 +62,18 @@ xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   DEVELOPMENT_TEAM=""                                        # the Mac app
 ```
 
-*Recounted 2026-09-12: every number above was run against this tree at
-34ad3c1, not carried over. The iOS count comes from the `.xcresult` bundle —
-xcodebuild's stdout does not print it.*
+*Recounted 2026-09-13: every number above was run against this tree at
+bb3587f, not carried over. The iOS count comes from the `.xcresult` bundle —
+xcodebuild's stdout does not print it. Note: `apple/eDraftTests` holds two
+files no target references — `HighlightPdfTests.swift` and
+`HighlightRenderingTests.swift` (4 tests); they compile nowhere and run
+nowhere. The iOS 108 is what the bundle actually contains.*
 
 The `EDraftUIKitSurface` package has no suite of its own and is not in that
 list. It imports UIKit, so it cannot be built by `swift test` on a Mac host at
-all; its behaviour is covered by the 105 in the iOS app target, which runs under
+all; its behaviour is covered by the 108 in the iOS app target, which runs under
 the simulator where the document plumbing those tests drive already lives. A
 test target there would be a path nobody could run.
-
 **If a Mac build stops dead at `CodeSign`**, it is a keychain prompt: macOS is
 asking for the signing key and `xcodebuild` waits for it indefinitely. The
 ad-hoc flags in the command above avoid it; `CODE_SIGNING_ALLOWED=NO` verifies
