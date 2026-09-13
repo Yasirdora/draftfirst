@@ -103,6 +103,29 @@ final class PasteCorpusGateTests: XCTestCase {
         }
     }
 
+    /// No speech splits at its wrap into an action line. Zero is the
+    /// route's shape rule, not a universal truth: tell-less prose continues
+    /// the paragraph under way, so a genuine action paragraph after a
+    /// speech is invisible to a structure-less paste (named in
+    /// PasteReassembly). What the pin holds is the breaking-bad
+    /// regression — 236 speeches shattered line-per-element when a
+    /// single OCR-fused line vetoed the whole paste's reassembly.
+    func testNoSpeechSplitsIntoActionAtItsWrap() throws {
+        guard FileManager.default.fileExists(atPath: corpusDir) else {
+            throw XCTSkip("no corpus at \(corpusDir) — the scripts are not committed")
+        }
+        for file in try corpusFiles() {
+            let source = try String(contentsOfFile: "\(corpusDir)/\(file)", encoding: .utf8)
+            let elements = paste(source)
+            var splits = 0
+            for pair in zip(elements, elements.dropFirst())
+            where pair.0.type == .dialogue && pair.1.type == .action {
+                splits += 1
+            }
+            XCTAssertEqual(splits, 0, "\(file) splits no speech at its wrap")
+        }
+    }
+
     /// The numbered headings and OMITTED cards the corpus witnesses land
     /// as scenes with their numbers homed — gone-girl's 244 flanked
     /// headings, corpus-6's 53 numbered scenes and 13 omitted cards. The

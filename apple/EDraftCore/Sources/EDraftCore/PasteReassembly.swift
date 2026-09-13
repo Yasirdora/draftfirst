@@ -225,13 +225,17 @@ public nonisolated enum PasteReassembly {
         guard nonBlank.count >= 8,
               nonBlank.count * 50 >= lines.count * 49
         else { return nil }
-        // Hard-wrapped: the wrap column caps every line, and prose in bulk
+        // Hard-wrapped: the wrap column caps the lines, and prose in bulk
         // runs near it. Measured on the Social Network paste: longest line
-        // 69, 40% of lines at 30+. An unwrapped paste breaks both rules —
-        // whole paragraphs arrive as single 200-character lines — and a
+        // 69, 40% of lines at 30+. The over-long line is a share, not a
+        // veto — a scan fuses a line now and then (breaking-bad carries
+        // four, 0.2% of its lines), and one outlier must not disown two
+        // thousand wrapped ones. An unwrapped paste inverts the share:
+        // whole paragraphs arrive as single long lines, and a
         // headline-length one never reaches the prose share.
         let lengths = nonBlank.map { $0.utf16.count }
-        guard let longest = lengths.max(), longest <= 120,
+        let outliers = lengths.filter { $0 > 120 }.count
+        guard outliers * 50 <= nonBlank.count,
               lengths.filter({ $0 >= 30 }).count * 5 >= nonBlank.count
         else { return nil }
 

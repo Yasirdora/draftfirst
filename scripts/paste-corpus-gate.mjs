@@ -73,6 +73,11 @@ function panelOf(file) {
 		artifactElements: script.elements.filter((e) => isPaginationArtifact(e.text)).length,
 		numberedScenes: script.elements.filter((e) => e.sceneNumber !== undefined).length,
 		omittedScenes: script.elements.filter((e) => e.type === 'scene' && e.text === 'OMITTED').length,
+		/* the route's shape rule, pinned against the breaking-bad regression:
+		   a speech never splits at its wrap into an action line */
+		dialogueActionSplits: script.elements.filter(
+			(e, i, all) => e.type === 'action' && i > 0 && all[i - 1].type === 'dialogue'
+		).length,
 		scenes: report.scenes /* informational — never gated */
 	};
 }
@@ -143,6 +148,7 @@ for (const [file, panel] of Object.entries(panels)) {
 		);
 	}
 	check('no pagination artifact is stored', panel.artifactElements, 0);
+	check('no speech splits at its wrap', panel.dialogueActionSplits, 0);
 }
 
 if (failures > 0) {
