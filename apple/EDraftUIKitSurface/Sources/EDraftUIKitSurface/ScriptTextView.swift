@@ -1239,8 +1239,8 @@ struct ScriptTextView: UIViewRepresentable {
                 replacing: difference.0,
                 with: difference.1,
                 intent: .replacement,
-                kindForNewElement: { previous, text, depth in
-                    editor.kindForInsertedElement(after: previous, text: text, pasteDepth: depth)
+                kindForNewElement: { previous, text, depth, attached in
+                    editor.kindForInsertedElement(after: previous, text: text, pasteDepth: depth, attached: attached)
                 }
             ) else { return }
             editor.replaceAllElements(
@@ -1345,12 +1345,13 @@ struct ScriptTextView: UIViewRepresentable {
                     replacing: range,
                     with: replacement,
                     intent: intent,
-                    kindForNewElement: { previous, text, depth in
+                    kindForNewElement: { previous, text, depth, attached in
                         // A paste is not typing: a line no signal claims is
                         // prose, not the choreography's next guess (the writer
                         // never pressed those Returns).
                         editor.kindForInsertedElement(
                             after: previous, text: text, pasteDepth: depth,
+                            attached: attached,
                             fallback: intent == .multilinePaste ? .action : nil
                         )
                     }

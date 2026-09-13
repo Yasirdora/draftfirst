@@ -18,7 +18,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: caret,
             with: "\n",
             intent: .returnKey,
-            kindForNewElement: { _, _, _ in .dialogue }
+            kindForNewElement: { _, _, _, _ in .dialogue }
         ))
 
         XCTAssertEqual(plan.elements.map(\.type), [.parenthetical, .dialogue])
@@ -40,7 +40,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: 11, length: 0),
             with: "\n",
             intent: .returnKey,
-            kindForNewElement: { _, _, _ in .dialogue }
+            kindForNewElement: { _, _, _, _ in .dialogue }
         ))
 
         // Neither half is left holding half a bracket, and no words are lost.
@@ -59,7 +59,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
                 replacing: NSRange(location: caret, length: 0),
                 with: "\n",
                 intent: .returnKey,
-                kindForNewElement: { _, _, _ in .dialogue }
+                kindForNewElement: { _, _, _, _ in .dialogue }
             ))
             XCTAssertTrue(
                 plan.elements.contains { $0.text == "(whispering)" },
@@ -76,7 +76,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: 1, length: 0),
             with: "\n",
             intent: .returnKey,
-            kindForNewElement: { _, _, _ in .dialogue }
+            kindForNewElement: { _, _, _, _ in .dialogue }
         ))
 
         XCTAssertEqual(plan.elements.map(\.text), ["(whispering)", ""])
@@ -132,7 +132,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: deletion,
             with: "",
             intent: .replacement,
-            kindForNewElement: { _, _, _ in .action }
+            kindForNewElement: { _, _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements, [
@@ -170,7 +170,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: deletion,
             with: "",
             intent: .boundaryDeletion,
-            kindForNewElement: { _, _, _ in .action }
+            kindForNewElement: { _, _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements.count, 2)
@@ -200,7 +200,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: separator, length: 1),
             with: "",
             intent: .boundaryDeletion,
-            kindForNewElement: { _, _, _ in .action }
+            kindForNewElement: { _, _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements.count, 2)
@@ -233,7 +233,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: start, length: endInsideSecond - start),
             with: "",
             intent: .replacement,
-            kindForNewElement: { _, _, _ in .action }
+            kindForNewElement: { _, _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements.count, 3)
@@ -260,7 +260,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: 1, length: 3),
             with: "\n",
             intent: .returnKey,
-            kindForNewElement: { previous, _, _ in
+            kindForNewElement: { previous, _, _, _ in
                 previous?.type == .character ? .dialogue : .action
             }
         ))
@@ -287,7 +287,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: 0, length: 0),
             with: "\n",
             intent: .returnKey,
-            kindForNewElement: { _, _, _ in .action }
+            kindForNewElement: { _, _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements.count, 2)
@@ -318,7 +318,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: insertion, length: 0),
             with: "\nELENA\nCome in.",
             intent: .multilinePaste,
-            kindForNewElement: { previous, text, _ in
+            kindForNewElement: { previous, text, _, _ in
                 if text == text.uppercased(), !text.isEmpty { return .character }
                 if previous?.type == .character { return .dialogue }
                 return .action
@@ -355,7 +355,7 @@ final class ScreenplayEditPlannerTests: XCTestCase {
             replacing: NSRange(location: 0, length: source.length),
             with: "",
             intent: .replacement,
-            kindForNewElement: { _, _, _ in .dialogue }
+            kindForNewElement: { _, _, _, _ in .dialogue }
         ))
 
         XCTAssertEqual(plan.elements.count, 1)
@@ -434,7 +434,7 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
             replacing: NSRange(location: separatorBeforeEmptyElement, length: 1),
             with: "",
             intent: .backspaceAtElementStart,
-            kindForNewElement: { _, _, _ in .action }
+            kindForNewElement: { _, _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements.count, 3)
@@ -508,7 +508,7 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
             replacing: NSRange(location: separator, length: 1),
             with: "\n",
             intent: .replacement,
-            kindForNewElement: { _, _, _ in .action }
+            kindForNewElement: { _, _, _, _ in .action }
         ))
 
         XCTAssertEqual(plan.elements, elements)
@@ -603,9 +603,9 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
             replacing: NSRange(location: 0, length: 0),
             with: wrapped,
             intent: .multilinePaste,
-            kindForNewElement: { previous, text, depth in
+            kindForNewElement: { previous, text, depth, attached in
                 EditorState(source: "").kindForInsertedElement(
-                    after: previous, text: text, pasteDepth: depth
+                    after: previous, text: text, pasteDepth: depth, attached: attached
                 )
             }
         ))
@@ -668,9 +668,9 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
             replacing: NSRange(location: 0, length: 0),
             with: wrapped,
             intent: .multilinePaste,
-            kindForNewElement: { previous, text, depth in
+            kindForNewElement: { previous, text, depth, attached in
                 EditorState(source: "").kindForInsertedElement(
-                    after: previous, text: text, pasteDepth: depth
+                    after: previous, text: text, pasteDepth: depth, attached: attached
                 )
             }
         ))
@@ -705,9 +705,9 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
             replacing: NSRange(location: 0, length: 0),
             with: "INT. LAB - DAY\n\nThe **bold** word stands.\n\n> THE END <",
             intent: .multilinePaste,
-            kindForNewElement: { previous, text, depth in
+            kindForNewElement: { previous, text, depth, attached in
                 EditorState(source: "").kindForInsertedElement(
-                    after: previous, text: text, pasteDepth: depth
+                    after: previous, text: text, pasteDepth: depth, attached: attached
                 )
             }
         ))
@@ -822,7 +822,8 @@ final class ScreenplayEditPlannerAuditTests: XCTestCase {
     private func simpleFountainClassifier(
         previous: ScriptElement?,
         text: String,
-        pasteDepth: Int? = nil
+        pasteDepth: Int? = nil,
+        attached: Bool = false
     ) -> ScreenplayKind {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let uppercase = trimmed.uppercased()
@@ -1015,9 +1016,9 @@ final class KeystrokePathCharacterisationTests: XCTestCase {
     ) -> String {
         let plan = ScreenplayEditPlanner.plan(
             elements: script, replacing: range, with: replacement, intent: intent,
-            kindForNewElement: { previous, text, depth in
+            kindForNewElement: { previous, text, depth, attached in
                 EditorState(source: "").kindForInsertedElement(
-                    after: previous, text: text, pasteDepth: depth
+                    after: previous, text: text, pasteDepth: depth, attached: attached
                 )
             }
         )

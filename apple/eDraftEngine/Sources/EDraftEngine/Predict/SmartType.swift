@@ -38,27 +38,42 @@ public enum SmartType {
 
     /// Strip cue extensions — (V.O.), (O.S.), (O.C.), (CONT'D), (SUBTITLE)…
     /// Case-insensitive; accepts curly apostrophes, matching the JS regex.
+    /// The one bare suffix the corpus witnesses is the transcript's V/O —
+    /// "FRANK V/O" (pasted-26 ×299); O.S./O.C. stay parenthesised-only, the
+    /// ambiguity the "MARA O.S." pin guards.
     public static func stripCueExtensions(_ cue: String) -> String {
         /* Every alternative sits inside a literal `\(...\)`, so a cue with
-           no parenthesis cannot match. Building the regex is the expensive
-           part — it is not `Sendable`, so it cannot be shared — and the
-           paginator asks this question of every dialogue block on every
-           pass. Answer the common case without paying for it. */
-        guard cue.contains("(") else {
+           no parenthesis and no V/O tail cannot match. Building the regex
+           is the expensive part — it is not `Sendable`, so it cannot be
+           shared — and the paginator asks this question of every dialogue
+           block on every pass. Answer the common case without paying for
+           it. */
+        guard cue.contains("(") || cue.hasSuffix("V/O") else {
             return cue.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        let pattern = #/(?i)\s*\((?:V\.?O\.?|O\.?S\.?|O\.?C\.?|CONT['’]?D|SUBTITLE|PRE-?LAP|FILTERED|INTO (?:PHONE|RADIO|COMMS?)[^)]*)\)\s*/#
-        return cue.replacing(pattern, with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        var stripped = cue
+        if cue.contains("(") {
+            let pattern = #/(?i)\s*\((?:V\.?O\.?|O\.?S\.?|O\.?C\.?|CONT['’]?D|SUBTITLE|PRE-?LAP|FILTERED|INTO (?:PHONE|RADIO|COMMS?)[^)]*)\)\s*/#
+            stripped = stripped.replacing(pattern, with: "")
+        }
+        // \s+V\/O$ — the bare transcript suffix
+        if stripped.hasSuffix("V/O"),
+           stripped.dropLast(3).last?.isWhitespace == true {
+            stripped = String(stripped.dropLast(3))
+        }
+        return stripped.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Scene heading splitting
 
     /// Intro tokens in JS-regex alternation order (compound forms first so
-    /// `INT./EXT.` is never clipped to `INT.`). Dots are part of the token;
-    /// a separate optional `[. ]` and `\s*` run follows.
+    /// `INT./EXT.` is never clipped to `INT.`, and the reversed hand six
+    /// corpus files write — EXT/INT. — reads the same way). Dots are part
+    /// of the token; a separate optional `[. ]` and `\s*` run follows.
     private static let introTokens = [
-        "INT./EXT.", "INT./EXT", "INT/EXT.", "INT/EXT", "I/E", "INT", "EXT", "EST",
+        "INT./EXT.", "INT./EXT", "INT/EXT.", "INT/EXT",
+        "EXT./INT.", "EXT./INT", "EXT/INT.", "EXT/INT",
+        "I/E", "INT", "EXT", "EST",
     ]
 
     /// Matches `/^(INT\.?\/EXT\.?|INT\/EXT|I\/E|INT|EXT|EST)[. ]?\s*/i` and

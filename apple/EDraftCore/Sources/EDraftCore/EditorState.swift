@@ -943,10 +943,18 @@ public final class EditorState {
     /// concrete: "1148. So my records show I paid" arrived after a speech,
     /// and nextKind(after: .dialogue) adopted it as a cue named
     /// "1148. SO MY RECORDS SHOW I PAID".
+    ///
+    /// `attached` is the raw paste route's witness that no blank line
+    /// separates this line from the one above (`ScreenplayEditPlanner`,
+    /// mirroring plaintext.ts). A wrapped speech continuation reads exactly
+    /// like prose once it stands alone; attachment is what keeps it speech.
+    /// The TypeScript engine types the same line from the same flag
+    /// (classify.ts, arm 7), so the two paste paths agree.
     public func kindForInsertedElement(
         after previous: ScriptElement?,
         text: String,
         pasteDepth: Int? = nil,
+        attached: Bool = false,
         fallback: ScreenplayKind? = nil
     ) -> ScreenplayKind {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -960,6 +968,11 @@ public final class EditorState {
         if trimmed.hasPrefix("(") { return .parenthetical }
         if Self.looksLikeTransition(uppercase) { return .transition }
         if previous?.type == .character || previous?.type == .parenthetical { return .dialogue }
+        // An attached line under a speech continues it — unless it wears a
+        // cue's shape, in which case a new speaker interrupts (pasted
+        // streams carry no blank lines, so the cue check below adopts it).
+        if attached, previous?.type == .dialogue,
+           !Self.looksLikeCharacterCue(trimmed, uppercase: uppercase) { return .dialogue }
         if Self.looksLikeCharacterCue(trimmed, uppercase: uppercase) { return .character }
         if let depth = pasteDepth {
             // Eight columns past the action margin is where speeches live.

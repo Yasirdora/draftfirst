@@ -114,7 +114,7 @@ public struct ScreenplayEditPlanner {
         replacing requestedRange: NSRange,
         with requestedReplacement: String,
         intent: Intent,
-        kindForNewElement: (_ previous: ScriptElement?, _ text: String, _ pasteDepth: Int?) -> ScreenplayKind
+        kindForNewElement: (_ previous: ScriptElement?, _ text: String, _ pasteDepth: Int?, _ attached: Bool) -> ScreenplayKind
     ) -> Plan? {
         let elements = sourceElements.isEmpty
             ? [ScriptElement(type: .action, text: "")]
@@ -278,6 +278,11 @@ public struct ScreenplayEditPlanner {
         /// read one — an unindented hard-wrapped paste carries its kinds
         /// because there are no margins to measure them from.
         var pasteKinds: [ScreenplayKind?] = Array(repeating: nil, count: parts.count)
+        /// Whether the part sits directly under the content line above it —
+        /// no blank line between. The raw paste route types every line on
+        /// its own, so attachment is the only witness a wrapped speech has
+        /// left; the reassembly joins its own wraps and never needs it.
+        var pasteAttached: [Bool] = Array(repeating: false, count: parts.count)
         var pasteWasReassembled = false
         if intent == .multilinePaste {
             // A hard-wrapped paste into an empty place is reassembled into
@@ -289,19 +294,49 @@ public struct ScreenplayEditPlanner {
                 parts = reassembled.enumerated().map { (rawIndex: $0.offset, text: $0.element.text) }
                 pasteDepths = reassembled.map { $0.depth }
                 pasteKinds = reassembled.map { $0.kind }
+                pasteAttached = Array(repeating: false, count: parts.count)
                 pasteWasReassembled = true
             } else {
-                let printable = parts.filter {
-                    let text = $0.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    // End-of-act cards are furniture (RFC-ACT-BREAK §5): an
-                    // act ends where the next one begins, so the closing
-                    // card is dropped here, never stored. Page numbers,
-                    // (MORE) and CONTINUED are furniture of the printed
-                    // page, dropped the same way.
-                    return !text.isEmpty && !Acts.isEndActCard(text)
-                        && !PasteHeuristics.isPaginationArtifact(text)
+                let printable = parts.compactMap { part -> (rawIndex: Int, text: String, attached: Bool)? in
+                    let trimmed = part.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    // The revision asterisk comes off before any other test:
+                    // it is furniture riding on content, not content, and a
+                    // bare mark drops outright. End-of-act cards are
+                    // furniture (RFC-ACT-BREAK §5): an act ends where the
+                    // next one begins, so the closing card is dropped here,
+                    // never stored. Page numbers, loose scene numbers, draft
+                    // stamps, (MORE) and CONTINUED are furniture of the
+                    // printed page, dropped the same way.
+                    let text = PasteHeuristics.strippingRevisionStar(trimmed)
+                    guard !text.isEmpty, !Acts.isEndActCard(text),
+                          !PasteHeuristics.isPaginationArtifact(text)
+                    else { return nil }
+                    // Attachment is read the way the TypeScript import reads
+                    // it (plaintext.ts): the dropped furniture keeps the
+                    // attachment it rode in on — (MORE) splits a speech, not
+                    // a thought — while a blank line or an end-of-act card is
+                    // a hard boundary nothing continues across.
+                    var attached = false
+                    for above in parts[..<part.rawIndex].reversed() {
+                        let aboveTrimmed = above.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if aboveTrimmed.isEmpty { break }
+                        let aboveText = PasteHeuristics.strippingRevisionStar(aboveTrimmed)
+                        if aboveText.isEmpty { continue }
+                        if PasteHeuristics.isPaginationArtifact(aboveText) { continue }
+                        if Acts.isEndActCard(aboveText) { break }
+                        attached = true
+                        break
+                    }
+                    // Kept lines keep their source text exactly unless the
+                    // strip changed it; offsets past a dropped or shortened
+                    // line name the pre-strip source, as they already did
+                    // for the furniture this filter has always dropped.
+                    return (part.rawIndex, text == trimmed ? part.text : text, attached)
                 }
-                if !printable.isEmpty { parts = printable }
+                if !printable.isEmpty {
+                    parts = printable.map { (rawIndex: $0.rawIndex, text: $0.text) }
+                    pasteAttached = printable.map { $0.attached }
+                }
             }
         }
 
@@ -410,7 +445,7 @@ public struct ScreenplayEditPlanner {
                     parsedRuns = parsed.runs.isEmpty ? nil : parsed.runs
                 }
                 let kind = suggestedKind
-                    ?? kindForNewElement(previous, partText, pasteDepths[partIndex])
+                    ?? kindForNewElement(previous, partText, pasteDepths[partIndex], pasteAttached[partIndex])
                 var sceneNumber: String?
                 if kind == .scene, intent == .multilinePaste,
                    let numbered = SceneNumbering.parseNumberedHeading(partText) {
@@ -650,7 +685,9 @@ public struct ScreenplayEditPlanner {
     }
 
     private static func normalizeLineBreaks(_ text: String) -> String {
-        text.replacingOccurrences(of: "\r\n", with: "\n")
+        /* a stray NUL is a UTF-16 paste leak, never text (pasted-26 ×199) */
+        text.replacingOccurrences(of: "\0", with: "")
+            .replacingOccurrences(of: "\r\n", with: "\n")
             .replacingOccurrences(of: "\r", with: "\n")
     }
 }

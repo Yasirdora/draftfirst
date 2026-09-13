@@ -20,9 +20,10 @@ final class ProductionDraftPasteTests: XCTestCase {
             replacing: NSRange(location: 0, length: 0),
             with: source,
             intent: .multilinePaste,
-            kindForNewElement: { previous, text, depth in
+            kindForNewElement: { previous, text, depth, attached in
                 EditorState(source: "").kindForInsertedElement(
-                    after: previous, text: text, pasteDepth: depth, fallback: fallback
+                    after: previous, text: text, pasteDepth: depth,
+                    attached: attached, fallback: fallback
                 )
             }
         )
@@ -224,5 +225,160 @@ final class ProductionDraftPasteTests: XCTestCase {
                 editor.kindForInsertedElement(after: nil, text: heading), .scene, heading
             )
         }
+    }
+
+    /// The production page's footer — draft colour, date, page number —
+    /// is furniture too: 650 witnesses across seven corpus files.
+    func testTheRawPathDropsDraftStampFooters() {
+        let plan = paste([
+            "Pink (9/10/2013) 2", "",
+            "10/29/14 / 2.", "",
+            "Revision 2.", "",
+            "GG- Yellow Revisions 9/27/13 4.", "",
+            "The Irishman D1-5 SZ 9.15.09 2.", "",
+            "FINAL SHOOTING SCRIPT Pink 7.25.06", "",
+            "GREEN REVISIONS 12/14/19", "",
+            "INT. CAFE - DAY"
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(plan?.elements.map(\.type), [.scene])
+        XCTAssertEqual(plan?.elements.map(\.text), ["INT. CAFE - DAY"])
+    }
+
+    /// The bare date is not a stamp — it belongs to the title page the
+    /// paste route does not model yet — and the sentence is prose whatever
+    /// it mentions.
+    func testTheRawPathKeepsTheDatesThatAreNotStamps() {
+        let plan = paste([
+            "1/5/1999", "",
+            "5/27/05", "",
+            "28/29/30 OUT", "",
+            "He delivered the FINAL DRAFT on 9/10/2013, late.", "",
+            "INT. CAFE - DAY"
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(
+            plan?.elements.map(\.text),
+            ["1/5/1999", "5/27/05", "28/29/30 OUT",
+             "He delivered the FINAL DRAFT on 9/10/2013, late.", "INT. CAFE - DAY"]
+        )
+    }
+
+    /// The scene number set loose from its heading is furniture: corpus-6's
+    /// "4A", lalaland's "A1" (×42), the page's twin numbers "1 1"
+    /// (whiplash ×134) and "1A 1A" (foryourcon) — a pair counts only when
+    /// both numbers are equal. "APARTMENT 4A" is a place, not furniture;
+    /// "1 2" is not a twin.
+    func testTheRawPathDropsLooseSceneNumbers() {
+        let plan = paste([
+            "4A", "", "A1", "", "1 1", "", "1A 1A", "", "23A.", "",
+            "INT. CAFE - DAY", "", "APARTMENT 4A", "", "1 2"
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(
+            plan?.elements.map(\.text),
+            ["INT. CAFE - DAY", "APARTMENT 4A", "1 2"]
+        )
+    }
+
+    /// gone-girl ×1,426, whiplash ×21 ("TRUMPETER #2 **"), corpus-6 ×189:
+    /// the revision asterisk riding a line's tail is furniture, and the
+    /// content keeps its own ending.
+    func testTheRawPathStripsTheRevisionAsterisk() {
+        let plan = paste([
+            "INT. CAFE - DAY", "",
+            "AMY wakes, turns, gives a look of alarm.*", "",
+            "TRUMPETER #2 **"
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(
+            plan?.elements.map(\.text),
+            ["INT. CAFE - DAY", "AMY wakes, turns, gives a look of alarm.", "TRUMPETER #2"]
+        )
+    }
+
+    /// corpus-6 ×115: the bare margin mark sits alone on its line inside a
+    /// wrapped paragraph — it drops the way (MORE) does, and the thought
+    /// under way continues across it: attachment survives the furniture,
+    /// so the raw route keeps the continuation speech.
+    func testTheBareMarginMarkDropsAndTheThoughtContinuesAcrossIt() {
+        let plan = paste([
+            "MARA",
+            "The first part of the speech",
+            "*",
+            "and the rest of it."
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(plan?.elements.map(\.type), [.character, .dialogue, .dialogue])
+        XCTAssertEqual(
+            plan?.elements.map(\.text),
+            ["MARA", "The first part of the speech", "and the rest of it."]
+        )
+    }
+
+    /// The cue-shaped interruption: an uppercase line inside an attached
+    /// run is a new speaker, not a shouted continuation — the TypeScript
+    /// engine's arm 7, whose shouts keep their terminal punctuation.
+    func testAnAttachedCueInterruptsTheSpeech() {
+        let plan = paste([
+            "MARA",
+            "The first part of the speech",
+            "runs on under the courier's right edge.",
+            "SKYLER",
+            "Sit down."
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(
+            plan?.elements.map(\.type),
+            [.character, .dialogue, .dialogue, .character, .dialogue]
+        )
+    }
+
+    /// The protection clause: a body holding a star keeps its ending, so
+    /// the emphasis marker's tail is never eaten — "**MARK**" stays a
+    /// bolded cue, and the sentence keeps the asterisk its own text
+    /// carries.
+    func testTheStripNeverEatsTheEmphasisMarkersTail() {
+        let plan = paste(["**MARK**", "", "He said **exactly** that.*"].joined(separator: "\n"))
+
+        XCTAssertEqual(plan?.elements.map(\.type), [.character, .dialogue])
+        XCTAssertEqual(plan?.elements.map(\.text), ["MARK", "He said exactly that.*"])
+        XCTAssertEqual(plan?.elements[0].runs, [StyleRun(start: 0, end: 4, styles: .bold)])
+        XCTAssertEqual(plan?.elements[1].runs, [StyleRun(start: 8, end: 15, styles: .bold)])
+    }
+
+    /// pasted-26 ×199: a stray NUL is a UTF-16 paste leak, never text.
+    func testTheRawPathStripsNULBytes() {
+        let plan = paste("\0\0INT. CAFE - DAY\0")
+
+        XCTAssertEqual(plan?.elements.map(\.type), [.scene])
+        XCTAssertEqual(plan?.elements.map(\.text), ["INT. CAFE - DAY"])
+    }
+
+    /// corpus-6 ×9: the lettered number a scene added after distribution
+    /// carries — led or flanked, the printed page's asterisk on its tail.
+    func testALetteredSceneNumberHomesToo() {
+        let plan = paste([
+            "128A EXT./INT. P~~BW MANSION - DUSK. 128A*", "",
+            "12A INT. APARTMENT - DAY"
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(plan?.elements.map(\.type), [.scene, .scene])
+        XCTAssertEqual(plan?.elements[0].text, "EXT./INT. P~~BW MANSION - DUSK.")
+        XCTAssertEqual(plan?.elements[0].sceneNumber, "128A")
+        XCTAssertEqual(plan?.elements[1].text, "INT. APARTMENT - DAY")
+        XCTAssertEqual(plan?.elements[1].sceneNumber, "12A")
+    }
+
+    /// The compound intro the corpus witnesses — 19 lines across six
+    /// files, none of them a speaker.
+    func testTheCompoundIntroIsAScene() {
+        let editor = EditorState(source: "")
+        XCTAssertEqual(
+            editor.kindForInsertedElement(after: nil, text: "EXT./INT. NEWS VAN - MOVING"), .scene
+        )
+        XCTAssertEqual(
+            editor.kindForInsertedElement(after: nil, text: "EXT/INT. CAR - NIGHT"), .scene
+        )
     }
 }

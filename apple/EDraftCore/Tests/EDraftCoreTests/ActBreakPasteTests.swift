@@ -16,9 +16,9 @@ final class ActBreakPasteTests: XCTestCase {
             replacing: NSRange(location: 0, length: 0),
             with: source,
             intent: .multilinePaste,
-            kindForNewElement: { previous, text, depth in
+            kindForNewElement: { previous, text, depth, attached in
                 EditorState(source: "").kindForInsertedElement(
-                    after: previous, text: text, pasteDepth: depth
+                    after: previous, text: text, pasteDepth: depth, attached: attached
                 )
             }
         )

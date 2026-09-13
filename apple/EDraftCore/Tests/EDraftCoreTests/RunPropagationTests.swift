@@ -21,7 +21,7 @@ final class RunPropagationTests: XCTestCase {
             replacing: range,
             with: replacement,
             intent: intent,
-            kindForNewElement: { previous, _, _ in
+            kindForNewElement: { previous, _, _, _ in
                 previous?.type == .character ? .dialogue : .action
             }
         )

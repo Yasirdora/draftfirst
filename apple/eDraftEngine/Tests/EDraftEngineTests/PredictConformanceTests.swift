@@ -65,3 +65,20 @@ struct GhostSuffixConformanceTests {
                 "candidate \(case_.candidate.debugDescription) against \(case_.text.debugDescription): expected \(case_.expected.debugDescription)")
     }
 }
+
+/// `SmartType.stripCueExtensions` against the suffixes the corpus
+/// witnesses: the transcript's bare "FRANK V/O" is FRANK (pasted-26
+/// ×299) — one speaker in the character list — while the bare "O.S."
+/// stays: normalizeCue owns the typed path's bare suffixes, as the
+/// TypeScript engine divides it.
+@Suite("Cue extension strip")
+struct CueExtensionStripTests {
+
+    @Test("the bare V/O suffix comes off")
+    func bareVOSuffix() {
+        #expect(SmartType.stripCueExtensions("FRANK V/O") == "FRANK")
+        #expect(SmartType.stripCueExtensions("MARA (O.S.)") == "MARA")
+        #expect(SmartType.stripCueExtensions("MARA O.S.") == "MARA O.S.")
+        #expect(SmartType.stripCueExtensions("FRANK") == "FRANK")
+    }
+}

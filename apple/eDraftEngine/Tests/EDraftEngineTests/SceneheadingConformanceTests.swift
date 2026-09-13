@@ -18,7 +18,7 @@ struct SceneheadingConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.cases.count == 18)
+        #expect(Self.corpus.cases.count == 24)
     }
 
     @Test("parseNumberedHeading", arguments: Self.corpus.cases)

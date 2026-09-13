@@ -77,6 +77,46 @@
       }
     },
     {
+      "text": "OMIT",
+      "result": {
+        "text": "OMITTED"
+      }
+    },
+    {
+      "text": "OMIT.",
+      "result": {
+        "text": "OMITTED"
+      }
+    },
+    {
+      "text": "43 OMIT",
+      "result": {
+        "number": "43",
+        "text": "OMITTED"
+      }
+    },
+    {
+      "text": "128A EXT./INT. P~~BW MANSION - DUSK. 128A*",
+      "result": {
+        "number": "128A",
+        "text": "EXT./INT. P~~BW MANSION - DUSK."
+      }
+    },
+    {
+      "text": "120A INT. SAME. DAWN. 120A",
+      "result": {
+        "number": "120A",
+        "text": "INT. SAME. DAWN."
+      }
+    },
+    {
+      "text": "12A INT. APARTMENT - DAY",
+      "result": {
+        "number": "12A",
+        "text": "INT. APARTMENT - DAY"
+      }
+    },
+    {
       "text": "EXT. ROOF - NIGHT",
       "result": null
     },
