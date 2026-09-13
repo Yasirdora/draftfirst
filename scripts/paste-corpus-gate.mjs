@@ -56,7 +56,7 @@ const CARD_CUE = /^(ACT\s|TEASER$|COLD OPEN$|END\s)/;
 
 function panelOf(file) {
 	const source = readFileSync(join(corpusDir, file), 'utf8');
-	const { script, report } = importPlainText(source, { format: 'paste' });
+	const { script, report, classified } = importPlainText(source, { format: 'paste' });
 	const dropped = report.warnings.reduce((n, w) => {
 		const m = /^dropped (\d+) end-of-act card/.exec(w);
 		return m ? n + Number(m[1]) : n;
@@ -73,10 +73,18 @@ function panelOf(file) {
 		artifactElements: script.elements.filter((e) => isPaginationArtifact(e.text)).length,
 		numberedScenes: script.elements.filter((e) => e.sceneNumber !== undefined).length,
 		omittedScenes: script.elements.filter((e) => e.type === 'scene' && e.text === 'OMITTED').length,
+		/* a revision asterisk left sitting on stored text — gone-girl carried
+		   616 of them before the strip; zero is the rule now */
+		starTailedElements: script.elements.filter((e) => /[^*]\*$|^\*$/.test(e.text)).length,
 		/* the route's shape rule, pinned against the breaking-bad regression:
-		   a speech never splits at its wrap into an action line */
-		dialogueActionSplits: script.elements.filter(
-			(e, i, all) => e.type === 'action' && i > 0 && all[i - 1].type === 'dialogue'
+		   a speech never splits AT ITS WRAP — an action-typed continuation
+		   attached to the speech (no blank line between). A blank-separated
+		   action paragraph after a speech is correct typing, not a split:
+		   the pasted-26 NUL glue used to swallow those paragraphs into the
+		   speech, which is how the old golden read zero */
+		dialogueActionSplits: classified.filter(
+			(line, i) =>
+				line.type === 'action' && line.raw.attached === true && classified[i - 1]?.type === 'dialogue'
 		).length,
 		scenes: report.scenes /* informational — never gated */
 	};
@@ -148,6 +156,7 @@ for (const [file, panel] of Object.entries(panels)) {
 		);
 	}
 	check('no pagination artifact is stored', panel.artifactElements, 0);
+	check('no revision asterisk is stored', panel.starTailedElements, 0);
 	check('no speech splits at its wrap', panel.dialogueActionSplits, 0);
 }
 

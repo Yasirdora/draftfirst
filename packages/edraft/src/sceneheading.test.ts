@@ -37,6 +37,27 @@ describe('parseNumberedSceneHeading', () => {
 		expect(parseNumberedSceneHeading('OMITTED')).toEqual({ text: 'OMITTED' });
 	});
 
+	it('reads La La Land’s short OMIT card as the same card (lalaland ×45)', () => {
+		expect(parseNumberedSceneHeading('OMIT')).toEqual({ text: 'OMITTED' });
+		expect(parseNumberedSceneHeading('OMIT.')).toEqual({ text: 'OMITTED' });
+		expect(parseNumberedSceneHeading('43 OMIT')).toEqual({ number: '43', text: 'OMITTED' });
+	});
+
+	it('reads the lettered number a scene added after distribution carries (corpus-6 ×9)', () => {
+		expect(parseNumberedSceneHeading('128A EXT./INT. P~~BW MANSION - DUSK. 128A*')).toEqual({
+			number: '128A',
+			text: 'EXT./INT. P~~BW MANSION - DUSK.'
+		});
+		expect(parseNumberedSceneHeading('120A INT. SAME. DAWN. 120A')).toEqual({
+			number: '120A',
+			text: 'INT. SAME. DAWN.'
+		});
+		expect(parseNumberedSceneHeading('12A INT. APARTMENT - DAY')).toEqual({
+			number: '12A',
+			text: 'INT. APARTMENT - DAY'
+		});
+	});
+
 	it('refuses everything that is not a numbered heading', () => {
 		expect(parseNumberedSceneHeading('EXT. ROOF - NIGHT')).toBeUndefined();
 		expect(parseNumberedSceneHeading('INT. APARTMENT 4')).toBeUndefined();

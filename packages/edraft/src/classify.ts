@@ -73,7 +73,10 @@ export interface ImportResult {
 	classified: ClassifiedLine[];
 }
 
-const SCENE_INTRO = /^(INT\.?\/EXT\.?|INT\/EXT|I\/E|INT|EXT|EST)[.\s]/i;
+/* compound forms first: INT./EXT., then the reversed hand six files write —
+   EXT/INT. COURTHOUSE (emilia-perez ×5, manchester ×4, no-country ×3,
+   whiplash ×3, pasted-26 ×3, episode-101 ×1) */
+const SCENE_INTRO = /^(INT\.?\/EXT\.?|INT\/EXT|EXT\.?\/INT\.?|EXT\/INT|I\/E|INT|EXT|EST)[.\s]/i;
 const FADE_OR_IRIS = /^(FADE (IN|OUT|TO)\b|IRIS (IN|OUT)\b)/i;
 const SHOT_INTRO = /^(ANGLE ON|CLOSER? ON|CLOSEUP|INSERT|POV|WIDE( ON| SHOT)?|CRANE SHOT|TRACKING SHOT|AERIAL( SHOT)?|ESTABLISHING SHOT|SHOT)\b/;
 const MAX_CUE_CHARACTERS = 42;

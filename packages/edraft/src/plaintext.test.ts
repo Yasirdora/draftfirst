@@ -67,6 +67,94 @@ describe('importPlainText', () => {
 		expect(report.warnings.join(' ')).toMatch(/stripped 5 pagination artifact/);
 	});
 
+	it('strips the scene number set loose from its heading', () => {
+		/* corpus-witnessed: "4A" (corpus-6), "A1" (lalaland ×42), the page's
+		   twin numbers "1 1" (whiplash ×134) and "1A 1A" (foryourcon) — a
+		   pair counts only when both numbers are equal */
+		const source = ['4A', 'A1', '1 1', '1A 1A', '23A.', 'INT. CAFE - DAY', 'APARTMENT 4A', '1 2'].join('\n');
+		const { script, report } = importPlainText(source);
+		/* "APARTMENT 4A" is a place, not furniture; "1 2" is not a twin */
+		expect(script.elements.map((element) => element.text)).toEqual([
+			'INT. CAFE - DAY',
+			'APARTMENT 4A',
+			'1 2'
+		]);
+		expect(report.warnings.join(' ')).toMatch(/stripped 5 pagination artifact/);
+	});
+
+	it('strips the production’s page footer — draft colour, date and page', () => {
+		/* 650 witnesses across seven corpus files */
+		const source = [
+			'Pink (9/10/2013) 2',
+			'10/29/14 / 2.',
+			'Revision 2.',
+			'GG- Yellow Revisions 9/27/13 4.',
+			'The Irishman D1-5 SZ 9.15.09 2.',
+			'FINAL SHOOTING SCRIPT Pink 7.25.06',
+			'GREEN REVISIONS 12/14/19',
+			'INT. CAFE - DAY'
+		].join('\n');
+		const { script, report } = importPlainText(source);
+		expect(script.elements.map((element) => element.text)).toEqual(['INT. CAFE - DAY']);
+		expect(report.warnings.join(' ')).toMatch(/stripped 7 pagination artifact/);
+	});
+
+	it('keeps the date lines that are not stamps, and the prose that carries one', () => {
+		/* the bare date belongs to the title page the import does not model
+		   yet; the sentence is prose whatever it mentions */
+		const source = [
+			'1/5/1999',
+			'',
+			'5/27/05',
+			'',
+			'28/29/30 OUT',
+			'',
+			'He delivered the FINAL DRAFT on 9/10/2013, late.',
+			'',
+			'INT. CAFE - DAY'
+		].join('\n');
+		const { script, report } = importPlainText(source);
+		expect(script.elements.map((element) => element.text)).toEqual([
+			'1/5/1999',
+			'5/27/05',
+			'28/29/30 OUT',
+			'He delivered the FINAL DRAFT on 9/10/2013, late.',
+			'INT. CAFE - DAY'
+		]);
+		expect(report.warnings.join(' ')).not.toMatch(/stripped/);
+	});
+
+	it('strips the revision asterisk riding a line’s tail', () => {
+		/* gone-girl ×1,426, whiplash ×21 ("TRUMPETER #2 **"), corpus-6 ×189 */
+		const { script } = importPlainText(
+			['INT. CAFE - DAY', 'AMY wakes, turns, gives a look of alarm.*', 'TRUMPETER #2 **'].join('\n')
+		);
+		expect(script.elements.map((element) => element.text)).toEqual([
+			'INT. CAFE - DAY',
+			'AMY wakes, turns, gives a look of alarm.',
+			'TRUMPETER #2'
+		]);
+	});
+
+	it('drops the bare margin mark and lets the thought under way continue across it', () => {
+		/* corpus-6 ×115: the mark sits alone on its line inside a wrapped
+		   paragraph — it splits a speech the way (MORE) does: not at all */
+		const source = ['MARA', 'The first part of the speech', '*', 'and the rest of it.'].join('\n');
+		const { script } = importPlainText(source);
+		expect(script.elements.map((element) => element.type)).toEqual(['character', 'dialogue']);
+		expect(script.elements[1]?.text).toBe('The first part of the speech and the rest of it.');
+	});
+
+	it('never eats the emphasis marker’s tail — a body holding a star keeps its ending', () => {
+		const { script } = importPlainText(['**MARK**', 'He said **exactly** that.*'].join('\n'));
+		expect(script.elements.map((element) => element.text)).toEqual(['**MARK**', 'He said **exactly** that.*']);
+	});
+
+	it('strips the NUL bytes a UTF-16 paste leaks (pasted-26 ×199)', () => {
+		const { script } = importPlainText('\0\0INT. CAFE - DAY\0');
+		expect(script.elements.map((element) => element.text)).toEqual(['INT. CAFE - DAY']);
+	});
+
 	it('drops end-of-act cards, counts them, and ends the speech they closed (RFC-ACT-BREAK §5)', () => {
 		/* the Breaking Bad shape, witnessed in the corpus: the teaser's own
 		   END TEASER, then ACT ONE through ACT FOUR with END ACT <n> */

@@ -3,8 +3,9 @@
  * typewriter layout (whitespace indents, wrapped lines, form feeds) and
  * reflowed prose (no layout at all — the classifier's shape rules carry it).
  *
- * Pagination artifacts of a printed script — page numbers, (MORE),
- * CONTINUED — are stripped and counted in the report, never silently.
+ * Pagination artifacts of a printed script — page numbers, loose scene
+ * numbers, draft stamps, revision marks, (MORE), CONTINUED — are stripped
+ * and counted in the report, never silently.
  */
 
 import { classifyLines, finalizeImport } from './classify.js';
@@ -30,17 +31,81 @@ export interface PlainTextImportOptions {
 
 /* artifacts of a printed page, meaningful only to a reader of paper */
 const PAGE_NUMBER = /^\d{1,4}\.?$/;
+/* the scene number set loose from its heading: lettered by the production
+   ("4A", corpus-6; "57A", episode-101; "A1", lalaland ×42) or printed as the
+   twin the page carries twice ("1 1", whiplash ×134; "1A 1A", foryourcon) —
+   the pair matches only when both numbers are equal */
+const LETTERED_NUMBER = /^(?:\d{1,4}[A-Z]|[A-Z]\d{1,4})\.?$/;
+const PAIRED_NUMBER = /^(\d{1,4}[A-Z]?) +\1\.?$/;
 const MORE = /^\(MORE\)$/i;
 const CONTD = /^\(CONT['’]?D\)$/i;
 const CONTINUED = /^\(?CONTINUED\)?[.:]?$/i;
 
+/* the production's page footer — the draft's colour, date and page:
+   "Pink (9/10/2013) 2" (whiplash ×112), "GG- Yellow Revisions 9/27/13 4."
+   (gone-girl ×176), "10/29/14 / 2." (foryourcon ×111), "Revision 2."
+   (lalaland ×84), "The Irishman D1-5 SZ 9.15.09 2." (pasted-26 ×132),
+   "FINAL SHOOTING SCRIPT Pink 7.25.06" (corpus-6 ×23), "GREEN REVISIONS
+   12/14/19" (episode-101 ×12) — 650 witnesses, every one a stamp. The
+   two-digit year must not eat a following digit, or a bare four-digit-year
+   date ("1/5/1999", a title-page line) reads as date-plus-page */
+const STAMP_DATE = /\d{1,2}[./]\d{1,2}[./](?:\d{4}|\d{2}(?!\d))/;
+const STAMP_MARKER =
+	/\b(?:REVISED|REVISIONS?|DRAFT|SCRIPT|SHOOTING|PRODUCTION|FINAL|FULL|PINK|BLUE|WHITE|GREEN|YELLOW|GOLDENROD)\b/i;
+const STAMP_CODE = /\b[A-Z]{1,4}-?\d+(?:-\d+)*\b/;
+const STAMP_REVISIONS = /^Revisions? \d+\.?$/i;
+const STAMP_DATE_PAGE = /^\d{1,2}[./]\d{1,2}[./](?:\d{4}|\d{2}(?!\d))\s*\/?\s*\d{1,4}\.?$/;
+
+/** Whether the line is a production's page footer — draft colour, date, page. */
+function isDraftStamp(text: string): boolean {
+	if (text.length > 64) return false;
+	if (STAMP_REVISIONS.test(text) || STAMP_DATE_PAGE.test(text)) return true;
+	if (!STAMP_DATE.test(text)) return false;
+	if (!STAMP_MARKER.test(text) && !STAMP_CODE.test(text)) return false;
+	/* prose guard: a stamp is furniture tokens and title words only, so no
+	   all-lowercase word of four letters lives in one — a sentence carrying
+	   a date ("He delivered the FINAL DRAFT on 9/10/2013, late.") is prose,
+	   and stays. The guard saves no corpus line; it exists for the next one */
+	return !text
+		.split(/\s+/)
+		.some((token) => /^[a-z]{4,}$/.test(token.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '')));
+}
+
+/* a revision's asterisk rides the revised line's tail — "AMY wakes, turns,
+   gives a look of alarm.*" (gone-girl ×1,426), "TRUMPETER #2 **" (whiplash
+   ×21) — or stands alone in the margin on its own line (corpus-6 ×115) */
+const REVISION_STAR = /\s?\*{1,2}$/;
+
+/**
+ * The line without its trailing revision asterisk, or undefined when the
+ * line keeps its ending: a body that still holds a `*` is carrying the
+ * emphasis marker's own tail ("**bold**"), which is formatting, never a
+ * revision mark.
+ */
+function stripRevisionStar(text: string): string | undefined {
+	const star = REVISION_STAR.exec(text);
+	if (star === null) return undefined;
+	const body = text.slice(0, star.index).trimEnd();
+	if (body.includes('*')) return undefined;
+	return body;
+}
+
+/** Whether the line is furniture of the printed page — page number, loose
+   scene number, draft stamp, (MORE), CONTINUED. */
+export function isPaginationArtifact(text: string): boolean {
+	return (
+		PAGE_NUMBER.test(text) ||
+		LETTERED_NUMBER.test(text) ||
+		PAIRED_NUMBER.test(text) ||
+		MORE.test(text) ||
+		CONTD.test(text) ||
+		CONTINUED.test(text) ||
+		isDraftStamp(text)
+	);
+}
+
 const TYPEWRITER_TAB_INCHES = 0.8;
 const TYPEWRITER_SPACE_INCHES = 0.1;
-
-/** Whether the line is furniture of the printed page — page number, (MORE), CONTINUED. */
-export function isPaginationArtifact(text: string): boolean {
-	return PAGE_NUMBER.test(text) || MORE.test(text) || CONTD.test(text) || CONTINUED.test(text);
-}
 
 function leadingIndentInches(text: string): number {
 	const lead = /^[\t ]*/.exec(text)?.[0] ?? '';
@@ -65,7 +130,8 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 	let attached = false;
 	let pageBreakPending = false;
 
-	for (const physicalLine of source.replace(/\r\n?/g, '\n').split('\n')) {
+	/* a stray NUL is a UTF-16 paste leak, never text (pasted-26 ×199) */
+	for (const physicalLine of source.replace(/\0/g, '').replace(/\r\n?/g, '\n').split('\n')) {
 		/* a form feed is a hard page break; the next content line starts a page */
 		const pageSegments = physicalLine.split('\f');
 		for (let s = 0; s < pageSegments.length; s++) {
@@ -80,11 +146,19 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 				attached = false;
 				continue;
 			}
-			if (isPaginationArtifact(trimmed)) {
+			/* the revision mark is furniture riding on content, not content:
+			   it comes off before every other test, and a bare mark drops the
+			   way (MORE) does — the thought under way continues across it */
+			const text = stripRevisionStar(trimmed) ?? trimmed;
+			if (text === '') {
+				stripped++;
+				continue;
+			}
+			if (isPaginationArtifact(text)) {
 				stripped++;
 				continue; /* attachment survives — (MORE) splits a speech, not a thought */
 			}
-			if (isEndActCard(trimmed)) {
+			if (isEndActCard(text)) {
 				/* an act ends where the next one begins, so the closing card is
 				   furniture (RFC-ACT-BREAK §5) — and a hard boundary: unlike
 				   (MORE), no thought continues across it, so attachment dies here */
@@ -92,7 +166,7 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 				attached = false;
 				continue;
 			}
-			const line: RawLine = { text: trimmed.replace(/\t/g, ' ').replace(/ {2,}/g, ' ') };
+			const line: RawLine = { text: text.replace(/\t/g, ' ').replace(/ {2,}/g, ' ') };
 			const indent = leadingIndentInches(segment);
 			if (indent > 0) line.indentInches = indent;
 			if (attached) line.attached = true;
@@ -107,7 +181,9 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 
 	const warnings: string[] = [];
 	if (stripped > 0) {
-		warnings.push(`stripped ${stripped} pagination artifact(s) — page numbers, (MORE), CONTINUED`);
+		warnings.push(
+			`stripped ${stripped} pagination artifact(s) — page numbers, scene-number furniture, draft stamps, revision marks, (MORE), CONTINUED`
+		);
 	}
 	if (endCards > 0) {
 		warnings.push(`dropped ${endCards} end-of-act card(s) — an act ends where the next one begins`);

@@ -61,9 +61,14 @@ export interface SceneHeadingParts {
    (rename). Stateless use only: .replace/.match reset lastIndex. */
 export const CUE_EXTENSION_RE: RegExp = /\s*\((?:V\.?O\.?|O\.?S\.?|O\.?C\.?|CONT['’]?D|SUBTITLE|PRE-?LAP|FILTERED|INTO (?:PHONE|RADIO|COMMS?)[^)]*)\)\s*/gi;
 
+/* the transcript's bare suffix — "FRANK V/O" (pasted-26 ×299). Only V/O is
+   witnessed bare in the corpus; O.S./O.C. stay parenthesized-only, the
+   ambiguity the "MARA O.S." pin in the tests guards */
+const BARE_VO_SUFFIX = /\s+V\/O$/;
+
 /** Strip cue extensions — (V.O.), (O.S.), (O.C.), (CONT'D), (SUBTITLE)… */
 export function stripCueExtensions(cue: string): string {
-	return cue.replace(CUE_EXTENSION_RE, '').trim();
+	return cue.replace(CUE_EXTENSION_RE, '').replace(BARE_VO_SUFFIX, '').trim();
 }
 
 /** Split a scene heading into prefix / location / time parts.
@@ -72,7 +77,7 @@ export function stripCueExtensions(cue: string): string {
    case-insensitively, and the model cannot be trusted to carry canonical
    case (blur without commit, paste, and mixed-case imports all leak). */
 export function splitSceneHeading(heading: string): SceneHeadingParts {
-	const m = /^(INT\.?\/EXT\.?|INT\/EXT|I\/E|INT|EXT|EST)[. ]?\s*/i.exec(heading.trim());
+	const m = /^(INT\.?\/EXT\.?|INT\/EXT|EXT\.?\/INT\.?|EXT\/INT|I\/E|INT|EXT|EST)[. ]?\s*/i.exec(heading.trim());
 	const rawPrefix = m ? m[1].toUpperCase().replace(/\.$/, '') : '';
 	const prefix = rawPrefix === '' ? '' : rawPrefix === 'I/E' ? 'I/E' : `${rawPrefix}.`;
 	let rest = m ? heading.trim().slice(m[0].length) : heading.trim();

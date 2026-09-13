@@ -50,6 +50,12 @@ describe('stripCueExtensions', () => {
 	it('strips only parenthesised extensions — bare ones are normalizeCue’s job', () => {
 		expect(stripCueExtensions('MARA O.S.')).toBe('MARA O.S.');
 	});
+
+	it('strips the transcript’s bare V/O suffix (pasted-26 ×299)', () => {
+		/* the one bare suffix the corpus witnesses; "FRANK V/O" and "FRANK"
+		   are one speaker in the character list */
+		expect(stripCueExtensions('FRANK V/O')).toBe('FRANK');
+	});
 });
 
 describe('collectSmartType — canonical case contract', () => {

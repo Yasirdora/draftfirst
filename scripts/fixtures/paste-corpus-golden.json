@@ -13,6 +13,7 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
     "scenes": 69
   },
@@ -24,6 +25,7 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
     "scenes": 90
   },
@@ -31,12 +33,13 @@
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "artifactsStripped": 318,
+    "artifactsStripped": 490,
     "artifactElements": 0,
-    "numberedScenes": 53,
+    "numberedScenes": 62,
     "omittedScenes": 13,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
-    "scenes": 127
+    "scenes": 136
   },
   "emilia-perez.txt": {
     "actbreaks": [],
@@ -50,17 +53,19 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
-    "scenes": 106
+    "scenes": 111
   },
   "episode-101.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "artifactsStripped": 333,
+    "artifactsStripped": 368,
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 9,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
     "scenes": 99
   },
@@ -68,10 +73,11 @@
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "artifactsStripped": 96,
+    "artifactsStripped": 261,
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
     "scenes": 57
   },
@@ -79,10 +85,11 @@
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "artifactsStripped": 175,
+    "artifactsStripped": 176,
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
     "scenes": 189
   },
@@ -90,10 +97,11 @@
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "artifactsStripped": 42,
+    "artifactsStripped": 232,
     "artifactElements": 0,
     "numberedScenes": 244,
     "omittedScenes": 0,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
     "scenes": 245
   },
@@ -105,6 +113,7 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
     "scenes": 246
   },
@@ -112,23 +121,25 @@
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "artifactsStripped": 157,
+    "artifactsStripped": 284,
     "artifactElements": 0,
     "numberedScenes": 0,
-    "omittedScenes": 0,
+    "omittedScenes": 45,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
-    "scenes": 113
+    "scenes": 158
   },
   "manchester.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "artifactsStripped": 114,
+    "artifactsStripped": 115,
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
-    "scenes": 177
+    "scenes": 179
   },
   "no-country.txt": {
     "actbreaks": [],
@@ -138,6 +149,7 @@
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
     "scenes": 150
   },
@@ -145,22 +157,24 @@
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "artifactsStripped": 10,
+    "artifactsStripped": 142,
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 0,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
-    "scenes": 274
+    "scenes": 277
   },
   "whiplash.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "artifactsStripped": 9,
+    "artifactsStripped": 256,
     "artifactElements": 0,
     "numberedScenes": 0,
     "omittedScenes": 17,
+    "starTailedElements": 0,
     "dialogueActionSplits": 0,
-    "scenes": 131
+    "scenes": 134
   }
 }
