@@ -21,7 +21,11 @@ final class DiscreteSheetsTests: XCTestCase {
     override func setUp() {
         super.setUp()
         let original = PageLayoutMode.stored
-        addTeardownBlock { PageLayoutMode.store(original) }
+        let originalArrangement = PageArrangement.stored
+        addTeardownBlock {
+            PageLayoutMode.store(original)
+            PageArrangement.store(originalArrangement)
+        }
     }
 
     private func script(scenes: Int) -> [ScriptElement] {
@@ -196,5 +200,131 @@ final class DiscreteSheetsTests: XCTestCase {
             ),
             "the pushed heading \(inCanvas) is not on sheet 2 \(surface.pageFrames[1])"
         )
+    }
+
+    func testTwoPagePutsFacingSheetsBesideEachOther() throws {
+        let elements = script(scenes: 25)
+        let surface = surface(elements, mode: .pages)
+        let pages = try XCTUnwrap(ScreenplayExporter.paginate(Screenplay(elements: elements)))
+        XCTAssertGreaterThanOrEqual(pages.count, 4)
+
+        surface.setArrangement(.spread)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        let frames = surface.pageFrames
+        XCTAssertEqual(frames.count, pages.count)
+        XCTAssertEqual(frames[0].minY, frames[1].minY, accuracy: 0.5)
+        let scale = frames[0].width / PageFormat.letter.pageRect.width
+        XCTAssertEqual(
+            frames[1].minX - frames[0].maxX,
+            PageCanvasView.spreadHairline * scale,
+            accuracy: 0.5,
+            "facing pages meet at a hairline, not a gutter"
+        )
+        XCTAssertEqual(frames[2].minX, frames[0].minX, accuracy: 0.5)
+        XCTAssertEqual(
+            frames[2].minY - frames[0].maxY,
+            PageCanvasView.pageGap * scale,
+            accuracy: 0.5
+        )
+        XCTAssertLessThanOrEqual(scale, 1.001, "two-page never draws larger than life size")
+        XCTAssertTrue(surface.textView.isEditable)
+        XCTAssertFalse(surface.textView.isHidden)
+    }
+
+    func testGridIsFourAcross() throws {
+        let surface = surface(script(scenes: 40), mode: .pages)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1400, height: 900)
+        surface.setArrangement(.grid)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        let frames = surface.pageFrames
+        XCTAssertFalse(frames.isEmpty)
+        let row0 = frames.filter { abs($0.minY - frames[0].minY) < 1 }
+        XCTAssertEqual(row0.count, 4)
+        XCTAssertFalse(surface.textView.isEditable)
+        XCTAssertTrue(surface.textView.isHidden)
+        XCTAssertFalse(surface.textView.shouldDrawInsertionPoint)
+    }
+
+    func testGridColumnCountIsFour() {
+        let page = PageFormat.letter.pageRect.width
+        let desk = PageCanvasView.deskPadding
+        for width: CGFloat in [500, 800, 1200, 1800, 2400] {
+            XCTAssertEqual(
+                PageCanvasView.gridColumnCount(viewportWidth: width, pageWidth: page, desk: desk),
+                4,
+                "width \(width)"
+            )
+        }
+    }
+
+    func testTwoPageFitsASmallWindow() throws {
+        let surface = surface(script(scenes: 25), mode: .pages)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+        surface.setArrangement(.spread)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        let pair = surface.pageFrames[0].union(surface.pageFrames[1]).insetBy(dx: -PageCanvasView.deskPadding, dy: -PageCanvasView.deskPadding)
+        XCTAssertLessThanOrEqual(pair.width, 700 + 1)
+        XCTAssertLessThanOrEqual(pair.height, 400 + 1)
+        XCTAssertLessThan(surface.pageFrames[0].width, PageFormat.letter.pageRect.width)
+    }
+
+    func testASingleGridClickDoesNotLeaveGrid() throws {
+        let surface = surface(script(scenes: 25), mode: .pages)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1400, height: 900)
+        surface.setArrangement(.grid)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        var picked: Int?
+        surface.canvas.onPickPage = { picked = $0 }
+        let point = CGPoint(x: surface.pageFrames[2].midX, y: surface.pageFrames[2].midY)
+        surface.canvas.handleGridClick(at: point, count: 1)
+        XCTAssertNil(picked, "a single click is not a jump")
+        XCTAssertEqual(surface.canvas.arrangement, .grid)
+        surface.canvas.handleGridClick(at: point, count: 2)
+        XCTAssertEqual(picked, 2)
+    }
+
+    func testPickingAGridSheetReturnsToSingle() throws {
+        let surface = surface(script(scenes: 25), mode: .pages)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1400, height: 900)
+        surface.setArrangement(.grid)
+        XCTAssertEqual(surface.canvas.arrangement, .grid)
+        surface.showPage(2)
+        XCTAssertEqual(surface.canvas.arrangement, .single)
+        XCTAssertTrue(surface.textView.isEditable)
+        XCTAssertFalse(surface.textView.isHidden)
+    }
+
+    func testSpreadFoldPutsTheSecondPageOnTheRight() {
+        let fold = SpreadFold(
+            pageTops: [0, 800],
+            columnPitch: 613,
+            rowPitch: 797,
+            scale: 1
+        )
+        let onTheRight = fold.spreadPoint(fromVertical: CGPoint(x: 10, y: 810))
+        XCTAssertGreaterThan(onTheRight.x, 600)
+        XCTAssertEqual(onTheRight.y, 10, accuracy: 0.5)
+        let back = fold.verticalPoint(fromSpread: onTheRight)
+        XCTAssertEqual(back.x, 10, accuracy: 0.5)
+        XCTAssertEqual(back.y, 810, accuracy: 0.5)
+    }
+
+    func testGridLightsTheSheetANavigatorClickAskedFor() throws {
+        let surface = surface(script(scenes: 25), mode: .pages)
+        surface.setArrangement(.grid)
+        surface.canvas.highlightGridPage(2)
+        XCTAssertEqual(surface.canvas.highlightedPage, 2)
+        XCTAssertTrue(surface.textView.isHidden)
+        XCTAssertFalse(surface.textView.isEditable)
+    }
+
+    func testTwoPageKeepsTheSamePageCount() throws {
+        let elements = script(scenes: 25)
+        let surface = surface(elements, mode: .pages)
+        let before = surface.pageFrames.count
+        surface.setArrangement(.spread)
+        XCTAssertEqual(surface.pageFrames.count, before)
+        surface.setArrangement(.grid)
+        XCTAssertEqual(surface.pageFrames.count, before)
     }
 }

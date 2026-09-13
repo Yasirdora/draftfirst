@@ -1,6 +1,6 @@
 # RFC: Secondary slugs, the title-page block, and the closing card
 
-*2026-09-13. Status: proposed. The pass this RFC describes is the third
+*2026-09-13. Status: landed (738f91d). The pass this RFC describes is the third
 paste-routing pass, after the cue-confirmation pass (1e0dc85) and the
 camera-grammar pass (23d0b78). Corpus witness set: the fifteen scripts of
 the paste corpus (scripts-corpus/, never committed — see HANDOFF). The

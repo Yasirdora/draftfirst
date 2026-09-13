@@ -49,6 +49,7 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
     private var elementItem: NSMenuToolbarItem?
     private var paperItem: NSToolbarItem?
     private var focusItem: NSToolbarItem?
+    private var arrangementItem: NSMenuToolbarItem?
     /// What the bar was last told, so it is told again only on a real
     /// change — see `followTheModel`.
     private var shownElementKind: ScreenplayKind?
@@ -63,7 +64,7 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         static let back = "eDraft.back"
         static let view = "eDraft.view"
         static let focus = "eDraft.focus"
-        static let zoom = "eDraft.zoom"
+        static let arrangement = "eDraft.arrangement"
     }
 
     /// How wide a character's thread is — the one fixed measure of the desk
@@ -213,15 +214,16 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         elementItem = element
 
         let focus = ToolbarItems.button(
-            ItemID.focus, symbol: "rectangle", label: "Focus",
+            ItemID.focus, symbol: "book", label: "Focus",
             toolTip: "Focus on the page", target: self, action: #selector(toggleFocus(_:))
         )
         focusItem = focus
-        let zoom = ToolbarItems.menu(
-            ItemID.zoom, symbol: "chevron.down", label: "Zoom",
-            toolTip: "Zoom", showsIndicator: false,
-            menu: ScriptMenus.menu(ScriptMenus.zoomItems())
+        let arrangement = ToolbarItems.menu(
+            ItemID.arrangement, symbol: editor.arrangement.symbol, label: "Layout",
+            toolTip: "Page layout", showsIndicator: false,
+            menu: ScriptMenus.menu(ScriptMenus.arrangementItems())
         )
+        arrangementItem = arrangement
 
         let paper = ToolbarItems.button(
             ItemID.paper, symbol: "moon", label: "Page",
@@ -245,7 +247,7 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
 
         return [
             .toggleSidebar, .sidebarSeparator, .item(back), .item(element), .flexibleSpace,
-            .item(ToolbarItems.group(ItemID.view, label: "View", [focus, zoom])),
+            .item(ToolbarItems.group(ItemID.view, label: "View", [focus, arrangement])),
             .item(ToolbarItems.group(ItemID.document, label: "Document", [paper, titlePage, export])),
             .space,
             .item(more)
@@ -285,9 +287,17 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
             let focused = state.isFocused
             isSidebarCollapsed = focused
             focusItem?.image = NSImage(
-                systemSymbolName: focused ? "rectangle.inset.filled" : "rectangle",
+                systemSymbolName: focused ? "book.fill" : "book",
                 accessibilityDescription: "Focus"
             )
+        }
+        observeChanges { [weak self] in
+            guard let self else { return }
+            let mode = editor.arrangement
+            arrangementItem?.image = NSImage(
+                systemSymbolName: mode.symbol, accessibilityDescription: mode.title
+            )
+            arrangementItem?.toolTip = mode.title
         }
         pagePaperChanged()
     }
@@ -332,6 +342,11 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
     @objc public func setLayoutMode(_ sender: NSMenuItem) {
         guard let mode = sender.representedObject as? PageLayoutMode else { return }
         editor.onSetLayoutMode?(mode)
+    }
+
+    @objc public func setArrangement(_ sender: NSMenuItem) {
+        guard let mode = sender.representedObject as? PageArrangement else { return }
+        editor.onSetArrangement?(mode)
     }
 
     /// The same choice as View → Page and the same storage: the surfaces watch
@@ -424,6 +439,9 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
             return editor.isSceneNumbered
         case #selector(setLayoutMode(_:)):
             item.state = (item.representedObject as? PageLayoutMode) == editor.layoutMode ? .on : .off
+            return true
+        case #selector(setArrangement(_:)):
+            item.state = (item.representedObject as? PageArrangement) == editor.arrangement ? .on : .off
             return true
         default:
             return true

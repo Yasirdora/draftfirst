@@ -72,6 +72,48 @@ public enum SceneListFilter {
     }
 }
 
+/// How the Cast list is ordered.
+///
+/// Lead is how much they speak — the same ranking `EditorState.cast` already
+/// uses, most cues first and a name-tie broken alphabetically. Alphabetical
+/// is the other way a writer looks for someone: by name, not by volume.
+public enum CastListSort: String, CaseIterable, Identifiable, Sendable {
+    case lead
+    case alphabetical
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .lead: "Lead"
+        case .alphabetical: "Alphabetical"
+        }
+    }
+}
+
+/// Narrowing and ordering the Navigator's cast list.
+///
+/// Matching against names the model already assembled. Empty query means
+/// every row. Lead re-applies the cue ranking so the filter is the
+/// authority even when the incoming list was already in that order.
+public enum CastListFilter {
+    public static func included(
+        _ cast: [CastRow], query: String, sort: CastListSort = .lead
+    ) -> [CastRow] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        var rows = needle.isEmpty
+            ? cast
+            : cast.filter { $0.name.localizedCaseInsensitiveContains(needle) }
+        switch sort {
+        case .lead:
+            rows.sort { $0.cues == $1.cues ? $0.name < $1.name : $0.cues > $1.cues }
+        case .alphabetical:
+            rows.sort { $0.name < $1.name }
+        }
+        return rows
+    }
+}
+
 /// The Navigator itself: the scope switch, the rows, and the footnote — with
 /// no chrome of its own.
 ///
@@ -85,8 +127,9 @@ public struct StoryList: View {
     /// What a row that names a place does when it is chosen. The sheet closes
     /// itself afterwards; the sidebar stays where it is.
     let open: (UUID) -> Void
-    /// Mac Find Scene (⌘L): a filter on the Scenes tab, sitting with the
-    /// scope switch — Messages puts search in that same position. Off on
+    /// Mac Find Scene (⌘L): a filter sitting with the scope switch —
+    /// Messages puts search in that same position. Scenes and Cast both
+    /// use it; the menu beside the field is the one that differs. Off on
     /// the phone, which still opens this list as a sheet.
     var showsSceneFilter: Bool
     /// The Mac sidebar is destinations, never verbs (`MACOS-DESIGN` §1.1).
@@ -113,6 +156,10 @@ public struct StoryList: View {
     /// it is a way of looking at the list, not a property of the document, and
     /// nothing outside needs to read it.
     @State private var sceneSetting: SceneSetting?
+    @State private var castQuery = ""
+    /// Lead is the list's own order. Alphabetical is a way of looking at it,
+    /// not a property of the document.
+    @State private var castSort: CastListSort = .lead
 
     public init(
         editor: EditorState,
@@ -141,8 +188,11 @@ public struct StoryList: View {
     public var body: some View {
         VStack(spacing: 0) {
             tabPicker
-            if showsSceneFilter, tab == .scenes {
-                sceneFilterField
+            if showsSceneFilter {
+                switch tab {
+                case .scenes: sceneFilterField
+                case .cast: castFilterField
+                }
             }
             list
         }
@@ -181,6 +231,31 @@ public struct StoryList: View {
                 .accessibilityLabel("Find Scene")
             #endif
             settingMenu
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+
+    /// Narrows the cast list. Return opens the first remaining name, the
+    /// way Return on Scenes jumps to the first remaining heading.
+    private var castFilterField: some View {
+        HStack(spacing: 8) {
+            #if os(macOS)
+            SceneSearchField(
+                text: $castQuery,
+                prompt: "Character",
+                focusToken: 0,
+                onSubmit: submitCastFilter
+            )
+            .accessibilityLabel("Find Character")
+            #else
+            TextField("Character", text: $castQuery)
+                .textFieldStyle(.roundedBorder)
+                .focused($filterFocused)
+                .onSubmit { submitCastFilter() }
+                .accessibilityLabel("Find Character")
+            #endif
+            sortMenu
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
@@ -254,6 +329,45 @@ public struct StoryList: View {
         } else {
             open(first.id)
         }
+    }
+
+    /// Lead, or A–Z. Same control as the scene setting menu: a glass circle
+    /// beside the field, because a segmented control would spend the
+    /// sidebar, and this is where Mail hangs the other way of looking.
+    private var sortMenu: some View {
+        #if os(macOS)
+        CastSortButton(sort: $castSort)
+            .frame(width: Self.controlHeight, height: Self.controlHeight)
+            .accessibilityLabel("Sort cast: \(castSort.title)")
+            .help("Sort by how much they speak, or alphabetically")
+        #else
+        phoneSortMenu
+        #endif
+    }
+
+    private var phoneSortMenu: some View {
+        Menu {
+            Picker("", selection: $castSort) {
+                ForEach(CastListSort.allCases) { sort in
+                    Text(sort.title).tag(sort)
+                }
+            }
+            .pickerStyle(.inline)
+            .labelsHidden()
+        } label: {
+            Image(systemName: "line.3.horizontal.decrease")
+        }
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel("Sort cast: \(castSort.title)")
+        .help("Sort by how much they speak, or alphabetically")
+    }
+
+    private func submitCastFilter() {
+        guard let first = CastListFilter.included(
+            editor.cast, query: castQuery, sort: castSort
+        ).first else { return }
+        onSelectCharacter?(first.name)
     }
 
     /// The Scenes/Cast switch is a full-width row of its own, pinned between
@@ -366,14 +480,24 @@ public struct StoryList: View {
             }
 
         case .cast:
+            let visible = CastListFilter.included(
+                editor.cast, query: castQuery, sort: castSort
+            )
+            let searching = !castQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             if editor.cast.isEmpty {
                 EmptyListRow(
                     title: "No Cast Yet",
                     detail: "Character cues appear here automatically as you write.",
                     symbol: "person.2"
                 )
+            } else if visible.isEmpty && searching {
+                EmptyListRow(
+                    title: "No Matching Characters",
+                    detail: "Nothing in the navigator matches that search.",
+                    symbol: "magnifyingglass"
+                )
             } else {
-                ForEach(editor.cast) { person in
+                ForEach(visible) { person in
                     if let onSelectCharacter {
                         let chosen = person.name == selectedCharacter
                         Button { onSelectCharacter(person.name) } label: {
@@ -806,6 +930,73 @@ private struct SceneNumbersView: View {
 /// inside a menu style sizes itself from its own metrics and ignores both.
 ///
 /// Here the height is simply the height it is given.
+/// Cast sort, as the same glass circle the scene filter uses.
+///
+/// Tinted when the list is not in its own order — Alphabetical is a way of
+/// looking, and the accent is how the scene filter already says so.
+private struct CastSortButton: NSViewRepresentable {
+    @Binding var sort: CastListSort
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton()
+        button.title = ""
+        button.bezelStyle = .glass
+        button.borderShape = .circle
+        button.isBordered = true
+        button.imagePosition = .imageOnly
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.present(_:))
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.parent = self
+        let symbol = NSImage(
+            systemSymbolName: "line.3.horizontal.decrease",
+            accessibilityDescription: "Sort cast"
+        )
+        button.image = symbol?.withSymbolConfiguration(
+            .init(pointSize: 12, weight: .medium)
+        )
+        button.contentTintColor = sort == .lead ? nil : .controlAccentColor
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var parent: CastSortButton
+
+        init(parent: CastSortButton) { self.parent = parent }
+
+        @objc func present(_ sender: NSButton) {
+            let menu = NSMenu()
+            for option in CastListSort.allCases {
+                menu.addItem(item(titled: option.title, for: option))
+            }
+            menu.popUp(
+                positioning: nil,
+                at: NSPoint(x: 0, y: sender.bounds.maxY + 4),
+                in: sender
+            )
+        }
+
+        private func item(titled title: String, for option: CastListSort) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: #selector(choose(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = option.rawValue
+            item.state = parent.sort == option ? .on : .off
+            return item
+        }
+
+        @objc private func choose(_ sender: NSMenuItem) {
+            guard let raw = sender.representedObject as? String,
+                  let option = CastListSort(rawValue: raw) else { return }
+            parent.sort = option
+        }
+    }
+}
+
 private struct SceneSettingButton: NSViewRepresentable {
     @Binding var setting: SceneSetting?
 

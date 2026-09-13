@@ -158,7 +158,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         storage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(container)
 
-        let textView = NSTextView(
+        let textView = ArrangedTextView(
             frame: NSRect(x: 0, y: 0, width: textWidth, height: 0), textContainer: container
         )
         textView.isRichText = false
@@ -395,10 +395,13 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             }
         }
         editor.onSetLayoutMode = { [weak self] mode in self?.setLayoutMode(mode) }
+        editor.onSetArrangement = { [weak self] mode in self?.setArrangement(mode) }
         editor.onAddNote = { [weak self] in self?.addNoteAtCaret() }
         // The writer's choice reaches the canvas here rather than being read
         // from a global when the view was built — see `layoutMode`.
         canvas.layoutMode = editor.layoutMode
+        canvas.arrangement = editor.arrangement
+        canvas.onPickPage = { [weak self] index in self?.showPage(index) }
     }
 
     /// Draws the model only when this surface has not already mirrored this
@@ -471,6 +474,22 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// not grow past `maxSize`, and a view that started with frame height 0
     /// inherits that ceiling. The layout manager still has the glyphs; the
     /// view does not display them. See `testTheLastElementLandsOnTheCard`.
+    /// The window's page column, in document points.
+    ///
+    /// The clip's *frame* is screen points; its bounds are already divided
+    /// by the magnification. Two-page and Grid size themselves to what is
+    /// actually on screen, so the opening fits when the writer resizes and
+    /// still answers a pinch: we divide the frame by the current
+    /// magnification rather than reading bounds, which after a layout can
+    /// be the document itself and then the scale never moves.
+    private func visibleViewport() -> CGSize {
+        let mag = max(scrollView.magnification, 0.001)
+        let clip = scrollView.contentView.frame.size
+        let raw = clip.width > 1 ? clip : scrollView.frame.size
+        guard raw.width > 1 else { return CGSize(width: 800, height: 600) }
+        return CGSize(width: raw.width / mag, height: max(raw.height, 1) / mag)
+    }
+
     private func layOut() {
         var pageStarts: [CGFloat] = [0]
         let pagination = pagination(for: lastLaidElements)
@@ -506,18 +525,18 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         } else {
             textView.sizeToFit()
         }
-        let viewport = scrollView.contentView.bounds.size
-        let size = viewport.width > 1 ? viewport : scrollView.frame.size
         canvas.layoutPages(
             pageStarts: pageStarts,
             textHeight: max(textView.frame.height, 1),
-            viewport: size
+            viewport: visibleViewport()
         )
         // Only in `continuous`, where the rule is the one thing saying a page
         // ended. In `pages` the gap between the sheets and their own edges
         // already say it, and a rule as well is a third mark for one
         // boundary.
         canvas.showBreaks(at: canvas.layoutMode == .continuous ? pageBreakPositions(pagination) : [])
+        (textView as? ArrangedTextView)?.fold =
+            canvas.arrangement == .spread ? canvas.spreadFold : nil
         placeNoteMarkers()
         washNotedLines()
         scrollView.layoutSubtreeIfNeeded()
@@ -537,9 +556,56 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         canvas.layoutMode = mode
         PageLayoutMode.store(mode)
         editor?.reportLayoutMode(mode)
+        if mode == .continuous, canvas.arrangement != .single {
+            canvas.arrangement = .single
+            canvas.highlightedPage = nil
+            PageArrangement.store(.single)
+            editor?.reportArrangement(.single)
+            textView.isHidden = false
+            textView.isEditable = true
+            textView.isSelectable = true
+        }
         layOut()
         scrollBack(to: anchor)
         updateGhost()
+    }
+
+    /// Single, two-page or the bird's-eye. Two-page and Grid are sheets;
+    /// asking for them from Continuous switches to Pages first.
+    func setArrangement(_ mode: PageArrangement) {
+        if mode != .single, canvas.layoutMode == .continuous {
+            setLayoutMode(.pages)
+        }
+        guard canvas.arrangement != mode else { return }
+        let anchor = anchoredLine()
+        if mode != .grid { canvas.highlightedPage = nil }
+        canvas.arrangement = mode
+        PageArrangement.store(mode)
+        editor?.reportArrangement(mode)
+        textView.isHidden = mode == .grid
+        textView.isEditable = mode != .grid
+        textView.isSelectable = mode != .grid
+        layOut()
+        if mode != .grid { scrollBack(to: anchor) }
+        updateGhost()
+    }
+
+    /// Grid → Single on that sheet, with the caret on its first line.
+    func showPage(_ index: Int) {
+        setArrangement(.single)
+        guard index < canvas.pageViews.count else { return }
+        let frame = canvas.pageViews[index].frame
+        let clip = scrollView.contentView
+        clip.scroll(to: NSPoint(x: 0, y: max(0, frame.minY - 12)))
+        scrollView.reflectScrolledClipView(clip)
+        let locations = pagination(for: lastLaidElements).locations
+        if index < locations.count {
+            let location = locations[index]
+            let range = NSRange(location: location, length: 0)
+            textView.setSelectedRange(range)
+            textView.scrollRangeToVisible(range)
+        }
+        scrollView.window?.makeFirstResponder(textView)
     }
 
     /// The line at the top of what the writer can see, and how far below the
@@ -1137,7 +1203,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// number the page did not have.
     private func magnify(to value: CGFloat) -> Bool {
         guard abs(scrollView.magnification - value) > 0.001 else {
-            editor?.reportZoom(value)
+            reportZoom(value)
             return false
         }
         isSettingMagnification = true
@@ -1171,9 +1237,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private func reportZoom(_ value: CGFloat) {
         if (isLiveMagnifying || isAnimatingSettle), let editor,
            PageZoom.displayedPercentage(editor.zoom) == PageZoom.displayedPercentage(value) {
+            editor.reportHoldingActualSize(atActualSize)
             return
         }
         editor?.reportZoom(value)
+        editor?.reportHoldingActualSize(atActualSize)
     }
 
     /// The size the gesture left behind becomes the writer's choice — the
@@ -1581,7 +1649,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             // beside its last line — which is where the writer left it.
             let range = note.anchor.flatMap { byElement[$0] } ?? ranges.last?.range
             guard let range, let rect = boundingRect(atCharacter: range.location) else { continue }
-            let inCanvas = canvas.convert(rect, from: textView)
+            let drawn = (textView as? ArrangedTextView)?.fold?.spreadRect(fromVertical: rect) ?? rect
+            let inCanvas = canvas.convert(drawn, from: textView)
             let line = Int(inCanvas.minY.rounded())
             if var existing = byLine[line] {
                 existing.ids.append(note.id)
@@ -1776,15 +1845,37 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         if let editor, editor.revision != renderedRevision {
             renderIfNeeded(editor)
         }
-        guard let mapped = ranges.first(where: { $0.id == id }),
-              let rect = ScriptLayout.boundingRect(of: mapped.range, in: textView)
+        guard let mapped = ranges.first(where: { $0.id == id }) else { return false }
+
+        // Grid is a map: light the sheet that holds the line, do not pretend
+        // to put a caret on a thumbnail.
+        if canvas.arrangement == .grid {
+            canvas.highlightGridPage(pageIndex(containing: mapped.range.location))
+            return true
+        }
+
+        guard var rect = ScriptLayout.boundingRect(of: mapped.range, in: textView)
         else { return false }
+        if let fold = canvas.spreadFold {
+            rect = fold.spreadRect(fromVertical: rect)
+        }
 
         textView.setSelectedRange(NSRange(location: mapped.range.location, length: 0))
         updateSelection()
         scroll(revealing: rect)
         mark(rect, reduceMotion: reduceMotion)
         return true
+    }
+
+    /// Which sheet holds this character, from the engine's page starts.
+    private func pageIndex(containing location: Int) -> Int {
+        let starts = pagination(for: lastLaidElements).locations
+        guard starts.count > 1 else { return 0 }
+        var index = 0
+        while index + 1 < starts.count, starts[index + 1] <= location {
+            index += 1
+        }
+        return index
     }
 
     /// Where the page rests, in the scroll view's own terms — measured against
@@ -2741,7 +2832,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // writer who is typing, not for a page sitting in the background.
         let focused = textView.window == nil
             || textView.window?.firstResponder === textView
-        guard focused,
+        guard canvas.arrangement == .single,
+              focused,
               !scrollView.isFindBarVisible,
               !textView.hasMarkedText(),
               let suffix = editor.currentSuggestionSuffix,
@@ -3311,6 +3403,76 @@ private final class SettleRelay: NSObject {
                 return
             }
             surface.settleFrame()
+        }
+    }
+}
+
+/// The script, drawn as a column or as an open book.
+///
+/// TextKit still lays the type out as one stack — the same bands, the same
+/// page starts — so a line that began a page in Single still begins it in
+/// Two-page. Drawing and hit-testing fold that stack onto facing sheets.
+private final class ArrangedTextView: NSTextView {
+    var fold: SpreadFold? {
+        didSet {
+            if oldValue != fold { needsDisplay = true }
+        }
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard let fold, let layoutManager, let textContainer else {
+            super.draw(dirtyRect)
+            return
+        }
+        let origin = textContainerOrigin
+        let glyphs = layoutManager.glyphRange(for: textContainer)
+        layoutManager.enumerateLineFragments(forGlyphRange: glyphs) { _, used, _, glyphRange, _ in
+            let vertical = NSPoint(x: origin.x + used.minX, y: origin.y + used.minY)
+            let dest = fold.spreadPoint(fromVertical: vertical)
+            NSGraphicsContext.saveGraphicsState()
+            let xform = NSAffineTransform()
+            xform.translateX(by: dest.x, yBy: dest.y)
+            xform.scale(by: fold.scale)
+            xform.translateX(by: -used.minX, yBy: -used.minY)
+            xform.concat()
+            layoutManager.drawBackground(forGlyphRange: glyphRange, at: .zero)
+            layoutManager.drawGlyphs(forGlyphRange: glyphRange, at: .zero)
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        if shouldDrawInsertionPoint, let color = insertionPointColor as NSColor? {
+            let range = selectedRange()
+            if range.length == 0 {
+                var actual = NSRange()
+                let screen = firstRect(forCharacterRange: range, actualRange: &actual)
+                if let window, screen != .zero {
+                    let inWindow = window.convertFromScreen(screen)
+                    let inView = convert(inWindow, from: nil)
+                    drawInsertionPoint(in: inView, color: color, turnedOn: true)
+                }
+            }
+        }
+    }
+
+    override func characterIndexForInsertion(at point: NSPoint) -> Int {
+        guard let fold else { return super.characterIndexForInsertion(at: point) }
+        return super.characterIndexForInsertion(at: fold.verticalPoint(fromSpread: point))
+    }
+
+    override func firstRect(forCharacterRange range: NSRange, actualRange: NSRangePointer?) -> NSRect {
+        let rect = super.firstRect(forCharacterRange: range, actualRange: actualRange)
+        guard let fold, let window, rect != .zero else { return rect }
+        let inWindow = window.convertFromScreen(rect)
+        let inView = convert(inWindow, from: nil)
+        let mapped = fold.spreadRect(fromVertical: inView)
+        let back = convert(mapped, to: nil)
+        return window.convertToScreen(back)
+    }
+
+    override func setNeedsDisplay(_ invalidRect: NSRect) {
+        if fold != nil {
+            super.setNeedsDisplay(bounds)
+        } else {
+            super.setNeedsDisplay(invalidRect)
         }
     }
 }

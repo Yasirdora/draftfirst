@@ -70,7 +70,7 @@ final class PageZoomTests: XCTestCase {
             walked.append(zoom)
         }
         XCTAssertEqual(walked.suffix(4), [2, 2, 2, 2], "zooming in stops at the cap")
-        XCTAssertEqual(Array(walked.prefix(6)), PageZoom.stops)
+        XCTAssertEqual(Array(walked.prefix(5)), PageZoom.stops)
     }
 
     func testSteppingStopsAtActualSizeGoingDown() {
@@ -174,13 +174,29 @@ final class PageZoomTests: XCTestCase {
         XCTAssertTrue(PageZoom.isAvailable(.fit, at: 1), "fitting is always something to ask for")
     }
 
-    /// Near actual size the percentage stops toggling and offers the stops
-    /// instead: at the truth, "show me the truth" has nowhere to go.
+    /// Near actual size the percentage stops toggling and offers the named
+    /// sizes instead — unless it is already holding 100% from a toggle, in
+    /// which case the next press is the way back.
     func testThePercentageOffersAMenuNearActualSize() {
         XCTAssertTrue(PageZoom.percentageShowsMenu(at: 1))
         XCTAssertTrue(PageZoom.percentageShowsMenu(at: 1.05))
-        XCTAssertFalse(PageZoom.percentageShowsMenu(at: 1.1))
+        XCTAssertTrue(
+            PageZoom.percentageShowsMenu(at: 1.1),
+            "110% is near enough: a toggle would only nod, so the menu opens instead"
+        )
+        XCTAssertFalse(PageZoom.percentageShowsMenu(at: 1.25))
         XCTAssertFalse(PageZoom.percentageShowsMenu(at: 2))
+        XCTAssertFalse(
+            PageZoom.percentageShowsMenu(at: 1, holdingActualSize: true),
+            "holding 100% from a toggle must still be a toggle, or the way back is a menu"
+        )
+    }
+
+    /// 110% is a pinch grid point, not a stop and not a size the menu names.
+    func testThePercentageMenuDoesNotOfferTheHundredAndTenNotch() {
+        XCTAssertEqual(PageZoom.stops, [1, 1.25, 1.5, 1.75, 2])
+        XCTAssertEqual(PageZoom.namedStops, PageZoom.stops)
+        XCTAssertFalse(PageZoom.stops.contains(where: { abs($0 - 1.1) < 0.0001 }))
     }
 
     // MARK: - Floating chrome

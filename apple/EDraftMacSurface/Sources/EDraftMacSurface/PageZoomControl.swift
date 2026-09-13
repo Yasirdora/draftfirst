@@ -11,9 +11,11 @@ import SwiftUI
 /// The percentage is a button, and the useful thing it does is answer "how big
 /// is this really?" without costing the writer the size they were working at.
 /// One press shows actual size; the next gives back whatever they had — the
-/// window's fit, or the size they chose with plus and minus. At actual size
-/// the answer is already showing, so there the percentage becomes a menu of
-/// the stops instead, chosen by name.
+/// window's fit, or the size they chose with plus and minus. Near actual size
+/// — 110% or below — a toggle would only nod, so the percentage becomes a
+/// menu: Fit to Screen first, then the named sizes. A press that has already
+/// gone to 100% is still a toggle: that is the way back, and a menu would
+/// swallow it.
 struct PageZoomControl: View {
     let editor: EditorState
 
@@ -21,9 +23,15 @@ struct PageZoomControl: View {
         HStack(spacing: 0) {
             step(.zoomOut, symbol: "minus", label: "Zoom Out")
 
-            if PageZoom.percentageShowsMenu(at: editor.zoom) {
+            if PageZoom.percentageShowsMenu(
+                at: editor.zoom, holdingActualSize: editor.holdingActualSize
+            ) {
                 Menu {
-                    ForEach(PageZoom.stops, id: \.self) { stop in
+                    Button("Fit to Screen") {
+                        editor.onZoom?(.fit)
+                    }
+                    Divider()
+                    ForEach(PageZoom.namedStops, id: \.self) { stop in
                         Button {
                             editor.onZoomTo?(stop)
                         } label: {

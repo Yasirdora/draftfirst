@@ -99,6 +99,7 @@ public final class EditorState {
     /// Opens every page break if any are closed, closes them all otherwise.
     /// The surface preserves the viewport so a long document does not jump.
     @ObservationIgnored public var onSetLayoutMode: ((PageLayoutMode) -> Void)?
+    @ObservationIgnored public var onSetArrangement: ((PageArrangement) -> Void)?
 
     /// Whether the writer is editing the script or reading it.
     ///
@@ -115,9 +116,19 @@ public final class EditorState {
     /// the default follows the window, and this follows the default.
     public private(set) var zoom: CGFloat = PageZoom.actualSize
 
+    /// Whether the percentage button is holding actual size, so the next
+    /// press gives back the size the writer had. Reported with the zoom
+    /// because the control needs both to decide whether it is a toggle or
+    /// a menu — at 100% after a toggle, a menu would swallow the way back.
+    public private(set) var holdingActualSize = false
+
     /// Sheets or one column — see `PageLayoutMode`. Held here so a menu can
     /// show which one is on without asking the surface.
     public private(set) var layoutMode: PageLayoutMode = .stored
+
+    /// Single, two-page or grid — see `PageArrangement`. Sheets only;
+    /// Continuous has no facing pages to arrange.
+    public private(set) var arrangement: PageArrangement = .stored
 
     /// The surface reporting the layout it settled on.
     public func reportLayoutMode(_ mode: PageLayoutMode) {
@@ -125,10 +136,22 @@ public final class EditorState {
         layoutMode = mode
     }
 
+    /// The surface reporting the arrangement it settled on.
+    public func reportArrangement(_ mode: PageArrangement) {
+        guard arrangement != mode else { return }
+        arrangement = mode
+    }
+
     /// The surface reporting the size it settled on.
     public func reportZoom(_ value: CGFloat) {
         guard abs(zoom - value) > 0.0001 else { return }
         zoom = value
+    }
+
+    /// The surface reporting whether the percentage button is holding 100%.
+    public func reportHoldingActualSize(_ holding: Bool) {
+        guard holdingActualSize != holding else { return }
+        holdingActualSize = holding
     }
 
     /// The surface reporting what focus did.

@@ -42,3 +42,10 @@ vite.config.ts.timestamp-*
 .build/
 .swiftpm/
 /apple/build-ios/
+# BEGIN cdir
+.codedirector/index.json
+.codedirector/baselines/
+.codedirector/runs/
+.codedirector/ckpt-blobs/
+.codedirector/checkpoints.json
+# END cdir

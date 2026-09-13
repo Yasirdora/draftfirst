@@ -102,3 +102,49 @@ final class SceneSettingFilterTests: XCTestCase {
         )
     }
 }
+
+/// Narrowing and ordering the Navigator's cast list. Matching, not
+/// ranking — `EditorState.cast` already counted the cues; this covers
+/// search and the two ways of looking at the same rows.
+@MainActor
+final class CastListFilterTests: XCTestCase {
+
+    private func cast() -> [CastRow] {
+        [
+            CastRow(id: "WALT", name: "WALT", cues: 5, firstCueID: UUID()),
+            CastRow(id: "ANNA", name: "ANNA", cues: 3, firstCueID: UUID()),
+            CastRow(id: "MIKE", name: "MIKE", cues: 3, firstCueID: UUID())
+        ]
+    }
+
+    func testAnEmptyQueryLeavesEveryone() {
+        XCTAssertEqual(CastListFilter.included(cast(), query: "").count, 3)
+        XCTAssertEqual(CastListFilter.included(cast(), query: "   ").count, 3)
+    }
+
+    func testLeadIsMostCuesThenName() {
+        let visible = CastListFilter.included(cast(), query: "", sort: .lead)
+        XCTAssertEqual(visible.map(\.name), ["WALT", "ANNA", "MIKE"])
+    }
+
+    func testAlphabeticalOrdersByName() {
+        let visible = CastListFilter.included(cast(), query: "", sort: .alphabetical)
+        XCTAssertEqual(visible.map(\.name), ["ANNA", "MIKE", "WALT"])
+    }
+
+    func testANameFragmentNarrowsTheList() {
+        let found = CastListFilter.included(cast(), query: "ann")
+        XCTAssertEqual(found.map(\.name), ["ANNA"])
+    }
+
+    func testNothingMatchingIsEmptyRatherThanGuessed() {
+        XCTAssertTrue(CastListFilter.included(cast(), query: "warehouse").isEmpty)
+    }
+
+    func testTheSearchAndTheSortCompose() {
+        let lead = CastListFilter.included(cast(), query: "a", sort: .lead)
+        XCTAssertEqual(lead.map(\.name), ["WALT", "ANNA"])
+        let alpha = CastListFilter.included(cast(), query: "a", sort: .alphabetical)
+        XCTAssertEqual(alpha.map(\.name), ["ANNA", "WALT"])
+    }
+}

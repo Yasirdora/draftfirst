@@ -32,6 +32,37 @@ final class PageCanvasView: NSView {
     /// a gutter that size every fifty-five lines is what made the read break.
     static let pageGap: CGFloat = 5
 
+    /// The rule between facing pages — a binding, not a gutter.
+    static let spreadHairline: CGFloat = 1
+
+    /// Air between thumbnails in the bird's-eye.
+    static let gridGap: CGFloat = 12
+
+    /// Grid is a map, not a typesetting. Four across is fast to open and
+    /// enough to read as an overview; counting columns from the window
+    /// was slower and no clearer.
+    static let gridColumns = 4
+
+    static func gridColumnCount(
+        viewportWidth: CGFloat, pageWidth: CGFloat, desk: CGFloat
+    ) -> Int {
+        gridColumns
+    }
+
+    /// How far to shrink an opening so both sheets sit in the window.
+    ///
+    /// Never above life size. Width and height both count, so a short
+    /// window does not clip the foot and a narrow one does not clip the
+    /// binding.
+    static func spreadScale(
+        viewport: CGSize, page: CGSize, desk: CGFloat
+    ) -> CGFloat {
+        guard viewport.width > 1, viewport.height > 1 else { return 1 }
+        let pairW = page.width * 2 + spreadHairline + desk * 2
+        let pairH = page.height + desk * 2
+        return min(1, viewport.width / pairW, viewport.height / pairH)
+    }
+
     /// Sheets, or one column. See `PageLayoutMode`; the canvas only draws
     /// what it is told.
     ///
@@ -40,6 +71,18 @@ final class PageCanvasView: NSView {
     /// what some earlier test happened to leave in `UserDefaults`. The
     /// writer's choice arrives through the model, in `bind(to:)`.
     var layoutMode: PageLayoutMode = .pages
+    /// Single, two-page or grid. Ignored in `continuous`.
+    var arrangement: PageArrangement = .single
+    /// A click on a grid sheet. Single and two-page type on the page.
+    var onPickPage: ((Int) -> Void)?
+    /// The sheet a Navigator click lit, if any. Grid only.
+    var highlightedPage: Int? {
+        didSet { if oldValue != highlightedPage { applyAppearance(); needsDisplay = true } }
+    }
+
+    /// How a vertical stack of type maps onto facing pages, in the text
+    /// view's own coordinates.
+    private(set) var spreadFold: SpreadFold?
 
     private var breakMarkers: [PageBreakMarker] = []
     private var noteMarkers: [NoteMarker] = []
@@ -109,8 +152,8 @@ final class PageCanvasView: NSView {
         // is real work — nine hundred subviews moved on a 910-page draft —
         // and the same words in the same mode land on the same paper.
         let signature = PagesSignature(
-            mode: layoutMode, starts: starts, textHeight: textHeight,
-            viewport: viewport, padding: canvasPadding
+            mode: layoutMode, arrangement: arrangement, starts: starts,
+            textHeight: textHeight, viewport: viewport, padding: canvasPadding
         )
         if signature == laidSignature {
             applyAppearance()
@@ -124,6 +167,7 @@ final class PageCanvasView: NSView {
     /// What the last `layoutPages` pass was asked for; a repeat is a no-op.
     private struct PagesSignature: Equatable {
         let mode: PageLayoutMode
+        let arrangement: PageArrangement
         let starts: [CGFloat]
         let textHeight: CGFloat
         let viewport: CGSize
@@ -166,31 +210,70 @@ final class PageCanvasView: NSView {
         // meet; in `continuous` it is one sheet as tall as the script plus the
         // margins it opens and closes with — the ones *between* pages are the
         // 132 points the mode exists to collapse.
-        let stackHeight: CGFloat = switch layoutMode {
-        case .pages:
-            CGFloat(pages) * pageSize.height + CGFloat(pages - 1) * Self.pageGap
-        case .continuous:
-            format.textTop + max(textHeight, textBlock) + ScreenplayPageLayout.textBottom(format)
+        let sheets = layoutMode == .pages ? pages : 1
+        let usingSheets = layoutMode == .pages
+        let arranged = usingSheets ? arrangement : .single
+
+        let columns: Int
+        let rows: Int
+        let colGap: CGFloat
+        let rowGap: CGFloat
+        let scale: CGFloat
+        switch arranged {
+        case .single:
+            columns = 1
+            rows = sheets
+            colGap = 0
+            rowGap = usingSheets ? Self.pageGap : 0
+            scale = 1
+        case .spread:
+            columns = 2
+            rows = (sheets + 1) / 2
+            scale = Self.spreadScale(viewport: viewport, page: pageSize, desk: desk)
+            colGap = Self.spreadHairline * scale
+            rowGap = Self.pageGap * scale
+        case .grid:
+            columns = Self.gridColumns
+            rows = max(1, (sheets + columns - 1) / columns)
+            colGap = Self.gridGap
+            rowGap = Self.gridGap
+            let usable = max(pageSize.width, viewport.width - desk * 2)
+            scale = max(
+                0.12,
+                (usable - colGap * CGFloat(max(0, columns - 1)))
+                    / (pageSize.width * CGFloat(columns))
+            )
         }
 
-        // Exactly the paper and its desk — not the viewport. `CentringClipView`
-        // puts a canvas smaller than the window in the middle of it, so this
-        // stays the same size at every magnification and a pinch has nothing
-        // to re-measure.
-        //
-        // Never shorter than what is on it. The sheets above are sized to
-        // hold the type, and this says the same thing a second time about
-        // the canvas itself — because the one thing that must never happen
-        // is a glyph drawn where the scroll view cannot travel.
-        let canvasWidth = pageSize.width + desk * 2
-        let typeBottom = format.textTop + textHeight + ScreenplayPageLayout.textBottom(format)
-        setFrameSize(CGSize(
-            width: canvasWidth,
-            height: max(stackHeight, typeBottom) + desk * 2
-        ))
+        let card = CGSize(width: pageSize.width * scale, height: pageSize.height * scale)
+        let stackHeight: CGFloat = switch layoutMode {
+        case .continuous:
+            format.textTop + max(textHeight, textBlock) + ScreenplayPageLayout.textBottom(format)
+        case .pages:
+            CGFloat(rows) * card.height + CGFloat(max(0, rows - 1)) * rowGap
+        }
 
-        let x = ((canvasWidth - pageSize.width) / 2).rounded(.down)
-        let sheets = layoutMode == .pages ? pages : 1
+        // Exactly the paper and its desk — not the viewport — except Grid,
+        // which *is* a view of the window: the thumbnails size to what fits.
+        // `CentringClipView` puts a canvas smaller than the window in the
+        // middle of it, so Single and Two-page stay the same size at every
+        // magnification and a pinch has nothing to re-measure.
+        let canvasWidth: CGFloat = switch arranged {
+        case .single:
+            pageSize.width + desk * 2
+        case .spread, .grid:
+            CGFloat(columns) * card.width + CGFloat(max(0, columns - 1)) * colGap + desk * 2
+        }
+        let typeBottom = format.textTop + textHeight + ScreenplayPageLayout.textBottom(format)
+        let canvasHeight: CGFloat = switch arranged {
+        case .grid:
+            stackHeight + desk * 2
+        case .single, .spread:
+            max(stackHeight, arranged == .single ? typeBottom : stackHeight) + desk * 2
+        }
+        setFrameSize(CGSize(width: canvasWidth, height: canvasHeight))
+
+        let x0 = desk
         while pageViews.count < sheets {
             let page = makePageView()
             pageViews.append(page)
@@ -200,28 +283,37 @@ final class PageCanvasView: NSView {
             pageViews.removeLast().removeFromSuperview()
         }
         for index in 0..<sheets {
-            // Under the line that begins this page, when the caller has
-            // measured it. The text view sits at `desk + textTop`, so a page
-            // beginning at y in its coordinates puts its sheet's top at
-            // `desk + y`.
+            let col = index % columns
+            let row = index / columns
             let top: CGFloat
-            if layoutMode == .pages, let starts, index < starts.count {
+            if arranged == .single, usingSheets, let starts, index < starts.count {
                 // Measured from the first page's own start rather than from
                 // the text view's origin. The text view begins one line above
                 // the text block and insets its text back down by the same
                 // amount (`glyphOverflow`, so a tall glyph has somewhere to
                 // go), and a rectangle measured inside it carries that inset.
-                // Taking the difference cancels it, whatever it is, instead of
-                // subtracting a constant that has to be kept in step.
                 top = desk + starts[index] - starts[0]
             } else {
-                top = desk + CGFloat(index) * (pageSize.height + Self.pageGap)
+                top = desk + CGFloat(row) * (card.height + rowGap)
             }
             pageViews[index].frame = CGRect(
-                x: x,
+                x: x0 + CGFloat(col) * (card.width + colGap),
                 y: top,
-                width: pageSize.width,
-                height: layoutMode == .pages ? pageSize.height : stackHeight
+                width: card.width,
+                height: usingSheets ? card.height : stackHeight
+            )
+            pageViews[index].layer?.contents = nil
+        }
+
+        syncGridChrome()
+
+        spreadFold = nil
+        if arranged == .spread, let starts, !starts.isEmpty {
+            spreadFold = SpreadFold(
+                pageTops: starts.map { $0 - starts[0] },
+                columnPitch: pageSize.width + Self.spreadHairline,
+                rowPitch: pageSize.height + Self.pageGap,
+                scale: scale
             )
         }
 
@@ -241,14 +333,60 @@ final class PageCanvasView: NSView {
         if let textView, textView.textContainerInset != inset {
             textView.textContainerInset = inset
         }
+        let textWidthOnCanvas: CGFloat = switch arranged {
+        case .spread: (textWidth + pageSize.width + Self.spreadHairline) * scale
+        case .single, .grid: textWidth
+        }
+        let textHeightOnCanvas: CGFloat = switch arranged {
+        case .spread:
+            (max(CGFloat(rows) * (pageSize.height + Self.pageGap) - Self.pageGap, textBlock, 1)
+                + slack * 2) * scale
+        case .single, .grid:
+            max(textHeight, usingSheets ? lastTextBottom : textHeight, 1) + slack * 2
+        }
         textView?.frame = CGRect(
-            x: x + ScreenplayPageLayout.textLeft,
-            y: desk + format.textTop - slack,
-            width: textWidth,
-            height: max(textHeight, layoutMode == .pages ? lastTextBottom : textHeight, 1) + slack * 2
+            x: x0 + ScreenplayPageLayout.textLeft * scale,
+            y: desk + (format.textTop - slack) * scale,
+            width: textWidthOnCanvas,
+            height: textHeightOnCanvas
         )
+        textView?.isHidden = arranged == .grid
         applyAppearance()
         needsDisplay = true
+    }
+
+    func pageIndex(at point: CGPoint) -> Int? {
+        pageViews.firstIndex { $0.frame.contains(point) }
+    }
+
+    /// Grid opens a sheet on the second click. A first click is not a jump.
+    func handleGridClick(at point: CGPoint, count: Int) {
+        guard arrangement == .grid, count >= 2, let index = pageIndex(at: point) else { return }
+        onPickPage?(index)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard arrangement == .grid else {
+            super.mouseDown(with: event)
+            return
+        }
+        handleGridClick(at: convert(event.locationInWindow, from: nil), count: event.clickCount)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard layoutMode == .pages, arrangement == .spread, pageViews.count >= 2 else { return }
+        NSColor.separatorColor.withAlphaComponent(0.7).setStroke()
+        let line = NSBezierPath()
+        line.lineWidth = 0.5
+        for i in stride(from: 0, to: pageViews.count - 1, by: 2) {
+            let left = pageViews[i].frame
+            let right = pageViews[i + 1].frame
+        let x = (left.maxX + right.minX) / 2
+            line.move(to: NSPoint(x: x, y: left.minY))
+            line.line(to: NSPoint(x: x, y: left.maxY))
+        }
+        line.stroke()
     }
 
     /// Puts a marker at each page boundary.
@@ -437,13 +575,59 @@ final class PageCanvasView: NSView {
                 // applied every time the appearance changes, by which point
                 // there is always a layer.
                 page.layer?.backgroundColor = NSColor.screenplayPaper.cgColor
-                page.layer?.borderWidth = 0
                 page.layer?.cornerRadius = 2
                 page.layer?.shadowColor = NSColor.black.cgColor
                 page.layer?.shadowRadius = 8
                 page.layer?.shadowOffset = CGSize(width: 0, height: -1)
                 page.layer?.shadowOpacity = 0.22
             }
+            if arrangement == .grid { syncGridChrome() }
+        }
+    }
+
+    func highlightGridPage(_ index: Int) {
+        highlightedPage = index
+        syncGridChrome()
+        guard index >= 0, index < pageViews.count else { return }
+        scrollToVisible(pageViews[index].frame.insetBy(dx: 0, dy: -16))
+    }
+
+    private var gridLabels: [NSTextField] = []
+
+    /// Page numbers on the map, and the one sheet a Navigator click lit.
+    /// Cheap on purpose: Grid must open without snapshotting the script.
+    private func syncGridChrome() {
+        let grid = layoutMode == .pages && arrangement == .grid
+        while gridLabels.count < pageViews.count {
+            let label = NSTextField(labelWithString: "")
+            label.alignment = .center
+            label.font = .systemFont(ofSize: 22, weight: .medium)
+            label.textColor = .tertiaryLabelColor
+            label.isBordered = false
+            label.drawsBackground = false
+            label.isSelectable = false
+            gridLabels.append(label)
+        }
+        while gridLabels.count > pageViews.count {
+            gridLabels.removeLast().removeFromSuperview()
+        }
+        for (index, page) in pageViews.enumerated() {
+            let label = gridLabels[index]
+            if grid {
+                if label.superview !== page { page.addSubview(label) }
+                label.stringValue = "\(index + 1)"
+                label.sizeToFit()
+                label.frame.origin = CGPoint(
+                    x: (page.bounds.width - label.frame.width) / 2,
+                    y: (page.bounds.height - label.frame.height) / 2
+                )
+                label.isHidden = false
+            } else {
+                label.isHidden = true
+            }
+            let lit = grid && highlightedPage == index
+            page.layer?.borderWidth = lit ? 3 : 0
+            page.layer?.borderColor = NSColor.controlAccentColor.cgColor
         }
     }
 
@@ -452,5 +636,61 @@ final class PageCanvasView: NSView {
         page.wantsLayer = true
         // What it looks like is `applyAppearance`'s, all of it — see there.
         return page
+    }
+}
+
+/// Vertical type folded onto facing pages.
+///
+/// Layout still happens as a column — the same bands, the same page
+/// starts — and drawing and hit-testing ask this where that column sits
+/// on an open book. Pagination is not consulted; the starts already are.
+struct SpreadFold: Equatable {
+    let pageTops: [CGFloat]
+    let columnPitch: CGFloat
+    let rowPitch: CGFloat
+    /// 1 is life size. Smaller when the opening is fitted to the window.
+    var scale: CGFloat = 1
+
+    func pageIndex(atVerticalY y: CGFloat) -> Int {
+        guard pageTops.count > 1 else { return 0 }
+        var i = 0
+        while i + 1 < pageTops.count, pageTops[i + 1] <= y + 0.01 {
+            i += 1
+        }
+        return i
+    }
+
+    func spreadPoint(fromVertical p: CGPoint) -> CGPoint {
+        let page = pageIndex(atVerticalY: p.y)
+        let col = page % 2
+        let row = page / 2
+        let top = page < pageTops.count ? pageTops[page] : 0
+        let s = scale
+        return CGPoint(
+            x: (p.x + CGFloat(col) * columnPitch) * s,
+            y: (CGFloat(row) * rowPitch + (p.y - top)) * s
+        )
+    }
+
+    func verticalPoint(fromSpread p: CGPoint) -> CGPoint {
+        let s = max(scale, 0.0001)
+        let q = CGPoint(x: p.x / s, y: p.y / s)
+        let col = q.x >= columnPitch - 0.5 ? 1 : 0
+        let row = max(0, Int((q.y / max(rowPitch, 1)).rounded(.down)))
+        let page = min(pageTops.count - 1, max(0, row * 2 + col))
+        let top = pageTops.indices.contains(page) ? pageTops[page] : 0
+        let yInPage = q.y - CGFloat(row) * rowPitch
+        return CGPoint(
+            x: q.x - CGFloat(col) * columnPitch,
+            y: top + yInPage
+        )
+    }
+
+    func spreadRect(fromVertical r: CGRect) -> CGRect {
+        let origin = spreadPoint(fromVertical: r.origin)
+        return CGRect(
+            origin: origin,
+            size: CGSize(width: r.width * scale, height: r.height * scale)
+        )
     }
 }

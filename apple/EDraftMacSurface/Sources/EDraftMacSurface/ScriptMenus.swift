@@ -101,6 +101,20 @@ public enum ScriptMenus {
         }
     }
 
+    /// Single · Two-page · Grid. Radio state is set as the menu validates.
+    public static func arrangementItems() -> [NSMenuItem] {
+        PageArrangement.allCases.map { mode in
+            let item = NSMenuItem(
+                title: mode.title,
+                action: #selector(ScriptWindowController.setArrangement(_:)),
+                keyEquivalent: ""
+            )
+            item.image = NSImage(systemSymbolName: mode.symbol, accessibilityDescription: nil)
+            item.representedObject = mode
+            return item
+        }
+    }
+
     /// Zoom In · Zoom Out · Actual Size · Zoom to Fit, with Preview's keys.
     public static func zoomItems() -> [NSMenuItem] {
         [
@@ -122,8 +136,6 @@ public enum ScriptMenus {
         menu.addItem(note)
         menu.addItem(.separator())
         layoutItems().forEach(menu.addItem)
-        menu.addItem(.separator())
-        zoomItems().forEach(menu.addItem)
         return menu
     }
 }

@@ -61,33 +61,60 @@ final class PageZoomSurfaceTests: XCTestCase {
     // MARK: - The percentage button
 
     func testTheButtonShowsActualSizeAndGivesTheOpeningSizeBack() {
-        let (_, surface) = windowed(1470)
+        let (editor, surface) = windowed(1470)
 
         surface.applyZoom(.toggleActualSize)
         XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01,
                        "the first press should show the page at its true size")
+        XCTAssertTrue(editor.holdingActualSize)
+        XCTAssertFalse(
+            PageZoom.percentageShowsMenu(at: editor.zoom, holdingActualSize: editor.holdingActualSize),
+            "landing on 100% turned the toggle into a menu, so the way back was lost"
+        )
 
         surface.applyZoom(.toggleActualSize)
         XCTAssertEqual(surface.scrollView.magnification, PageZoom.opening, accuracy: 0.01,
                        "the second press should give back the size being worked at")
+        XCTAssertFalse(editor.holdingActualSize)
+    }
+
+    /// At 110% or below the percentage is a menu, not a trip to 100%. Going
+    /// to 100% first and *then* offering the list is how a press at 110%
+    /// used to behave, and it is the wrong one.
+    func testAtOneHundredAndTenThePercentageOffersTheMenuRatherThanToggling() {
+        let (editor, surface) = windowed(1470)
+        surface.applyChosenSize(1.1)
+        XCTAssertEqual(surface.scrollView.magnification, 1.1, accuracy: 0.01)
+
+        XCTAssertFalse(editor.holdingActualSize)
+        XCTAssertTrue(
+            PageZoom.percentageShowsMenu(at: editor.zoom, holdingActualSize: editor.holdingActualSize),
+            "at 110% the control should offer the sizes, not step to 100% first"
+        )
     }
 
     /// "If a user already selected a zoom, it will be that zoom percentage and
     /// then 100%."
     func testTheButtonRemembersASizeTheWriterChose() {
-        let (_, surface) = windowed(1470)
+        let (editor, surface) = windowed(1470)
         surface.applyZoom(.zoomIn)
         let chosen = surface.scrollView.magnification
         XCTAssertEqual(chosen, 1.5, accuracy: 0.01, "one step up from the opening 1.25")
 
         surface.applyZoom(.toggleActualSize)
         XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
+        XCTAssertTrue(editor.holdingActualSize)
+        XCTAssertFalse(
+            PageZoom.percentageShowsMenu(at: editor.zoom, holdingActualSize: editor.holdingActualSize),
+            "a toggle from 150% became a menu at 100% instead of waiting to restore"
+        )
 
         surface.applyZoom(.toggleActualSize)
         XCTAssertEqual(
             surface.scrollView.magnification, chosen, accuracy: 0.01,
             "the writer's own size was lost behind the percentage button"
         )
+        XCTAssertFalse(editor.holdingActualSize)
     }
 
     /// ⌘0 and the button are the same gesture reached two ways, so the button
@@ -320,14 +347,35 @@ final class PinchToZoomTests: XCTestCase {
 
     /// The percentage button still knows where to go back to afterwards.
     func testTheButtonReturnsToAPinchedSize() {
-        let (_, surface) = windowed(1200)
+        let (editor, surface) = windowed(1200)
         pinch(surface, to: 1.6)
 
         surface.applyZoom(.toggleActualSize)
         XCTAssertEqual(surface.scrollView.magnification, PageZoom.actualSize, accuracy: 0.01)
+        XCTAssertTrue(editor.holdingActualSize)
+        XCTAssertFalse(
+            PageZoom.percentageShowsMenu(at: editor.zoom, holdingActualSize: editor.holdingActualSize),
+            "a toggle from a pinched size became a menu at 100%"
+        )
 
         surface.applyZoom(.toggleActualSize)
         XCTAssertEqual(surface.scrollView.magnification, 1.6, accuracy: 0.01)
+        XCTAssertFalse(editor.holdingActualSize)
+    }
+
+    /// A trackpad can sit on 110%. That is near enough that the percentage
+    /// offers the named sizes instead of toggling to 100% — toggling first
+    /// and then showing the list is the wrong shape.
+    func testAPinchOntoOneHundredAndTenOffersTheMenu() {
+        let (editor, surface) = windowed(1200)
+        pinch(surface, to: 1.1)
+
+        XCTAssertEqual(editor.zoom, 1.1, accuracy: 0.01)
+        XCTAssertFalse(editor.holdingActualSize)
+        XCTAssertTrue(
+            PageZoom.percentageShowsMenu(at: editor.zoom, holdingActualSize: editor.holdingActualSize),
+            "a pinched 110% should open the sizes, not step to 100%"
+        )
     }
 }
 
@@ -535,7 +583,7 @@ extension PinchToZoomTests {
 
         surface.applyZoom(.zoomIn)
         let chosen = surface.scrollView.magnification
-        XCTAssertEqual(chosen, 1.1, accuracy: 0.01, "one stop up from the lent 100%")
+        XCTAssertEqual(chosen, 1.25, accuracy: 0.01, "one stop up from the lent 100%")
 
         surface.scrollView.frame = NSRect(x: 0, y: 0, width: 855, height: 700)
         surface.scrollView.layoutSubtreeIfNeeded()

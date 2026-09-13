@@ -41,8 +41,12 @@ public nonisolated enum PageZoom {
     public static let maximum: CGFloat = 2
 
     /// The stops ⌘+ and ⌘− walk between. Coarse on purpose: a writer choosing
-    /// a size wants a different size, not a nudge.
-    public static let stops: [CGFloat] = [1, 1.1, 1.25, 1.5, 1.75, 2]
+    /// a size wants a different size, not a nudge. The same list the
+    /// percentage menu offers by name. 110% is a pinch grid point, not a stop.
+    public static let stops: [CGFloat] = [1, 1.25, 1.5, 1.75, 2]
+
+    /// The sizes the percentage menu offers by name — the same list as `stops`.
+    public static let namedStops: [CGFloat] = stops
 
     /// The grid a pinch settles onto: every five points. Every stop above
     /// already stands on it, so a size arrived at by hand and a size arrived
@@ -132,13 +136,22 @@ public nonisolated enum PageZoom {
     }
 
     /// Whether the control's percentage acts as a menu rather than the
-    /// actual-size toggle. The toggle answers "how big is this really?" by
-    /// going away to actual size and back — at actual size it is already
-    /// there, and a press would only nod. So near the truth the control
-    /// offers the stops by name instead, and the toggle keeps its place
-    /// everywhere else.
-    public static func percentageShowsMenu(at zoom: CGFloat) -> Bool {
-        displayedPercentage(zoom) < 110
+    /// actual-size toggle.
+    ///
+    /// The toggle answers "how big is this really?" by going away to actual
+    /// size and back — a press at 150% shows 100%, the next press gives 150%
+    /// back. That second press must still be a toggle: if the control became
+    /// a menu the moment it landed on 100%, the way back would be swallowed.
+    /// `holdingActualSize` is that first press still in flight.
+    ///
+    /// Near the truth — 110% or below — a toggle to 100% is a nod, not an
+    /// answer, so the control offers the named sizes instead of moving the
+    /// page. A pinch can sit on 110%; that is close enough to count as near.
+    public static func percentageShowsMenu(
+        at zoom: CGFloat, holdingActualSize: Bool = false
+    ) -> Bool {
+        guard !holdingActualSize else { return false }
+        return displayedPercentage(zoom) <= 110
     }
 
     /// What the writer asked for.

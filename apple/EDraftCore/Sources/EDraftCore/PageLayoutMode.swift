@@ -46,3 +46,48 @@ public nonisolated enum PageLayoutMode: String, CaseIterable, Sendable {
         defaults.set(mode.rawValue, forKey: defaultsKey)
     }
 }
+
+/// How the sheets sit on the desk, when they are sheets.
+///
+/// Pages vs Continuous is whether the script is sheets at all. This is what
+/// you do with the sheets: one column, an open book, or a bird's-eye of
+/// every sheet. Grid is a map — not a writing surface.
+public nonisolated enum PageArrangement: String, CaseIterable, Sendable, Identifiable {
+    /// Today's Pages: one sheet under the next.
+    case single
+    /// Facing sheets, a hairline between them, like an open book.
+    case spread
+    /// A bird's-eye of the sheets, as many across as the window will take.
+    case grid
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .single: "Single"
+        case .spread: "Two-page"
+        case .grid: "Grid"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .single: "rectangle.portrait"
+        case .spread: "book.pages"
+        case .grid: "square.grid.3x3"
+        }
+    }
+
+    public static let defaultsKey = "PageArrangement"
+
+    public static var stored: PageArrangement { read(from: .standard) }
+
+    public static func read(from defaults: UserDefaults) -> PageArrangement {
+        defaults.string(forKey: defaultsKey).flatMap(PageArrangement.init(rawValue:)) ?? .single
+    }
+
+    public static func store(_ mode: PageArrangement, in defaults: UserDefaults = .standard) {
+        defaults.set(mode.rawValue, forKey: defaultsKey)
+    }
+}
+
