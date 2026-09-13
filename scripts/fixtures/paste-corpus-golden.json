@@ -9,19 +9,31 @@
     ],
     "endCardsDropped": 4,
     "cardCues": [],
+    "artifactsStripped": 56,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 0,
     "scenes": 69
   },
   "corpus-1.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
+    "artifactsStripped": 191,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 0,
     "scenes": 90
   },
   "corpus-6.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "scenes": 74
+    "artifactsStripped": 318,
+    "artifactElements": 0,
+    "numberedScenes": 53,
+    "omittedScenes": 13,
+    "scenes": 127
   },
   "emilia-perez.txt": {
     "actbreaks": [],
@@ -31,66 +43,110 @@
       "END 3M19 POR CASUALIDAD",
       "END OF 4M26 MI CAMINO"
     ],
+    "artifactsStripped": 266,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 0,
     "scenes": 106
   },
   "episode-101.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "scenes": 90
+    "artifactsStripped": 333,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 9,
+    "scenes": 99
   },
   "foryourcon.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
+    "artifactsStripped": 96,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 0,
     "scenes": 57
   },
   "from-the-black.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
+    "artifactsStripped": 175,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 0,
     "scenes": 189
   },
   "gone-girl.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "scenes": 1
+    "artifactsStripped": 42,
+    "artifactElements": 0,
+    "numberedScenes": 244,
+    "omittedScenes": 0,
+    "scenes": 245
   },
   "heat.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
+    "artifactsStripped": 14,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 0,
     "scenes": 246
   },
   "lalaland.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
+    "artifactsStripped": 157,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 0,
     "scenes": 113
   },
   "manchester.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
+    "artifactsStripped": 114,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 0,
     "scenes": 177
   },
   "no-country.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
+    "artifactsStripped": 117,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 0,
     "scenes": 150
   },
   "pasted-26.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
+    "artifactsStripped": 10,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 0,
     "scenes": 274
   },
   "whiplash.txt": {
     "actbreaks": [],
     "endCardsDropped": 0,
     "cardCues": [],
-    "scenes": 114
+    "artifactsStripped": 9,
+    "artifactElements": 0,
+    "numberedScenes": 0,
+    "omittedScenes": 17,
+    "scenes": 131
   }
 }

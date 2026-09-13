@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * Paste-route corpus gate (RFC-ACT-BREAK phase 3).
+ * Paste-route corpus gate (RFC-ACT-BREAK phase 3; routing pack, step 1).
  *
  * Runs the engine's plain-text import — the same classifier the paste
  * route feeds — over the local scripts corpus and holds it to the facts
@@ -12,6 +12,12 @@
  *   every other file  zero actbreaks, zero end-of-act drops — measured
  *                     true of the corpus before this gate existed, so a
  *                     change here is a false positive introduced, named.
+ *   every file        zero pagination artifacts stored — page numbers,
+ *                     (MORE), CONTINUED are the printed page's furniture;
+ *                     and the numbered scene headings and OMITTED cards
+ *                     the corpus witnesses (gone-girl's 244 flanked
+ *                     headings, corpus-6's 40 numbered and 13 omitted)
+ *                     land as scenes with their numbers homed.
  *
  * The corpus is not committed (the scripts are not ours to ship), so the
  * golden facts are: scripts/fixtures/paste-corpus-golden.json. Without the
@@ -43,7 +49,7 @@ if (!existsSync(corpusDir)) {
 	console.log(`paste-corpus gate: no corpus at ${corpusDir} — skipped (scripts are not committed)`);
 	process.exit(0);
 }
-const { importPlainText } = await import(pathToFileURL(enginePath).href);
+const { importPlainText, isPaginationArtifact } = await import(pathToFileURL(enginePath).href);
 
 /* A card line adopted as a speaker: the exact failure this phase removes. */
 const CARD_CUE = /^(ACT\s|TEASER$|COLD OPEN$|END\s)/;
@@ -55,10 +61,18 @@ function panelOf(file) {
 		const m = /^dropped (\d+) end-of-act card/.exec(w);
 		return m ? n + Number(m[1]) : n;
 	}, 0);
+	const stripped = report.warnings.reduce((n, w) => {
+		const m = /^stripped (\d+) pagination artifact/.exec(w);
+		return m ? n + Number(m[1]) : n;
+	}, 0);
 	return {
 		actbreaks: script.elements.filter((e) => e.type === 'actbreak').map((e) => e.text),
 		endCardsDropped: dropped,
 		cardCues: report.characters.filter((name) => CARD_CUE.test(name)),
+		artifactsStripped: stripped,
+		artifactElements: script.elements.filter((e) => isPaginationArtifact(e.text)).length,
+		numberedScenes: script.elements.filter((e) => e.sceneNumber !== undefined).length,
+		omittedScenes: script.elements.filter((e) => e.type === 'scene' && e.text === 'OMITTED').length,
 		scenes: report.scenes /* informational — never gated */
 	};
 }
@@ -112,7 +126,23 @@ for (const [file, panel] of Object.entries(panels)) {
 			panel.cardCues,
 			golden[file].cardCues
 		);
+		check(
+			'matches the recorded golden (artifacts stripped)',
+			panel.artifactsStripped,
+			golden[file].artifactsStripped
+		);
+		check(
+			'matches the recorded golden (numbered scenes)',
+			panel.numberedScenes,
+			golden[file].numberedScenes
+		);
+		check(
+			'matches the recorded golden (omitted scenes)',
+			panel.omittedScenes,
+			golden[file].omittedScenes
+		);
 	}
+	check('no pagination artifact is stored', panel.artifactElements, 0);
 }
 
 if (failures > 0) {

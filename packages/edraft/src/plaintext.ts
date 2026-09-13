@@ -37,7 +37,8 @@ const CONTINUED = /^\(?CONTINUED\)?[.:]?$/i;
 const TYPEWRITER_TAB_INCHES = 0.8;
 const TYPEWRITER_SPACE_INCHES = 0.1;
 
-function isArtifact(text: string): boolean {
+/** Whether the line is furniture of the printed page — page number, (MORE), CONTINUED. */
+export function isPaginationArtifact(text: string): boolean {
 	return PAGE_NUMBER.test(text) || MORE.test(text) || CONTD.test(text) || CONTINUED.test(text);
 }
 
@@ -79,7 +80,7 @@ export function importPlainText(source: string, options: PlainTextImportOptions 
 				attached = false;
 				continue;
 			}
-			if (isArtifact(trimmed)) {
+			if (isPaginationArtifact(trimmed)) {
 				stripped++;
 				continue; /* attachment survives — (MORE) splits a speech, not a thought */
 			}

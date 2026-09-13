@@ -31,8 +31,10 @@ final class PasteCorpusGateTests: XCTestCase {
             with: source,
             intent: .multilinePaste,
             kindForNewElement: { previous, text, depth in
+                // The route the surfaces take: a paste's signal-less line
+                // falls back to prose (a paste is not typing).
                 EditorState(source: "").kindForInsertedElement(
-                    after: previous, text: text, pasteDepth: depth
+                    after: previous, text: text, pasteDepth: depth, fallback: .action
                 )
             }
         )?.elements ?? []
@@ -81,6 +83,63 @@ final class PasteCorpusGateTests: XCTestCase {
                 elements.filter { Acts.isEndActCard($0.text) }.count, 0,
                 "\(file) stores no end-of-act card"
             )
+        }
+    }
+
+    /// The printed page's furniture never reaches the model (routing pack,
+    /// step 1): 1,898 artifact lines stripped across the corpus, none
+    /// stored. Matches the TypeScript gate's hard check.
+    func testNoScriptStoresAPaginationArtifact() throws {
+        guard FileManager.default.fileExists(atPath: corpusDir) else {
+            throw XCTSkip("no corpus at \(corpusDir) — the scripts are not committed")
+        }
+        for file in try corpusFiles() {
+            let source = try String(contentsOfFile: "\(corpusDir)/\(file)", encoding: .utf8)
+            let elements = paste(source)
+            XCTAssertEqual(
+                elements.filter { PasteHeuristics.isPaginationArtifact($0.text) }.count, 0,
+                "\(file) stores no page number, (MORE) or CONTINUED"
+            )
+        }
+    }
+
+    /// The numbered headings and OMITTED cards the corpus witnesses land
+    /// as scenes with their numbers homed — gone-girl's 244 flanked
+    /// headings, corpus-6's 53 numbered scenes and 13 omitted cards. The
+    /// counts are this route's own observed truth, pinned file by file.
+    func testNumberedAndOmittedScenesCarryTheirNumbers() throws {
+        guard FileManager.default.fileExists(atPath: corpusDir) else {
+            throw XCTSkip("no corpus at \(corpusDir) — the scripts are not committed")
+        }
+        /// Measured on this route and pinned — it agrees with the
+        /// TypeScript engine's golden file for file.
+        let expected: [String: (numbered: Int, omitted: Int)] = [
+            "breaking-bad.txt": (0, 0),
+            "corpus-1.txt": (0, 0),
+            "corpus-6.txt": (53, 13),
+            "emilia-perez.txt": (0, 0),
+            "episode-101.txt": (0, 9),
+            "foryourcon.txt": (0, 0),
+            "from-the-black.txt": (0, 0),
+            "gone-girl.txt": (244, 0),
+            "heat.txt": (0, 0),
+            "lalaland.txt": (0, 0),
+            "manchester.txt": (0, 0),
+            "no-country.txt": (0, 0),
+            "pasted-26.txt": (0, 0),
+            "whiplash.txt": (0, 17)
+        ]
+        for file in try corpusFiles() {
+            let source = try String(contentsOfFile: "\(corpusDir)/\(file)", encoding: .utf8)
+            let elements = paste(source)
+            let numbered = elements.filter { $0.sceneNumber != nil }.count
+            let omitted = elements.filter { $0.type == .scene && $0.text == "OMITTED" }.count
+            if let pin = expected[file] {
+                XCTAssertEqual(numbered, pin.numbered, "\(file) numbered scenes")
+                XCTAssertEqual(omitted, pin.omitted, "\(file) omitted scenes")
+            } else {
+                XCTFail("\(file): unmeasured — numbered \(numbered), omitted \(omitted)")
+            }
         }
     }
 }
