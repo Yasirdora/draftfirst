@@ -20,6 +20,13 @@
  *                     cards the corpus witnesses (gone-girl's 271 numbered
  *                     scenes, corpus-6's 40 numbered and 13 omitted) land
  *                     as scenes with their numbers homed.
+ *   every file        speech/action boundaries pinned per script: since
+ *                     the edge tell, an attached dialogue→action pair is a
+ *                     deliberate, measured boundary — action rejoining the
+ *                     left margin past the speech column. Before the tell
+ *                     the rule was hard zero (no wrap ever split a speech);
+ *                     now the golden holds each file's count, and a move
+ *                     means the tell's behaviour moved — review it.
  *
  * The corpus is not committed (the scripts are not ours to ship), so the
  * golden facts are: scripts/fixtures/paste-corpus-golden.json. Without the
@@ -84,12 +91,14 @@ function panelOf(file) {
 		/* a revision asterisk left sitting on stored text — gone-girl carried
 		   616 of them before the strip; zero is the rule now */
 		starTailedElements: script.elements.filter((e) => /[^*]\*$|^\*$/.test(e.text)).length,
-		/* the route's shape rule, pinned against the breaking-bad regression:
-		   a speech never splits AT ITS WRAP — an action-typed continuation
-		   attached to the speech (no blank line between). A blank-separated
-		   action paragraph after a speech is correct typing, not a split:
-		   the pasted-26 NUL glue used to swallow those paragraphs into the
-		   speech, which is how the old golden read zero */
+		/* the route's boundary rule, redefined with the edge tell: an action
+		   attached to the speech above it (no blank line between) is now the
+		   tell's deliberate speech→action boundary — action rejoining the
+		   wide column the speech never reaches. Before the tell, zero was
+		   the rule (the pasted-26 NUL glue used to swallow those paragraphs
+		   into the speech, which is how the old golden read zero); now the
+		   golden pins each file's measured boundary count, and a move means
+		   the tell's behaviour moved */
 		dialogueActionSplits: classified.filter(
 			(line, i) =>
 				line.type === 'action' && line.raw.attached === true && classified[i - 1]?.type === 'dialogue'
@@ -167,10 +176,14 @@ for (const [file, panel] of Object.entries(panels)) {
 			panel.centeredElements,
 			golden[file].centeredElements
 		);
+		check(
+			'matches the recorded golden (speech/action boundaries)',
+			panel.dialogueActionSplits,
+			golden[file].dialogueActionSplits
+		);
 	}
 	check('no pagination artifact is stored', panel.artifactElements, 0);
 	check('no revision asterisk is stored', panel.starTailedElements, 0);
-	check('no speech splits at its wrap', panel.dialogueActionSplits, 0);
 }
 
 if (failures > 0) {

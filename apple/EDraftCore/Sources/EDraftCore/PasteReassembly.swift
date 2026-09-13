@@ -398,6 +398,43 @@ nonisolated enum PasteHeuristics {
             && text == text.uppercased()
     }
 
+    /// A sentence's end — terminal punctuation, then any closing quotes or
+    /// brackets riding its tail: the edge tell's witness that a speech's
+    /// last line closed a thought before the wide line arrived.
+    static func endsWithTerminalSentence(_ text: String) -> Bool {
+        var tail = Substring(text)
+        while let last = tail.last, ["'", "\"", "”", "’", ")"].contains(last) {
+            tail = tail.dropLast()
+        }
+        guard let last = tail.last else { return false }
+        return last == "." || last == "!" || last == "?" || last == "…"
+    }
+
+    /// The edge tell (lalaland ×3 pinned in the engine's classify tests; the
+    /// writer reported the class across scripts). A hard-wrapped source
+    /// preserves two print columns: dialogue wraps narrow (every corpus
+    /// file's dialogue column is ≤ 43 once cue-shaped furniture is excluded)
+    /// and action wide (54–66). A line running past both the narrow-column
+    /// ceiling and the speech's own running edge is action rejoining the
+    /// left margin, not more speech. The 46 floor protects a short-opened
+    /// speech ("Shit." then a ≤46 continuation); the +6 absorbs the jitter
+    /// of proportional words in a fixed column. Three guards keep the tell
+    /// honest where geometry alone lies: a speech boundary falls at a
+    /// sentence boundary; a parenthetical-led line is speech furniture,
+    /// however wide (emilia-perez ×13); and a lowercase or inverted-mark
+    /// opening continues a sentence, whichever column the line above was.
+    /// The residue it cannot see: translation-paired dialogue that wraps
+    /// past the dialogue column (emilia-perez's pleas, 50–57) is
+    /// geometrically identical to action.
+    static func speechEndsHere(edge: Int, lastLine: String, line: String) -> Bool {
+        let count = line.utf16.count
+        guard count > 46, count > edge + 6 else { return false }
+        guard endsWithTerminalSentence(lastLine) else { return false }
+        if let first = line.first {
+            if first == "(" || first == "¿" || first == "¡" || first.isLowercase { return false }
+        }
+        return true
+    }
 }
 
 /// What a hard-wrapped paste means.
@@ -750,7 +787,19 @@ public nonisolated enum PasteReassembly {
                     kind = .action
                     current = []
                 default:
-                    break   // prose after prose continues the paragraph
+                    // Prose after prose continues the paragraph — unless the
+                    // paragraph is a speech and this line outruns its column:
+                    // action rejoining the left margin. The edge tell, shared
+                    // with the TypeScript engine (classify.ts, rule 7).
+                    if kind == .dialogue, let last = current.last,
+                       PasteHeuristics.speechEndsHere(
+                           edge: current.map({ $0.utf16.count }).max() ?? 0,
+                           lastLine: last,
+                           line: unstarred
+                       ) {
+                        flush()
+                        kind = .action
+                    }
                 }
                 current.append(unstarred)
             }

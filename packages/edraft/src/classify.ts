@@ -81,6 +81,9 @@ const FADE_OR_IRIS = /^(FADE (IN|OUT|TO)\b|IRIS (IN|OUT)\b)/i;
 const SHOT_INTRO = /^(ANGLE ON|CLOSER? ON|CLOSEUP|INSERT|POV|WIDE( ON| SHOT)?|CRANE SHOT|TRACKING SHOT|AERIAL( SHOT)?|ESTABLISHING SHOT|SHOT)\b/;
 const MAX_CUE_CHARACTERS = 42;
 const TERMINAL_PUNCT = /[.!?…]$/;
+/* a speech's last line closes a sentence — punctuation first, then any
+   closing quotes or brackets riding its tail */
+const TERMINAL_SENTENCE = /[.!?…]['"”’)]*$/;
 const TRAILING_PARENS = /(\s*\([^()]*\)\s*)+$/;
 
 /** Types whose wrapped continuation lines merge back into one element. */
@@ -131,7 +134,13 @@ function verdict(raw: RawLine, type: ElementType, confidence: ImportConfidence, 
  * character rule consults `prev` even across a blank line, while speech
  * continuation requires true attachment (no blank line between).
  */
-function classifyLine(raw: RawLine, text: string, prev: ClassifiedLine | undefined, attached: boolean): ClassifiedLine {
+function classifyLine(
+	raw: RawLine,
+	text: string,
+	prev: ClassifiedLine | undefined,
+	attached: boolean,
+	speechEdge: number
+): ClassifiedLine {
 	/* 1. an explicit source style is the strongest evidence there is */
 	if (raw.styleName !== undefined) {
 		const styled = typeFromStyleName(raw.styleName);
@@ -184,7 +193,32 @@ function classifyLine(raw: RawLine, text: string, prev: ClassifiedLine | undefin
 		if (cueShape(text)) {
 			return verdict(raw, 'character', 'medium', 'uppercase cue interrupts the speech above it');
 		}
-		return verdict(raw, 'dialogue', 'medium', 'continues the speech');
+		/* The edge tell (lalaland ×3 pinned below; the user saw it in other
+		   scripts too). A hard-wrapped source preserves two print columns:
+		   dialogue wraps narrow (every corpus file's dialogue column is
+		   ≤ 43 once cue-shaped furniture is excluded) and action wide
+		   (54–66). A line that runs past both the narrow-column ceiling and
+		   the speech's own running edge is action rejoining the left margin,
+		   not more speech. The 46 floor protects a short-opened speech
+		   ("Shit." then a ≤46 continuation); the +6 absorbs the jitter of
+		   proportional words in a fixed column. Three guards keep the tell
+		   honest where geometry alone lies:
+		   — a speech boundary falls at a sentence boundary: the speech's
+		     last line must close with terminal punctuation;
+		   — a parenthetical-led line is speech furniture, however wide
+		     (emilia-perez's "(yelling) Hey guys…" ×13);
+		   — a lowercase or inverted-mark opening continues a sentence, so
+		     it belongs with the line above, whichever column that was.
+		   The residue this cannot see: translation-paired dialogue that
+		   wraps past the dialogue column (emilia-perez's pleas, 50–57) is
+		   geometrically identical to action, and stays fused. */
+		if (text.length <= 46 || text.length <= speechEdge + 6) {
+			return verdict(raw, 'dialogue', 'medium', 'continues the speech');
+		}
+		if (!TERMINAL_SENTENCE.test(prev.raw.text) || /^[a-z¿¡(]/.test(text)) {
+			return verdict(raw, 'dialogue', 'medium', 'continues the speech');
+		}
+		/* falls through: wider than the speech above it ever ran */
 	}
 
 	/* 8. explicit alignment — cues never sit right or centered */
@@ -273,12 +307,24 @@ function repairContext(classified: ClassifiedLine[]): ClassifiedLine[] {
  */
 export function classifyLines(rawLines: readonly RawLine[]): ClassifiedLine[] {
 	const classified: ClassifiedLine[] = [];
+	/* the running right edge of the speech in progress — the edge tell in
+	   rule 7 measures a rejoining action line against it */
+	let speechEdge = 0;
 	for (const raw of rawLines) {
 		const text = raw.text.trim();
 		if (text === '') continue;
 		const prev = classified[classified.length - 1];
 		const attached = raw.attached === true && prev !== undefined;
-		classified.push(classifyLine(raw, text, prev, attached));
+		const line = classifyLine(raw, text, prev, attached, speechEdge);
+		classified.push(line);
+		if (line.type === 'dialogue') {
+			speechEdge =
+				prev?.type === 'character' || prev?.type === 'parenthetical'
+					? text.length
+					: Math.max(speechEdge, text.length);
+		} else {
+			speechEdge = 0;
+		}
 	}
 	return repairContext(classified);
 }

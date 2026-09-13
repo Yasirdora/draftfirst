@@ -125,30 +125,42 @@ final class PasteCorpusGateTests: XCTestCase {
         }
     }
 
-    /// No speech splits at its wrap into an action line. The raw route
-    /// types every line on its own, so the pin counts every adjacent
-    /// speech → prose pair, including the ones a blank line genuinely
-    /// separates — tell-less prose continues the paragraph under way, and
-    /// a structure-less paste cannot see it (named in PasteReassembly).
-    /// pasted-26's eight are those genuine pairs, agreed with the
-    /// TypeScript engine, whose own panel counts attached wrap-splits
-    /// only and so reads zero. What the zeroes hold is the breaking-bad
-    /// regression — 236 speeches shattered line-per-element when a single
-    /// OCR-fused line vetoed the whole paste's reassembly — and the
-    /// pasted-26 one: 664 wrap-splits when the NUL glue demoted the paste
-    /// to the raw route, before attachment was read.
-    func testNoSpeechSplitsIntoActionAtItsWrap() throws {
+    /// The speech/action boundary count, pinned file by file. Since the
+    /// edge tell (PasteHeuristics.speechEndsHere, mirrored from the
+    /// TypeScript engine's classify rule 7), an adjacent dialogue → action
+    /// pair on this route is a deliberate, measured boundary: action
+    /// rejoining the wide column the speech never reached. Before the tell
+    /// the pin was near zero — pasted-26's eight were the genuine
+    /// blank-separated pairs a structure-less paste cannot see — and the
+    /// counts now agree with the TypeScript gate's golden to within the
+    /// two pipelines' paragraph granularity. A move in a count means the
+    /// tell's behaviour moved; review whether the movement is genuine. What
+    /// the pins still hold against: the breaking-bad regression (236
+    /// speeches shattered line-per-element when a single OCR-fused line
+    /// vetoed the whole paste's reassembly) and the pasted-26 one (664
+    /// wrap-splits when the NUL glue demoted the paste to the raw route).
+    func testSpeechActionBoundariesMatchTheMeasuredPins() throws {
         guard FileManager.default.fileExists(atPath: corpusDir) else {
             throw XCTSkip("no corpus at \(corpusDir) — the scripts are not committed")
         }
-        /// Measured on this route and pinned — the genuine blank-separated
-        /// pairs agree with the TypeScript engine's typing, file for file.
-        /// from-the-black's one is the card grammar's doing and it is
-        /// genuine: the closing SUPER's flush ends the speech above it
-        /// ("…then hits "Refresh"."), and the card's mixed-case content
-        /// closes the card unread and prints as prose — the boundary the
-        /// card's lines used to hide by fusing into the speech.
-        let expectedSplits: [String: Int] = ["pasted-26.txt": 8, "from-the-black.txt": 1]
+        /// Measured on this route and pinned — the edge tell's deliberate
+        /// boundaries, element for element.
+        let expectedSplits: [String: Int] = [
+            "breaking-bad.txt": 120,
+            "corpus-1.txt": 124,
+            "corpus-6.txt": 76,
+            "emilia-perez.txt": 201,
+            "episode-101.txt": 142,
+            "foryourcon.txt": 217,
+            "from-the-black.txt": 139,
+            "gone-girl.txt": 264,
+            "heat.txt": 153,
+            "lalaland.txt": 142,
+            "manchester.txt": 110,
+            "no-country.txt": 124,
+            "pasted-26.txt": 234,
+            "whiplash.txt": 248
+        ]
         for file in try corpusFiles() {
             let source = try String(contentsOfFile: "\(corpusDir)/\(file)", encoding: .utf8)
             let elements = paste(source)
@@ -159,7 +171,7 @@ final class PasteCorpusGateTests: XCTestCase {
             }
             XCTAssertEqual(
                 splits, expectedSplits[file] ?? 0,
-                "\(file) splits no speech at its wrap"
+                "\(file): the edge tell's boundary count moved — review whether the movement is genuine"
             )
         }
     }

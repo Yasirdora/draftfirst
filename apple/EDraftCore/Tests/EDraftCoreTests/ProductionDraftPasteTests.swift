@@ -467,4 +467,85 @@ final class ProductionDraftPasteTests: XCTestCase {
         XCTAssertEqual(plan?.elements[1].sceneNumber, "128")
     }
 
+    /// The edge tell, lalaland's fused speeches: a line wider than both the
+    /// dialogue column and the speech's own running edge is action
+    /// rejoining the left margin, not more speech.
+    func testTheEdgeTellReturnsRejoiningActionToProse() {
+        let boundaries: [(String, String)] = [
+            ("Cappuccino, please.", "Mia nods. Gets it made. Hands it over to the customer."),
+            ("No, I insist.", "She pays for it anyway. Mia turns back to the counter, deflated."),
+            ("Shit.", "Removing her apron, she hurries out from behind the counter.")
+        ]
+        for (speech, action) in boundaries {
+            let plan = paste(["MIA", speech, action].joined(separator: "\n"))
+            XCTAssertEqual(
+                plan?.elements.map(\.type), [.character, .dialogue, .action],
+                "the wide line after “\(speech)” is action, not more speech"
+            )
+        }
+    }
+
+    /// The tell's guards: a short-opened speech may continue under the 46
+    /// ceiling, a wrap that fits the column is never split, a
+    /// parenthetical-led line is speech furniture however wide, and a
+    /// sentence the speech hasn't finished blocks the boundary.
+    func testTheEdgeTellNeverFiresInsideASpeech() {
+        let shortOpened = paste(["MIA", "Shit.", "She did not mean to say that out loud."].joined(separator: "\n"))
+        XCTAssertEqual(shortOpened?.elements.map(\.type), [.character, .dialogue, .dialogue])
+
+        let wrapped = paste([
+            "MIA",
+            "I was giving a toast at my friend’s",
+            "birthday party and everyone there",
+            "started laughing at me instead."
+        ].joined(separator: "\n"))
+        XCTAssertEqual(wrapped?.elements.map(\.type), [.character, .dialogue, .dialogue, .dialogue])
+
+        let parentheticalLed = paste([
+            "RITA",
+            "favor?",
+            "(yelling) Hey guys, can you please turn it down!"
+        ].joined(separator: "\n"))
+        // The raw path's typing-era rule types a bracket-opening line a
+        // parenthetical outright; the speech continues under it either way
+        // — what the tell must never do is split it out as action.
+        XCTAssertEqual(parentheticalLed?.elements.map(\.type), [.character, .dialogue, .parenthetical])
+
+        let midSentence = paste([
+            "RITA",
+            "Mr. President, Mr. Judge",
+            "Honorable advocates for the family of the deceased,"
+        ].joined(separator: "\n"))
+        XCTAssertEqual(midSentence?.elements.map(\.type), [.character, .dialogue, .dialogue])
+    }
+
+    /// The hard-wrapped path holds the same grammar: the card centers its
+    /// content mid-paste, and the edge tell ends the speech that follows at
+    /// the line too wide for its column.
+    func testAHardWrappedCardAndTheEdgeTell() {
+        let plan = paste([
+            "The night crew works the perimeter in silence, flashlights low,",
+            "radios murmuring the coded nothing of a quiet shift.",
+            "NICK",
+            "I should shower and shave before the press gets here.",
+            "TITLE CARD:",
+            "July 6, 2012",
+            "ONE DAY GONE",
+            "AMY",
+            "I should get going.",
+            "She watches him go, then turns back to the winding road ahead."
+        ].joined(separator: "\n"))
+
+        XCTAssertEqual(
+            plan?.elements.map(\.type),
+            [.action, .character, .dialogue, .centered, .centered, .character, .dialogue, .action]
+        )
+        XCTAssertEqual(plan?.elements[3].text, "July 6, 2012")
+        XCTAssertEqual(plan?.elements[4].text, "ONE DAY GONE")
+        XCTAssertEqual(plan?.elements[6].text, "I should get going.")
+        XCTAssertEqual(
+            plan?.elements[7].text,
+            "She watches him go, then turns back to the winding road ahead."
+        )
+    }
 }

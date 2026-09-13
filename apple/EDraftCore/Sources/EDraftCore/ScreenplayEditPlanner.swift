@@ -449,6 +449,9 @@ public struct ScreenplayEditPlanner {
         }
 
         var result = Array(elements[..<start.index])
+        /// The running right edge of the pasted speech in progress — the
+        /// witness the edge tell measures a rejoining action line against.
+        var speechEdge = 0
         for (partIndex, part) in parts.enumerated() {
             let element: ScriptElement
             // A reassembled paste carries no runs across: the target was
@@ -502,8 +505,20 @@ public struct ScreenplayEditPlanner {
                         suggestedKind = .scene
                     }
                 }
-                let kind = suggestedKind
+                let suggested = suggestedKind
                     ?? kindForNewElement(previous, partText, pasteDepths[partIndex], pasteAttached[partIndex])
+                // The edge tell (PasteHeuristics.speechEndsHere, mirrored
+                // from classify.ts rule 7): an attached line that outruns
+                // both the dialogue column and the speech's own running
+                // edge is action rejoining the left margin, not more speech.
+                let kind: ScreenplayKind
+                if intent == .multilinePaste, suggested == .dialogue, pasteAttached[partIndex],
+                   previous?.type == .dialogue, let lastLine = previous?.text,
+                   PasteHeuristics.speechEndsHere(edge: speechEdge, lastLine: lastLine, line: partText) {
+                    kind = .action
+                } else {
+                    kind = suggested
+                }
                 var sceneNumber: String?
                 if kind == .scene, intent == .multilinePaste,
                    let numbered = SceneNumbering.parseNumberedHeading(partText) {
@@ -532,6 +547,18 @@ public struct ScreenplayEditPlanner {
                 element = created
             }
             result.append(element)
+            if intent == .multilinePaste {
+                // A fresh speech resets the edge to its first line's width;
+                // inside one, the edge is the widest the speech has run.
+                if element.type == .dialogue {
+                    let before = result.dropLast().last
+                    speechEdge = (before?.type == .character || before?.type == .parenthetical)
+                        ? element.text.utf16.count
+                        : max(speechEdge, element.text.utf16.count)
+                } else {
+                    speechEdge = 0
+                }
+            }
         }
         if end.index + 1 < elements.count {
             result.append(contentsOf: elements[(end.index + 1)...])

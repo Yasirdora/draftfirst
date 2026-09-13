@@ -230,6 +230,79 @@ describe('classifyLines', () => {
 		expect(report.characters).toEqual([]);
 	});
 
+	it('ends a speech at the line too wide for its column — action rejoining the left margin (lalaland)', () => {
+		/* hard-wrapped sources keep two print columns: dialogue narrow,
+		   action wide. The three witnessed boundaries: 19→54, 13→61, 5→55 */
+		const boundaries: Array<[string, string]> = [
+			['Cappuccino, please.', 'Mia nods. Gets it made. Hands it over to the customer.'],
+			['No, I insist.', 'She pays for it anyway. Mia turns back to the counter, deflated.'],
+			['Shit.', 'Removing her apron, she hurries out from behind the counter.']
+		];
+		for (const [speech, action] of boundaries) {
+			const types = typesOf([{ text: 'MIA' }, { text: speech }, { text: action, attached: true }]);
+			expect(types).toEqual(['character', 'dialogue', 'action']);
+		}
+	});
+
+	it('keeps the wraps that fit the speech column — the edge tell never fires inside one', () => {
+		/* a short-opened speech may continue under the 46 ceiling… */
+		const shortOpened = typesOf([
+			{ text: 'MIA' },
+			{ text: 'Shit.' },
+			{ text: 'She did not mean to say that out loud.', attached: true }
+		]);
+		expect(shortOpened).toEqual(['character', 'dialogue', 'dialogue']);
+		/* …and a speech wrapping at its own width keeps all its lines */
+		const wrapped = typesOf([
+			{ text: 'MIA' },
+			{ text: 'I was giving a toast at my friend’s' },
+			{ text: 'birthday party and everyone there', attached: true },
+			{ text: 'started laughing at me instead.', attached: true }
+		]);
+		expect(wrapped).toEqual(['character', 'dialogue', 'dialogue', 'dialogue']);
+	});
+
+	it('keeps an uppercase cue interrupting the speech even when it outruns the edge', () => {
+		/* cue identity beats the width tell — an interrupting speaker is a
+		   speaker however short the speech above it was */
+		const types = typesOf([
+			{ text: 'MIA' },
+			{ text: 'No.' },
+			{ text: 'SEBASTIAN', attached: true },
+			{ text: 'Yes.', attached: true }
+		]);
+		expect(types).toEqual(['character', 'dialogue', 'character', 'dialogue']);
+	});
+
+	it('never splits a speech mid-sentence — the tell needs a sentence boundary', () => {
+		/* emilia-perez's pleas run translation-paired lines past the dialogue
+		   column; the line above carries no terminal punctuation */
+		const types = typesOf([
+			{ text: 'RITA' },
+			{ text: 'Mr. President, Mr. Judge' },
+			{ text: 'Honorable advocates for the family of the deceased,', attached: true }
+		]);
+		expect(types).toEqual(['character', 'dialogue', 'dialogue']);
+	});
+
+	it('keeps a parenthetical-led line inside the speech however wide it runs (emilia-perez ×13)', () => {
+		const types = typesOf([
+			{ text: 'RITA' },
+			{ text: 'favor?' },
+			{ text: '(yelling) Hey guys, can you please turn it down!', attached: true }
+		]);
+		expect(types).toEqual(['character', 'dialogue', 'dialogue']);
+	});
+
+	it('keeps a lowercase or inverted-mark opening with the line above it', () => {
+		const types = typesOf([
+			{ text: 'RITA' },
+			{ text: 'Your Honor, I ask for the triumph of Love,' },
+			{ text: 'of Innocence, the defeat of Bad Faith, faith, faith,', attached: true }
+		]);
+		expect(types).toEqual(['character', 'dialogue', 'dialogue']);
+	});
+
 	it('keeps shouted dialogue with terminal punctuation inside the speech', () => {
 		const types = typesOf([{ text: 'MARA' }, { text: 'GET OUT!', attached: true }]);
 		expect(types).toEqual(['character', 'dialogue']);
