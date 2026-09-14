@@ -176,21 +176,38 @@ public struct StyleRun: Codable, Equatable, Sendable {
     }
 }
 
-public struct TitlePageEntry: Codable, Equatable, Sendable {
-    public var key: String
-    public var values: [String]
+/// Where a title-page line sits across the measure. Absent means centred.
+public enum TitlePageAlignment: String, Codable, Sendable {
+    case left
+    case center
+    case right
+}
 
-    public init(key: String, values: [String]) {
+/// One line of the title page (docs/RFC-TITLE-PAGE.md, D1): text, its own
+/// alignment and styled runs — and the blank lines between, which carry the
+/// vertical rhythm and are therefore real lines in the model, never
+/// recomputed at render. `key` is an annotation a guided editor may leave
+/// on a line it created; nothing requires it and nothing invents it.
+public struct TitlePageLine: Codable, Equatable, Sendable {
+    public var text: String
+    public var alignment: TitlePageAlignment?
+    public var runs: [StyleRun]?
+    public var key: String?
+
+    public init(text: String, alignment: TitlePageAlignment? = nil,
+                runs: [StyleRun]? = nil, key: String? = nil) {
+        self.text = text
+        self.alignment = alignment
+        self.runs = runs
         self.key = key
-        self.values = values
     }
 }
 
 public struct Screenplay: Codable, Equatable, Sendable {
-    public var titlePage: [TitlePageEntry]
+    public var titlePage: [TitlePageLine]
     public var elements: [ScreenplayElement]
 
-    public init(titlePage: [TitlePageEntry] = [], elements: [ScreenplayElement] = []) {
+    public init(titlePage: [TitlePageLine] = [], elements: [ScreenplayElement] = []) {
         self.titlePage = titlePage
         self.elements = elements
     }

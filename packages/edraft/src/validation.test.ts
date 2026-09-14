@@ -8,7 +8,7 @@ import {
 describe('validateScreenplay', () => {
 	it('accepts a valid document without cloning it', () => {
 		const document = {
-			titlePage: [{ key: 'Title', values: ['A Film'] }],
+			titlePage: [{ text: 'A Film', key: 'Title' }],
 			elements: [{ type: 'scene', text: 'INT. LAB - DAY', sceneNumber: '1' }]
 		};
 
@@ -20,14 +20,15 @@ describe('validateScreenplay', () => {
 
 	it('returns stable diagnostics for malformed external data', () => {
 		const result = validateScreenplay({
-			titlePage: [{ key: '', values: ['ok', 3] }],
+			titlePage: [{ text: 7, alignment: 'middle', key: '' }],
 			elements: [{ type: 'unknown', text: 42, depth: 0 }]
 		});
 
 		expect(result.ok).toBe(false);
 		expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+			'TITLE_TEXT_INVALID',
+			'TITLE_ALIGNMENT_INVALID',
 			'TITLE_KEY_INVALID',
-			'TITLE_VALUE_INVALID',
 			'ELEMENT_TYPE_INVALID',
 			'ELEMENT_TEXT_INVALID',
 			'ELEMENT_DEPTH_INVALID'

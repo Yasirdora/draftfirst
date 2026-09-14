@@ -33,13 +33,17 @@ struct FdxImportConformanceTests {
                 "\(case_.name): warnings must be the diagnostic messages")
     }
 
-    /// fdx → model → fdx → model is an identity: once a file is in the
-    /// model, our own export must re-import to the identical screenplay.
+    /// fdx → model → fdx is a byte-level fixed point. A foreign file's
+    /// first import canonicalises once — a title line's absent alignment
+    /// prints as Center and comes back recorded, exactly as the emphasis
+    /// flip's first pass did — so the gate is set on our own export: what
+    /// we write must re-import and re-write to itself, byte for byte.
     @Test("import → export → import is stable", arguments: Self.corpus.importCases)
     func identityRoundTrip(_ case_: FdxCorpus.ImportCase) {
         let once = Fdx.parse(case_.source, options: case_.importOptions).script
-        let twice = Fdx.parse(Fdx.writeXml(once)).script
-        #expect(twice == once, "\(case_.name): fdx → model → fdx → model is not an identity")
+        let exported = Fdx.writeXml(once)
+        #expect(Fdx.writeXml(Fdx.parse(exported).script) == exported,
+                "\(case_.name): our own export did not re-import to itself")
     }
 }
 
@@ -68,8 +72,8 @@ struct FdxExportConformanceTests {
     /// and the title page; the rest are omitted by design. The expected side
     /// is normalised by the export contract, exactly as the TypeScript
     /// tests express it: illegal XML code points come back repaired as
-    /// U+FFFD (the export reports that repair), and an empty title-page
-    /// value list comes back as one empty line (`[]` → `[""]`).
+    /// U+FFFD (the export reports that repair), and a title line's absent
+    /// alignment prints centered and comes back recorded.
     @Test("export → import restores representable elements", arguments: Self.corpus.exportCases)
     func printingRoundTrip(_ case_: FdxCorpus.ExportCase) {
         let result = Fdx.write(case_.screenplay)
@@ -89,10 +93,15 @@ struct FdxExportConformanceTests {
             }
         #expect(back.elements == printable,
                 "\(case_.name): representable elements did not survive the round-trip")
-        let expectedTitlePage = case_.screenplay.titlePage.map { entry in
-            TitlePageEntry(
-                key: entry.key,
-                values: entry.values.isEmpty ? [""] : entry.values.map(Self.xmlLegal)
+        /* The line contract (RFC-TITLE-PAGE D5): text XML-legal, alignment
+           recorded (absent prints Center), runs and the key annotation
+           carried — an empty key is not written and comes back absent. */
+        let expectedTitlePage = case_.screenplay.titlePage.map { line in
+            TitlePageLine(
+                text: Self.xmlLegal(line.text),
+                alignment: line.alignment ?? .center,
+                runs: line.runs,
+                key: line.key?.isEmpty == false ? line.key : nil
             )
         }
         #expect(back.titlePage == expectedTitlePage,

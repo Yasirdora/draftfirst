@@ -16,6 +16,7 @@
 
 import type { ElementType, Screenplay } from './types.js';
 import { isPrinting } from './types.js';
+import { deriveTitlePage } from './titlepage.js';
 import { encodeXmlEntities } from './fdx.js';
 import { encodeUtf8 } from './platform.js';
 import { writeZipStored } from './zipwrite.js';
@@ -94,8 +95,11 @@ const PAGE_BREAK = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>';
 
 /** The title page: the title block centered a third down, contact at the foot. */
 function titlePageParagraphs(script: Screenplay): string {
+	/* The DOCX has no title-page geometry, so it asks for the keyed fields —
+	   derived from the lines, annotation-first (RFC-TITLE-PAGE D3). */
+	const entries = deriveTitlePage(script.titlePage);
 	const get = (key: string): string[] =>
-		script.titlePage.find((entry) => entry.key.toLowerCase() === key)?.values ?? [];
+		entries.find((entry) => entry.key.toLowerCase() === key)?.values ?? [];
 	const title = get('title');
 	if (title.length === 0) return '';
 	const centered: ParaSpec = { before: 0, after: LINE, align: 'center' };

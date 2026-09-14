@@ -61,8 +61,8 @@ public enum ScreenplayPageRenderer {
         let includeTitlePage = UserDefaults.standard.object(
             forKey: ScreenplayExportPreference.includeTitlePageKey
         ) as? Bool ?? true
-        let hasTitlePage = screenplay.titlePage.contains { entry in
-            entry.values.contains { !$0.isEmpty }
+        let hasTitlePage = screenplay.titlePage.contains { line in
+            !line.text.trimmingCharacters(in: .whitespaces).isEmpty
         }
 
         if includeTitlePage && hasTitlePage {

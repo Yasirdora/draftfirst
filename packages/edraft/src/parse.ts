@@ -20,12 +20,9 @@
  * element or source-location metadata.
  */
 
-import type {
-	AnyElementType,
-	Screenplay,
-	ScreenplayElement,
-	TitlePageEntry
-} from './types.js';
+import type { AnyElementType, Screenplay, ScreenplayElement } from './types.js';
+import type { LegacyTitlePageEntry } from './titlepage.js';
+import { titlePageLinesFromEntries } from './titlepage.js';
 import { parseEmphasis } from './style.js';
 
 export interface FountainParseOptions {
@@ -90,8 +87,8 @@ const KNOWN_TITLE_KEYS: ReadonlySet<string> = new Set([
 	'copyright'
 ]);
 
-function parseTitlePage(lines: string[]): { entries: TitlePageEntry[]; consumed: number } {
-	const entries: TitlePageEntry[] = [];
+function parseTitlePage(lines: string[]): { entries: LegacyTitlePageEntry[]; consumed: number } {
+	const entries: LegacyTitlePageEntry[] = [];
 	let i = 0;
 	/* skip leading blank lines */
 	while (i < lines.length && lines[i].trim() === '') i++;
@@ -488,5 +485,5 @@ export function parseFountain(source: string, options: FountainParseOptions = {}
 		prev = 'action';
 	}
 
-	return { titlePage: entries, elements };
+	return { titlePage: titlePageLinesFromEntries(entries), elements };
 }

@@ -42,9 +42,12 @@ struct FdxLegacyPrefixTests {
     @Test("A keyed title page survives the old prefix")
     func titlePage() {
         let script = Fdx.parse(legacy).script
+        /* The line model (RFC-TITLE-PAGE D5): text and alignment verbatim,
+           the key kept as the line's annotation, the old entry index
+           ignored. */
         #expect(script.titlePage == [
-            TitlePageEntry(key: "Title", values: ["Old Name"]),
-            TitlePageEntry(key: "Author", values: ["A. Writer"])
+            TitlePageLine(text: "Old Name", alignment: .center, key: "Title"),
+            TitlePageLine(text: "A. Writer", alignment: .center, key: "Author")
         ])
     }
 

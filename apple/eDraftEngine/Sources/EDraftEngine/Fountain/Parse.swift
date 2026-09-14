@@ -56,8 +56,8 @@ public enum Fountain {
         return false
     }
 
-    private static func parseTitlePage(_ lines: [String]) -> (entries: [TitlePageEntry], consumed: Int) {
-        var entries: [TitlePageEntry] = []
+    private static func parseTitlePage(_ lines: [String]) -> (entries: [TitlePage.LegacyEntry], consumed: Int) {
+        var entries: [TitlePage.LegacyEntry] = []
         var i = 0
         while i < lines.count && lines[i].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             i += 1
@@ -78,7 +78,7 @@ public enum Fountain {
             }
             if let match = matchTitleKey(line), line.first?.isWhitespace == false {
                 let value = match.value.trimmingCharacters(in: .whitespacesAndNewlines)
-                entries.append(TitlePageEntry(
+                entries.append(TitlePage.LegacyEntry(
                     key: match.key.trimmingCharacters(in: .whitespacesAndNewlines),
                     values: value.isEmpty ? [] : [value]
                 ))
@@ -541,6 +541,8 @@ public enum Fountain {
             i += 1
         }
 
-        return Screenplay(titlePage: entries, elements: elements)
+        /* The keyed entries the source declares become the page's lines —
+           the classic renderer's template, frozen as the model (D8). */
+        return Screenplay(titlePage: TitlePage.lines(from: entries), elements: elements)
     }
 }

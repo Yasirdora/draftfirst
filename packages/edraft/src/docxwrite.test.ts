@@ -71,10 +71,10 @@ describe('writeDocx', () => {
 	it('emits the title page followed by a page break', async () => {
 		const withTitle: Screenplay = {
 			titlePage: [
-				{ key: 'Title', values: ['The Empty Cinema'] },
-				{ key: 'Credit', values: ['written by'] },
-				{ key: 'Author', values: ['A. Writer'] },
-				{ key: 'Contact', values: ['a@writer.example'] }
+				{ text: 'The Empty Cinema', key: 'Title' },
+				{ text: 'written by', key: 'Credit' },
+				{ text: 'A. Writer', key: 'Author' },
+				{ text: 'a@writer.example', alignment: 'left', key: 'Contact' }
 			],
 			elements: [{ type: 'scene', text: 'INT. LOBBY - DAY' }]
 		};
@@ -117,7 +117,10 @@ describe('writeDocx', () => {
 
 	it('drops a multi-line title once, not between every line', async () => {
 		const script: Screenplay = {
-			titlePage: [{ key: 'Title', values: ['THE EMPTY', 'CINEMA'] }],
+			titlePage: [
+				{ text: 'THE EMPTY', key: 'Title' },
+				{ text: 'CINEMA', key: 'Title' }
+			],
 			elements: [{ type: 'scene', text: 'INT. LOBBY - DAY' }]
 		};
 		const document = await documentXmlOf(writeDocx(script));

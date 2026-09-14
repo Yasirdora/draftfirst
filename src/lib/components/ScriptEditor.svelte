@@ -7,7 +7,7 @@
 	 * engine package.
 	 */
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { isPrinting, type AnyElementType, type ScreenplayElement, type TitlePageEntry } from '@edraft/core';
+	import { isPrinting, deriveTitlePage, titlePageLinesFromEntries, type AnyElementType, type ScreenplayElement, type TitlePageLine, type LegacyTitlePageEntry } from '@edraft/core';
 	import { nameDriftGroups, normalizeCueName, renameCharacter } from '@edraft/core/analysis';
 	import {
 		looksLikeCue,
@@ -68,7 +68,7 @@
 	/* ---- state ------------------------------------------------------------ */
 
 	let sheet: HTMLElement;
-	let titleEntries = $state<TitlePageEntry[]>([]);
+	let titleEntries = $state<LegacyTitlePageEntry[]>([]);
 	let pageCount = $state(1);
 	let runtime = $state('~1 minute');
 	let wordCount = $state(0);
@@ -316,8 +316,10 @@
 		}
 	}
 
-	function loadModel(elements: ScreenplayElement[], tp: TitlePageEntry[]) {
-		titleEntries = tp;
+	function loadModel(elements: ScreenplayElement[], tp: TitlePageLine[]) {
+		/* The editor's UI state stays keyed — the engine's model is lines, so
+		   every crossing derives or templates (RFC-TITLE-PAGE D3/D8). */
+		titleEntries = deriveTitlePage(tp);
 		sheet.innerHTML = '';
 		/* Preserve structural elements separately; page breaks remain block markers. */
 		const detached = detachStructural(elements);
@@ -335,7 +337,7 @@
 	}
 	function currentScript() {
 		return {
-			titlePage: titleEntries,
+			titlePage: titlePageLinesFromEntries(titleEntries),
 			elements: reattachStructural(modelFromDOM(), structuralAnchors)
 		};
 	}
@@ -352,7 +354,7 @@
 		els: ScreenplayElement[];
 		idx: number;
 		off: number;
-		tp?: TitlePageEntry[];
+		tp?: LegacyTitlePageEntry[];
 		anchors?: StructuralAnchor[];
 	}
 	/* $state so the ⋮ menu can grey out Undo/Redo when a stack is empty. */
@@ -649,7 +651,7 @@
 		let frag: ScreenplayElement[];
 		if (fountainShaped) {
 			frag = [
-				...parsed.titlePage.map((tp) => ({
+				...deriveTitlePage(parsed.titlePage).map((tp) => ({
 					type: 'action' as const,
 					text: tp.key + ':' + (tp.values.length ? ' ' + tp.values.join(' ') : '')
 				})),
@@ -823,7 +825,7 @@
 		   but live on the page as block markers, so indices past one drift.
 		   The maps below translate between the two coordinate systems. */
 		const printable = modelFromDOM();
-		const script = { titlePage: titleEntries, elements: printable };
+		const script = { titlePage: titlePageLinesFromEntries(titleEntries), elements: printable };
 		const pages = paginate(script);
 		pageCount = pages.length;
 		runtime = estimateRuntime(pages);
@@ -1179,7 +1181,7 @@
 	   exact discipline startNew established. A blank document has nothing to
 	   lose and adds no entry. Returns whether a draft was preserved so the
 	   caller's toast can say the way back out loud. */
-	function loadReplacingDraft(elements: ScreenplayElement[], tp: TitlePageEntry[]): boolean {
+	function loadReplacingDraft(elements: ScreenplayElement[], tp: TitlePageLine[]): boolean {
 		const hadDraft = !(titleEntries.length === 0 && blocks().every((b) => isEmpty(b)));
 		const before: Snap = {
 			els: modelFromDOM(),
@@ -1337,7 +1339,7 @@
 		}
 	}
 
-	function commitRename(elements: ScreenplayElement[], titlePage: TitlePageEntry[], message: string) {
+	function commitRename(elements: ScreenplayElement[], titlePage: TitlePageLine[], message: string) {
 		const b = currentBlock();
 		const before: Snap = { els: modelFromDOM(), idx: b ? blocks().indexOf(b) : 0, off: b ? caretOffset(b) : 0, tp: titleEntries };
 		loadModel(elements, titlePage);
@@ -1385,7 +1387,7 @@
 		titleModalOn = true;
 	}
 	function saveTitleModal() {
-		const entries: TitlePageEntry[] = [];
+		const entries: LegacyTitlePageEntry[] = [];
 		if (tpTitle.trim()) entries.push({ key: 'Title', values: [tpTitle.trim()] });
 		if (tpCredit.trim()) entries.push({ key: 'Credit', values: [tpCredit.trim()] });
 		if (tpAuthor.trim()) entries.push({ key: 'Author', values: [tpAuthor.trim()] });
@@ -1573,14 +1575,17 @@
 	});
 
 	function beginFresh() {
-		const entries: TitlePageEntry[] = [];
+		const entries: LegacyTitlePageEntry[] = [];
 		if (welcomeTitle.trim()) {
 			entries.push({ key: 'Title', values: [welcomeTitle.trim().toUpperCase()] });
 			entries.push({ key: 'Credit', values: ['written by'] });
 		}
 		try { localStorage.setItem(WELCOMED_KEY, '1'); } catch { /* ignore */ }
 		welcomeOn = false;
-		loadModel([{ type: 'scene', text: '' }, { type: 'action', text: '' }], entries);
+		loadModel(
+			[{ type: 'scene', text: '' }, { type: 'action', text: '' }],
+			titlePageLinesFromEntries(entries)
+		);
 		sheet.focus();
 	}
 	function exploreSample() {

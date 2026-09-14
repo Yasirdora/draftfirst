@@ -967,8 +967,11 @@ addFdxImport(
 	'edraft-markers',
 	`<FinalDraft><Content><Paragraph Type="General" EDraft:ElementType="lyrics"><Text>La la</Text></Paragraph><Paragraph Type="General" Alignment="Center"><Text>THE END</Text></Paragraph></Content></FinalDraft>`
 );
+/* Files exported by the keyed model carry TitleEntry indices beside the
+   keys. The line model keeps the key as the line's annotation and ignores
+   the index — there is nothing left to conflict. */
 addFdxImport(
-	'conflicting-title-metadata',
+	'legacy-keyed-title-page',
 	`<FinalDraft><Content/><TitlePage><Content><Paragraph Type="General" EDraft:TitleKey="Title" EDraft:TitleEntry="0"><Text>A</Text></Paragraph><Paragraph Type="General" EDraft:TitleKey="Author" EDraft:TitleEntry="0"><Text>B</Text></Paragraph></Content></TitlePage></FinalDraft>`
 );
 /* Real Final Draft title pages run long — title, credit, multiple writers,
@@ -1029,8 +1032,10 @@ for (const { name, source } of SCRIPTS) {
 }
 addFdxExport('special-fields', {
 	titlePage: [
-		{ key: 'Title', values: ['A & B'] },
-		{ key: 'Custom', values: [] }
+		{ text: 'A & B', key: 'Title' },
+		/* The keyed model's empty value list exported as one empty line
+		   (`[]` → `[""]`); the line model stores that line directly. */
+		{ text: '', key: 'Custom' }
 	],
 	elements: [
 		{ type: 'scene', text: 'INT. A & B - DAY', sceneNumber: 'A7' },

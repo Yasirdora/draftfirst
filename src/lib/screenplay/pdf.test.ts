@@ -7,6 +7,7 @@ import { PdfExportError, scriptToPdf, validatePdfCompatibility } from './pdf';
 import { paginate } from '@edraft/core/layout';
 import { parseFountain } from '@edraft/core/fountain';
 import { extractPdfPayload } from '@edraft/core/import';
+import { deriveTitlePage } from '@edraft/core';
 import type { Screenplay } from '@edraft/core';
 
 function el(type: any, text: string, extra: Record<string, unknown> = {}) {
@@ -36,11 +37,13 @@ function textOps(src: string): string[] {
 }
 
 const SCRIPT: Screenplay = {
+	/* Title-page lines, in the page's own order: the stack, the extra, the
+	   contact — the title in the uppercase the model stores (RFC-TITLE-PAGE). */
 	titlePage: [
-		{ key: 'Title', values: ['The Long Way Home'] },
-		{ key: 'Author', values: ['A. Writer'] },
-		{ key: 'Contact', values: ['aw@example.com'] },
-		{ key: 'Draft date', values: ['August 2026'] }
+		{ text: 'THE LONG WAY HOME', key: 'Title' },
+		{ text: 'A. Writer', key: 'Author' },
+		{ text: 'August 2026', key: 'Draft date' },
+		{ text: 'aw@example.com', alignment: 'left', key: 'Contact' }
 	],
 	elements: [
 		el('scene', 'INT. KITCHEN - DAY', { sceneNumber: '1' }),
@@ -136,8 +139,8 @@ describe('scriptToPdf — content', () => {
 	it('collects repeated title-page keys instead of dropping later values', () => {
 		const s: Screenplay = {
 			titlePage: [
-				{ key: 'Author', values: ['A. Writer'] },
-				{ key: 'Author', values: ['B. Writer'] }
+				{ text: 'A. Writer', key: 'Author' },
+				{ text: 'B. Writer', key: 'Author' }
 			],
 			elements: []
 		};
@@ -148,7 +151,7 @@ describe('scriptToPdf — content', () => {
 
 	it('does not append a blank body page to a title-only screenplay', () => {
 		const s: Screenplay = {
-			titlePage: [{ key: 'Title', values: ['Only a Title'] }],
+			titlePage: [{ text: 'ONLY A TITLE', key: 'Title' }],
 			elements: []
 		};
 		expect(decode(scriptToPdf(s))).toContain('/Count 1');
@@ -234,8 +237,8 @@ describe('scriptToPdf — round trip and metadata', () => {
 	it('stamps /Producer, a UTF-16BE /Title, and the /Keywords payload in a trailer-referenced Info dict', () => {
 		const src = decode(scriptToPdf(SCRIPT));
 		expect(src).toContain('/Producer (eDraft)');
-		/* "The Long Way Home" as UTF-16BE hex with BOM */
-		const titleHex = 'FEFF' + [...'The Long Way Home'].map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join('');
+		/* "THE LONG WAY HOME" — uppercase, as the model stores it — UTF-16BE hex with BOM */
+		const titleHex = 'FEFF' + [...'THE LONG WAY HOME'].map((c) => c.charCodeAt(0).toString(16).padStart(4, '0')).join('');
 		expect(src).toContain(`/Title <${titleHex}>`);
 		const trailer = src.slice(src.indexOf('trailer'));
 		expect(trailer).toMatch(/\/Info \d+ 0 R/);
@@ -251,9 +254,7 @@ describe('scriptToPdf — round trip and metadata', () => {
 		expect(recovered.elements.map((e) => [e.type, e.text])).toEqual(
 			SCRIPT.elements.map((e) => [e.type, e.text])
 		);
-		expect(recovered.titlePage.map((e) => [e.key, e.values])).toEqual(
-			SCRIPT.titlePage.map((e) => [e.key, e.values])
-		);
+		expect(deriveTitlePage(recovered.titlePage)).toEqual(deriveTitlePage(SCRIPT.titlePage));
 		/* scene numbers survive the round trip too */
 		expect(recovered.elements[0]!.sceneNumber).toBe('1');
 		expect(recovered.elements[5]!.sceneNumber).toBe('2');

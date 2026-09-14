@@ -10,9 +10,20 @@ export type {
 	StructuralType,
 	StyleRun,
 	StyleToken,
-	TitlePageEntry
+	TitlePageAlignment,
+	TitlePageLine
 } from './types.js';
 export { contentIndex, fountainIndex, isPrinting } from './types.js';
+
+export {
+	deriveTitlePage,
+	STANDARD_CREDIT_PHRASES,
+	TITLE_CONTACT_LAST_LINE,
+	TITLE_STACK_LEADING_BLANKS,
+	titlePageLinesFromEntries,
+	titlePageValues
+} from './titlepage.js';
+export type { DerivedTitlePageEntry, LegacyTitlePageEntry } from './titlepage.js';
 
 export {
 	ACT_ORDINAL_WORDS,

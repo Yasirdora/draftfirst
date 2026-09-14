@@ -87,11 +87,12 @@ public struct TitlePageSheet: View {
     }
 
     /// Entries beyond the fixed three — Source and any custom credits —
-    /// each editable and deletable.
+    /// each editable and deletable. Derived from the page's own lines
+    /// (RFC-TITLE-PAGE D3), so a row can only name what the page says.
     @ViewBuilder
     private var additionalCreditRows: some View {
         ForEach(
-            editor.screenplay.titlePage.filter { entry in
+            editor.titlePageEntries.filter { entry in
                 !["title", "credit", "author", "contact"].contains(entry.key.lowercased())
             },
             id: \.key
@@ -108,7 +109,8 @@ public struct TitlePageSheet: View {
 // MARK: - Title
 
 /// One focused question, keyboard already up: "What is your screenplay
-/// called?" The renderer owns placement and capitalization on the page.
+/// called?" The page stores the title in its printed form — capitals, as
+/// screenplay convention demands — so the field shows and commits capitals.
 private struct TitleFieldView: View {
     let editor: EditorState
     @State private var draft: String

@@ -59,7 +59,9 @@ final class EDraftDocumentTests: XCTestCase {
         // one, on the keystroke.
         XCTAssertEqual(editor.screenplay.elements.first?.type, .action)
         XCTAssertEqual(editor.screenplay.elements.first?.text, "")
-        XCTAssertEqual(editor.screenplay.title, "Untitled Screenplay")
+        // The seeded title page stores the printed form, so the title reads
+        // back in capitals — what the page shows is what the model holds.
+        XCTAssertEqual(editor.screenplay.title, "UNTITLED SCREENPLAY")
     }
 
     /// A screenplay made a moment ago and not yet written to is the one the

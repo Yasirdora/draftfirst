@@ -30,8 +30,8 @@ public enum ScreenplayPageLayout {
         public var text: String
         public var origin: CGPoint
         /// Styled spans of `text`, in the text's own UTF-16 offsets. Empty
-        /// for anything that is not screenplay content — page numbers,
-        /// CONTINUEDs, scene numbers, title-page lines.
+        /// for anything without its own styling — page numbers, CONTINUEDs,
+        /// scene numbers.
         public var segments: [StyleSegment]
 
         public init(text: String, origin: CGPoint, segments: [StyleSegment] = []) {
@@ -289,59 +289,43 @@ public enum ScreenplayPageLayout {
 
     // MARK: - Title page
 
-    /// The classic centered title-page stack: title in uppercase ~1/3 down,
-    /// then credit, then authors, then remaining keys in document order.
-    /// Contact sits bottom-left.
+    /// The title page, drawn as stored (docs/RFC-TITLE-PAGE.md, D6): line
+    /// `i` sits on the same 12pt grid the body obeys — `textTop + i ×
+    /// lineHeight` — in its own alignment, with its own styled runs. The
+    /// migration already wrote the classic template's arithmetic into the
+    /// lines (the stack settling 1.44pt onto the grid, contact grid-exact),
+    /// so a migrated page lands where the classic computed stack put it
+    /// without this function recomputing — or uppercasing — anything.
     public static func titlePageRuns(
         _ screenplay: EDraftCore.Screenplay,
         format: PageFormat,
         widthOf: (String) -> CGFloat
     ) -> [Run] {
-        func values(_ key: String) -> [String] {
-            screenplay.titlePage
-                .first { $0.key.caseInsensitiveCompare(key) == .orderedSame }?
-                .values.filter { !$0.isEmpty } ?? []
-        }
-
         var runs: [Run] = []
-        var y = format.pageRect.height * 0.32
-        for line in values("Title") {
-            runs.append(centered(line.uppercased(), y: y, format: format, widthOf: widthOf))
-            y += lineHeight
-        }
-        y += lineHeight
-        for line in values("Credit") {
-            runs.append(centered(line, y: y, format: format, widthOf: widthOf))
-            y += lineHeight
-        }
-        y += lineHeight
-        for line in values("Author") {
-            runs.append(centered(line, y: y, format: format, widthOf: widthOf))
-            y += lineHeight
-        }
-
-        for entry in screenplay.titlePage {
-            let key = entry.key.lowercased()
-            guard !["title", "credit", "author", "contact"].contains(key) else { continue }
-            let lines = entry.values.filter { !$0.isEmpty }
-            guard !lines.isEmpty else { continue }
-            y += lineHeight
-            if key != "source" {
-                runs.append(centered(entry.key, y: y, format: format, widthOf: widthOf))
-                y += lineHeight
+        for (index, line) in screenplay.titlePage.enumerated() {
+            guard !line.text.isEmpty else { continue }
+            let y = format.textTop + CGFloat(index) * lineHeight
+            let segments = (line.runs ?? []).map {
+                StyleSegment(start: $0.start, length: $0.end - $0.start,
+                             styles: $0.styles, highlight: $0.highlight)
             }
-            for line in lines {
-                runs.append(centered(line, y: y, format: format, widthOf: widthOf))
-                y += lineHeight
-            }
-        }
-
-        let contact = values("Contact")
-        if !contact.isEmpty {
-            var contactY = format.pageRect.height - 72 - CGFloat(contact.count - 1) * lineHeight
-            for line in contact {
-                runs.append(Run(text: line, origin: CGPoint(x: textLeft, y: contactY)))
-                contactY += lineHeight
+            switch line.alignment ?? .center {
+            case .center:
+                var run = centered(line.text, y: y, format: format, widthOf: widthOf)
+                run.segments = segments
+                runs.append(run)
+            case .right:
+                var run = rightAligned(
+                    line.text, rightEdge: format.textRight, y: y, widthOf: widthOf
+                )
+                run.segments = segments
+                runs.append(run)
+            case .left:
+                runs.append(Run(
+                    text: line.text,
+                    origin: CGPoint(x: textLeft, y: y),
+                    segments: segments
+                ))
             }
         }
         return runs

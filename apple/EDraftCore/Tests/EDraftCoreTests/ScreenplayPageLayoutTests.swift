@@ -100,20 +100,40 @@ final class ScreenplayPageLayoutTests: XCTestCase {
         XCTAssertEqual(number.origin.x, format.textRight - widthOf("2."), accuracy: 0.01)
     }
 
-    func testTheTitleSitsAThirdOfTheWayDownThePage() throws {
+    /// The visual-identity gate (docs/RFC-TITLE-PAGE.md, D8): a keyed
+    /// document migrates through the template and renders to the classic
+    /// stack's own positions. The classic renderer anchored the stack at
+    /// 0.32 × 792 = 253.44pt — not a grid position — so the migration
+    /// settles it 1.44pt onto the grid at line 15 (72 + 15 × 12 = 252).
+    /// That settle happens once, here, and this test pins the arithmetic.
+    func testAMigratedTitleSettlesOntoTheGrid() throws {
         let screenplay = EDraftCore.Screenplay(
-            titlePage: [TitlePageEntry(key: "Title", values: ["The Last Light"])],
+            titlePage: TitlePage.lines(from: [
+                TitlePage.LegacyEntry(key: "Title", values: ["The Last Light"]),
+            ]),
             elements: []
         )
-        let run = try XCTUnwrap(ScreenplayPageLayout.titlePageRuns(
+        let runs = ScreenplayPageLayout.titlePageRuns(
             screenplay, format: format, widthOf: widthOf
-        ).first { $0.text == "THE LAST LIGHT" })
-        XCTAssertEqual(run.origin.y, format.pageRect.height * 0.32, accuracy: 0.01)
+        )
+        let run = try XCTUnwrap(runs.first { $0.text == "THE LAST LIGHT" })
+        XCTAssertEqual(run.origin.y, format.textTop + 15 * ScreenplayPageLayout.lineHeight, accuracy: 0.01)
+        XCTAssertEqual(run.origin.y, 252, accuracy: 0.01)
+        XCTAssertEqual(
+            run.origin.x,
+            (format.pageRect.width - widthOf("THE LAST LIGHT")) / 2,
+            accuracy: 0.01
+        )
     }
 
-    func testContactSitsBottomLeft() throws {
+    /// The contact block's classic anchor — page height − 72 — IS a grid
+    /// position (line 54), so a migrated contact block does not move at
+    /// all: its lines are the classic renderer's coordinates, verbatim.
+    func testContactKeepsItsClassicAnchorToThePoint() throws {
         let screenplay = EDraftCore.Screenplay(
-            titlePage: [TitlePageEntry(key: "Contact", values: ["Mara", "mara@x"])],
+            titlePage: TitlePage.lines(from: [
+                TitlePage.LegacyEntry(key: "Contact", values: ["Mara", "mara@x"]),
+            ]),
             elements: []
         )
         let runs = ScreenplayPageLayout.titlePageRuns(
@@ -121,11 +141,9 @@ final class ScreenplayPageLayoutTests: XCTestCase {
         )
         let mara = try XCTUnwrap(runs.first { $0.text == "Mara" })
         XCTAssertEqual(mara.origin.x, ScreenplayPageLayout.textLeft, accuracy: 0.01)
-        XCTAssertEqual(
-            mara.origin.y,
-            format.pageRect.height - 72 - ScreenplayPageLayout.lineHeight,
-            accuracy: 0.01
-        )
+        XCTAssertEqual(mara.origin.y, format.textTop + 53 * ScreenplayPageLayout.lineHeight, accuracy: 0.01)
+        let last = try XCTUnwrap(runs.first { $0.text == "mara@x" })
+        XCTAssertEqual(last.origin.y, format.pageRect.height - 72, accuracy: 0.001)
     }
 
     func testEditorIndentsMatchThePaginator() throws {

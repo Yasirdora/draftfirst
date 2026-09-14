@@ -28,7 +28,7 @@
  * linear. True two-column dual layout lands with the production layer.
  */
 
-import { isPrinting, type Screenplay, type TitlePageEntry } from '@edraft/core';
+import { isPrinting, deriveTitlePage, type Screenplay, type DerivedTitlePageEntry } from '@edraft/core';
 import { serialiseFountain } from '@edraft/core/fountain';
 import { encodePdfPayload } from '@edraft/core/import';
 import {
@@ -121,7 +121,9 @@ function firstUnsupported(text: string): { character: string; codePoint: number;
 /** Preflight the bounded, dependency-free PDF encoding contract. */
 export function validatePdfCompatibility(script: Screenplay): PdfCompatibilityIssue[] {
 	const issues: PdfCompatibilityIssue[] = [];
-	script.titlePage.forEach((entry, entryIndex) => {
+	/* The preflight asks by key, so the lines derive their keys first —
+	   the same derivation the export itself will use. */
+	deriveTitlePage(script.titlePage).forEach((entry, entryIndex) => {
 		const keyIssue = firstUnsupported(entry.key);
 		if (keyIssue) {
 			issues.push({
@@ -309,7 +311,7 @@ function bodyStream(
 
 /* ---- title page ------------------------------------------------------------ */
 
-function tpValues(titlePage: TitlePageEntry[], ...keys: string[]): string[] {
+function tpValues(titlePage: DerivedTitlePageEntry[], ...keys: string[]): string[] {
 	const want = keys.map((k) => k.toLowerCase());
 	return titlePage
 		.filter((entry) => want.includes(entry.key.trim().toLowerCase()))
@@ -323,7 +325,7 @@ function centerOp(y: number, text: string): string {
 	return textOp(x, y, text);
 }
 
-function titleStream(titlePage: TitlePageEntry[]): string {
+function titleStream(titlePage: DerivedTitlePageEntry[]): string {
 	const ops: string[] = [];
 	const title = tpValues(titlePage, 'title').join(' ').toUpperCase();
 	const credit = tpValues(titlePage, 'credit')[0] ?? 'written by';
@@ -406,7 +408,7 @@ export function scriptToPdf(script: Screenplay): Uint8Array {
 			issue
 		);
 	}
-	const hasTitle = script.titlePage.some((e) => e.values.some((v) => v.trim() !== ''));
+	const hasTitle = script.titlePage.some((line) => line.text.trim() !== '');
 	const hasBody = script.elements.some((element) => isPrinting(element.type));
 	/* A title-only screenplay is one title page, not a title page plus an
 	   accidental blank body page. A wholly empty screenplay remains one page. */
@@ -421,7 +423,7 @@ export function scriptToPdf(script: Screenplay): Uint8Array {
 		stream: string;
 	}
 	const specs: PageSpec[] = [];
-	if (hasTitle) specs.push({ stream: titleStream(script.titlePage) });
+	if (hasTitle) specs.push({ stream: titleStream(deriveTitlePage(script.titlePage)) });
 	const wrapped = new Map<number, { text: string; utf16Start: number }[]>();
 	const cursors = new Map<number, number>();
 	pages.forEach((p, i) =>
@@ -459,7 +461,7 @@ export function scriptToPdf(script: Screenplay): Uint8Array {
 	/* Info: Producer + Title metadata, and the complete Fountain source as a
 	   versioned hex payload — this PDF is its own backup. */
 	const infoObj = 4 + specs.length * 2;
-	const docTitle = tpValues(script.titlePage, 'title').join(' ').trim();
+	const docTitle = tpValues(deriveTitlePage(script.titlePage), 'title').join(' ').trim();
 	objects[infoObj] =
 		'<< /Producer (eDraft)' +
 		(docTitle === '' ? '' : ` /Title <${pdfUtf16Hex(docTitle)}>`) +

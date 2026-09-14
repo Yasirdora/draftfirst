@@ -13,9 +13,9 @@ final class FdxRoundTripTests: XCTestCase {
     func testExportingFdxKeepsLyricsAndKeyedTitlePage() throws {
         let original = EDraftCore.Screenplay(
             titlePage: [
-                TitlePageEntry(key: "Title", values: ["Keyed Title"]),
-                TitlePageEntry(key: "Author", values: ["A. Writer"]),
-                TitlePageEntry(key: "CustomCredit", values: ["Additional writing"])
+                TitlePageLine(text: "Keyed Title", key: "Title"),
+                TitlePageLine(text: "A. Writer", key: "Author"),
+                TitlePageLine(text: "Additional writing", key: "CustomCredit"),
             ],
             elements: [
                 ScriptElement(type: .scene, text: "INT. HALL - NIGHT"),
@@ -32,14 +32,22 @@ final class FdxRoundTripTests: XCTestCase {
         let parsed = Fdx.parse(xml).script
         XCTAssertEqual(parsed.elements.first { $0.type == .lyrics }?.text, "Sing me home")
         XCTAssertEqual(parsed.elements.first { $0.type == .lyrics }?.type, .lyrics)
-        XCTAssertEqual(parsed.titlePage.first { $0.key == "Title" }?.values, ["Keyed Title"])
-        XCTAssertEqual(parsed.titlePage.first { $0.key == "CustomCredit" }?.values, ["Additional writing"])
+        /* The line model (RFC-TITLE-PAGE D5): text verbatim, the key kept
+           as the line's annotation, alignment recorded from the file. */
+        XCTAssertEqual(
+            parsed.titlePage.first { $0.key == "Title" },
+            TitlePageLine(text: "Keyed Title", alignment: .center, key: "Title")
+        )
+        XCTAssertEqual(parsed.titlePage.first { $0.key == "CustomCredit" }?.text, "Additional writing")
 
         let fountain = try ScreenplayFile.decode(Data(xml.utf8), as: .finalDraftScreenplay)
         let reopened = EDraftCore.Screenplay(engineModel: try Fountain.parse(fountain))
         XCTAssertEqual(reopened.elements.first { $0.type == .lyrics }?.text, "Sing me home")
-        XCTAssertEqual(reopened.titlePage.first { $0.key == "Title" }?.values, ["Keyed Title"])
-        XCTAssertEqual(reopened.titlePage.first { $0.key == "CustomCredit" }?.values, ["Additional writing"])
+        /* Through Fountain the page migrates through the template, so the
+           title arrives in its printed form and the keyed questions are
+           answered by derivation. */
+        XCTAssertEqual(TitlePage.values(reopened.titlePage, for: "Title"), ["KEYED TITLE"])
+        XCTAssertEqual(TitlePage.values(reopened.titlePage, for: "CustomCredit"), ["Additional writing"])
     }
 
     func testALegacyPrefixFileStillImportsLyricsAndTitleKeys() {
@@ -59,7 +67,10 @@ final class FdxRoundTripTests: XCTestCase {
         let script = Fdx.parse(legacy).script
         XCTAssertEqual(script.elements.first?.type, .lyrics)
         XCTAssertEqual(script.elements.first?.text, "Sing me home")
-        XCTAssertEqual(script.titlePage.first { $0.key == "Title" }?.values, ["Old Name"])
+        XCTAssertEqual(
+            script.titlePage.first { $0.key == "Title" },
+            TitlePageLine(text: "Old Name", alignment: .center, key: "Title")
+        )
 
         let rewritten = ScreenplayExporter.fdxSource(EDraftCore.Screenplay(engineModel: script))
         XCTAssertTrue(rewritten.contains("EDraft:ElementType=\"lyrics\""))

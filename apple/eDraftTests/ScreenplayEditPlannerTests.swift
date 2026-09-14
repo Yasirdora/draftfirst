@@ -386,11 +386,13 @@ final class EditorStateMetadataTests: XCTestCase {
             credit: "Screenplay by"
         )
 
-        XCTAssertEqual(editor.titlePageValue(for: "Title"), "The New Story")
+        // The stored title is the printed form: the page shows capitals, so
+        // the model holds capitals and the Fountain wire carries them.
+        XCTAssertEqual(editor.titlePageValue(for: "Title"), "THE NEW STORY")
         XCTAssertEqual(editor.titlePageValue(for: "Author"), "Elena Voss")
         XCTAssertEqual(editor.titlePageValue(for: "Credit"), "Screenplay by")
         let source = try XCTUnwrap(publishedSource)
-        XCTAssertTrue(source.contains("Title: The New Story"))
+        XCTAssertTrue(source.contains("Title: THE NEW STORY"))
         XCTAssertTrue(source.contains("Author: Elena Voss"))
         XCTAssertTrue(source.contains("Credit: Screenplay by"))
     }

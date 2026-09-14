@@ -13,18 +13,16 @@ export interface EDraftDiagnostic {
 export interface ScreenplayLimits {
 	readonly maxElements: number;
 	readonly maxElementTextLength: number;
-	readonly maxTitleEntries: number;
-	readonly maxTitleValuesPerEntry: number;
-	readonly maxTitleValueLength: number;
+	readonly maxTitleLines: number;
+	readonly maxTitleLineLength: number;
 	readonly maxSectionDepth: number;
 }
 
 export const DEFAULT_SCREENPLAY_LIMITS: Readonly<ScreenplayLimits> = Object.freeze({
 	maxElements: 100_000,
 	maxElementTextLength: 1_000_000,
-	maxTitleEntries: 100,
-	maxTitleValuesPerEntry: 100,
-	maxTitleValueLength: 100_000,
+	maxTitleLines: 100,
+	maxTitleLineLength: 100_000,
 	maxSectionDepth: 10
 });
 
@@ -81,20 +79,15 @@ function resolveLimits(overrides: Partial<ScreenplayLimits>): ScreenplayLimits {
 			DEFAULT_SCREENPLAY_LIMITS.maxElementTextLength,
 			'maxElementTextLength'
 		),
-		maxTitleEntries: positiveInteger(
-			overrides.maxTitleEntries,
-			DEFAULT_SCREENPLAY_LIMITS.maxTitleEntries,
-			'maxTitleEntries'
+		maxTitleLines: positiveInteger(
+			overrides.maxTitleLines,
+			DEFAULT_SCREENPLAY_LIMITS.maxTitleLines,
+			'maxTitleLines'
 		),
-		maxTitleValuesPerEntry: positiveInteger(
-			overrides.maxTitleValuesPerEntry,
-			DEFAULT_SCREENPLAY_LIMITS.maxTitleValuesPerEntry,
-			'maxTitleValuesPerEntry'
-		),
-		maxTitleValueLength: positiveInteger(
-			overrides.maxTitleValueLength,
-			DEFAULT_SCREENPLAY_LIMITS.maxTitleValueLength,
-			'maxTitleValueLength'
+		maxTitleLineLength: positiveInteger(
+			overrides.maxTitleLineLength,
+			DEFAULT_SCREENPLAY_LIMITS.maxTitleLineLength,
+			'maxTitleLineLength'
 		),
 		maxSectionDepth: positiveInteger(
 			overrides.maxSectionDepth,
@@ -126,39 +119,38 @@ export function validateScreenplay(
 
 	if (!Array.isArray(input.titlePage)) {
 		error('TITLE_PAGE_NOT_ARRAY', 'titlePage must be an array.', 'titlePage');
-	} else if (input.titlePage.length > limits.maxTitleEntries) {
+	} else if (input.titlePage.length > limits.maxTitleLines) {
 		error(
 			'TITLE_PAGE_LIMIT_EXCEEDED',
-			`titlePage exceeds the ${limits.maxTitleEntries} entry limit.`,
+			`titlePage exceeds the ${limits.maxTitleLines} line limit.`,
 			'titlePage'
 		);
 	} else {
 		for (let i = 0; i < input.titlePage.length; i++) {
-			const entry = input.titlePage[i];
+			const line = input.titlePage[i];
 			const path = `titlePage[${i}]`;
-			if (!isRecord(entry)) {
-				error('TITLE_ENTRY_NOT_OBJECT', 'Title-page entry must be an object.', path);
+			if (!isRecord(line)) {
+				error('TITLE_LINE_NOT_OBJECT', 'Title-page line must be an object.', path);
 				continue;
 			}
-			if (typeof entry.key !== 'string' || entry.key.trim() === '') {
-				error('TITLE_KEY_INVALID', 'Title-page key must be a non-empty string.', `${path}.key`);
-			} else if (entry.key.length > limits.maxTitleValueLength) {
-				error('TITLE_KEY_TOO_LONG', 'Title-page key exceeds the configured limit.', `${path}.key`);
+			if (typeof line.text !== 'string') {
+				error('TITLE_TEXT_INVALID', 'Title-page line text must be a string.', `${path}.text`);
+			} else if (line.text.length > limits.maxTitleLineLength) {
+				error('TITLE_TEXT_TOO_LONG', 'Title-page line text exceeds the configured limit.', `${path}.text`);
 			}
-			if (!Array.isArray(entry.values)) {
-				error('TITLE_VALUES_NOT_ARRAY', 'Title-page values must be an array.', `${path}.values`);
-				continue;
+			if (
+				line.alignment !== undefined &&
+				line.alignment !== 'left' &&
+				line.alignment !== 'center' &&
+				line.alignment !== 'right'
+			) {
+				error('TITLE_ALIGNMENT_INVALID', 'Title-page alignment must be left, center or right.', `${path}.alignment`);
 			}
-			if (entry.values.length > limits.maxTitleValuesPerEntry) {
-				error('TITLE_VALUES_LIMIT_EXCEEDED', 'Title-page entry has too many values.', `${path}.values`);
-				continue;
-			}
-			for (let j = 0; j < entry.values.length; j++) {
-				const value = entry.values[j];
-				if (typeof value !== 'string') {
-					error('TITLE_VALUE_INVALID', 'Title-page value must be a string.', `${path}.values[${j}]`);
-				} else if (value.length > limits.maxTitleValueLength) {
-					error('TITLE_VALUE_TOO_LONG', 'Title-page value exceeds the configured limit.', `${path}.values[${j}]`);
+			if (line.key !== undefined) {
+				if (typeof line.key !== 'string' || line.key.trim() === '') {
+					error('TITLE_KEY_INVALID', 'Title-page key must be a non-empty string when present.', `${path}.key`);
+				} else if (line.key.length > limits.maxTitleLineLength) {
+					error('TITLE_KEY_TOO_LONG', 'Title-page key exceeds the configured limit.', `${path}.key`);
 				}
 			}
 		}

@@ -568,84 +568,27 @@ public enum Fdx {
 
     // MARK: - Import
 
-    /// Guess a title-page key from paragraph position when an external FDX
-    /// has no key metadata. JavaScript's out-of-bounds `undefined ?? 'Contact'`
-    /// is a trap in Swift — real Final Draft title pages run well past five
-    /// paragraphs, so the fallback must be written, not subscripted.
-    private static func titleKey(for index: Int) -> String {
-        let keys = ["Title", "Credit", "Author", "Source", "Contact"]
-        return index < keys.count ? keys[index] : "Contact"
-    }
-
-    /// TypeScript `Number(...)`: full-string numeric parse (whitespace-
-    /// trimmed; empty is 0; hex/octal/binary prefixes honoured), accepted
-    /// only when the result is a non-negative safe integer.
-    private static func jsSafeInteger(_ raw: String) -> Int? {
-        let text = raw.jsTrimmed
-        if text.isEmpty { return 0 }
-        if text.count > 2 {
-            let radix: Int?
-            if text.hasPrefix("0x") || text.hasPrefix("0X") { radix = 16 }
-            else if text.hasPrefix("0o") || text.hasPrefix("0O") { radix = 8 }
-            else if text.hasPrefix("0b") || text.hasPrefix("0B") { radix = 2 }
-            else { radix = nil }
-            if let radix {
-                let digits = text.dropFirst(2)
-                guard let value = UInt64(digits, radix: radix),
-                      value <= 9_007_199_254_740_991 else { return nil }
-                return Int(value)
+    /// The title page, verbatim (RFC-TITLE-PAGE D5): every paragraph
+    /// becomes a line — text, alignment, styled runs, blanks and all. Our
+    /// TitleKey extension attribute survives as an annotation when the
+    /// file carries it; nothing is guessed, because guessing was how
+    /// foreign files lost their layout.
+    private static func titlePageLines(of paragraphs: [CollectedParagraph]) -> [TitlePageLine] {
+        paragraphs.map { paragraph in
+            var line = TitlePageLine(text: paragraph.text)
+            switch (paragraph.attribute("alignment") ?? "").lowercased() {
+            case "left": line.alignment = .left
+            case "right": line.alignment = .right
+            case "center": line.alignment = .center
+            default: break
             }
-        }
-        guard let value = Double(text),
-              value.isFinite,
-              value.rounded() == value,
-              abs(value) <= 9_007_199_254_740_991 else { return nil }
-        return Int(value)
-    }
-
-    private static func titlePage(
-        of paragraphs: [CollectedParagraph],
-        diagnostics: DiagnosticCollector
-    ) -> [TitlePageEntry] {
-        var tagged: [Int: TitlePageEntry] = [:]
-        var untagged: [String] = []
-
-        for paragraph in paragraphs {
-            let key = paragraph.extensionAttribute("titlekey") ?? ""
-            let rawEntryIndex = paragraph.extensionAttribute("titleentry") ?? ""
-            if key != "", !rawEntryIndex.isEmpty,
-               let entryIndex = jsSafeInteger(rawEntryIndex), entryIndex >= 0 {
-                if var existing = tagged[entryIndex] {
-                    if existing.key == key {
-                        existing.values.append(paragraph.text)
-                        tagged[entryIndex] = existing
-                    } else {
-                        diagnostics.add(.init(
-                            code: "FDX_CONFLICTING_TITLE_METADATA",
-                            severity: .warning,
-                            message: "Title entry \(entryIndex) declared conflicting keys; the later paragraph was imported positionally.",
-                            paragraphIndex: paragraph.paragraphIndex
-                        ))
-                        if !paragraph.text.jsTrimmed.isEmpty { untagged.append(paragraph.text) }
-                    }
-                } else {
-                    tagged[entryIndex] = TitlePageEntry(key: key, values: [paragraph.text])
-                }
-            } else if !paragraph.text.jsTrimmed.isEmpty {
-                untagged.append(paragraph.text)
+            let runs = Emphasis.normalise(paragraph.runs, textLength: paragraph.text.utf16.count)
+            if !runs.isEmpty { line.runs = runs }
+            if let key = paragraph.extensionAttribute("titlekey"), !key.isEmpty {
+                line.key = key
             }
+            return line
         }
-
-        var titlePage = tagged.sorted { $0.key < $1.key }.map(\.value)
-        for (index, text) in untagged.enumerated() {
-            let key = titleKey(for: index)
-            if let existing = titlePage.firstIndex(where: { $0.key == key }) {
-                titlePage[existing].values.append(text)
-            } else {
-                titlePage.append(TitlePageEntry(key: key, values: [text]))
-            }
-        }
-        return titlePage
     }
 
     private static func emptyImport(_ diagnostics: DiagnosticCollector) -> ImportResult {
@@ -722,11 +665,9 @@ public enum Fdx {
             elements.append(element)
         }
 
-        // The title page is folded BEFORE the diagnostics are read out:
-        // conflict detection there reports into the same collector, and the
-        // TypeScript return order (script first, then `diagnostics.result()`)
-        // captures it — snapshotting `items` first would silently drop it.
-        let title = titlePage(of: parsed.title, diagnostics: diagnostics)
+        /* The title page reads verbatim — it reports no diagnostics, so the
+           collector's snapshot needs no particular order against it. */
+        let title = titlePageLines(of: parsed.title)
         let items = diagnostics.result()
         return ImportResult(
             script: Screenplay(titlePage: title, elements: elements),
@@ -1013,7 +954,7 @@ public enum Fdx {
             out += Array(units[origin.textStart..<origin.end])
             return out
         }
-        out += Array(textRunsMarkup(of: element).utf16)
+        out += Array(textRunsMarkup(text: element.text, runs: element.runs).utf16)
         out += Array(units[origin.textEnd..<origin.end])
         return out
     }
@@ -1054,12 +995,14 @@ public enum Fdx {
     /// list, the highlight in our extension namespace, revision and tags
     /// carried. A paragraph with no runs writes exactly what it always did —
     /// the plain single <Text> — so a runless document's bytes never move.
-    fileprivate static func textRunsMarkup(of element: ScreenplayElement) -> String {
-        let runs = element.runs ?? []
+    /// Shared by body paragraphs and title-page lines (TypeScript
+    /// `textRunsMarkup`, widened the same way).
+    fileprivate static func textRunsMarkup(text: String, runs: [StyleRun]?) -> String {
+        let runs = runs ?? []
         guard !runs.isEmpty else {
-            return "<Text>\(encodeXmlEntities(element.text))</Text>"
+            return "<Text>\(encodeXmlEntities(text))</Text>"
         }
-        let text = element.text as NSString
+        let text = text as NSString
         var out = ""
         var cursor = 0
         let styleOrder: [(StyleSet, String)] = [
@@ -1173,10 +1116,13 @@ public enum Fdx {
                     "Number=\"\(encodeXmlValue(sceneNumber, diagnostics: diagnostics, context: "scene number", elementIndex: index))\""
                 )
             }
-            let encoded = encodeXmlValue(
+            /* encodeXmlValue is the diagnostics path (illegal code points
+               are reported and repaired); the markup below re-encodes for
+               the actual bytes. */
+            _ = encodeXmlValue(
                 element.text, diagnostics: diagnostics, context: "paragraph text", elementIndex: index
             )
-            body.append("<Paragraph \(attributes.joined(separator: " "))>\(textRunsMarkup(of: element))</Paragraph>")
+            body.append("<Paragraph \(attributes.joined(separator: " "))>\(textRunsMarkup(text: element.text, runs: element.runs))</Paragraph>")
         }
 
         if omittedStructural > 0 {
@@ -1209,22 +1155,28 @@ public enum Fdx {
         out.append(contentsOf: body)
         out.append("</Content>")
 
+        /* The title page writes verbatim (RFC-TITLE-PAGE D5): each line a
+           paragraph — its own alignment, styled runs, blanks and all. The
+           key rides along as our annotation when the line carries one;
+           nothing is recomputed, so a foreign page comes back as itself. */
         if !script.titlePage.isEmpty {
             out.append("<TitlePage>")
             out.append("<Content>")
-            for (entryIndex, entry) in script.titlePage.enumerated() {
-                let values = entry.values.isEmpty ? [""] : entry.values
-                let key = encodeXmlValue(
-                    entry.key, diagnostics: diagnostics, context: "title-page key \(entryIndex)"
-                )
-                for value in values {
-                    let encoded = encodeXmlValue(
-                        value, diagnostics: diagnostics, context: "title-page entry \(entryIndex)"
-                    )
-                    out.append(
-                        "<Paragraph Alignment=\"Center\" Type=\"General\" \(extensionPrefix):TitleKey=\"\(key)\" \(extensionPrefix):TitleEntry=\"\(entryIndex)\"><Text>\(encoded)</Text></Paragraph>"
-                    )
+            for (lineIndex, line) in script.titlePage.enumerated() {
+                let alignment: String
+                switch line.alignment ?? .center {
+                case .left: alignment = "Left"
+                case .right: alignment = "Right"
+                case .center: alignment = "Center"
                 }
+                var attributes = "Alignment=\"\(alignment)\" Type=\"General\""
+                if let key = line.key, !key.isEmpty {
+                    attributes += " \(extensionPrefix):TitleKey=\"\(encodeXmlValue(key, diagnostics: diagnostics, context: "title-page key \(lineIndex)"))\""
+                }
+                _ = encodeXmlValue(
+                    line.text, diagnostics: diagnostics, context: "paragraph text", elementIndex: lineIndex
+                )
+                out.append("<Paragraph \(attributes)>\(textRunsMarkup(text: line.text, runs: line.runs))</Paragraph>")
             }
             out.append("</Content>")
             out.append("</TitlePage>")

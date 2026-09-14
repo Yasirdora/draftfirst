@@ -8,22 +8,16 @@
         "script": {
           "titlePage": [
             {
-              "key": "Title",
-              "values": [
-                "Chips"
-              ]
+              "text": "Chips",
+              "alignment": "center"
             },
             {
-              "key": "Credit",
-              "values": [
-                "written by"
-              ]
+              "text": "written by",
+              "alignment": "center"
             },
             {
-              "key": "Author",
-              "values": [
-                "A. Writer"
-              ]
+              "text": "A. Writer",
+              "alignment": "center"
             }
           ],
           "elements": [
@@ -73,10 +67,7 @@
         "script": {
           "titlePage": [
             {
-              "key": "Title",
-              "values": [
-                "A TITLE"
-              ]
+              "text": "A TITLE"
             }
           ],
           "elements": [
@@ -486,30 +477,24 @@
       }
     },
     {
-      "name": "conflicting-title-metadata",
+      "name": "legacy-keyed-title-page",
       "source": "<FinalDraft><Content/><TitlePage><Content><Paragraph Type=\"General\" EDraft:TitleKey=\"Title\" EDraft:TitleEntry=\"0\"><Text>A</Text></Paragraph><Paragraph Type=\"General\" EDraft:TitleKey=\"Author\" EDraft:TitleEntry=\"0\"><Text>B</Text></Paragraph></Content></TitlePage></FinalDraft>",
       "options": {},
       "expected": {
         "script": {
           "titlePage": [
             {
-              "key": "Title",
-              "values": [
-                "A",
-                "B"
-              ]
+              "text": "A",
+              "key": "Title"
+            },
+            {
+              "text": "B",
+              "key": "Author"
             }
           ],
           "elements": []
         },
-        "diagnostics": [
-          {
-            "code": "FDX_CONFLICTING_TITLE_METADATA",
-            "severity": "warning",
-            "message": "Title entry 0 declared conflicting keys; the later paragraph was imported positionally.",
-            "paragraphIndex": 1
-          }
-        ]
+        "diagnostics": []
       }
     },
     {
@@ -520,37 +505,36 @@
         "script": {
           "titlePage": [
             {
-              "key": "Title",
-              "values": [
-                "THE BIG SCRIPT"
-              ]
+              "text": "THE BIG SCRIPT",
+              "alignment": "center"
             },
             {
-              "key": "Credit",
-              "values": [
-                "written by"
-              ]
+              "text": "written by",
+              "alignment": "center"
             },
             {
-              "key": "Author",
-              "values": [
-                "First Writer"
-              ]
+              "text": "First Writer",
+              "alignment": "center"
             },
             {
-              "key": "Source",
-              "values": [
-                "Second Writer"
-              ]
+              "text": "Second Writer",
+              "alignment": "center"
             },
             {
-              "key": "Contact",
-              "values": [
-                "Based on a true story",
-                "Copyright 2026",
-                "123 Writer Lane",
-                "Hollywood, CA 90028"
-              ]
+              "text": "Based on a true story",
+              "alignment": "center"
+            },
+            {
+              "text": "Copyright 2026",
+              "alignment": "center"
+            },
+            {
+              "text": "123 Writer Lane",
+              "alignment": "center"
+            },
+            {
+              "text": "Hollywood, CA 90028",
+              "alignment": "center"
             }
           ],
           "elements": [
@@ -775,34 +759,176 @@
       "screenplay": {
         "titlePage": [
           {
-            "key": "Title",
-            "values": [
-              "The Empty Cinema"
-            ]
+            "text": ""
           },
           {
-            "key": "Credit",
-            "values": [
-              "written by"
-            ]
+            "text": ""
           },
           {
-            "key": "Author",
-            "values": [
-              "A. Projectionist"
-            ]
+            "text": ""
           },
           {
-            "key": "Draft date",
-            "values": [
-              "8/8/2026"
-            ]
+            "text": ""
           },
           {
-            "key": "Contact",
-            "values": [
-              "booth@example.com"
-            ]
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "THE EMPTY CINEMA",
+            "key": "Title"
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "written by",
+            "key": "Credit"
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "A. Projectionist",
+            "key": "Author"
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "Draft date",
+            "key": "Draft date"
+          },
+          {
+            "text": "8/8/2026",
+            "key": "Draft date"
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "booth@example.com",
+            "alignment": "left",
+            "key": "Contact"
           }
         ],
         "elements": [
@@ -903,7 +1029,7 @@
         ]
       },
       "expected": {
-        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Outline 1\"><Text>Act One</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\"><Text>INT. THE REX CINEMA, PROJECTION BOOTH - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Dust hangs in the beam of a 35mm projector. ELIAS VANCE, 60s, threads the final reel with surgeon&apos;s hands. The auditorium below is empty.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Parenthetical\"><Text>(quietly, to the machine)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>One more time. Like we promised.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>He flips the shutter. Light floods the booth.</Text></Paragraph>\n<Paragraph Type=\"Transition\"><Text>CUT TO:</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\"><Text>INT. THE REX CINEMA, AUDITORIUM - CONTINUOUS</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Rows of vacant seats. On screen, a HOME MOVIE flickers: a birthday party, decades old. A young girl blows out candles.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>MARA (O.S.)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You kept it.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Elias doesn&apos;t turn. MARA, 30s, stands in the aisle, out of breath.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You came back.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph>\n<Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You said the reel burns at midnight.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Then we watch it—</Text></Paragraph>\n<Paragraph Type=\"Character\" Dual=\"Yes\"><Text>MARA</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Together.</Text></Paragraph>\n<Paragraph Type=\"General\" Alignment=\"Center\"><Text>THE END</Text></Paragraph>\n</Content>\n<TitlePage>\n<Content>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Title\" EDraft:TitleEntry=\"0\"><Text>The Empty Cinema</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Credit\" EDraft:TitleEntry=\"1\"><Text>written by</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Author\" EDraft:TitleEntry=\"2\"><Text>A. Projectionist</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Draft date\" EDraft:TitleEntry=\"3\"><Text>8/8/2026</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Contact\" EDraft:TitleEntry=\"4\"><Text>booth@example.com</Text></Paragraph>\n</Content>\n</TitlePage>\n</FinalDraft>\n",
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Outline 1\"><Text>Act One</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\"><Text>INT. THE REX CINEMA, PROJECTION BOOTH - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Dust hangs in the beam of a 35mm projector. ELIAS VANCE, 60s, threads the final reel with surgeon&apos;s hands. The auditorium below is empty.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Parenthetical\"><Text>(quietly, to the machine)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>One more time. Like we promised.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>He flips the shutter. Light floods the booth.</Text></Paragraph>\n<Paragraph Type=\"Transition\"><Text>CUT TO:</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\"><Text>INT. THE REX CINEMA, AUDITORIUM - CONTINUOUS</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Rows of vacant seats. On screen, a HOME MOVIE flickers: a birthday party, decades old. A young girl blows out candles.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>MARA (O.S.)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You kept it.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Elias doesn&apos;t turn. MARA, 30s, stands in the aisle, out of breath.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You came back.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph>\n<Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>You said the reel burns at midnight.</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>ELIAS</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Then we watch it—</Text></Paragraph>\n<Paragraph Type=\"Character\" Dual=\"Yes\"><Text>MARA</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Together.</Text></Paragraph>\n<Paragraph Type=\"General\" Alignment=\"Center\"><Text>THE END</Text></Paragraph>\n</Content>\n<TitlePage>\n<Content>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Title\"><Text>THE EMPTY CINEMA</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Credit\"><Text>written by</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Author\"><Text>A. Projectionist</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Draft date\"><Text>Draft date</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Draft date\"><Text>8/8/2026</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Left\" Type=\"General\" EDraft:TitleKey=\"Contact\"><Text>booth@example.com</Text></Paragraph>\n</Content>\n</TitlePage>\n</FinalDraft>\n",
         "diagnostics": []
       }
     },
@@ -1147,41 +1273,100 @@
       "screenplay": {
         "titlePage": [
           {
-            "key": "Title",
-            "values": [
-              "My Script"
-            ]
+            "text": ""
           },
           {
-            "key": "Credit",
-            "values": [
-              "written by"
-            ]
+            "text": ""
           },
           {
-            "key": "Author",
-            "values": [
-              "A. Writer"
-            ]
+            "text": ""
           },
           {
-            "key": "Source",
-            "values": [
-              "A true story"
-            ]
+            "text": ""
           },
           {
-            "key": "Notes",
-            "values": [
-              "First note line.",
-              "Second note line."
-            ]
+            "text": ""
           },
           {
-            "key": "Unknown Key",
-            "values": [
-              "kept as-is"
-            ]
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "MY SCRIPT",
+            "key": "Title"
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "written by",
+            "key": "Credit"
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "A. Writer",
+            "key": "Author"
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "A true story",
+            "key": "Source"
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "Notes",
+            "key": "Notes"
+          },
+          {
+            "text": "First note line.",
+            "key": "Notes"
+          },
+          {
+            "text": "Second note line.",
+            "key": "Notes"
+          },
+          {
+            "text": ""
+          },
+          {
+            "text": "Unknown Key",
+            "key": "Unknown Key"
+          },
+          {
+            "text": "kept as-is",
+            "key": "Unknown Key"
           }
         ],
         "elements": [
@@ -1196,7 +1381,7 @@
         ]
       },
       "expected": {
-        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. ROOM - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Action.</Text></Paragraph>\n</Content>\n<TitlePage>\n<Content>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Title\" EDraft:TitleEntry=\"0\"><Text>My Script</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Credit\" EDraft:TitleEntry=\"1\"><Text>written by</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Author\" EDraft:TitleEntry=\"2\"><Text>A. Writer</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Source\" EDraft:TitleEntry=\"3\"><Text>A true story</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Notes\" EDraft:TitleEntry=\"4\"><Text>First note line.</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Notes\" EDraft:TitleEntry=\"4\"><Text>Second note line.</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Unknown Key\" EDraft:TitleEntry=\"5\"><Text>kept as-is</Text></Paragraph>\n</Content>\n</TitlePage>\n</FinalDraft>\n",
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. ROOM - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Action.</Text></Paragraph>\n</Content>\n<TitlePage>\n<Content>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Title\"><Text>MY SCRIPT</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Credit\"><Text>written by</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Author\"><Text>A. Writer</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Source\"><Text>A true story</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Notes\"><Text>Notes</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Notes\"><Text>First note line.</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Notes\"><Text>Second note line.</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\"><Text></Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Unknown Key\"><Text>Unknown Key</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Unknown Key\"><Text>kept as-is</Text></Paragraph>\n</Content>\n</TitlePage>\n</FinalDraft>\n",
         "diagnostics": []
       }
     },
@@ -4832,14 +5017,12 @@
       "screenplay": {
         "titlePage": [
           {
-            "key": "Title",
-            "values": [
-              "A & B"
-            ]
+            "text": "A & B",
+            "key": "Title"
           },
           {
-            "key": "Custom",
-            "values": []
+            "text": "",
+            "key": "Custom"
           }
         ],
         "elements": [
@@ -4868,7 +5051,7 @@
         ]
       },
       "expected": {
-        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Scene Heading\" Number=\"A7\"><Text>INT. A &amp; B - DAY</Text></Paragraph>\n<Paragraph Type=\"Character\" Dual=\"Yes\"><Text>MARA</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>It&apos;s &lt;fine&gt; &quot;really&quot;.</Text></Paragraph>\n<Paragraph Type=\"General\" Alignment=\"Center\"><Text>THE END</Text></Paragraph>\n<Paragraph Type=\"General\" EDraft:ElementType=\"lyrics\"><Text>La la</Text></Paragraph>\n</Content>\n<TitlePage>\n<Content>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Title\" EDraft:TitleEntry=\"0\"><Text>A &amp; B</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Custom\" EDraft:TitleEntry=\"1\"><Text></Text></Paragraph>\n</Content>\n</TitlePage>\n</FinalDraft>\n",
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Scene Heading\" Number=\"A7\"><Text>INT. A &amp; B - DAY</Text></Paragraph>\n<Paragraph Type=\"Character\" Dual=\"Yes\"><Text>MARA</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>It&apos;s &lt;fine&gt; &quot;really&quot;.</Text></Paragraph>\n<Paragraph Type=\"General\" Alignment=\"Center\"><Text>THE END</Text></Paragraph>\n<Paragraph Type=\"General\" EDraft:ElementType=\"lyrics\"><Text>La la</Text></Paragraph>\n</Content>\n<TitlePage>\n<Content>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Title\"><Text>A &amp; B</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"General\" EDraft:TitleKey=\"Custom\"><Text></Text></Paragraph>\n</Content>\n</TitlePage>\n</FinalDraft>\n",
         "diagnostics": []
       }
     },

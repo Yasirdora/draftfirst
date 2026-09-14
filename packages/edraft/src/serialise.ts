@@ -14,6 +14,7 @@
  */
 
 import type { AnyElementType, Screenplay, ScreenplayElement } from './types.js';
+import { deriveTitlePage } from './titlepage.js';
 import { synthesiseEmphasis } from './style.js';
 
 const SCENE_DETECT = /^(INT|EXT|EST|INT\.\/EXT|INT\/EXT|I\/E)([. ]|\.\/)/i;
@@ -135,14 +136,26 @@ export function elementToFountain(el: ScreenplayElement): string {
 export function serialiseFountain(script: Screenplay): string {
 	const out: string[] = [];
 
-	if (script.titlePage.length > 0) {
-		for (const entry of script.titlePage) {
-			if (entry.values.length === 0) {
-				out.push(`${entry.key}:`);
-			} else {
-				out.push(`${entry.key}: ${entry.values[0]}`);
-				for (const v of entry.values.slice(1)) out.push(`   ${v}`);
-			}
+	/* Fountain's title page is Key: value lines, so the line model derives
+	   its keys (RFC-TITLE-PAGE D7); derivation's fold rule means no line is
+	   ever dropped here. Emission follows the page's own order — the stack,
+	   extras in appearance order, contact last — so serialise → parse is a
+	   fixed point in key order as well as in content. */
+	const derived = deriveTitlePage(script.titlePage);
+	const pick = (key: string): typeof derived =>
+		derived.filter((entry) => entry.key.toLowerCase() === key);
+	const special = new Set(['title', 'credit', 'author', 'contact']);
+	const titleEntries = [
+		...pick('title'),
+		...pick('credit'),
+		...pick('author'),
+		...derived.filter((entry) => !special.has(entry.key.toLowerCase())),
+		...pick('contact')
+	];
+	if (titleEntries.length > 0) {
+		for (const entry of titleEntries) {
+			out.push(`${entry.key}: ${entry.values[0] ?? ''}`);
+			for (const v of entry.values.slice(1)) out.push(`   ${v}`);
 		}
 		out.push('');
 	}

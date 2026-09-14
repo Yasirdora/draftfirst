@@ -7,6 +7,7 @@ import {
 	TRANSITION_DETECT
 } from './parse.js';
 import { serialiseFountain } from './serialise.js';
+import { deriveTitlePage, titlePageValues } from './titlepage.js';
 import { SAMPLE_FOUNTAIN, SAMPLE_TITLE_KEYS } from '../test/fixtures/sample.js';
 import type { Screenplay } from './types.js';
 
@@ -43,21 +44,27 @@ describe('line classifiers · shared with the page surface', () => {
 describe('parseFountain · title page', () => {
 	it('reads keyed entries and stops at the first blank line', () => {
 		const s = parseFountain(SAMPLE_FOUNTAIN);
-		expect(s.titlePage.map((e) => e.key)).toEqual(SAMPLE_TITLE_KEYS);
-		expect(s.titlePage[0].values).toEqual(['The Empty Cinema']);
-		expect(s.titlePage[2].values).toEqual(['A. Projectionist']);
+		/* The keyed fields land as template lines (RFC-TITLE-PAGE D8); the
+		   derivation gives them back by name — the title in the uppercase
+		   the page always rendered. */
+		const entries = deriveTitlePage(s.titlePage);
+		expect(entries.map((e) => e.key)).toEqual(SAMPLE_TITLE_KEYS);
+		expect(entries[0].values).toEqual(['THE EMPTY CINEMA']);
+		expect(entries[2].values).toEqual(['A. Projectionist']);
 	});
 
 	it('supports multi-line values via indented continuation', () => {
 		const s = parseFountain('Title: The Long\n   Winding Title\n\nINT. A - DAY\n');
-		expect(s.titlePage[0].values).toEqual(['The Long', 'Winding Title']);
+		expect(titlePageValues(s.titlePage, 'Title')).toEqual(['THE LONG', 'WINDING TITLE']);
 	});
 
 	it('accepts custom title-page keys emitted by the serializer', () => {
 		const s = parseFountain('Project Code: EDRAFT-7\nTitle: Custom metadata\n\n');
-		expect(s.titlePage).toEqual([
-			{ key: 'Project Code', values: ['EDRAFT-7'] },
-			{ key: 'Title', values: ['Custom metadata'] }
+		/* The template normalises order — the stack first, extras after —
+		   and the printed label line is never read back as a value. */
+		expect(deriveTitlePage(s.titlePage)).toEqual([
+			{ key: 'Title', values: ['CUSTOM METADATA'] },
+			{ key: 'Project Code', values: ['EDRAFT-7'] }
 		]);
 	});
 
@@ -79,7 +86,7 @@ describe('parseFountain · title page', () => {
 
 	it('still opens a title page on a single known key', () => {
 		const s = parseFountain('Title: Only This\n\nINT. KITCHEN - DAY\n');
-		expect(s.titlePage).toEqual([{ key: 'Title', values: ['Only This'] }]);
+		expect(deriveTitlePage(s.titlePage)).toEqual([{ key: 'Title', values: ['ONLY THIS'] }]);
 	});
 });
 

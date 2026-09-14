@@ -90,8 +90,10 @@ struct TitleCreditsTests {
         The room hums.
         """
         let parsed = try Fountain.parse(source)
-        #expect(parsed.titlePage.first { $0.key == "Author" }?.values == ["Jane Smith & John Smith"])
-        #expect(parsed.titlePage.first { $0.key == "Contact" }?.values == ["Jane Smith", "jane@example.com"])
+        /* The model is lines; the keyed questions are answered by
+           derivation (RFC-TITLE-PAGE D3). */
+        #expect(TitlePage.values(parsed.titlePage, for: "Author") == ["Jane Smith & John Smith"])
+        #expect(TitlePage.values(parsed.titlePage, for: "Contact") == ["Jane Smith", "jane@example.com"])
         let reparsed = try Fountain.parse(Fountain.serialise(parsed))
         #expect(reparsed.titlePage == parsed.titlePage)
         #expect(reparsed.elements == parsed.elements)

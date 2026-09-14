@@ -98,14 +98,23 @@ export interface ScreenplayElement {
 	depth?: number;
 }
 
-/** One title-page field: `Title: My Script` → { key: 'Title', values: ['My Script'] }. */
-export interface TitlePageEntry {
-	key: string;
-	values: string[];
+/** Where a title-page line sits across the measure. Absent means centred. */
+export type TitlePageAlignment = 'left' | 'center' | 'right';
+
+/** One line of the title page (docs/RFC-TITLE-PAGE.md, D1): text, its own
+    alignment and styled runs — and the blank lines between, which carry
+    the vertical rhythm and are therefore real lines in the model, never
+    recomputed at render. `key` is an annotation a guided editor may leave
+    on a line it created; nothing requires it and nothing invents it. */
+export interface TitlePageLine {
+	text: string;
+	alignment?: TitlePageAlignment;
+	runs?: StyleRun[];
+	key?: string;
 }
 
 export interface Screenplay {
-	titlePage: TitlePageEntry[];
+	titlePage: TitlePageLine[];
 	elements: ScreenplayElement[];
 }
 

@@ -286,42 +286,38 @@ public final class EditorState {
     }
 
     public func titlePageValue(for key: String) -> String? {
-        screenplay.titlePage
-            .first(where: { $0.key.caseInsensitiveCompare(key) == .orderedSame })?
-            .values
-            .joined(separator: "\n")
+        let values = TitlePage.values(screenplay.titlePage, for: key)
+        return values.isEmpty ? nil : values.joined(separator: "\n")
     }
 
     /// The entry's lines as stored (empty when the key is absent).
     public func titlePageValues(for key: String) -> [String] {
-        screenplay.titlePage
-            .first(where: { $0.key.caseInsensitiveCompare(key) == .orderedSame })?
-            .values ?? []
+        TitlePage.values(screenplay.titlePage, for: key)
+    }
+
+    /// Every keyed field the page currently answers — the sheet's rows.
+    /// Derivation, never storage: the lines are the model (RFC-TITLE-PAGE
+    /// D3), so a row can only show what the page itself says.
+    public var titlePageEntries: [TitlePage.DerivedEntry] {
+        TitlePage.derive(screenplay.titlePage).entries
     }
 
     /// Writes one title-page entry with a single undo snapshot — the same
     /// discipline as updateTitlePage, generalized to any key and any number
-    /// of lines. Empty values remove the entry; unchanged values do nothing
-    /// (no snapshot, no publish churn).
+    /// of lines. Empty values remove the entry. The splice rewrites only
+    /// the lines the key owns (RFC-TITLE-PAGE D7); comparing its result
+    /// against the page IS the change detection, so an unchanged value
+    /// costs nothing — no snapshot, no publish churn.
     public func setTitlePageEntry(_ key: String, values: [String]) {
         let normalized = values
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
-        guard titlePageValues(for: key) != normalized else { return }
+        let next = TitlePage.spliced(screenplay.titlePage, key: key, values: normalized)
+        guard next != screenplay.titlePage else { return }
 
         clearNativeUndoHistory()
         recordSnapshot(structural: true)
-        if let index = screenplay.titlePage.firstIndex(where: {
-            $0.key.caseInsensitiveCompare(key) == .orderedSame
-        }) {
-            if normalized.isEmpty {
-                screenplay.titlePage.remove(at: index)
-            } else {
-                screenplay.titlePage[index].values = normalized
-            }
-        } else if !normalized.isEmpty {
-            screenplay.titlePage.append(TitlePageEntry(key: key, values: normalized))
-        }
+        screenplay.titlePage = next
         commitChange()
     }
 
@@ -1074,18 +1070,19 @@ public final class EditorState {
             (key: "Credit", value: credit),
             (key: "Author", value: writer)
         ]
-        let changed = changes.contains { change in
-            (titlePageValue(for: change.key) ?? "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                != change.value.trimmingCharacters(in: .whitespacesAndNewlines)
+        /* The three writes build against each other and land as one undo
+           step; the splice's own equality is the change detection, so a
+           re-typed same title — any casing — creates no revision. */
+        var next = screenplay.titlePage
+        for change in changes {
+            let normalized = change.value.trimmingCharacters(in: .whitespacesAndNewlines)
+            next = TitlePage.spliced(next, key: change.key, values: normalized.isEmpty ? [] : [normalized])
         }
-        guard changed else { return }
+        guard next != screenplay.titlePage else { return }
 
         clearNativeUndoHistory()
         recordSnapshot(structural: true)
-        for change in changes {
-            setTitlePageValue(change.value, for: change.key)
-        }
+        screenplay.titlePage = next
         commitChange()
     }
 
@@ -1270,21 +1267,6 @@ public final class EditorState {
             predictions = filtered
             predictionIndex = min(predictionIndex, max(0, filtered.count - 1))
             onPredictionChange?()
-        }
-    }
-
-    private func setTitlePageValue(_ value: String, for key: String) {
-        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let index = screenplay.titlePage.firstIndex(where: {
-            $0.key.caseInsensitiveCompare(key) == .orderedSame
-        }) {
-            if normalized.isEmpty {
-                screenplay.titlePage.remove(at: index)
-            } else {
-                screenplay.titlePage[index].values = [normalized]
-            }
-        } else if !normalized.isEmpty {
-            screenplay.titlePage.append(TitlePageEntry(key: key, values: [normalized]))
         }
     }
 
@@ -1529,16 +1511,16 @@ public final class EditorState {
         var blocks = source
             .replacingOccurrences(of: "\r\n", with: "\n")
             .components(separatedBy: "\n\n")
-        var titlePage: [TitlePageEntry] = []
+        var entries: [TitlePage.LegacyEntry] = []
         if let first = blocks.first, first.contains(":") {
-            titlePage = first.components(separatedBy: "\n").compactMap { line in
+            entries = first.components(separatedBy: "\n").compactMap { line in
                 guard let colon = line.firstIndex(of: ":") else { return nil }
                 let key = String(line[..<colon]).trimmingCharacters(in: .whitespaces)
                 let value = String(line[line.index(after: colon)...])
                     .trimmingCharacters(in: .whitespaces)
-                return key.isEmpty ? nil : TitlePageEntry(key: key, values: [value])
+                return key.isEmpty ? nil : TitlePage.LegacyEntry(key: key, values: [value])
             }
-            if !titlePage.isEmpty { blocks.removeFirst() }
+            if !entries.isEmpty { blocks.removeFirst() }
         }
         let elements = blocks.map { block -> ScriptElement in
             let text = block.trimmingCharacters(in: .newlines)
@@ -1547,7 +1529,7 @@ public final class EditorState {
             if looksLikeTransition(upper) { return ScriptElement(type: .transition, text: upper) }
             return ScriptElement(type: .action, text: text)
         }
-        return Screenplay(titlePage: titlePage, elements: elements)
+        return Screenplay(titlePage: TitlePage.lines(from: entries), elements: elements)
     }
 
     private func updateUndoAvailability() {

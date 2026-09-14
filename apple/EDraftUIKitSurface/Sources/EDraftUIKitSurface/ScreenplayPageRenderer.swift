@@ -55,8 +55,8 @@ public enum ScreenplayPageRenderer {
         ]
         let renderer = UIGraphicsPDFRenderer(bounds: format.pageRect, format: rendererFormat)
         let includeTitlePage = UserDefaults.standard.object(forKey: includeTitlePageKey) as? Bool ?? true
-        let hasTitlePage = screenplay.titlePage.contains { entry in
-            entry.values.contains { !$0.isEmpty }
+        let hasTitlePage = screenplay.titlePage.contains { line in
+            !line.text.trimmingCharacters(in: .whitespaces).isEmpty
         }
         let pdf = renderer.pdfData { context in
             // The title page exists only when it has something to say — an

@@ -187,30 +187,24 @@ public struct DocumentIndex: Comparable, Codable, Equatable, Sendable {
     public static func < (lhs: DocumentIndex, rhs: DocumentIndex) -> Bool { lhs.value < rhs.value }
 }
 
-public struct TitlePageEntry: Codable, Equatable, Sendable {
-
-    nonisolated public init(key: String, values: [String]) {
-        self.key = key
-        self.values = values
-    }
-    public var key: String
-    public var values: [String]
-}
-
 public struct Screenplay: Codable, Equatable, Sendable {
 
-    nonisolated public init(titlePage: [TitlePageEntry] = [], elements: [ScriptElement] = []) {
+    nonisolated public init(titlePage: [TitlePageLine] = [], elements: [ScriptElement] = []) {
         self.titlePage = titlePage
         self.elements = elements
     }
-    public var titlePage: [TitlePageEntry]
+    /// The title page as lines (docs/RFC-TITLE-PAGE.md, D1) — the engine's
+    /// own line type, so nothing re-encodes between the page and the model.
+    public var titlePage: [TitlePageLine]
     public var elements: [ScriptElement]
 
     public static let blank = Screenplay(
-        titlePage: [
-            TitlePageEntry(key: "Title", values: ["Untitled Screenplay"]),
-            TitlePageEntry(key: "Credit", values: ["written by"])
-        ],
+        /* The seed entries arrive as lines through the same migration every
+           keyed document takes — one template, no special cases (D8). */
+        titlePage: TitlePage.lines(from: [
+            TitlePage.LegacyEntry(key: "Title", values: ["Untitled Screenplay"]),
+            TitlePage.LegacyEntry(key: "Credit", values: ["written by"]),
+        ]),
         elements: [
             // A truly blank page — no FADE IN:, no ritual — and Action,
             // because Action is what `ScenePromotion` calls "nobody has said
@@ -234,9 +228,12 @@ public struct Screenplay: Codable, Equatable, Sendable {
         ]
     )
 
+    /// The document's own name for itself. The line stores the title in its
+    /// printed form — screenplay convention is capitals on the page — so a
+    /// migrated or edited document answers in capitals.
     public var title: String {
-        titlePage.first(where: { $0.key.caseInsensitiveCompare("Title") == .orderedSame })?
-            .values.first?.trimmingCharacters(in: .whitespacesAndNewlines)
+        TitlePage.values(titlePage, for: "Title").first?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
             .nonEmpty ?? "Untitled Screenplay"
     }
 }
@@ -246,12 +243,10 @@ public struct Screenplay: Codable, Equatable, Sendable {
 extension Screenplay {
     /// The engine package's identity-free model. Every field the engine
     /// carries — style runs, dual, sceneNumber, section depth — round-trips
-    /// losslessly.
+    /// losslessly; the title page is the same line type on both sides.
     public var engineModel: EDraftEngine.Screenplay {
         EDraftEngine.Screenplay(
-            titlePage: titlePage.map {
-                EDraftEngine.TitlePageEntry(key: $0.key, values: $0.values)
-            },
+            titlePage: titlePage,
             elements: elements.map {
                 EDraftEngine.ScreenplayElement(
                     type: $0.type.engineKind,
@@ -269,7 +264,7 @@ extension Screenplay {
     /// identities, exactly as a JSON decode through the old bridge did.
     nonisolated public init(engineModel: EDraftEngine.Screenplay) {
         self.init(
-            titlePage: engineModel.titlePage.map { TitlePageEntry(key: $0.key, values: $0.values) },
+            titlePage: engineModel.titlePage,
             elements: engineModel.elements.map {
                 ScriptElement(
                     type: ScreenplayKind(engineKind: $0.type),

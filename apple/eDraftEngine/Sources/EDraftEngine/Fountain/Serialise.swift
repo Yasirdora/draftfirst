@@ -116,15 +116,24 @@ extension Fountain {
     public static func serialise(_ script: Screenplay) -> String {
         var out: [String] = []
 
-        if !script.titlePage.isEmpty {
-            for entry in script.titlePage {
-                if entry.values.isEmpty {
-                    out.push(entry.key + ":")
-                } else {
-                    out.push(entry.key + ": " + entry.values[0])
-                    for value in entry.values.dropFirst() {
-                        out.push("   " + value)
-                    }
+        /* The title page serialises as its keys (RFC-TITLE-PAGE D7);
+           derivation's fold rule means no line is ever dropped here.
+           Emission follows the page's own order — the stack, extras in
+           appearance order, contact last — so serialise → parse is a fixed
+           point in key order as well as in content. */
+        let derived = TitlePage.derive(script.titlePage)
+        func pick(_ key: String) -> [TitlePage.DerivedEntry] {
+            derived.entries.filter { $0.key.lowercased() == key }
+        }
+        let special: Set<String> = ["title", "credit", "author", "contact"]
+        let titleEntries = pick("title") + pick("credit") + pick("author")
+            + derived.entries.filter { !special.contains($0.key.lowercased()) }
+            + pick("contact")
+        if !titleEntries.isEmpty {
+            for entry in titleEntries {
+                out.push("\(entry.key): \(entry.values.first ?? "")")
+                for value in entry.values.dropFirst() {
+                    out.push("   " + value)
                 }
             }
             out.push("")

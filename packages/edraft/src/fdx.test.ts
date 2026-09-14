@@ -281,10 +281,15 @@ describe('parseFdx · import', () => {
 		expect(script.elements[0].sceneNumber).toBe('1');
 	});
 
-	it('maps title-page paragraphs to keyed entries', () => {
+	it('imports the title page verbatim — text, alignment, no invented keys', () => {
 		const { script } = parseFdx(FOREIGN_FDX);
-		expect(script.titlePage[0]).toEqual({ key: 'Title', values: ['Chips'] });
-		expect(script.titlePage[2]).toEqual({ key: 'Author', values: ['A. Writer'] });
+		/* What the file says is what the model holds (RFC-TITLE-PAGE D5);
+		   the positional key guess is gone. */
+		expect(script.titlePage).toEqual([
+			{ text: 'Chips', alignment: 'center' },
+			{ text: 'written by', alignment: 'center' },
+			{ text: 'A. Writer', alignment: 'center' }
+		]);
 	});
 
 	it('warns on unknown paragraph types but keeps going', () => {
@@ -304,7 +309,7 @@ describe('parseFdx · import', () => {
 		const { script } = parseFdx(xml);
 		expect(script.elements[0]).toMatchObject({ type: 'scene', text: 'INT. LAB - DAY' });
 		expect(script.elements[1]).toMatchObject({ type: 'action', text: 'Hum.' });
-		expect(script.titlePage[0].values).toContain('A TITLE');
+		expect(script.titlePage[0]).toEqual({ text: 'A TITLE' });
 	});
 
 	it('accepts exact single-quoted attributes and greater-than signs inside values', () => {
@@ -469,19 +474,23 @@ describe('writeFdx · export', () => {
 		expect(result.diagnostics[0].code).toBe('FDX_INVALID_XML_CHARACTER_REPLACED');
 	});
 
-	it('preserves arbitrary title keys, duplicate entries, empty values, and lyrics', () => {
+	it('preserves arbitrary and duplicate title keys, blank lines, and lyrics', () => {
 		const original: Screenplay = {
 			titlePage: [
-				{ key: 'Custom', values: ['One', 'Two'] },
-				{ key: 'Custom', values: [] }
+				{ text: 'One', key: 'Custom' },
+				{ text: 'Two', key: 'Custom' },
+				{ text: '' },
+				{ text: 'Again', key: 'Custom' }
 			],
 			elements: [{ type: 'lyrics', text: 'La la' }]
 		};
 		const roundTrip = parseFdx(writeFdx(original)).script;
 		expect(roundTrip).toEqual({
 			titlePage: [
-				{ key: 'Custom', values: ['One', 'Two'] },
-				{ key: 'Custom', values: [''] }
+				{ text: 'One', alignment: 'center', key: 'Custom' },
+				{ text: 'Two', alignment: 'center', key: 'Custom' },
+				{ text: '', alignment: 'center' },
+				{ text: 'Again', alignment: 'center', key: 'Custom' }
 			],
 			elements: [{ type: 'lyrics', text: 'La la' }]
 		});
@@ -539,11 +548,11 @@ describe('pre-rename FDX files', () => {
 		expect(script.elements[0]).toMatchObject({ type: 'lyrics', text: 'Sing me home' });
 	});
 
-	it('restores keyed title-page entries from legacy attributes', () => {
+	it('restores title keys from legacy attributes as line annotations', () => {
 		const { script } = parseFdx(legacyFdx);
 		expect(script.titlePage).toEqual([
-			{ key: 'Title', values: ['Old Name'] },
-			{ key: 'Author', values: ['A. Writer'] }
+			{ text: 'Old Name', alignment: 'center', key: 'Title' },
+			{ text: 'A. Writer', alignment: 'center', key: 'Author' }
 		]);
 	});
 

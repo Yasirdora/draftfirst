@@ -4,34 +4,176 @@
     "screenplay": {
       "titlePage": [
         {
-          "key": "Title",
-          "values": [
-            "The Empty Cinema"
-          ]
+          "text": ""
         },
         {
-          "key": "Credit",
-          "values": [
-            "written by"
-          ]
+          "text": ""
         },
         {
-          "key": "Author",
-          "values": [
-            "A. Projectionist"
-          ]
+          "text": ""
         },
         {
-          "key": "Draft date",
-          "values": [
-            "8/8/2026"
-          ]
+          "text": ""
         },
         {
-          "key": "Contact",
-          "values": [
-            "booth@example.com"
-          ]
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "THE EMPTY CINEMA",
+          "key": "Title"
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "written by",
+          "key": "Credit"
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "A. Projectionist",
+          "key": "Author"
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "Draft date",
+          "key": "Draft date"
+        },
+        {
+          "text": "8/8/2026",
+          "key": "Draft date"
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "booth@example.com",
+          "alignment": "left",
+          "key": "Contact"
         }
       ],
       "elements": [
@@ -1247,41 +1389,100 @@
     "screenplay": {
       "titlePage": [
         {
-          "key": "Title",
-          "values": [
-            "My Script"
-          ]
+          "text": ""
         },
         {
-          "key": "Credit",
-          "values": [
-            "written by"
-          ]
+          "text": ""
         },
         {
-          "key": "Author",
-          "values": [
-            "A. Writer"
-          ]
+          "text": ""
         },
         {
-          "key": "Source",
-          "values": [
-            "A true story"
-          ]
+          "text": ""
         },
         {
-          "key": "Notes",
-          "values": [
-            "First note line.",
-            "Second note line."
-          ]
+          "text": ""
         },
         {
-          "key": "Unknown Key",
-          "values": [
-            "kept as-is"
-          ]
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "MY SCRIPT",
+          "key": "Title"
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "written by",
+          "key": "Credit"
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "A. Writer",
+          "key": "Author"
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "A true story",
+          "key": "Source"
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "Notes",
+          "key": "Notes"
+        },
+        {
+          "text": "First note line.",
+          "key": "Notes"
+        },
+        {
+          "text": "Second note line.",
+          "key": "Notes"
+        },
+        {
+          "text": ""
+        },
+        {
+          "text": "Unknown Key",
+          "key": "Unknown Key"
+        },
+        {
+          "text": "kept as-is",
+          "key": "Unknown Key"
         }
       ],
       "elements": [

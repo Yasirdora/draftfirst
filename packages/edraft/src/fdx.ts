@@ -20,7 +20,7 @@ import type {
 	ElementType,
 	Screenplay,
 	ScreenplayElement,
-	TitlePageEntry, StyleRun } from './types.js';
+	TitlePageLine, StyleRun } from './types.js';
 
 /* ---- diagnostics and limits -------------------------------------------- */
 
@@ -796,55 +796,23 @@ function extensionAttribute(paragraph: FdxParagraph, name: string): string {
 
 /* ---- import ------------------------------------------------------------- */
 
-/** Guess a title-page key from paragraph position when an external FDX has no key metadata. */
-function titleKeyFor(index: number): string {
-	return ['Title', 'Credit', 'Author', 'Source', 'Contact'][index] ?? 'Contact';
-}
-
-function titlePageOf(
-	paragraphs: FdxParagraph[],
-	diagnostics: DiagnosticCollector
-): TitlePageEntry[] {
-	const tagged = new Map<number, TitlePageEntry>();
-	const untagged: string[] = [];
-
-	for (const paragraph of paragraphs) {
+/** The title page, verbatim (RFC-TITLE-PAGE D5): every paragraph becomes a
+    line — text, alignment, styled runs, blanks and all. Our TitleKey
+    extension attribute survives as an annotation when the file carries it;
+    nothing is guessed, because guessing was how foreign files lost their
+    layout. */
+function titlePageLinesOf(paragraphs: FdxParagraph[]): TitlePageLine[] {
+	return paragraphs.map((paragraph) => {
+		const line: TitlePageLine = { text: paragraph.text };
+		const alignment = attributeOf(paragraph, 'alignment').toLowerCase();
+		if (alignment === 'left' || alignment === 'right') line.alignment = alignment;
+		else if (alignment === 'center') line.alignment = 'center';
+		const runs = normaliseRuns(paragraph.runs, paragraph.text.length);
+		if (runs.length > 0) line.runs = runs;
 		const key = extensionAttribute(paragraph, 'titlekey');
-		const rawEntryIndex = extensionAttribute(paragraph, 'titleentry');
-		const entryIndex = Number(rawEntryIndex);
-		if (
-			key !== '' &&
-			rawEntryIndex !== '' &&
-			Number.isSafeInteger(entryIndex) &&
-			entryIndex >= 0
-		) {
-			const existing = tagged.get(entryIndex);
-			if (!existing) tagged.set(entryIndex, { key, values: [paragraph.text] });
-			else if (existing.key === key) existing.values.push(paragraph.text);
-			else {
-				diagnostics.add({
-					code: 'FDX_CONFLICTING_TITLE_METADATA',
-					severity: 'warning',
-					message: `Title entry ${entryIndex} declared conflicting keys; the later paragraph was imported positionally.`,
-					paragraphIndex: paragraph.paragraphIndex
-				});
-				if (paragraph.text.trim() !== '') untagged.push(paragraph.text);
-			}
-		} else if (paragraph.text.trim() !== '') untagged.push(paragraph.text);
-	}
-
-	const titlePage = [...tagged.entries()]
-		.sort(([left], [right]) => left - right)
-		.map(([, entry]) => entry);
-	for (let index = 0; index < untagged.length; index++) {
-		const text = untagged[index];
-		if (text === undefined) continue;
-		const key = titleKeyFor(index);
-		const existing = titlePage.find((entry) => entry.key === key);
-		if (existing) existing.values.push(text);
-		else titlePage.push({ key, values: [text] });
-	}
-	return titlePage;
+		if (key !== '') line.key = key;
+		return line;
+	});
 }
 
 function emptyImport(diagnostics: DiagnosticCollector): FdxImportResult {
@@ -926,7 +894,7 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 		}
 
 		return {
-			script: { titlePage: titlePageOf(parsed.title, diagnostics), elements },
+			script: { titlePage: titlePageLinesOf(parsed.title), elements },
 			warnings: messagesOf(diagnostics.result()),
 			diagnostics: diagnostics.result()
 		};
@@ -1350,7 +1318,7 @@ function ensureNamespaceDeclared(xml: string): string {
  * the plain single <Text> — so a runless document's bytes never move.
  */
 function textRunsMarkup(
-	element: ScreenplayElement,
+	element: { text: string; runs?: StyleRun[] },
 	diagnostics: DiagnosticCollector,
 	index: number
 ): string {
@@ -1476,15 +1444,16 @@ export function writeFdxWithDiagnostics(
 
 	if (script.titlePage.length > 0) {
 		out.push('<TitlePage>', '<Content>');
-		for (const [entryIndex, entry] of script.titlePage.entries()) {
-			const values = entry.values.length > 0 ? entry.values : [''];
-			const key = encodeXmlValue(entry.key, diagnostics, `title-page key ${entryIndex}`);
-			for (const value of values) {
-				const encoded = encodeXmlValue(value, diagnostics, `title-page entry ${entryIndex}`);
-				out.push(
-					`<Paragraph Alignment="Center" Type="General" ${EDRAFT_PREFIX}:TitleKey="${key}" ${EDRAFT_PREFIX}:TitleEntry="${entryIndex}"><Text>${encoded}</Text></Paragraph>`
-				);
-			}
+		for (const [lineIndex, line] of script.titlePage.entries()) {
+			const alignment =
+				line.alignment === 'left' ? 'Left' : line.alignment === 'right' ? 'Right' : 'Center';
+			const key =
+				line.key === undefined
+					? ''
+					: ` ${EDRAFT_PREFIX}:TitleKey="${encodeXmlValue(line.key, diagnostics, `title-page key ${lineIndex}`)}"`;
+			out.push(
+				`<Paragraph Alignment="${alignment}" Type="General"${key}>${textRunsMarkup(line, diagnostics, lineIndex)}</Paragraph>`
+			);
 		}
 		out.push('</Content>', '</TitlePage>');
 	}
