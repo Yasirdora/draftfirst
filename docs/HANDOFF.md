@@ -48,9 +48,9 @@ reading a number, not by reasoning about what ought to happen.
 a number drops, you broke something.
 
 ```bash
-npm test                                              # 642 TypeScript (613 engine package + 29 web app)
+npm test                                              # 623 TypeScript
 npm run check:paste-corpus                            # 15 scripts hold (skips without the corpus)
-swift test --package-path apple/eDraftEngine          # 150 engine
+swift test --package-path apple/eDraftEngine          # 162 engine
 swift test --package-path apple/EDraftCore            # 294 core        (macOS)
 swift test --package-path apple/EDraftUI              #  35 document    (macOS)
 swift test --package-path apple/EDraftMacSurface      # 249 Mac surface (macOS)
@@ -62,7 +62,19 @@ xcodebuild build -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' \
   DEVELOPMENT_TEAM=""                                        # the Mac app
 ```
 
-*Recounted 2026-09-14 (fifth pass, at 5f3932c): TypeScript 642 (613 engine +
+*Recounted 2026-09-14 (sixth pass, at 3724908): TypeScript 623, engine
+162, core 294, document 35, Mac surface 249 (5 skipped), iOS app 108,
+paste-corpus 15/15, boundaries hold; every suite run at the committed
+tip. Two numbers moved and both moves are the title-page flip, not
+regressions. TypeScript fell 642 → 623: the pass deleted the positional
+key guess (`titleKeyFor`) and the keyed-entry mechanism along with their
+tests, and `titlepage.test.ts` pins the new model — a suite that loses
+nineteen tests because their subject no longer exists is smaller, not
+weaker. Engine rose 150 → 162 on the new `TitlePageTests` (migration
+geometry, derivation, the splice) plus rewritten conformance and legacy
+cases. The vitest run is now a single pass over engine and web, so the
+split count is no longer reported.
+Recounted 2026-09-14 (fifth pass, at 5f3932c): TypeScript 642 (613 engine +
 29 web), engine 150, core 294, document 35, Mac surface 249 (5 skipped) —
 the layout lane (two-page book mode, grid overview, scene filter) committed
 into the fourth-pass docs, so every suite was re-run at the merged tip in
@@ -454,7 +466,7 @@ each one keeps to its lane:
 | [RFC-HIGHLIGHTER.md](RFC-HIGHLIGHTER.md) | The highlighter: single yellow attention mark on the run, FDX namespace round-trip, PDF prints it, note-wash stacking rule |
 | [RFC-ACT-BREAK.md](RFC-ACT-BREAK.md) | **Phases 1–3 landed** (model + boundaries: b3d1fc5, de1406a, 442d720; derivation, selector, renumber, navigator — Mac first: 1f90e5c, e6babe6, e58b3d9, 0558928, d3da099; paste route + corpus gate: 9b16b74, b7c9189, b3bfd95, 34ad3c1; the production draft's furniture + the raw route's attachment channel: 1fe01c3, b0913af; the OMIT dash-heading, the marked title card, and the edge tell: ca95d69, 3d4dd47, 6b3bcec; cue confirmation — a pasted cue keeps `character` only when speech follows, on both engines, with the cast pinned by name in both gates: 1e0dc85; the camera's grammar types as shots on both engines, speech position answers before the cue shape, and the cue shape itself reached parity — colon labels, terminal punctuation, paren extensions — with godfather-2 the fifteenth witness: 23d0b78) — the act break: printing element, break-before, derived act ends, generated FDX `End of Act` mirroring the act's own card, canonical renumber, paste route |
 | [RFC-SECONDARY-SLUG.md](RFC-SECONDARY-SLUG.md) | **Landed** (738f91d) — secondary slugs typed `.scene` (numbering honours `isSecondary`), the pasted title-page block (credit-anchored), `THE END` as a closing card, the typed OMITTED card — the third paste-routing pass |
-| [RFC-TITLE-PAGE.md](RFC-TITLE-PAGE.md) | **Proposed** — the title page as a modelled section: paragraphs (text + alignment + runs + blanks) as storage truth, keys demoted to annotations, page zero in the canvas, the sheet as a deriving view, verbatim FDX round-trip, paste routes home when the home is empty |
+| [RFC-TITLE-PAGE.md](RFC-TITLE-PAGE.md) | **Landed in part** (3724908: the model is lines, keys demoted to annotations, the sheet writes through the splice, FDX verbatim with stored alignment and runs, the renderer honours stored geometry, migration pinned by the grid-settle and contact-anchor tests) — page zero in the canvas (D2) and paste routes home (D4) remain |
 | [rfc-emphasis-layout-model.md](rfc-emphasis-layout-model.md) | RFC v1, superseded by v2 — kept for the audit trail; its §3 consumer list was Phase 0's checklist |
 | [bold-italic-underline-review.md](bold-italic-underline-review.md) | The peer review the RFCs stand on — claim-by-claim verdicts, the Beat architecture read, the landscape survey |
 | [evaluation-draft-format-plan.md](evaluation-draft-format-plan.md) | The `.draft` format evaluation — the tier rule (anything pointing at text positions must be modelled) that flipped D1 |

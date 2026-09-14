@@ -1,6 +1,12 @@
 # RFC: The title page as a modelled section — page zero
 
-*2026-09-14. Status: proposed. Witness set: the fifteen paste-corpus
+*2026-09-14. Status: landed in part (3724908). D1 (lines as storage
+truth), D3 (the sheet as a deriving view), D5 (verbatim FDX), D6
+(renderer honours stored geometry), D7 (Fountain synthesises keys), and
+D8 (migration) are shipped and pinned by the suites; D2 (page zero in
+the canvas) and D4 (paste routes home) remain — the title page renders
+through the keyed-page path it always used, now fed from lines. Witness
+set: the fifteen paste-corpus
 scripts (scripts-corpus/, never committed — see HANDOFF), the Chips FDX
 fixture (apple/eDraftEngine/Fixtures/fdx.json), and the FDX files the
 conformance work has pinned. The design principle this applies is the
@@ -267,6 +273,20 @@ model, page zero renders pixel-identical to what
 today — run the current renderer, run the conversion plus the new
 renderer, diff the runs. If the pixels move, the migration is wrong,
 not the writer's document.
+
+*Landed record (3724908).* Two consequences measured at landing, both
+accepted. First, the gate as written could not hold to the pixel: the
+classic computed stack placed the title at 32% of the frame, which is
+1.44pt off the line grid, while the template writes real lines — so a
+migrated title *settles onto the grid*, moving exactly that 1.44pt, and
+the pinned test is the grid position (textTop + 15 × lineHeight), not
+the old float. The grid is the truth; the old stack was the
+approximation. Second, stored equals printed: the title's values are
+the capitals the page shows, so `Screenplay.title` reads back the
+printed form for migrated or sheet-edited documents — window titles and
+export filenames included. That matches Final Draft's own convention
+and the rule that what the page shows is what the model holds, but it
+is a visible change and it is recorded here rather than discovered.*
 
 ## 9. Tests
 
