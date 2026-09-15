@@ -674,3 +674,74 @@ inspectable at any hour — and the QA fixtures drivable with it.
   as it is typed. Three stops cost a third tap for the two kinds a writer cannot
   type their way into, and landed the oldest reflex in the craft — Return twice
   after a speech — on a heading instead of action.
+
+## 8. Scenes/Cast scope bar — measured, 2026-09-15
+
+Find My's scope bar is the reference for the Scenes/Cast switch in the
+Navigator sidebar. Everything here came from the §6 harness on macOS 26.5 /
+Xcode 26.6, and every number is chip-minus-groove luminance sampled across
+the control in the running app unless it says "probe".
+
+**The reference is two appearances, not one.** Dark: a wafer slightly
+lighter than the groove, every label white. Light: an *opaque white*
+capsule, every label dark, all the same weight. A design that satisfies one
+will not satisfy the other by itself.
+
+**`NSSegmentedControl` cannot be the chip.** Its selected segment is
+accent-tinted whenever the window is key — measured blue in all eight
+`NSSegmentStyle` values at `.extraLarge` with `borderShape = .capsule`. The
+neutral chip it shows in a screenshot is the *inactive* rendering; a probe
+window that was never made key is what makes it look like it works.
+
+**`selectedSegmentBezelColor` is not the way round it.** It does give a
+neutral chip, but AppKit then picks a contrasting *dark* label where the
+reference keeps white. It is also the painted bezel the design rules out.
+
+**An unpainted `NSBezelStyleGlass` button renders the white capsule over an
+opaque ground, and nothing on this sidebar.** In light appearance it
+measured 0.87 against a 0.87 groove — no separation, no way to tell which
+tab was selected. Deepening the groove from 0.08 to 0.26 bought +0.02 and
+turned the control into a heavy grey pill. Removing the panel's
+`.ultraThinMaterial` backdrop changed 0.87 to 0.87 — it was not the cause.
+The button has no tint short of `bezelColor`, so it has no way out.
+
+**`NSGlassEffectView` is the one that works, because it has `tintColor`.**
+Tinting the material is not painting over it: the specular rim and the
+refraction both survive, which `bezelColor` destroyed. One view covers both
+appearances — `.regular` tinted `.white` in light, tinted white 0.16 in
+dark:
+
+| appearance | groove | chip | separation |
+| --- | --- | --- | --- |
+| light | 0.91 | 0.99–1.00 | **+0.08** |
+| dark | 0.12 | 0.26 | **+0.14** |
+
+**SwiftUI has no Liquid Glass surface on this toolchain.** The macOS 26.5
+SDK's SwiftUI exposes `GlassButtonStyle` and `GlassProminentButtonStyle` and
+nothing else — no `.glassEffect()`, no `GlassEffectContainer`, no
+`glassEffectID`. Same on the iOS SDK. Any note claiming `.glassEffect`
+"smears" predates this check and cannot have compiled.
+
+**The liquid stretch is not reachable here.** In the reference the chip
+deforms mid-travel with visible chromatic dispersion.
+`NSGlassEffectView` translates rigidly; two chips inside an
+`NSGlassEffectContainerView` at `spacing = 80` crossfade rather than bridge;
+and the SwiftUI morph API that produces it does not exist in this SDK. The
+chip slides as a rigid capsule and that is the current ceiling.
+
+**Geometry.** The bar is 28pt, matching the reference; the chip insets 3pt
+and grows by the same 3pt on press so the lift clears the channel. Nothing
+in the view or its SwiftUI host may clip — `masksToBounds` stays false and
+there is no `.clipped()`, or the lift is cut off.
+
+**Two defects worth not repeating.** Every subview of `MacScopeBar` is
+decoration, so `hitTest` must answer `self` for the whole bounds: the glass
+container is added larger than the control and will otherwise swallow most
+clicks as dead zones. And selection commits on **mouse-up**, not mouse-down
+— lifting and sliding from the same `mouseDown` runs two animations on one
+view at once, which is what made the first version feel glitchy.
+
+**Still open.** The press-lift has been seen in a probe but never under a
+real mouse press in the app; confirming it needs synthetic events in the
+owner's session, which §6 forbids while they are at the machine.
+
