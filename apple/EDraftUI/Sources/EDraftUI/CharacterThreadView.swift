@@ -78,9 +78,10 @@ public struct CharacterThreadView: View {
             Menu {
                 Button("Rename Character…", action: beginRename)
             } label: {
-                Image(systemName: "ellipsis.circle")
+                Image(systemName: "ellipsis")
             }
             .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
             .fixedSize()
             .accessibilityLabel("Character actions")
         }
