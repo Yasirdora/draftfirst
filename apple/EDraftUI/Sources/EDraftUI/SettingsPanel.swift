@@ -31,6 +31,25 @@ public struct SettingsPanel: View {
                     }
                 }
 
+                Section("Notes") {
+                    NavigationLink {
+                        NoteSignatureView(editor: editor)
+                    } label: {
+                        LabeledContent(
+                            "Your Name",
+                            value: editor.noteSignature.isEmpty ? "Not Set" : editor.noteSignature
+                        )
+                    }
+                    // Off unless asked for: on a script with one writer, a
+                    // name in front of every note is the writer's own name
+                    // told back to them.
+                    Toggle("Sign My Notes", isOn: Binding(
+                        get: { editor.signsNotes },
+                        set: { editor.setSignsNotes($0) }
+                    ))
+                    .disabled(editor.noteSignature.isEmpty)
+                }
+
                 Section("Page & Format") {
                     NavigationLink {
                         PaperSizeView()
@@ -107,6 +126,33 @@ private struct WritingAssistanceView: View {
         }
         .navigationTitle("Writing Assistance")
         .compactTitle()
+    }
+}
+
+// MARK: - Notes
+
+/// The name this writer's notes carry, when they carry one.
+///
+/// A field rather than a list: nobody else can say what a person calls
+/// themselves on a script — "Dir", "JW", or their name in full are all the
+/// right answer on some production.
+private struct NoteSignatureView: View {
+    let editor: EditorState
+    @State private var name: String = ""
+
+    public var body: some View {
+        Form {
+            Section {
+                TextField("Your Name", text: $name)
+                    .onSubmit { editor.setNoteSignature(name) }
+            } footer: {
+                Text("Notes you write are marked with this name when Sign My Notes is on — as \"\(name.isEmpty ? "Name" : name): \" in front of the note. It is part of the note's words, so it survives every format a script is sent in.")
+            }
+        }
+        .navigationTitle("Your Name")
+        .compactTitle()
+        .onAppear { name = editor.noteSignature }
+        .onDisappear { editor.setNoteSignature(name) }
     }
 }
 

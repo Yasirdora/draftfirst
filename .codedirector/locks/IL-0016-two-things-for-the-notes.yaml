@@ -1,0 +1,81 @@
+schemaVersion: 1
+id: IL-0016
+status: verified
+utterance: two things for the notes tab. there's no filter on it like the other tabs have. and notes should show who wrote them — director, writer, whoever — with color coding so you can see at a glance in script as well who said what. research how screenwriting apps handle this first, what would be the best approach and do it properly with professionalism.
+goal: A note carries an author, and the author decides its colour. The Notes tab gains the filter control Scenes and Cast already have, filtering by who wrote the note, and each row shows the author with a colour dot. In the script, a line's note marker takes its author's colour instead of the one fixed yellow. Identity is a name the writer sets, seeded from the system account name; notes written in eDraft are stamped with it, and notes that have no author stay unattributed and keep today's yellow. Swift surfaces only — the FDX ScriptNote round-trip in both engines is a second lock.
+interpretation: "Researched first, as asked. Final Draft shows an author and date on every ScriptNote and gives collaborators a per-person colour matching their cursor; Arc Studio and WriterDuet colour comments by person. Colour-by-person is what the utterance asks for. The blocker is storage, and it was measured, not assumed: the document's save format IS Fountain text (ScreenplayDocument: \"a screenplay's source IS plain text\"), [[note]] has no attribute space, and element ids are regenerated on every parse — so a model field evaporates on save and an id-keyed sidecar rots on reload. Both were rejected on evidence. The author therefore lives in the note's own text as a Name: prefix, which measured byte-identical through a Fountain round trip and is the convention writers already use by hand. Recognition is conservative: a prefix is an author only when it matches the configured signature or prefixes two or more notes in the document, so a one-off TODO: is never mistaken for a person. Colour is derived from the recognised name into a stable palette slot, paper-keyed the way screenplayNoteTint is so it cannot go muddy on an inverted page. The Notes tab gains the menu control beside its search field that Scenes and Cast already have, filtering by author. Unattributed notes keep today's yellow, so a script with no authors looks exactly as it does now."
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the save format is unchanged — no new document format, no sidecar, no new model field; a note's author is read from and written to the note's own text
+  - kind: custom
+    text: an author is never invented — a prefix is attributed only when it matches the configured signature or prefixes two or more notes in the document
+  - kind: custom
+    text: a note with no recognised author keeps today's screenplayNoteTint, so a script with no authors is visually unchanged
+  - kind: custom
+    text: signing is off by default, and nothing rewrites the text of notes that already exist
+  - kind: custom
+    text: the author palette is paper-keyed like screenplayNoteTint, never app-keyed, so it survives an inverted page
+  - kind: custom
+    text: the Scenes and Cast lists, their filters and their sort order are unchanged
+  - kind: custom
+    text: engine packages packages/edraft and apple/eDraftEngine are untouched — the FDX ScriptNote round trip is Lock B
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - packages/**
+  - apple/eDraftEngine/**
+  - src/**
+  - apple/EDraftCore/Sources/EDraftCore/ScriptAsides.swift
+  - apple/EDraftCore/Sources/EDraftCore/ScreenplayModels.swift
+  - apple/EDraftCore/Sources/EDraftCore/ScreenplayFile.swift
+  - apple/EDraftUI/Sources/EDraftUI/ScreenplayDocument.swift
+change: "Read a note's author from a Name: prefix in its own text, colour it per person, filter the Notes tab by it, and tint the script's margin marker to match."
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftCore/Sources/EDraftCore/NoteAuthor.swift
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/NoteAuthorTests.swift
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+    - apple/EDraftUI/Sources/EDraftUI/SettingsPanel.swift
+    - apple/EDraftUI/Tests/EDraftUITests/SceneListFilterTests.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScreenplayDesk.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/NoteMarker.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/NoteCard.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+  symbols: []
+  maxFiles: 11
+  maxLines: 750
+accept: []
+assumptions:
+  - text: "Budget narrowed by hand: the auto-draft anchored on the TypeScript engine (fdx.ts, parse.ts) again. This lock is Swift surfaces only."
+    source: system
+    confirmed: false
+  - text: "Storage settled by measurement, not assumption: a model field and an id-keyed sidecar were both tested and rejected — the save format is Fountain text and element ids are not stable across a parse. The human chose the Name: prefix."
+    source: user
+    confirmed: true
+  - text: Signing own notes defaults to off, by the human's choice — the feature mostly reads authorship already present.
+    source: user
+    confirmed: true
+  - text: "ScriptAsides.swift, ScreenplayModels.swift, ScreenplayFile.swift and ScreenplayDocument.swift are explicitly DENIED: this design must not touch the note model or the document format. If the work seems to need them, that is a scope change to raise, not a detail."
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: tabSetFor, script, writeFdxWithDiagnostics, XmlHandlers, looksLikeCue (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-15T01:14:42.321Z
+createdBy: mirdora-dev

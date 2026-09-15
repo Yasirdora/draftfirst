@@ -1,0 +1,64 @@
+schemaVersion: 1
+id: IL-0015
+status: verified
+utterance: add notes to the side panel tabs so it's scenes, cast, notes
+goal: The Navigator's scope switch carries a third tab, Notes, after Scenes and Cast. It lists the script's writer notes (EditorState.notes), each row showing the note and the scene it sits in; choosing one jumps to the line it is anchored to. The Mac filter field and the footnote's second line both learn the new tab. No change to the note model, to how notes are stored, or to the Scenes and Cast lists themselves.
+interpretation: "Add a third case to StoryPanel.Tab and teach StoryList the list behind it. The source already exists: EditorState.notes returns the document's [[note]] asides, each carrying an anchor — the id of the page element it sits in front of. A note is a place, like a scene and unlike a character, so its row jumps: open(anchor). The scene a note sits in is derived inside EDraftUI from editor.screenplay.elements and editor.scenes, so EDraftCore needs no new property. MacScopeBar is already driven by Tab.allCases for its labels, cell width, chip seat, hit test and arrow-key stepping, so the third segment needs no geometry work — only the doc comment that says 'Scenes · Cast' and the rawValue-count assumptions in the tests. A NoteListFilter matches the shape of SceneListFilter and CastListFilter so the Mac ⌘L-style filter field works on Notes too."
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the note model is unchanged — ScriptAside, ScriptAsides and the way notes are stored, split and merged stay exactly as they are
+  - kind: custom
+    text: the Scenes and Cast lists, their filters, their sort order and their empty states are unchanged
+  - kind: custom
+    text: MacScopeBar stays driven by Tab.allCases — no hardcoded two-tab geometry, no painted bezel, the press-lift stays unclipped (IL-0014)
+  - kind: custom
+    text: engine packages packages/edraft, apple/eDraftEngine and apple/EDraftCore are untouched
+  - kind: custom
+    text: a Notes row jumps to the anchored line; it never edits or deletes the note
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - packages/**
+  - apple/eDraftEngine/**
+  - apple/EDraftCore/**
+  - src/**
+change: Add a third Navigator tab, Notes, listing the script's writer notes with the scene each sits in, jumping to the anchored line when chosen.
+verifyCommand: swift test --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+    - apple/EDraftUI/Tests/EDraftUITests/SceneListFilterTests.swift
+    - apple/EDraftUI/Tests/EDraftUITests/StoryPanelTests.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptWindowController.swift
+  symbols: []
+  maxFiles: 4
+  maxLines: 450
+accept: []
+assumptions:
+  - text: "Budget narrowed by hand: the auto-draft anchored on the word 'tabs' in the TypeScript engine (choreography.ts tabSetFor, parse.ts expandActionTabs) — tab characters in the parser, not the side panel's tabs. The side panel is StoryPanel.swift."
+    source: system
+    confirmed: false
+  - text: "Notes is placed after Cast, in the order the utterance names: scenes, cast, notes."
+    source: system
+    confirmed: false
+  - text: EDraftMacSurface is in budget only for the NavigatorColumn doc comment that reads 'Scenes · Cast'; its selectedCharacter reset already reads 'tab != .cast' and needs no change.
+    source: system
+    confirmed: false
+  - text: "No EDraftCore change: EditorState.notes and EditorState.screenplay are already public, so the scene a note sits in is derived in the UI package."
+    source: system
+    confirmed: false
+  - text: "maxLines raised 400 -> 450 by the human after the first run came in at 439: same files, same goal, same deny list, only the ceiling moved. The 439-line run record at .codedirector/runs/IL-0015-20260915-002209.json stands as FAILED-on-budget; it was not re-run, because a clean re-run needs an undo that was not permitted."
+    source: user
+    confirmed: true
+createdAt: 2026-09-15T00:13:34.505Z
+createdBy: mirdora-dev

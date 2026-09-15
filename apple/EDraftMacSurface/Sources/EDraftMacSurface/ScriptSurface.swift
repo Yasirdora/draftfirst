@@ -1633,9 +1633,27 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// rectangle, so they landed on top of each other and read as one note.
     /// The card's "2 of 3" said otherwise, which is worse than either.
     /// `column` fans them across the margin; the canvas decides how far.
+    /// The colour slot for each note, by id.
+    ///
+    /// The page's half of the reading the Navigator makes, taken from the same
+    /// roster and the same palette, so one name is one colour in both places.
+    func noteAuthorSlots() -> [UUID: Int] {
+        guard let editor else { return [:] }
+        let roster = editor.noteRoster
+        let slots = NoteAttribution.slots(for: roster)
+        var found: [UUID: Int] = [:]
+        for note in editor.notes {
+            guard let author = NoteAttribution.author(of: note.text, roster: roster),
+                  let slot = slots[author.name] else { continue }
+            found[note.id] = slot
+        }
+        return found
+    }
+
     private func notePlacements() -> [PageCanvasView.NotePlacement] {
         guard let editor else { return [] }
         let byElement = Dictionary(ranges.map { ($0.id, $0.range) }) { first, _ in first }
+        let slots = noteAuthorSlots()
 
         // Gathered by line rather than listed per note. Three notes on one
         // line used to be three marks side by side in the margin, walking
@@ -1662,8 +1680,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         }
         return order.compactMap { line in
             guard let group = byLine[line] else { return nil }
+            // Every note on the line has to agree, or the mark stays neutral:
+            // one bubble in the margin cannot say two people's names.
+            let agreed = Set(group.ids.compactMap { slots[$0] })
+            let shared = agreed.count == 1 && group.ids.count == group.ids.compactMap {
+                slots[$0]
+            }.count ? agreed.first : nil
             return PageCanvasView.NotePlacement(
-                noteIDs: group.ids, lineTop: group.top, lineHeight: group.height
+                noteIDs: group.ids, authorSlot: shared,
+                lineTop: group.top, lineHeight: group.height
             )
         }
     }
@@ -1717,6 +1742,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         popover.contentViewController = NSHostingController(
             rootView: NoteCard(
                 notes: editor.notes.filter { ids.contains($0.id) },
+                authorSlots: noteAuthorSlots(),
                 focused: focused,
                 onEdit: { [weak self] id, text in self?.openNoteDrafts[id] = text },
                 onDone: { [weak self] in self?.commitOpenNotes() },

@@ -448,7 +448,7 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
 
 // MARK: - Columns
 
-/// The Navigator: Scenes · Cast, with the scene filter ⌘L reaches.
+/// The Navigator: Scenes · Cast · Notes, with the scene filter ⌘L reaches.
 ///
 /// Wrapped in a `NavigationStack` because `StoryList` declares the phone's
 /// push destination and SwiftUI wants a stack to hang it on; the Mac never

@@ -16,6 +16,9 @@ import SwiftUI
 /// one that disappears the first time the file is sent to someone.
 struct NoteCard: View {
     let notes: [ScriptAside]
+    /// Whose each note is, as a colour slot — the same slots the margin marks
+    /// use, so the card explains the colour the writer just clicked.
+    var authorSlots: [UUID: Int] = [:]
     /// The note the caret belongs in, or `nil` for a card being read rather
     /// than written in. Opening a line's notes to read them must not put the
     /// cursor in one of them; adding a note must put it in *that* note, which
@@ -71,6 +74,13 @@ struct NoteCard: View {
     /// one thing you can do to it.
     private func row(_ note: ScriptAside) -> some View {
         HStack(alignment: .top, spacing: 6) {
+            // A colour, not a name: the name is already the first thing in the
+            // note's own words, and saying it twice on one row would only make
+            // the writer wonder which of the two they are editing.
+            Circle()
+                .fill(Color(nsColor: .screenplayNoteTint(slot: authorSlots[note.id])))
+                .frame(width: 6, height: 6)
+                .padding(.top, 9)
             NoteTextView(
                 text: Binding(
                     get: { drafts[note.id] ?? note.text },

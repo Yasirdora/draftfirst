@@ -1,14 +1,17 @@
 import EDraftCore
 import SwiftUI
 
-/// A compact view of the screenplay's structure — scenes and cast. The way
-/// home is the chrome's back button; this panel is structure, not navigation.
+/// A compact view of the screenplay's structure — scenes, cast and notes. The
+/// way home is the chrome's back button; this panel is structure, not
+/// navigation.
 ///
-/// The two tabs answer different questions and so behave differently. A scene
-/// is a place: its row goes there. A character is not a place — a lead speaks
-/// two hundred times, and "go to the character" has no honest destination — so
-/// its row opens the character's own page instead, where every line is a real
-/// place and renaming can show what it would rewrite.
+/// The three tabs answer different questions and so behave differently. A
+/// scene is a place: its row goes there. A note is a place too — it was left
+/// on one line and belongs to no other — so its row goes there as well. A
+/// character is not a place: a lead speaks two hundred times, and "go to the
+/// character" has no honest destination, so its row opens the character's own
+/// page instead, where every line is a real place and renaming can show what
+/// it would rewrite.
 public struct StoryPanel: View {
     let editor: EditorState
 
@@ -23,6 +26,7 @@ public struct StoryPanel: View {
     public enum Tab: String, CaseIterable, Identifiable {
         case scenes = "Scenes"
         case cast = "Cast"
+        case notes = "Notes"
 
         public var id: String { rawValue }
     }
@@ -114,6 +118,150 @@ public enum CastListFilter {
     }
 }
 
+/// One note as the Navigator lists it: what the writer wrote, and where they
+/// left it.
+///
+/// Derived rather than stored, which is why it lives here and not beside
+/// `SceneRow` in the model. A note already knows the line it sits on; what a
+/// *list* of notes needs is the scene that line belongs to, and that is a
+/// reading of the script rather than a property of the note.
+public struct NoteRow: Identifiable, Equatable, Sendable {
+    public let id: UUID
+    /// The note's words, exactly as written.
+    public let text: String
+    /// The line it sits in front of — where a chosen row goes. Nil for a note
+    /// written past the last line, which has nowhere to send anyone.
+    public let anchor: UUID?
+    /// Who left it, when the document is prepared to say — and the colour
+    /// slot that name took. Both nil for a note nobody claimed, which keeps
+    /// the yellow it has always had.
+    public let author: String?
+    public let slot: Int?
+    /// The scene it falls in. Carried as an id as well as a title because two
+    /// scenes may be called the same thing, and the footnote counts scenes.
+    public let sceneID: UUID?
+    public let scene: String?
+    /// Where that scene opens, at the paper size currently set.
+    public let page: Int?
+
+    public init(
+        id: UUID, text: String, anchor: UUID?,
+        author: String? = nil, slot: Int? = nil,
+        sceneID: UUID?, scene: String?, page: Int?
+    ) {
+        self.id = id
+        self.text = text
+        self.anchor = anchor
+        self.author = author
+        self.slot = slot
+        self.sceneID = sceneID
+        self.scene = scene
+        self.page = page
+    }
+
+    /// Where the row says the note was left.
+    ///
+    /// A note always has a place, even when it has no scene — written before
+    /// the first heading, or past the last line. Saying which is what tells a
+    /// reader why one row in the list does not go anywhere.
+    public var place: String {
+        if let scene { return scene }
+        return anchor == nil ? "After the last line" : "Before the first scene"
+    }
+
+    /// An untitled note is still a note. It reads as one rather than as a
+    /// blank row, because a writer who pressed the shortcut and walked away
+    /// needs to find their way back to the line they left open.
+    public var display: String { text.isEmpty ? "Empty note" : text }
+}
+
+/// The notes list: every note in the order the page sets them, each tagged
+/// with where it was left.
+public enum NoteRows {
+    /// The scene a note belongs to is the last heading passed before the line
+    /// it sits on — the same reading `EditorState.activeSceneID` makes for the
+    /// caret, so the list and the "you are here" mark can never disagree about
+    /// which scene something is in.
+    ///
+    /// Ordered by the page rather than by when each note was written: a list
+    /// of notes is a second reading of the script, and a reading goes in
+    /// order. Two notes left on one line keep the order the line holds them
+    /// in, which is the order the note card shows — `sorted(by:)` is not
+    /// stable, so that tie is broken explicitly rather than left to it.
+    public static func rows(
+        notes: [ScriptAside], elements: [ScriptElement], scenes: [SceneRow],
+        roster: Set<String> = []
+    ) -> [NoteRow] {
+        var position: [UUID: Int] = [:]
+        position.reserveCapacity(elements.count)
+        for (index, element) in elements.enumerated() { position[element.id] = index }
+        let slots = NoteAttribution.slots(for: roster)
+
+        let placed = notes.enumerated().map { ordinal, note in
+            let index = note.anchor.flatMap { position[$0] }
+            let scene = index.flatMap { at in scenes.last { $0.elementIndex <= at } }
+            // The prefix comes off the words here: the row shows the name as a
+            // chip of its own, and printing it twice on one line is one fact
+            // wearing two hats.
+            let found = NoteAttribution.author(of: note.text, roster: roster)
+            return (
+                order: index ?? Int.max,
+                tie: ordinal,
+                row: NoteRow(
+                    id: note.id,
+                    text: found?.body ?? note.text,
+                    anchor: note.anchor,
+                    author: found?.name,
+                    slot: found.flatMap { slots[$0.name] },
+                    sceneID: scene?.id,
+                    scene: scene?.title,
+                    page: scene?.page
+                )
+            )
+        }
+        return placed.sorted { ($0.order, $0.tie) < ($1.order, $1.tie) }.map(\.row)
+    }
+}
+
+/// Narrowing the Navigator's note list.
+///
+/// Matches the note's own words *and* the scene it sits in, because both are
+/// how a writer remembers where they left one: "the thing about the kettle"
+/// and "that note in the alley" are the same search asked two ways.
+public enum NoteListFilter {
+    /// `author` narrows to one person — the Notes tab's answer to the scene
+    /// setting menu. Nil is everyone; it is a way of looking at the list, not
+    /// a property of the document.
+    public static func included(
+        _ notes: [NoteRow], query: String, author: String? = nil
+    ) -> [NoteRow] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return notes.filter { note in
+            if let author, note.author != author { return false }
+            guard !needle.isEmpty else { return true }
+            return note.text.localizedCaseInsensitiveContains(needle)
+                || (note.author?.localizedCaseInsensitiveContains(needle) ?? false)
+                || (note.scene?.localizedCaseInsensitiveContains(needle) ?? false)
+        }
+    }
+}
+
+/// An author's colour, in the Navigator.
+///
+/// The same six hues the page marks with, in the same order, read from the one
+/// list in `EDraftCore` — so a name is the same colour in the list and in the
+/// margin, and neither surface can drift from the other by editing its own
+/// copy. Unattributed keeps the note yellow, which is what it has always been.
+enum NoteAuthorInk {
+    static func colour(slot: Int?) -> Color {
+        guard let slot, NoteAttribution.paletteHues.indices.contains(slot) else {
+            return .yellow
+        }
+        let hue = NoteAttribution.paletteHues[slot].paper
+        return Color(.sRGB, red: hue.red, green: hue.green, blue: hue.blue)
+    }
+}
+
 /// The Navigator itself: the scope switch, the rows, and the footnote — with
 /// no chrome of its own.
 ///
@@ -160,6 +308,9 @@ public struct StoryList: View {
     /// Lead is the list's own order. Alphabetical is a way of looking at it,
     /// not a property of the document.
     @State private var castSort: CastListSort = .lead
+    @State private var noteQuery = ""
+    /// Which author the note list is narrowed to, or nil for all of them.
+    @State private var noteAuthor: String?
 
     public init(
         editor: EditorState,
@@ -192,6 +343,7 @@ public struct StoryList: View {
                 switch tab {
                 case .scenes: sceneFilterField
                 case .cast: castFilterField
+                case .notes: noteFilterField
                 }
             }
             list
@@ -260,6 +412,78 @@ public struct StoryList: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+    }
+
+    /// Narrows the note list. Return goes to the first remaining note, the
+    /// way Return on Scenes jumps to the first remaining heading.
+    ///
+    /// No menu beside it. Scenes have settings to sort by and cast have a
+    /// running order; notes have only the order the script puts them in, and a
+    /// control offering one way of looking at something is a control that
+    /// says nothing.
+    private var noteFilterField: some View {
+        HStack(spacing: 8) {
+            #if os(macOS)
+            SceneSearchField(
+                text: $noteQuery,
+                prompt: "Note",
+                focusToken: 0,
+                onSubmit: submitNoteFilter
+            )
+            .accessibilityLabel("Find Note")
+            #else
+            TextField("Note", text: $noteQuery)
+                .textFieldStyle(.roundedBorder)
+                .focused($filterFocused)
+                .onSubmit { submitNoteFilter() }
+                .accessibilityLabel("Find Note")
+            #endif
+            authorMenu
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+    }
+
+    /// Whose notes. The same glass circle beside the field that Scenes and
+    /// Cast hang their filters off — this tab had no menu at all while notes
+    /// had nothing to be sorted or narrowed by, and an author is the thing
+    /// that gives it one.
+    ///
+    /// Absent entirely while nobody is named: a filter offering one choice is
+    /// a control that says nothing.
+    @ViewBuilder
+    private var authorMenu: some View {
+        let authors = noteAuthors
+        if !authors.isEmpty {
+            #if os(macOS)
+            NoteAuthorButton(author: $noteAuthor, authors: authors)
+                .frame(width: Self.controlHeight, height: Self.controlHeight)
+                .accessibilityLabel(noteAuthor.map { "Filter notes: \($0)" } ?? "Filter notes")
+                .help("Show only one person's notes")
+            #else
+            Menu {
+                Picker("", selection: $noteAuthor) {
+                    Text("All Notes").tag(String?.none)
+                    Divider()
+                    ForEach(authors, id: \.self) { name in
+                        Text(name).tag(String?.some(name))
+                    }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } label: {
+                Image(systemName: "line.3.horizontal.decrease")
+            }
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel(noteAuthor.map { "Filter notes: \($0)" } ?? "Filter notes")
+            #endif
+        }
+    }
+
+    /// Everyone this document names, in the order their colours were dealt.
+    private var noteAuthors: [String] {
+        editor.noteRoster.sorted { $0.lowercased() < $1.lowercased() }
     }
 
     private var emptyFilterDetail: String {
@@ -371,7 +595,22 @@ public struct StoryList: View {
         onSelectCharacter?(first.name)
     }
 
-    /// The Scenes/Cast switch is a full-width row of its own, pinned between
+    /// The first note the filter leaves, at the line it was left on. A note
+    /// past the last line anchors to nothing, so there is nowhere to send
+    /// anyone and the field does nothing rather than guessing.
+    private func submitNoteFilter() {
+        guard let anchor = NoteListFilter.included(
+            noteRows, query: noteQuery, author: noteAuthor
+        ).first?.anchor
+        else { return }
+        if let onFilterSubmit {
+            onFilterSubmit(anchor)
+        } else {
+            open(anchor)
+        }
+    }
+
+    /// The Scenes/Cast/Notes switch is a full-width row of its own, pinned between
     /// the bar and the list — the App Store idiom. Never a list row (the
     /// grouped style wraps it in a card), never squeezed between bar buttons.
     /// On the Mac it is `MacTabSwitch`, and nothing here may clip it: the
@@ -526,7 +765,56 @@ public struct StoryList: View {
                     }
                 }
             }
+
+        case .notes:
+            let all = noteRows
+            let visible = NoteListFilter.included(all, query: noteQuery, author: noteAuthor)
+            let searching = !noteQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || noteAuthor != nil
+            if all.isEmpty {
+                EmptyListRow(
+                    title: "No Notes Yet",
+                    detail: emptyNotesDetail,
+                    symbol: "note.text"
+                )
+            } else if visible.isEmpty && searching {
+                EmptyListRow(
+                    title: "No Matching Notes",
+                    detail: noteAuthor.map { "\($0) left no note matching that." }
+                        ?? "Nothing in the navigator matches that search.",
+                    symbol: noteQuery.isEmpty ? "line.3.horizontal.decrease.circle" : "magnifyingglass"
+                )
+            } else {
+                ForEach(visible) { note in
+                    NoteListRow(note: note) { anchor in open(anchor) }
+                }
+            }
         }
+    }
+
+    /// The note list, derived where it is read.
+    ///
+    /// `EditorState` caches scenes and cast because both are read on every
+    /// keystroke, from the toolbar and the footnote as well as the list. This
+    /// is read only while the Notes tab is showing, and a script carries tens
+    /// of notes rather than thousands of elements — so it is a walk, not a
+    /// cache to keep honest.
+    private var noteRows: [NoteRow] {
+        NoteRows.rows(
+            notes: editor.notes,
+            elements: editor.screenplay.elements,
+            scenes: editor.scenes,
+            roster: editor.noteRoster
+        )
+    }
+
+    /// How a note gets made, said the way this platform makes one.
+    private var emptyNotesDetail: String {
+        #if os(macOS)
+        return "Notes you leave on a line collect here. ⇧⌘K starts one."
+        #else
+        return "Notes you leave on a line collect here, and never print."
+        #endif
     }
 
     // MARK: - Footnote
@@ -539,7 +827,11 @@ public struct StoryList: View {
 
     /// The tab-specific second line of the footnote.
     private var tabContext: String {
-        tab == .scenes ? sceneContext : castContext
+        switch tab {
+        case .scenes: sceneContext
+        case .cast: castContext
+        case .notes: noteContext
+        }
     }
 
     /// Structure at a glance: act count when the script has acts, then scene
@@ -575,6 +867,29 @@ public struct StoryList: View {
         if let lead = stats.leadingCharacter, stats.characters > 1 {
             facts.append("\(lead) leads (\(Int((stats.leadingShare * 100).rounded()))%)")
         }
+        return facts.joined(separator: " · ")
+    }
+
+    /// The pass at a glance: how many notes, and how much of the script they
+    /// touch — the count of scenes carrying at least one, which is what a
+    /// writer wants to know before sitting down to clear them.
+    ///
+    /// Scenes are counted by id rather than by heading: two scenes may be
+    /// called the same thing, and a script with three INT. KITCHEN - DAYs
+    /// must not report one.
+    private var noteContext: String {
+        let rows = noteRows
+        guard !rows.isEmpty else { return "" }
+        var facts = ["\(rows.count) \(rows.count == 1 ? "note" : "notes")"]
+        let marked = Set(rows.compactMap(\.sceneID)).count
+        let total = editor.scenes.count
+        if marked > 0, total > 0 {
+            facts.append("in \(marked) of \(total) \(total == 1 ? "scene" : "scenes")")
+        }
+        // Only worth saying when there is more than one voice: "1 hand" on a
+        // script the writer is alone on states the obvious.
+        let hands = Set(rows.compactMap(\.author)).count
+        if hands > 1 { facts.append("\(hands) hands") }
         return facts.joined(separator: " · ")
     }
 }
@@ -830,6 +1145,101 @@ private struct CastListRow: View {
     }
 }
 
+// MARK: - Note row
+
+/// A note, and where it was left.
+///
+/// The note's own words lead, because they are what the writer is scanning
+/// for; the scene underneath is how they confirm they have the right one, not
+/// how they find it. Two lines rather than the scene list's strict one: a
+/// heading is a label and truncates cleanly, while a note is prose, and prose
+/// cut to a single line is usually cut before it has said anything.
+private struct NoteRowLabel: View {
+    let note: NoteRow
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            // The column the scene numbers own, so notes and headings line up
+            // down the list when a writer switches between the two tabs.
+            // Tinted to whoever left it, so a run of notes reads as who said
+            // what before a single word of it is read. Unattributed keeps the
+            // note yellow it has always had.
+            Image(systemName: "note.text")
+                .font(.caption)
+                .foregroundStyle(NoteAuthorInk.colour(slot: note.slot))
+                .frame(minWidth: 18, alignment: .trailing)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(note.display)
+                    .font(.body)
+                    .foregroundStyle(note.text.isEmpty
+                        ? AnyShapeStyle(.secondary) : AnyShapeStyle(.foreground))
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+                HStack(spacing: 4) {
+                    if let author = note.author {
+                        Text(author)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(NoteAuthorInk.colour(slot: note.slot))
+                            .lineLimit(1)
+                        Text("·")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    Text(note.place)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if let page = note.page {
+                Text(page.formatted())
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .contentShape(Rectangle())
+        .help(note.display)
+    }
+
+    var spokenLabel: String {
+        var label = "Note, \(note.display)"
+        if let author = note.author { label += ", by \(author)" }
+        label += ", \(note.place)"
+        if let page = note.page { label += ", page \(page)" }
+        return label
+    }
+}
+
+/// One note row. It goes to the line the note was left on and does nothing
+/// else — editing a note happens on the page, in the card that already owns
+/// it, where the writer can see the line they are talking about.
+///
+/// A note written past the last line anchors to nothing, so it is not a
+/// button at all. A button that cannot act reads as a broken one; a row that
+/// is plainly not a button, saying "After the last line" underneath itself,
+/// reads as what it is.
+private struct NoteListRow: View {
+    let note: NoteRow
+    let open: (UUID) -> Void
+
+    @ViewBuilder
+    var body: some View {
+        if let anchor = note.anchor {
+            Button { open(anchor) } label: { NoteRowLabel(note: note) }
+                .buttonStyle(.plain)
+                .accessibilityLabel(NoteRowLabel(note: note).spokenLabel)
+                .accessibilityHint("Moves the insertion point to the line this note is on")
+        } else {
+            NoteRowLabel(note: note)
+                .accessibilityLabel(NoteRowLabel(note: note).spokenLabel)
+        }
+    }
+}
+
 // MARK: - Empty state
 
 private struct EmptyListRow: View {
@@ -1009,6 +1419,69 @@ private struct CastSortButton: NSViewRepresentable {
             guard let raw = sender.representedObject as? String,
                   let option = CastListSort(rawValue: raw) else { return }
             parent.sort = option
+        }
+    }
+}
+
+/// Whose notes — the Notes tab's filter, built the way the other two are.
+private struct NoteAuthorButton: NSViewRepresentable {
+    @Binding var author: String?
+    let authors: [String]
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton()
+        button.title = ""
+        button.bezelStyle = .glass
+        button.borderShape = .circle
+        button.isBordered = true
+        button.imagePosition = .imageOnly
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.present(_:))
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.parent = self
+        let symbol = NSImage(
+            systemSymbolName: "line.3.horizontal.decrease",
+            accessibilityDescription: "Filter notes"
+        )
+        button.image = symbol?.withSymbolConfiguration(
+            .init(pointSize: 12, weight: .medium)
+        )
+        button.contentTintColor = author == nil ? nil : .controlAccentColor
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var parent: NoteAuthorButton
+
+        init(parent: NoteAuthorButton) { self.parent = parent }
+
+        @objc func present(_ sender: NSButton) {
+            let menu = NSMenu()
+            menu.addItem(item(titled: "All Notes", for: nil))
+            menu.addItem(.separator())
+            for name in parent.authors { menu.addItem(item(titled: name, for: name)) }
+            menu.popUp(
+                positioning: nil,
+                at: NSPoint(x: 0, y: sender.bounds.maxY + 4),
+                in: sender
+            )
+        }
+
+        private func item(titled title: String, for name: String?) -> NSMenuItem {
+            let item = NSMenuItem(title: title, action: #selector(choose(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = name
+            item.state = parent.author == name ? .on : .off
+            return item
+        }
+
+        @objc private func choose(_ sender: NSMenuItem) {
+            parent.author = sender.representedObject as? String
         }
     }
 }

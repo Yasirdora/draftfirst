@@ -436,6 +436,9 @@ final class PageCanvasView: NSView {
     /// mark it is among the ones sharing that line.
     struct NotePlacement: Equatable {
         let noteIDs: [UUID]
+        /// The colour slot the whole line agrees on, or nil — see
+        /// `NoteMarker.authorSlot`.
+        var authorSlot: Int?
         let lineTop: CGFloat
         let lineHeight: CGFloat
     }
@@ -477,6 +480,7 @@ final class PageCanvasView: NSView {
         // card's own pager reaches the ones that overlap.
         for (marker, placement) in zip(noteMarkers, placements) {
             marker.noteIDs = placement.noteIDs
+            marker.authorSlot = placement.authorSlot
             marker.isActive = active.map(placement.noteIDs.contains) ?? false
             marker.onOpen = onOpen
             // Centred on the line rather than sitting on its baseline: a mark

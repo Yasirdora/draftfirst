@@ -125,6 +125,27 @@ extension NSColor {
         return NSColor(srgbRed: 0.961, green: 0.780, blue: 0.290, alpha: 1)     // #F5C74A
     }
 
+    /// The mark for a note somebody signed.
+    ///
+    /// Paper-keyed exactly like `screenplayNoteTint` above, and for the same
+    /// reason: a light page inside a dark app still takes the mark meant for
+    /// paper. The hues come from `EDraftCore` so the Navigator's dot and this
+    /// mark cannot drift apart — one list, read twice.
+    ///
+    /// A slot nothing claimed falls back to the note yellow, which is what
+    /// every note in every existing script already is.
+    static func screenplayNoteTint(slot: Int?) -> NSColor {
+        guard let slot, NoteAttribution.paletteHues.indices.contains(slot) else {
+            return screenplayNoteTint
+        }
+        let hue = NoteAttribution.paletteHues[slot]
+        return NSColor(name: "screenplayNoteAuthor\(slot)") { appearance in
+            let ink = appearance.isDark && PagePaper.stored == .inverted
+                ? hue.inverted : hue.paper
+            return NSColor(srgbRed: ink.red, green: ink.green, blue: ink.blue, alpha: 1)
+        }
+    }
+
     /// The wash over a line that has a note on it, and the stronger one over
     /// the line whose card is open.
     ///

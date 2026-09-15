@@ -16,6 +16,18 @@ final class NoteMarker: NSView {
     /// The notes on this line — all of them, opened together.
     var noteIDs: [UUID] = []
 
+    /// Whose notes these are, as a colour slot — or nil when nobody claimed
+    /// them, or when the line carries notes from more than one person.
+    ///
+    /// One mark cannot honestly say two names, so a line two people have
+    /// written on keeps the neutral yellow and the card does the telling.
+    var authorSlot: Int? {
+        didSet {
+            guard authorSlot != oldValue else { return }
+            symbol.contentTintColor = .screenplayNoteTint(slot: authorSlot)
+        }
+    }
+
     /// Whether this note's card is the one currently open. Pages fills the
     /// active marker and outlines the rest; so does this.
     var isActive = false {

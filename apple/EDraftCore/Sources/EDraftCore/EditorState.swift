@@ -25,6 +25,22 @@ public final class EditorState {
     /// The notes among them.
     public var notes: [ScriptAside] { asides.filter { $0.kind == .note } }
 
+    /// The name this writer signs notes with, and whether they sign at all.
+    ///
+    /// App-level state, like the assistance mode above it: read once at open
+    /// and written on every change, so a Settings row survives relaunch.
+    public private(set) var noteSignature = ""
+    public private(set) var signsNotes = false
+
+    /// The names this document is prepared to attribute a note to.
+    ///
+    /// Derived, never stored — the notes themselves are the record. Walked on
+    /// demand rather than cached beside `scenes` and `cast`: those two are
+    /// read on every keystroke, and this only while notes are being looked at.
+    public var noteRoster: Set<String> {
+        NoteAttribution.roster(of: notes.map(\.text), signature: noteSignature)
+    }
+
     /// The writer's structure among them: acts, sequences and beats, each
     /// with the prose under it. In document order, so a reader can walk it.
     public var outline: [ScriptAside] {
@@ -245,6 +261,11 @@ public final class EditorState {
     /// setPredictionMode).
     private static let predictionModeKey = "writingAssistance"
 
+    /// UserDefaults keys for the writer's own name and whether notes carry it
+    /// (see init, `setNoteSignature` and `setSignsNotes`).
+    private static let noteSignatureKey = "noteSignature"
+    private static let signsNotesKey = "signsNotes"
+
     public init(
         source: String,
         startsAtEnd: Bool = false
@@ -271,6 +292,12 @@ public final class EditorState {
            let mode = PredictionMode(rawValue: stored) {
             predictionMode = mode
         }
+        // Seeded from the account's full name — "Mario Moreno", not the short
+        // login name — so a writer who turns signing on has something sensible
+        // already in the field. Never written to a document until they do.
+        noteSignature = UserDefaults.standard.string(forKey: Self.noteSignatureKey)
+            ?? Self.accountName()
+        signsNotes = UserDefaults.standard.bool(forKey: Self.signsNotesKey)
         // Never paginate synchronously at open: a cheap estimate renders
         // immediately, the debounced pass refines it off the critical path.
         stats = Self.quickStats(for: screenplay)
@@ -1057,6 +1084,32 @@ public final class EditorState {
         onAcceptPrediction?()
     }
 
+    public func setNoteSignature(_ name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard trimmed != noteSignature else { return }
+        noteSignature = trimmed
+        UserDefaults.standard.set(trimmed, forKey: Self.noteSignatureKey)
+    }
+
+    public func setSignsNotes(_ signs: Bool) {
+        guard signs != signsNotes else { return }
+        signsNotes = signs
+        UserDefaults.standard.set(signs, forKey: Self.signsNotesKey)
+    }
+
+    /// The human name on this account, or nothing.
+    ///
+    /// `NSFullUserName` is a Mac API; the phone has no such notion and is left
+    /// with an empty field, which is the honest answer rather than a device
+    /// name standing in for a person.
+    private static func accountName() -> String {
+        #if os(macOS)
+        return NSFullUserName()
+        #else
+        return ""
+        #endif
+    }
+
     public func setPredictionMode(_ mode: PredictionMode) {
         predictionMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: Self.predictionModeKey)
@@ -1099,8 +1152,11 @@ public final class EditorState {
         guard target == nil || screenplay.elements.contains(where: { $0.id == target }) else {
             return nil
         }
+        // Signed only when the writer asked for it, and never over a note
+        // that already names somebody — see `NoteAttribution.signed`.
+        let body = signsNotes ? NoteAttribution.signed(text, as: noteSignature) : text
         let note = ScriptAside(
-            element: ScriptElement(type: .note, text: text), anchor: target
+            element: ScriptElement(type: .note, text: body), anchor: target
         )
         applyAsides(inserting: note)
         return note
