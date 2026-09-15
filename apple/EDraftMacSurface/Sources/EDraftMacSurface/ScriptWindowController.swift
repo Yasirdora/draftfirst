@@ -219,7 +219,7 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         )
         focusItem = focus
         let arrangement = ToolbarItems.menu(
-            ItemID.arrangement, symbol: editor.arrangement.symbol, label: "Layout",
+            ItemID.arrangement, symbol: "chevron.down", label: "Layout",
             toolTip: "Page layout", showsIndicator: false,
             menu: ScriptMenus.menu(ScriptMenus.arrangementItems())
         )
@@ -294,9 +294,6 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         observeChanges { [weak self] in
             guard let self else { return }
             let mode = editor.arrangement
-            arrangementItem?.image = NSImage(
-                systemSymbolName: mode.symbol, accessibilityDescription: mode.title
-            )
             arrangementItem?.toolTip = mode.title
         }
         pagePaperChanged()
