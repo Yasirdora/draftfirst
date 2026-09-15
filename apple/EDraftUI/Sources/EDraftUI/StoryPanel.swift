@@ -196,6 +196,7 @@ public struct StoryList: View {
             }
             list
         }
+        .background(.ultraThinMaterial)
         .onChange(of: focusSceneFilter) { _, _ in
             filterFocused = true
         }
@@ -373,7 +374,18 @@ public struct StoryList: View {
     /// The Scenes/Cast switch is a full-width row of its own, pinned between
     /// the bar and the list — the App Store idiom. Never a list row (the
     /// grouped style wraps it in a card), never squeezed between bar buttons.
+    /// On the Mac it is `MacTabSwitch`, and nothing here may clip it: the
+    /// press lift draws outside the control's own bounds by design, so a
+    /// `.clipped()` here would cut the top and bottom off the very effect
+    /// this switch exists for.
     private var tabPicker: some View {
+        #if os(macOS)
+        MacTabSwitch(tab: $tab)
+            .frame(maxWidth: .infinity)
+            .frame(height: MacTabSwitch.height)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+        #else
         Picker("Story", selection: $tab) {
             ForEach(StoryPanel.Tab.allCases) { tab in
                 Text(tab.rawValue).tag(tab)
@@ -381,8 +393,11 @@ public struct StoryList: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+        .controlSize(.large)
+        .tint(.primary)
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
+        #endif
     }
 
     private var list: some View {
@@ -426,6 +441,7 @@ public struct StoryList: View {
         // applied and missed the ones scrolled into view later, which is how
         // a cast list came out half black and half blue.
         .tint(.primary)
+        .scrollContentBackground(.hidden)
     }
 
     // MARK: - Rows
@@ -1126,4 +1142,269 @@ private struct SceneSearchField: NSViewRepresentable {
         }
     }
 }
+
+/// The Scenes/Cast switch: a recessed groove and one raised chip.
+///
+/// Find My's scope bar is the reference. It is two appearances, not one: in
+/// dark the chip is a wafer slightly lighter than the groove, in light an
+/// opaque white capsule, and in both every label is the same weight and the
+/// chip alone says which tab is selected.
+///
+/// `NSSegmentedControl` cannot be that chip — its selected segment is
+/// accent-tinted whenever the window is key. `NSGlassEffectView` can,
+/// because it is the only glass here with a `tintColor`, which tints the
+/// material instead of covering it. The numbers behind both claims are in
+/// MACOS-EXECUTION under "Scenes/Cast scope bar"; they are not repeated
+/// here.
+///
+/// This re-implements a segmented control, which §7 otherwise rules out.
+/// The justification is only that no system control renders the reference,
+/// so the cost is this file owning selection, layout and motion.
+private struct MacTabSwitch: NSViewRepresentable {
+    /// Matches the reference's bar. The chip insets 3pt inside it.
+    static let height: CGFloat = 28
+
+    @Binding var tab: StoryPanel.Tab
+
+    func makeNSView(context: Context) -> MacScopeBar {
+        let bar = MacScopeBar()
+        bar.tab = tab
+        bar.onChange = { context.coordinator.tab.wrappedValue = $0 }
+        return bar
+    }
+
+    func updateNSView(_ bar: MacScopeBar, context: Context) {
+        bar.onChange = { context.coordinator.tab.wrappedValue = $0 }
+        if bar.tab != tab { bar.tab = tab }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(tab: $tab) }
+
+    final class Coordinator: NSObject {
+        let tab: Binding<StoryPanel.Tab>
+        init(tab: Binding<StoryPanel.Tab>) { self.tab = tab }
+    }
+}
+
+/// Recessed groove, labels that stay put, one glass chip that slides.
+private final class MacScopeBar: NSView {
+    var onChange: ((StoryPanel.Tab) -> Void)?
+
+    var tab: StoryPanel.Tab = .scenes {
+        didSet {
+            guard oldValue != tab else { return }
+            moveChip(animated: window != nil)
+            applyLabelColors()
+            setAccessibilityValue(tab.rawValue)
+        }
+    }
+
+    /// The chip insets this far inside the groove, and grows by the same
+    /// amount on press so the lift clears the channel.
+    private static let inset: CGFloat = 3
+
+    private let track = NSView()
+    private let container = NSGlassEffectContainerView()
+    /// The container sizes and owns its `contentView`, so the chip cannot BE
+    /// it — it has to be a descendant, or the container stretches it to fill
+    /// the bar and disappears.
+    private let glassHost = NSView()
+    private let chip = NSGlassEffectView()
+    private var labels: [NSTextField] = []
+    private var isPressed = false
+    private var isAnimating = false
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        // The lift draws outside these bounds; clipping is how it was lost.
+        layer?.masksToBounds = false
+        setAccessibilityRole(.tabGroup)
+        setAccessibilityLabel("Story")
+        setAccessibilityValue(tab.rawValue)
+
+        track.wantsLayer = true
+        track.layer?.masksToBounds = true
+        addSubview(track)
+
+        chip.style = .regular
+        glassHost.wantsLayer = true
+        glassHost.layer?.masksToBounds = false
+        glassHost.addSubview(chip)
+        container.contentView = glassHost
+        container.wantsLayer = true
+        container.layer?.masksToBounds = false
+        addSubview(container)
+
+        for tab in StoryPanel.Tab.allCases {
+            let label = NSTextField(labelWithString: tab.rawValue)
+            label.alignment = .center
+            label.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize + 1, weight: .medium)
+            label.isEnabled = false
+            label.isSelectable = false
+            label.drawsBackground = false
+            label.isBezeled = false
+            labels.append(label)
+            addSubview(label)
+        }
+        applyTrackFill()
+        applyLabelColors()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: MacTabSwitch.height)
+    }
+
+    override var fittingSize: NSSize { NSSize(width: 200, height: MacTabSwitch.height) }
+
+    /// Every subview here is decoration — the groove, the glass and the
+    /// labels. If any of them answered a hit the control would have dead
+    /// zones, which is exactly what made the first version feel broken.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        bounds.contains(convert(point, from: superview)) ? self : nil
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        applyTrackFill()
+        applyLabelColors()
+    }
+
+    override func layout() {
+        super.layout()
+        track.frame = bounds
+        track.layer?.cornerRadius = bounds.height / 2
+        container.frame = bounds
+        glassHost.frame = bounds
+        let cell = bounds.width / CGFloat(max(labels.count, 1))
+        for (index, label) in labels.enumerated() {
+            label.frame = NSRect(
+                x: CGFloat(index) * cell,
+                y: (bounds.height - 16) / 2,
+                width: cell,
+                height: 16
+            )
+        }
+        // A resize must not fight a slide that is already running.
+        if !isAnimating { moveChip(animated: false) }
+    }
+
+    // MARK: - Interaction
+
+    /// Press lifts, release commits. Selecting on mouse-up is both what the
+    /// reference does and why the motion reads as one gesture: the earlier
+    /// version lifted and slid from the same `mouseDown`, so two animations
+    /// ran on one view at once.
+    override func mouseDown(with event: NSEvent) {
+        isPressed = true
+        moveChip(animated: true)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        isPressed = false
+        let point = convert(event.locationInWindow, from: nil)
+        if bounds.contains(point) {
+            select(at: point)
+        }
+        moveChip(animated: true)
+    }
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func keyDown(with event: NSEvent) {
+        guard let key = event.charactersIgnoringModifiers?.unicodeScalars.first else {
+            return super.keyDown(with: event)
+        }
+        switch Int(key.value) {
+        case NSLeftArrowFunctionKey: step(-1)
+        case NSRightArrowFunctionKey: step(1)
+        default: super.keyDown(with: event)
+        }
+    }
+
+    private func step(_ delta: Int) {
+        let all = StoryPanel.Tab.allCases
+        guard let current = all.firstIndex(of: tab) else { return }
+        let next = min(all.count - 1, max(0, current + delta))
+        guard next != current else { return }
+        tab = all[next]
+        onChange?(all[next])
+    }
+
+    private func select(at point: NSPoint) {
+        let all = StoryPanel.Tab.allCases
+        guard bounds.width > 1, !all.isEmpty else { return }
+        let index = min(all.count - 1, max(0, Int(point.x / (bounds.width / CGFloat(all.count)))))
+        guard all[index] != tab else { return }
+        tab = all[index]
+        onChange?(all[index])
+    }
+
+    // MARK: - The chip
+
+    /// Where the chip sits. `container` is exactly `bounds`, so this needs no
+    /// coordinate translation — the earlier version offset by twice a lift
+    /// constant and was impossible to reason about.
+    private func chipFrame() -> NSRect {
+        let all = StoryPanel.Tab.allCases
+        let cell = bounds.width / CGFloat(max(all.count, 1))
+        let index = CGFloat(all.firstIndex(of: tab) ?? 0)
+        let seat = NSRect(
+            x: index * cell + Self.inset,
+            y: Self.inset,
+            width: cell - Self.inset * 2,
+            height: bounds.height - Self.inset * 2
+        )
+        return isPressed ? seat.insetBy(dx: -Self.inset, dy: -Self.inset) : seat
+    }
+
+    private func moveChip(animated: Bool) {
+        guard bounds.width > 1, bounds.height > 1 else { return }
+        let frame = chipFrame()
+        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        guard animated, !reduce, window != nil else {
+            chip.frame = frame
+            chip.cornerRadius = frame.height / 2
+            return
+        }
+        isAnimating = true
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.28
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.8, 0.2, 1)
+            context.allowsImplicitAnimation = true
+            chip.animator().frame = frame
+            chip.cornerRadius = frame.height / 2
+        }, completionHandler: { [weak self] in
+            self?.isAnimating = false
+        })
+    }
+
+    // MARK: - Appearance
+
+    private var isDark: Bool {
+        effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
+    private func applyTrackFill() {
+        track.layer?.backgroundColor = isDark
+            ? NSColor.black.withAlphaComponent(0.22).cgColor
+            : NSColor.black.withAlphaComponent(0.05).cgColor
+        // Tinting the material is not painting over it: the rim and the
+        // refraction survive, which `bezelColor` destroyed.
+        chip.tintColor = isDark
+            ? NSColor.white.withAlphaComponent(0.16)
+            : NSColor.white
+    }
+
+    private func applyLabelColors() {
+        for (index, label) in labels.enumerated() {
+            let selected = StoryPanel.Tab.allCases[index] == tab
+            label.textColor = selected ? .labelColor : .secondaryLabelColor
+        }
+    }
+}
+
 #endif
