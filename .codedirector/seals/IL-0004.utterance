@@ -1,0 +1,1 @@
+refinements to the layout modes. in two-page mode the pages should scale down (75%, 50%) — or better, size them responsively to the space available. grid should be responsive too: 3 to 4 pages per row on smaller windows, up to 6 on larger ones. and in grid, double-clicking a page should jump straight into that page.

@@ -1,0 +1,61 @@
+schemaVersion: 1
+id: IL-0002
+status: verified
+utterance: bring the search and filter in sidepanel to cast tab as well, for filter instead of int., ext. and both, make it sort by lead, alphabetical
+goal: Mac sidebar Cast tab has the same search-and-menu chrome as Scenes. Search matches character names. The menu sorts Lead (most cues first, today's default) or Alphabetical. Scene INT/EXT/Both is unchanged. Phone Navigator does not gain this chrome.
+interpretation: Show the Mac sidebar search field and adjacent menu on Cast as well as Scenes. On Cast the menu sorts Lead (most speaking cues first then name — today's list order) or Alphabetical. Search narrows by character name. Leave the Scenes INT/EXT/Both menu and the phone Navigator unchanged.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: Scenes tab INT EXT Both filter and search stay as they are
+  - kind: custom
+    text: Cast Lead sort is most cues then name matching today's cast order
+  - kind: custom
+    text: Cast search and sort controls have accessibility labels
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - packages/**
+  - src/**
+  - package.json
+  - package-lock.json
+change: Add Cast-tab search and a Lead/Alphabetical sort menu beside it in the shared navigator list; cover with unit tests.
+verifyCommand: swift test --package-path apple/EDraftUI
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+    - apple/EDraftUI/Tests/EDraftUITests/SceneListFilterTests.swift
+  symbols: []
+  maxFiles: 2
+  maxLines: 600
+accept: []
+assumptions:
+  - text: Lead means most speaking cues first then name — the order the Cast list already uses.
+    source: user
+    confirmed: true
+  - text: Same search-plus-circular-menu chrome as Scenes; menu items are Lead and Alphabetical not INT/EXT/Both.
+    source: user
+    confirmed: true
+  - text: Cast search is its own query — it does not reuse the scene search text.
+    source: system
+    confirmed: true
+  - text: Phone Navigator stays without this chrome; only the Mac sidebar (which already shows the scene filter) gains it on Cast.
+    source: system
+    confirmed: true
+  - text: Default sort is Lead so an un-touched Cast tab looks as it does today.
+    source: system
+    confirmed: true
+createdAt: 2026-09-13T18:25:11.913Z
+createdBy: mirdora-dev

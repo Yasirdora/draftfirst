@@ -1,0 +1,56 @@
+schemaVersion: 1
+id: IL-0004
+status: verified
+utterance: "refinements to the layout modes. in two-page mode the pages should scale down (75%, 50%) — or better, size them responsively to the space available. grid should be responsive too: 3 to 4 pages per row on smaller windows, up to 6 on larger ones. and in grid, double-clicking a page should jump straight into that page."
+goal: Two-page scales the facing pair to fit the window (never above 100%). Grid uses 3 or 4 columns on smaller windows and up to 6 on larger ones, still filling the row. Double-click a grid sheet to open it in Single; a single click does not.
+interpretation: Two-page sizes the facing pair to the window, never larger than life size. Grid picks 3 or 4 columns when the window is small and up to 6 when it is large, each row filling the width. Opening a grid sheet is a double-click; a single click does not leave Grid. Single, Continuous, zoom, and pagination stay as they are.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: Single arrangement and Continuous are unchanged
+  - kind: custom
+    text: View menu zoom and canvas zoom remain
+  - kind: custom
+    text: which line begins which page does not change
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/eDraftEngine/**
+  - apple/eDraft/**
+  - apple/EDraftUI/**
+  - packages/**
+  - apple/EDraftCore/**
+change: Fit two-page to the window, retune grid columns for small vs large widths, and open a grid sheet on double-click.
+verifyCommand: swift test --package-path apple/EDraftMacSurface --filter DiscreteSheetsTests
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/DiscreteSheetsTests.swift
+  symbols: []
+  maxFiles: 3
+  maxLines: 1600
+accept: []
+assumptions:
+  - text: Two-page scales to fit available width and height, never above 100% — not a 75/50 stepped control.
+    source: user
+    confirmed: true
+  - text: Grid is 3 or 4 columns on smaller windows and up to 6 on larger ones, filling the row.
+    source: user
+    confirmed: true
+  - text: Double-click opens the sheet in Single. A single click does not leave Grid.
+    source: user
+    confirmed: true
+  - text: Canvas zoom still magnifies on top of the fitted size.
+    source: system
+    confirmed: true
+createdAt: 2026-09-13T20:58:34.615Z
+createdBy: mirdora-dev

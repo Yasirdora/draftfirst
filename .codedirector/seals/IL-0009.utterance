@@ -1,0 +1,1 @@
+restyle the scene/cast tab switch in the side panel to look like this screenshot — the macOS 26 liquid glass segmented style: frosted glass track, the selected tab gets the bright capsule. use the system control and materials so it adapts to light and dark mode, no hardcoded colors. the panel itself should sit on the same glass material.

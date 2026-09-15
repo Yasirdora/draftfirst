@@ -1,0 +1,48 @@
+schemaVersion: 1
+id: IL-0013
+status: draft
+utterance: it is truly disappointing you made it worse. /Users/x/Desktop/tabs.mov look at this video it should be like this
+goal: Throw away the custom glass button. Restore NSSegmentedControl extra-large capsule and do not paint selectedSegmentBezelColor so macOS 26 can run the native press-lift and fluid slide shown in tabs.mov. Engine packages untouched.
+interpretation: Delete MacScopeBar and the custom NSButton glass overlay. Restore NSSegmentedControl at extra-large capsule size. Do not set selectedSegmentBezelColor. The rest thumb, press-and-hold lift that overflows the track, and the fluid slide in tabs.mov are the system's segmented-control glass. Engine packages and the iPhone picker stay as they are.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: do not use SwiftUI glassEffect over Color.clear or segmented Picker or regularMaterial
+  - kind: custom
+    text: iPhone tab picker is unchanged
+  - kind: custom
+    text: engine packages packages/edraft and apple/eDraftEngine are untouched
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - packages/**
+  - apple/eDraftEngine/**
+  - apple/EDraftCore/**
+  - src/**
+change: Restore NSSegmentedControl extra-large capsule with no painted bezel so native Liquid Glass can press-lift and slide.
+verifyCommand: swift test --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: tabs.mov is Find My's native segmented control. Press overflows the track; click slides the same glass. Painting selectedSegmentBezelColor or overlaying an NSButton killed that.
+    source: user
+    confirmed: true
+  - text: Engine packages and the iPhone picker are not touched.
+    source: user
+    confirmed: true
+createdAt: 2026-09-14T17:57:25.454Z
+createdBy: mirdora-dev

@@ -1,0 +1,71 @@
+schemaVersion: 1
+id: IL-0003
+status: verified
+utterance: "remove the zoom options drop down from the toolbar. the box icon becomes a book icon for distraction-free mode. instead of zoom, i want layout modes: a grid view with 3 to 6 pages per row depending on what fits on screen, as a bird's-eye view. and a two-page mode, pages side by side with thin hairline like an open book."
+goal: "Toolbar: Focus uses a book symbol; the zoom chevron is gone. In that slot, a layout control offers Single (today's Pages), Two-page (editable facing sheets with a hairline), and Grid (3 to 6 columns that fit, bird's-eye; a click returns to Single on that page). Canvas zoom and View-menu zoom remain. Continuous remains in View and overflow. Pagination does not change."
+interpretation: Keep Pages vs Continuous as they are. Add a separate page arrangement — Single, Two-page, Grid — chosen from the toolbar slot that currently holds Zoom. Focus's rectangle becomes a book. Two-page is an editable facing spread with a hairline; the same lines stay on the same pages. Grid is a bird's-eye of the sheets, 3 to 6 columns as the window allows; it is not a writing surface, and a click returns to Single on that page. Choosing Two-page or Grid leaves Continuous. Zoom stays on the canvas and in the View menu.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: View menu zoom commands remain
+  - kind: custom
+    text: canvas page zoom control remains
+  - kind: custom
+    text: Continuous remains in View menu and overflow
+  - kind: custom
+    text: which line begins which page does not change
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/eDraftEngine/**
+  - apple/eDraft/**
+  - apple/EDraftUI/**
+  - packages/**
+  - apple/EDraftCore/Sources/EDraftCore/PageZoom.swift
+  - src/**
+  - package.json
+  - package-lock.json
+change: Replace the toolbar zoom menu with Single/Two-page/Grid, Focus uses a book, and lay the sheets as a spread or a bird's-eye without moving pagination.
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface
+budget:
+  files:
+    - apple/EDraftCore/Sources/EDraftCore/PageLayoutMode.swift
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptWindowController.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptMenus.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageGapContainer.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/DiscreteSheetsTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/PageGapContainerTests.swift
+    - apple/macOS/MainMenu.swift
+  symbols: []
+  maxFiles: 10
+  maxLines: 1200
+accept: []
+assumptions:
+  - text: Two-page is a writing surface (facing sheets, hairline). Grid is overview only — click a page to return to Single there.
+    source: user
+    confirmed: true
+  - text: Canvas zoom and View-menu zoom stay. The toolbar zoom chevron goes.
+    source: user
+    confirmed: true
+  - text: Continuous stays in View and overflow. Two-page and Grid apply to sheets; picking them leaves Continuous.
+    source: user
+    confirmed: true
+  - text: Focus keeps its current behaviour (sidebar collapses). Only the symbol changes to a book.
+    source: system
+    confirmed: true
+  - text: Column count 3 through 6 is computed from window width versus a readable scaled page, not a user setting.
+    source: user
+    confirmed: true
+createdAt: 2026-09-13T19:55:02.463Z
+createdBy: mirdora-dev

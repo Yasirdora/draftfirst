@@ -1,0 +1,29 @@
+schemaVersion: 1
+id: IL-0006
+status: verified
+utterance: the 3 dots menu in character sub panel is looking bad add 3 dots menu without circle
+goal: Replace the 3 dots inside a circle icon with a 3 dots menu without a circle in the character sub panel
+interpretation: Change the SF Symbol from "ellipsis.circle" to "ellipsis" in CharacterThreadView.swift
+keep: []
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/src/**/*.test.*
+  - src/lib/screenplay/**/*.test.*
+change: Change ellipsis.circle to ellipsis in CharacterThreadView
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/CharacterThreadView.swift
+  symbols: []
+  maxFiles: 6
+  maxLines: 400
+accept: []
+assumptions:
+  - text: "Budget proposed automatically from anchors: DiagnosticCollector.add, sanitiseXmlCharacters, DEFAULT_MAX_FOUNTAIN_SOURCE_CHARACTERS, DEFAULT_MAX_TEXT_SOURCE_CHARACTERS, emptyCharacterCandidates (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-13T22:27:41.634Z
+createdBy: mirdora-dev

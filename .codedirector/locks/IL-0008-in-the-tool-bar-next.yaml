@@ -1,0 +1,26 @@
+schemaVersion: 1
+id: IL-0008
+status: verified
+utterance: in the tool bar next to book it directly shows single page icon I want this to be change to a down facing chevron people click a drop down appear and from there they can choose, signle page, two page or grid
+goal: Change the page layout menu icon to a down-facing chevron instead of the current page layout symbol.
+interpretation: Replace the dynamically updating arrangement icon in the toolbar with a static 'chevron.down' icon. Remove the dynamic image update logic for this item in observeChanges, and set the initial symbol to chevron.down.
+keep: []
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/src/**/*.test.*
+  - src/lib/screenplay/**/*.test.*
+change: Use chevron.down for the arrangement toolbar menu.
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptWindowController.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: The user wants the icon itself to be a chevron.down, not just add a chevron indicator next to the existing icon.
+    source: system
+    confirmed: true
+createdAt: 2026-09-14T05:45:56.088Z
+createdBy: mirdora-dev

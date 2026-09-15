@@ -1,0 +1,38 @@
+schemaVersion: 1
+id: IL-0001
+status: verified
+utterance: "look at users/x/documents/edraft [Image #1] I want you remove it from this menu"
+goal: The toolbar ellipsis overflow menu no longer lists Zoom In, Zoom Out, Actual Size, or Zoom to Fit. Zoom remains available from the View menu and the dedicated zoom toolbar control with the same keyboard shortcuts.
+interpretation: Stop adding zoomItems() to ScriptMenus.overflowMenu() and drop the separator that only existed to set those four commands apart. Leave zoomItems() itself, View → Zoom, and the dedicated zoom toolbar control unchanged. Keep Find, Add Note, Pages, and Continuous in the overflow menu.
+keep:
+  - kind: custom
+    text: overflow menu still contains Find Add Note Pages and Continuous
+  - kind: custom
+    text: View menu and dedicated zoom toolbar control still offer the four zoom commands
+  - kind: no-new-dependency
+deny:
+  - apple/eDraftEngine/**
+  - apple/EDraftCore/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - packages/**
+  - src/**
+  - package.json
+  - package-lock.json
+change: Remove the zoom commands and their preceding separator from the toolbar overflow menu only.
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptMenus.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 40
+accept: []
+assumptions:
+  - text: The circled items in the screenshot are Zoom In, Zoom Out, Actual Size, and Zoom to Fit in the toolbar ellipsis menu — not the View menu and not the dedicated zoom control.
+    source: user
+    confirmed: true
+  - text: Zoom keyboard shortcuts remain because View menu items still come from zoomItems().
+    source: user
+    confirmed: true
+createdAt: 2026-09-13T15:10:15.350Z
+createdBy: mirdora-dev

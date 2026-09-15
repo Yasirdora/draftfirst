@@ -1,0 +1,56 @@
+schemaVersion: 1
+id: IL-0005
+status: verified
+utterance: "the page layouts need work. grid is slow to open — i'd rather have a fixed 4 pages per row and fast than responsive and slow. two-page should scale with the window, right now it doesn't. grid is an overview only: no caret, no editing there. but two-page should be fully editable and navigable, like Pages does it. also clicking a scene in the side panel or a character in the cast panel lands the highlight in the wrong place in two-page — in grid it's enough to highlight the right page."
+goal: "Grid is a fast 4-up overview: no snapshots, no caret, no editing; a scene or character click highlights that sheet. Two-page fits the window, stays editable, and scene or character clicks land the highlight on the right line."
+interpretation: Drop the grid snapshots and always use four sheets across so opening Grid is instant. Grid is a map — no caret, no typing; a Navigator click lights the sheet that holds that scene or character. Two-page sizes the opening to the visible window and stays a writing surface; a Navigator click maps through the fold so the highlight sits on the right line.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: Single arrangement and Continuous are unchanged
+  - kind: custom
+    text: View menu zoom and canvas zoom remain
+  - kind: custom
+    text: which line begins which page does not change
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/eDraftEngine/**
+  - apple/eDraft/**
+  - apple/EDraftUI/**
+  - packages/**
+  - apple/EDraftCore/**
+change: Fast fixed 4-up grid without snapshots; two-page fits the window and maps Navigator reveals through the fold.
+verifyCommand: swift test --package-path apple/EDraftMacSurface --filter DiscreteSheetsTests
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/DiscreteSheetsTests.swift
+  symbols: []
+  maxFiles: 3
+  maxLines: 2500
+accept: []
+assumptions:
+  - text: Grid is always four across and does not snapshot the script. Speed over a live thumbnail of every sheet.
+    source: user
+    confirmed: true
+  - text: Grid is overview only — no caret, no editing. A scene or character click highlights the sheet that contains it.
+    source: user
+    confirmed: true
+  - text: Two-page sizes the facing pair to the visible window (never above 100%) and remains editable. Navigator clicks land the highlight on the right line.
+    source: user
+    confirmed: true
+  - text: Single, Continuous, canvas zoom, and pagination stay as they are.
+    source: system
+    confirmed: true
+createdAt: 2026-09-13T21:41:43.437Z
+createdBy: mirdora-dev

@@ -1,0 +1,26 @@
+schemaVersion: 1
+id: IL-0009
+status: verified
+utterance: "restyle the scene/cast tab switch in the side panel to look like this screenshot — the macOS 26 liquid glass segmented style: frosted glass track, the selected tab gets the bright capsule. use the system control and materials so it adapts to light and dark mode, no hardcoded colors. the panel itself should sit on the same glass material."
+goal: Restyle the scene/cast tab switch to a liquid glass capsule style using SwiftUI materials.
+interpretation: Keep the segmented Picker. Apply `.scrollContentBackground(.hidden)` to the List and `.background(.ultraThinMaterial)` to the StoryPanel's root VStack so that the panel and the picker both sit on the native glass material, which automatically renders the macOS 26 liquid glass style for the segmented control.
+keep: []
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/src/**/*.test.*
+  - src/lib/screenplay/**/*.test.*
+change: Apply ultraThinMaterial to StoryPanel and hide List background.
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: The user wants to rely on macOS 26's automatic styling for segmented controls on materials, rather than custom drawing.
+    source: system
+    confirmed: true
+createdAt: 2026-09-14T11:56:10.088Z
+createdBy: mirdora-dev

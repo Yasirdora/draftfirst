@@ -1,0 +1,55 @@
+schemaVersion: 1
+id: IL-0014
+status: verified
+utterance: "the scenes/cast switch in the sidebar must look like apple's find my scope bar. grok got close to the truth before stopping: it watched the reference closely — at rest the thumb is a faint glass chip in the track; on press it lifts with a dark rim; on click it slides, liquid, and settles on the other tab. it also found that painting selectedSegmentBezelColor KILLS the system glass — do not paint anything. current state: MacTabSwitch in apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift is a plain NSSegmentedControl (large, fillEqually, unpainted) — it renders with a solid blue thumb, which is wrong; the reference is a neutral glass chip. grok's unfinished plan: extra-large capsule segmented control, no bezel painting, let macOS 26 run its own press-lift and slide. reference screenshots on the desktop: File 1.png and File 2.png. traps already burned — do not retry: SwiftUI .glassEffect smears on this dark sidebar, SwiftUI segmented Picker renders small and blue, .regularMaterial is flat blur not glass. acceptance: measure with the harness in docs/APPLE-PLATFORM-GUIDE.md §6, attach before/after captures, light and dark, the lift/slide must be real. do not touch the engine packages — a title-page migration just landed there."
+goal: "The Scenes/Cast switch in the Mac sidebar reads as Find My's scope bar: at rest a faint neutral glass chip in a recessed track, on press a lift with a specular rim that overflows the track, on click a liquid slide that settles. No painted bezel anywhere. Proven with harness captures in light and dark. Engine packages untouched."
+interpretation: "Work only on the Mac Scenes/Cast switch in StoryPanel.swift. The tree already holds an uncommitted custom MacScopeBar (recessed track, NSButton glass thumb, NSTextField labels) — not the NSSegmentedControl the utterance describes; no NSSegmentedControl exists anywhere in the repo. Three defects in that existing code are in scope: thumb.bezelColor = NSColor.white paints the glass the utterance says must not be painted; the selected label is dark ink (white: 0.12) where the reference shows white; and masksToBounds = true plus SwiftUI .clipped() clip the press lift, which in the reference overflows the track. Decide by measurement whether the corrected custom bar or an unpainted extra-large capsule NSSegmentedControl reaches the reference, and keep whichever the captures prove. Record the measured decision in MACOS-EXECUTION and pin the measurable claim with a test."
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no painted bezel — neither NSButton.bezelColor nor NSSegmentedControl.selectedSegmentBezelColor is set to any colour
+  - kind: custom
+    text: do not use SwiftUI glassEffect over Color.clear, segmented Picker, or regularMaterial on macOS
+  - kind: custom
+    text: the iPhone/iPad SwiftUI segmented Picker branch is unchanged
+  - kind: custom
+    text: engine packages packages/edraft, apple/eDraftEngine and apple/EDraftCore are untouched
+  - kind: custom
+    text: the press-lift must not be clipped by the host view or by SwiftUI
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - packages/**
+  - apple/eDraftEngine/**
+  - apple/EDraftCore/**
+  - src/**
+  - apple/EDraftMacSurface/**
+change: "Make the Mac Scenes/Cast switch read as Find My's scope bar: unpainted system glass, white label on the thumb, and a press-lift that is allowed to overflow the track."
+verifyCommand: swift test --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+    - apple/EDraftUI/Tests/EDraftUITests/StoryPanelTests.swift
+    - docs/MACOS-EXECUTION.md
+  symbols: []
+  maxFiles: 3
+  maxLines: 400
+accept: []
+assumptions:
+  - text: "Budget narrowed by hand: the auto-draft anchored on the title-page TypeScript engine (packages/edraft/src/*.ts), which the utterance explicitly forbids. The index is stale with respect to the uncommitted MacScopeBar."
+    source: system
+    confirmed: false
+  - text: MACOS-EXECUTION.md and StoryPanelTests.swift are in budget because APPLE-PLATFORM-GUIDE §7 requires the measured number in the doc and a test that pins it.
+    source: system
+    confirmed: false
+createdAt: 2026-09-14T18:10:31.756Z
+createdBy: mirdora-dev

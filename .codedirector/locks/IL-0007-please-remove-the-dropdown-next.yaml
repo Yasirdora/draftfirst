@@ -1,0 +1,29 @@
+schemaVersion: 1
+id: IL-0007
+status: verified
+utterance: please remove the dropdown next to the 3 dots menu in character sub panel is looking bad it should only show 3 dots menu without down facing '<'
+goal: Remove the dropdown menu indicator from the character sub panel 3 dots menu
+interpretation: Set menuIndicator(.hidden) on the Menu in CharacterThreadView.swift
+keep: []
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/src/**/*.test.*
+  - src/lib/screenplay/**/*.test.*
+change: Hide menu indicator in CharacterThreadView
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/CharacterThreadView.swift
+  symbols: []
+  maxFiles: 5
+  maxLines: 400
+accept: []
+assumptions:
+  - text: "Budget proposed automatically from anchors: nextElement, tabNext, sanitiseXmlCharacters, BlockSource.next, DEFAULT_MAX_FOUNTAIN_SOURCE_CHARACTERS (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-14T05:16:49.583Z
+createdBy: mirdora-dev

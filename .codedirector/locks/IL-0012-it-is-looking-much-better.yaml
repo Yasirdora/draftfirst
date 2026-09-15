@@ -1,0 +1,50 @@
+schemaVersion: 1
+id: IL-0012
+status: verified
+utterance: it is looking much better however it is still not the glass I am talking, just like iOS, macOS also support the glass when you click and hold it become active just like the screen shot. or when you click on next tab it like a fluid glass jump on other tab, I want you research apple's macos and ios 26 to be able to execute it and make it like that
+goal: "The Scenes/Cast thumb is real macOS 26 Liquid Glass: press-and-hold lifts it like Find My Items, and changing tabs slides that one glass piece across. Not a painted bezel. Engine packages untouched."
+interpretation: Replace the painted selectedSegmentBezelColor thumb with one macOS 26 glass control — NSButton bezelStyle glass extra-large capsule, or NSGlassEffectView — that sits on the selected tab. Press-and-hold uses the system's interactive glass (Find My Items). Changing tabs animates that same glass piece across. Recessed track stays. No SwiftUI glassEffect over Color.clear. No segmented Picker. No regularMaterial. iPhone picker and engine packages stay as they are.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: do not use SwiftUI glassEffect over Color.clear or segmented Picker or regularMaterial
+  - kind: custom
+    text: iPhone tab picker is unchanged
+  - kind: custom
+    text: engine packages packages/edraft and apple/eDraftEngine are untouched
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - packages/**
+  - apple/eDraftEngine/**
+  - apple/EDraftCore/**
+  - src/**
+change: Make the Scenes/Cast selected thumb real macOS 26 glass that lifts on press and slides to the next tab.
+verifyCommand: swift test --package-path apple/EDraftUI
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: AppKit glass (NSButton bezelStyle glass or NSGlassEffectView) is the system object. One glass piece slides. Press-and-hold is the system's interactive lift not a drop shadow.
+    source: user
+    confirmed: true
+  - text: Do not paint selectedSegmentBezelColor as a substitute for glass. Do not use SwiftUI glassEffect over Color.clear segmented Picker or regularMaterial.
+    source: user
+    confirmed: true
+  - text: Engine packages and the iPhone picker are not touched.
+    source: user
+    confirmed: true
+createdAt: 2026-09-14T17:25:03.267Z
+createdBy: mirdora-dev

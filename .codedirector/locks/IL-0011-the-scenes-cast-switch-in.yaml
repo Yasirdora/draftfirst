@@ -1,0 +1,50 @@
+schemaVersion: 1
+id: IL-0011
+status: verified
+utterance: "the scenes/cast switch in the sidebar must look like apple's find my scope bar (reference screenshots on the desktop: File 1.png, File 2.png — dark frosted capsule track, tall, the selected tab a bright NEUTRAL glass thumb that lifts and slides between tabs on click). current state: MacTabSwitch in apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift — an NSSegmentedControl via NSViewRepresentable, large, fillEqually. problem: the selected segment renders accent BLUE; find my's thumb is neutral bright glass. three traps already hit, do not retry them: 1) SwiftUI .glassEffect over Color.clear smears on the dark sidebar (this repo's own notes document it), 2) SwiftUI segmented Picker renders small and blue here, 3) .regularMaterial is flat blur, not glass. worth knowing: find my on mac is catalyst — its bar may be UISegmentedControl-style rendering, which could explain the neutral thumb. acceptance: measure it with the harness in docs/APPLE-PLATFORM-GUIDE.md §6 and attach before/after captures; light and dark mode; the lift/slide animation must be real, not a shadow. do not touch the engine packages — a title-page migration just landed there and the tree must stay green."
+goal: The Mac sidebar Scenes/Cast switch is a tall frosted capsule with a bright neutral glass thumb that lifts and slides between tabs. Not accent blue. Not a smear. Light and dark both measured. The iPhone picker is unchanged. Engine packages are not touched.
+interpretation: Keep the Mac Scenes/Cast switch as an AppKit control in the existing representable. Make the track a tall frosted capsule and the selected tab a bright neutral glass thumb that the system slides between labels. Do not paint SwiftUI glassEffect over clear. Do not use a SwiftUI segmented Picker. Do not use regularMaterial. Measure before and after in light and dark. Leave the iPhone picker and every engine package alone.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: do not use SwiftUI glassEffect or segmented Picker or regularMaterial for this control
+  - kind: custom
+    text: iPhone tab picker is unchanged
+  - kind: custom
+    text: engine packages packages/edraft and apple/eDraftEngine are untouched
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - packages/**
+  - apple/eDraftEngine/**
+  - apple/EDraftCore/**
+  - src/**
+change: Restyle the Mac Scenes/Cast NSSegmentedControl so its thumb is tall neutral glass that slides like Find My's scope bar.
+verifyCommand: swift test --package-path apple/EDraftUI
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: The switch stays an AppKit segmented control. The selected bezel is neutralized so it is glass not accent blue. The system's own selection animation is the lift and slide.
+    source: system
+    confirmed: true
+  - text: SwiftUI glassEffect over Color.clear SwiftUI segmented Picker and regularMaterial are not used for this control.
+    source: user
+    confirmed: true
+  - text: Engine packages and the iPhone picker are not touched. Light and dark are captured with the §6 harness.
+    source: user
+    confirmed: true
+createdAt: 2026-09-14T17:02:37.588Z
+createdBy: mirdora-dev
