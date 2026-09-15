@@ -1,0 +1,36 @@
+schemaVersion: 1
+id: IL-0017
+status: verified
+utterance: Make the element selector a tiny bit wider and add 1-2 points of padding to it
+goal: The ElementModeButton capsule is slightly wider and has 1–2 pt vertical padding
+interpretation: Increase contentInsets in the capsule() method of ElementModeButton — top/bottom from 0 to 2, leading/trailing from 12 to 14
+keep:
+  - kind: no-new-dependency
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: Adjust contentInsets in ElementModeControl.swift capsule()
+budget:
+  files:
+    - apple/eDraft/Views/ElementModeControl.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 10
+accept: []
+assumptions:
+  - text: "Budget proposed automatically from anchors: nextElement, DiagnosticCollector.add, fdxElementKind, normalizeElementText, elementToFountain (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-15T19:58:00.153Z
+createdBy: Yasirdora

@@ -131,7 +131,7 @@ final class ElementModeButton: UIButton {
         title.foregroundColor = titleColor
         title.font = .systemFont(ofSize: 17, weight: .medium)
         config.attributedTitle = title
-        config.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 12, bottom: 0, trailing: 12)
+        config.contentInsets = NSDirectionalEdgeInsets(top: 2, leading: 14, bottom: 2, trailing: 14)
         // Never wrap to a second line inside the capsule — if the bar's
         // leading area is tight, the title truncates instead of stacking.
         config.titleLineBreakMode = .byTruncatingTail
