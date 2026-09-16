@@ -1,0 +1,88 @@
+schemaVersion: 1
+id: IL-0023
+status: verified
+utterance: "Stage 1 approved — draft the lock. Equivalence harness: over a script corpus, assert multi-container page starts are character-for-character identical to the engine's pagination, and that every character's on-screen rect matches the current architecture. Tests only, zero production change."
+goal: A test harness proves, before any production code moves, that a multi-container TextKit layout driven by the engine's page starts breaks pages at exactly the characters ScreenplayExporter.paginate says, and places every character's rectangle where the current single-column architecture places it. This is the test that must never go red during the migration.
+interpretation: |
+  Stage 1 of the multi-container migration (docs/RFC-MULTI-CONTAINER-PAGES.md).
+  It writes the proof BEFORE the thing it will judge, so the migration has a
+  floor from its first commit rather than after it.
+
+  One new test file. It builds the candidate architecture locally — one
+  NSTextStorage, one NSLayoutManager, N containers each forced to stop at the
+  engine's page-start character, exactly the arrangement the Stage 0 spike
+  measured working — and compares it against the surface as it stands today.
+
+  Two assertions, over a corpus of scripts short, long and awkward (a scene
+  heading last on a page, a character cue that must not orphan, a very long
+  dialogue run):
+
+    1. PAGE STARTS. The character index beginning each container equals the
+       engine's own page-start location, character for character. This is the
+       assertion that stops the screen and the PDF diverging — the risk that
+       nearly killed this design before the spike.
+    2. GEOMETRY. For every character, the rect the multi-container layout
+       gives, mapped to canvas coordinates, equals the rect today's
+       architecture gives, within a small tolerance. One assertion covering
+       the caret, the reveal highlight, the format bar and the find rects at
+       once, rather than four features' worth of locks.
+
+  A failure here is information, not an obstacle: if page starts diverge on a
+  script in the corpus, that names the screenplay rule TextKit does not know,
+  and the migration plan gains a requirement instead of a surprise.
+
+  Nothing under Sources/ changes. Sources are denied so that is structural.
+  The existing 568 tests are the floor and must stay green.
+keep:
+  - kind: no-new-dependency
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/Sources/**
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - packages/**
+  - src/**
+change: Add a multi-container equivalence harness under EDraftMacSurfaceTests — page-start equality against the engine, and per-character geometry equality against today's architecture. Tests only; no production file is touched.
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MultiContainerEquivalenceTests.*
+  symbols: []
+  maxFiles: 1
+  maxLines: 460
+accept:
+  - For every script in the corpus, each container's first character equals the engine's page-start location for that page, exactly.
+  - For every character in the corpus, the multi-container rect and the current architecture's rect agree within tolerance.
+  - Any divergence is reported naming the script, the page and the character — a harness that fails uninformatively is not a floor.
+  - "The existing suites stay green: 251 macOS surface tests and 317 core tests, 0 failures."
+  - No file under any Sources/ directory changes.
+assumptions:
+  - text: "Budget path written as a basename glob, not an exact path: lock_check errors on a budget file that does not exist yet, so a lock which CREATES a file cannot validate with its real name. The glob matches that one basename only. cdir gap, worth its own feature."
+    source: system
+    confirmed: false
+  - text: Budget replaced by hand. The auto-draft anchored on toScreenplay, script, titlePageParagraphs, sanitiseXmlCharacters and titlePageLinesOf, and proposed six TypeScript files under packages/edraft for a Swift test. cdir indexes no Swift and cannot see this repository's subject; the flag IL-0001/IL-0002 added says exactly that, though the MCP server in this session still runs pre-IL-0001 code and does not show it.
+    source: system
+    confirmed: false
+  - text: "The harness builds the candidate architecture inside the test file rather than in Sources. Stage 1 is a proof, not a foundation: production multi-container code belongs to Stage 2, and writing it here would make the proof depend on the thing it is meant to judge."
+    source: system
+    confirmed: false
+  - text: Forced container breaks use the NSTextContainer.lineFragmentRect override measured working in the Stage 0 spike, together with layoutManager.textContainerChangedGeometry to invalidate. The spike's first run failed purely for want of that invalidation, and the failure was silent — stale layout, no error. Recorded so the harness does not rediscover it.
+    source: system
+    confirmed: false
+  - text: Ceiling padded to 460 for a harness expected around 300 lines, per the human's instruction to stop drip-feeding small ceiling approvals. Two locks in cdir were already blocked by low estimates.
+    source: user
+    confirmed: true
+createdAt: 2026-09-16T19:10:48.054Z
+createdBy: Yasirdora

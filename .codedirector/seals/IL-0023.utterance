@@ -1,0 +1,1 @@
+Stage 1 approved — draft the lock. Equivalence harness: over a script corpus, assert multi-container page starts are character-for-character identical to the engine's pagination, and that every character's on-screen rect matches the current architecture. Tests only, zero production change.
