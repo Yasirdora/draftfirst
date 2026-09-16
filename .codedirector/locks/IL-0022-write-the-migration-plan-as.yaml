@@ -1,0 +1,78 @@
+schemaVersion: 1
+id: IL-0022
+status: verified
+utterance: Write the migration plan as a document in the repo (docs/, your usual standard). And noted on IL-0022 — record its supersession in the migration doc so nothing is silently dropped.
+goal: docs/ carries the multi-container migration as a written RFC in the repository's own house style — the Stage 0 spike's questions and measured answers, the measured cost of the change, the staged plan, the risks still unproven, and an explicit record that the format-bar/find-bar/ghost lock is superseded by Stage 3 rather than dropped.
+interpretation: |
+  One new file, docs/RFC-MULTI-CONTAINER-PAGES.md, in the house style the
+  other docs already keep: an H1, an italic provenance block naming the date,
+  the branch and why the document exists, then numbered sections — and the
+  repository's own evidence discipline, where **measured** means it was run
+  and anything else is named as documented behaviour or inference.
+
+  What it must carry, because it is the record of decisions taken in
+  conversation and otherwise lost:
+    - the original sin: the fold transforms pixels at draw time while the
+      layout manager still believes in one column, so everything that asks
+      "what is at this point?" gets the column's answer;
+    - the Stage 0 spike's two questions and their measured answers, including
+      that the first run's failure was the spike's own missing invalidation;
+    - the by-product finding that characterIndexForInsertion takes VIEW
+      coordinates, and the question it leaves open;
+    - the measured cost: 3,535 lines and 121 textView references in
+      ScriptSurface, 264 across 25 test files, against a 568-test floor;
+    - the five stages, with the equivalence harness first and the fold and
+      PageGapContainer deleted last;
+    - the deliberately unproven risks — drag-select as a gesture, first
+      responder across N views, view churn, the delegate's singular;
+    - the omen: NSTextFinderClient.contentView(at index:) is already
+      multi-view and eDraft currently returns the same view for every index;
+    - IL-0022's original subject — the fold-blind format bar, find bar and
+      ghost overlay — recorded as SUPERSEDED by Stage 3, which removes their
+      cause rather than patching each one.
+
+  No source file is touched, and src/apple are denied so that is structural
+  rather than promised. No verifyCommand: a Markdown file cannot break the
+  suite, and asserting swift test here would be evidence theatre.
+keep: []
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/**
+  - src/**
+  - packages/**
+change: Add docs/RFC-MULTI-CONTAINER-PAGES.md — the multi-container migration RFC. Documentation only; no code, no tests.
+budget:
+  files:
+    - docs/RFC-MULTI-CONTAINER-PAGES.*
+  symbols: []
+  maxFiles: 1
+  maxLines: 420
+accept:
+  - docs/RFC-MULTI-CONTAINER-PAGES.md exists, opens with an H1 and an italic provenance block, and follows the numbered-section style of the neighbouring docs.
+  - The Stage 0 answers are marked measured and distinguished from what is inferred or still unproven.
+  - IL-0022's original subject is recorded as superseded by Stage 3, by name.
+  - No file outside docs/ changes.
+assumptions:
+  - text: "Budget path written as a basename glob, not an exact path: lock_check errors on a budget file that does not exist yet, so a lock which CREATES a file cannot validate with its real name. The glob matches that one basename only. cdir gap, worth its own feature."
+    source: system
+    confirmed: false
+  - text: Budget replaced by hand. The auto-draft anchored on documentXml, documentXmlOf, writeDocx, ImportReport and continuityReport — every one a substring hit on "document" or "report" — and proposed six TypeScript files under packages/edraft for what is a Markdown document. cdir indexes no Swift, so it cannot see this repository's actual subject at all; this is the blindness IL-0001/IL-0002 now announce at draft time.
+    source: system
+    confirmed: false
+  - text: No verifyCommand on purpose. The apple profile would set swift test, which cannot be broken by a Markdown file; running it would be evidence theatre. apple/**, src/** and packages/** are denied instead, so docs-only is structural.
+    source: system
+    confirmed: false
+  - text: Ceiling padded to 420 for a document expected around 300 lines, per the human's instruction to stop drip-feeding small ceiling approvals.
+    source: user
+    confirmed: true
+createdAt: 2026-09-16T19:10:04.513Z
+createdBy: Yasirdora

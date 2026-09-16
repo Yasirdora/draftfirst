@@ -1,0 +1,1 @@
+Write the migration plan as a document in the repo (docs/, your usual standard). And noted on IL-0022 — record its supersession in the migration doc so nothing is silently dropped.
