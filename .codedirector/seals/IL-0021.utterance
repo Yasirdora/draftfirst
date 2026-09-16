@@ -1,0 +1,1 @@
+Draft IL-0021 on the narrow scope: restore the fold on the mark() side only, invert the bad test to assert the folded position, fix the unscaled caret band height. Leave format bar / find / ghost for a separate IL-0022 after the visual proof passes — one symptom family per lock, so my on-screen test can actually tell us what worked.

@@ -1,0 +1,31 @@
+schemaVersion: 1
+id: IL-0020
+status: verified
+utterance: "Lock A first: fix the caret/viewport paths that consume unfolded coordinates (caretContentLine, restoreViewport, anchoredLine, scrollBack) with one canonical folded conversion — and fix reveal→mark so the highlight is painted in the coordinate system its view actually lives in. Tests for folded/unfolded mapping and highlight coordinate ownership."
+goal: In two-page mode, caret viewport correction, mode-switch anchoring, scroll restoration, and reveal highlighting use the correct folded or unfolded coordinate space without moving the caret or highlight to the wrong page.
+interpretation: Add one canonical conversion boundary for text geometry consumed by canvas/viewport paths; keep text-view overlays in text-view coordinates, transform only canvas-facing geometry through SpreadFold, and add focused tests for forward/inverse mapping and highlight ownership.
+keep:
+  - kind: no-new-dependency
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: Update ScriptSurface caret/viewport and reveal geometry handling, plus focused macOS surface tests; do not change grid rendering in this lock.
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/DiscreteSheetsTests.swift
+  symbols: []
+  maxFiles: 2
+  maxLines: 160
+accept: []
+assumptions: []
+createdAt: 2026-09-15T22:19:26.866Z
+createdBy: Yasirdora

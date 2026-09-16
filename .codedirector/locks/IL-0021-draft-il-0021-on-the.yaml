@@ -1,0 +1,76 @@
+schemaVersion: 1
+id: IL-0021
+status: verified
+utterance: "Draft IL-0021 on the narrow scope: restore the fold on the mark() side only, invert the bad test to assert the folded position, fix the unscaled caret band height. Leave format bar / find / ghost for a separate IL-0022 after the visual proof passes — one symptom family per lock, so my on-screen test can actually tell us what worked."
+goal: In two-page mode the reveal highlight is painted in the text view's spread coordinates, so a sidebar reveal lands on the line it named, on the correct page, at the correct scale; and the caret band that drives viewport-follow is measured at the same scale as the coordinates it is compared against. The two genuine IL-0020 fixes (anchoredLine/scrollBack unfolding, caretContentLine's folded top) are preserved unchanged. Format bar, find-bar and ghost overlay stay fold-blind, deferred to IL-0022.
+interpretation: |
+  IL-0020 assumed the text view's own coordinate space is the unfolded TextKit
+  column. It is not: ArrangedTextView.draw paints every line fragment through
+  fold.spreadPoint, characterIndexForInsertion unfolds an incoming view-space
+  point, and firstRect folds before leaving for the window. The view's space
+  IS the spread. So an overlay hosted by the text view — the reveal highlight,
+  a subview whose frame is in its superview's coordinates — must be given the
+  FOLDED rectangle, which is what IL-0020 removed.
+
+  Three edits, one symptom family:
+  1. Give mark() ownership of the conversion into the space of the view it
+     draws into: widen in TextKit coordinates as now, then fold. Factor the
+     V-to-spread step out of canvasRect so both callers share one boundary.
+     reveal() keeps passing the unfolded rect, so scroll(revealing:) — which
+     folds inside canvasY — is untouched.
+  2. Rewrite testSpreadRevealKeepsHighlightInTextViewCoordinates, which asserts
+     the unfolded position and would fail against correct code. The replacement
+     paginates past two sheets and asserts the mark's midX and midY against
+     fold.spreadRect of the same line, so it proves the page and the column,
+     not only the scale.
+  3. caretContentLine composes a canvas-space band from a folded top and an
+     UNSCALED TextKit height; take both from canvasRect so the band is one
+     rectangle's worth of one coordinate system. Single mode is unaffected —
+     fold is nil, scale is 1.
+
+  Out of scope by the human's instruction: SelectionFormatBar.reposition,
+  FindBarClient.rects, GhostTextOverlay.updateFrame and screenOffsetForTesting
+  are all fold-blind and all stay that way until IL-0022, so the on-screen test
+  attributes what it sees to one change.
+keep:
+  - kind: no-new-dependency
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: Fold the reveal highlight into the text view's own spread coordinates, scale the caret band with it, and replace the test that asserted the unfolded position. No change to the format bar, find bar or ghost overlay.
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/DiscreteSheetsTests.swift
+  symbols: []
+  maxFiles: 2
+  maxLines: 90
+accept: []
+assumptions:
+  - text: "Budget narrowed by hand: the auto-draft anchored on the TypeScript engine (paginate.ts, classify.ts, fdx.ts) from the words 'fold' and 'mark'. This lock is the macOS surface only — one source file and its test."
+    source: system
+    confirmed: false
+  - text: "The text view's coordinate space is the spread, not the TextKit column. Read from ArrangedTextView: draw paints through fold.spreadPoint, characterIndexForInsertion unfolds an incoming point, firstRect folds on the way out. This is the premise IL-0020 got backwards and the reason its reveal change is a regression rather than a fix."
+    source: system
+    confirmed: false
+  - text: "IL-0020's other three edits are correct and are kept: anchoredLine now unfolds the viewport top before asking TextKit for a glyph, scrollBack folds before converting to canvas, and canvasY folds so caretContentLine's top is right. This lock does not touch them."
+    source: system
+    confirmed: false
+  - text: The caret band height fix has no unit test — caretContentLine is private and the surface exposes no accessor for it. It will be argued from the code and from the on-screen caret test, and reported as unchecked-by-unit-test rather than claimed.
+    source: system
+    confirmed: false
+  - text: One symptom family per lock, so the human's on-screen test can attribute what it sees. Format bar, find bar and ghost overlay are deferred to IL-0022.
+    source: user
+    confirmed: true
+createdAt: 2026-09-16T14:57:34.838Z
+createdBy: Yasirdora

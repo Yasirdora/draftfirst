@@ -1,0 +1,1 @@
+Lock A first: fix the caret/viewport paths that consume unfolded coordinates (caretContentLine, restoreViewport, anchoredLine, scrollBack) with one canonical folded conversion — and fix reveal→mark so the highlight is painted in the coordinate system its view actually lives in. Tests for folded/unfolded mapping and highlight coordinate ownership.

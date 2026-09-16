@@ -309,6 +309,51 @@ final class DiscreteSheetsTests: XCTestCase {
         XCTAssertEqual(back.y, 810, accuracy: 0.5)
     }
 
+    func testSpreadFoldRoundTripsRectGeometry() {
+        let fold = SpreadFold(pageTops: [0, 800], columnPitch: 613, rowPitch: 797, scale: 0.75)
+        let source = CGRect(x: 40, y: 810, width: 120, height: 12)
+        let spread = fold.spreadRect(fromVertical: source)
+        let back = fold.verticalPoint(fromSpread: spread.origin)
+        XCTAssertEqual(back.x, source.minX, accuracy: 0.5)
+        XCTAssertEqual(back.y, source.minY, accuracy: 0.5)
+        XCTAssertEqual(spread.width, source.width * 0.75, accuracy: 0.5)
+        XCTAssertEqual(spread.height, source.height * 0.75, accuracy: 0.5)
+    }
+
+    /// The mark is a subview of the text view, and the text view's own space is
+    /// the folded one — `ArrangedTextView.draw` paints the glyphs through the
+    /// fold. A mark handed TextKit's unfolded rectangle lands where the line
+    /// would be in a single column: past the first sheet that is off the bottom
+    /// of the opening, and never on the right-hand page.
+    func testSpreadRevealMarksTheLineWhereItsInkLands() throws {
+        let elements = script(scenes: 25)
+        let surface = surface(elements, mode: .pages)
+        surface.setArrangement(.spread)
+
+        let fold = try XCTUnwrap(surface.canvas.spreadFold)
+        XCTAssertGreaterThan(fold.pageTops.count, 2, "the proof needs lines past the first opening")
+        XCTAssertLessThan(fold.scale, 1, "a fitted opening, or the scale proves nothing")
+
+        let byID = Dictionary(
+            uniqueKeysWithValues: ScriptLayout.attributedScript(elements, measure: 500)
+                .ranges.map { ($0.id, $0.range) }
+        )
+        var columns: Set<Int> = []
+        for element in elements where element.type == .scene {
+            let range = try XCTUnwrap(byID[element.id], element.text)
+            XCTAssertTrue(surface.reveal(element.id, reduceMotion: true), element.text)
+            let line = try XCTUnwrap(
+                ScriptLayout.boundingRect(of: range, in: surface.textView), element.text
+            )
+            let folded = fold.spreadRect(fromVertical: line)
+            XCTAssertTrue(surface.highlight.superview === surface.textView, element.text)
+            XCTAssertEqual(surface.highlight.frame.midY, folded.midY, accuracy: 1, element.text)
+            XCTAssertEqual(surface.highlight.frame.midX, folded.midX, accuracy: 1, element.text)
+            columns.insert(fold.pageIndex(atVerticalY: line.minY) % 2)
+        }
+        XCTAssertEqual(columns, [0, 1], "both pages of the opening must be proved")
+    }
+
     func testGridLightsTheSheetANavigatorClickAskedFor() throws {
         let surface = surface(script(scenes: 25), mode: .pages)
         surface.setArrangement(.grid)

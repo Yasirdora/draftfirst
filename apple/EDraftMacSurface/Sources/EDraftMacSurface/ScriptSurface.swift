@@ -624,7 +624,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         guard let layoutManager = textView.layoutManager,
               let container = textView.textContainer else { return nil }
         let visible = scrollView.contentView.bounds
-        let inText = canvas.convert(NSPoint(x: 0, y: visible.minY), to: textView)
+        let inText = textPoint(fromCanvas: NSPoint(x: textView.frame.minX, y: visible.minY))
         // The layout engine reckons in the container's coordinates, which the
         // inset puts a few points above the view's own.
         let top = NSPoint(
@@ -639,7 +639,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         }
         let location = layoutManager.characterIndexForGlyph(at: glyph)
         guard let rect = boundingRect(atCharacter: location) else { return nil }
-        return (location, canvas.convert(rect, from: textView).minY - visible.minY)
+        return (location, canvasRect(fromTextRect: rect).minY - visible.minY)
     }
 
     /// The first glyph whose line fragment reaches at or below `top`,
@@ -665,7 +665,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     private func scrollBack(to anchor: (location: Int, offset: CGFloat)?) {
         guard let anchor, let rect = boundingRect(atCharacter: anchor.location) else { return }
-        let y = canvas.convert(rect, from: textView).minY - anchor.offset
+        let y = canvasRect(fromTextRect: rect).minY - anchor.offset
         let clip = scrollView.contentView
         clip.scroll(to: NSPoint(
             x: clip.bounds.origin.x,
@@ -681,6 +681,31 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let clamped = min(max(0, location), length)
         let probe = NSRange(location: clamped, length: min(1, max(0, length - clamped)))
         return ScriptLayout.boundingRect(of: probe, in: textView)
+    }
+
+    /// A TextKit rectangle in the coordinates its ink actually lands in.
+    ///
+    /// The fold is a transform *inside* the text view, not a step in the view
+    /// hierarchy: `ArrangedTextView.draw` paints every line fragment through
+    /// it, `characterIndexForInsertion` unfolds a point arriving from it, and
+    /// `firstRect` folds on the way out. The view's own space *is* the spread,
+    /// so an overlay hosted by it — a subview, whose frame is read in its
+    /// superview's coordinates — belongs there too. Give one the unfolded
+    /// rectangle and it sits where the line would be in a single column,
+    /// which on an open book is another page.
+    private func spreadRect(fromTextRect rect: CGRect) -> CGRect {
+        (textView as? ArrangedTextView)?.fold?.spreadRect(fromVertical: rect) ?? rect
+    }
+
+    /// The same rectangle again, lifted out to the canvas the scroll view moves.
+    private func canvasRect(fromTextRect rect: CGRect) -> CGRect {
+        textView.convert(spreadRect(fromTextRect: rect), to: canvas)
+    }
+
+    /// Convert a canvas point back into the vertical TextKit column.
+    private func textPoint(fromCanvas point: NSPoint) -> NSPoint {
+        let local = textView.convert(point, from: canvas)
+        return (textView as? ArrangedTextView)?.fold?.verticalPoint(fromSpread: local) ?? local
     }
 
     /// What a layout pass can see of the text: everything but identity and
@@ -1880,11 +1905,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             return true
         }
 
-        guard var rect = ScriptLayout.boundingRect(of: mapped.range, in: textView)
+        guard let rect = ScriptLayout.boundingRect(of: mapped.range, in: textView)
         else { return false }
-        if let fold = canvas.spreadFold {
-            rect = fold.spreadRect(fromVertical: rect)
-        }
 
         textView.setSelectedRange(NSRange(location: mapped.range.location, length: 0))
         updateSelection()
@@ -1957,15 +1979,21 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// well put every reveal one line low, because the inset *is* one line
     /// (`glyphOverflow`). Measured on screen, 2026-09-08.
     private func canvasY(ofTextRect rect: CGRect) -> CGFloat {
-        rect.minY + textView.frame.minY
+        canvasRect(fromTextRect: rect).minY
     }
 
+    /// `rect` arrives in TextKit's own column, the way `ScriptLayout` hands it
+    /// over. The mark is a subview of the text view, so the fold belongs here,
+    /// at the boundary — and the widening belongs before it, because a
+    /// container's width is a column's width and the fold is what scales it.
     private func mark(_ rect: CGRect, reduceMotion: Bool) {
         var marked = rect
         if marked.width < 1, let container = textView.textContainer {
             marked.size.width = container.size.width
         }
-        highlight.mark(marked, in: textView, reduceMotion: reduceMotion)
+        highlight.mark(
+            spreadRect(fromTextRect: marked), in: textView, reduceMotion: reduceMotion
+        )
     }
 
     /// Whether a mark is currently on the page — the surface's own answer to
@@ -3316,8 +3344,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             )
         }
         guard let rect = caret else { return nil }
-        let top = canvasY(ofTextRect: rect)
-        return top...(top + max(rect.height, 1))
+        // Both ends off one rectangle in one space. A folded top over an
+        // unscaled TextKit height made the band half a line too tall in
+        // Two-page, and the band is what decides the caret has left the glass.
+        let band = canvasRect(fromTextRect: rect)
+        return band.minY...(band.minY + max(band.height, 1))
     }
 
     /// Where the page rests after the storage has been replaced.
