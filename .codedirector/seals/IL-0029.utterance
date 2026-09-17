@@ -1,0 +1,1 @@
+Take your recommended path: undo IL-0028, commit the hook under its own small lock, then re-run the same apply for a clean record.

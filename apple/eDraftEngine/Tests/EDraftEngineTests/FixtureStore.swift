@@ -260,9 +260,11 @@ enum FdxCorpus {    struct Root: Decodable {
     /// The source is inline, or a file beside the corpus named by
     /// `sourceFile`. The screenplay saved is `screenplay`, or the document's
     /// own script; `unedited` is the caller's reading passed to the save;
-    /// `through: "fountain"` builds both from the file the way the app does.
-    /// The expected result is exact bytes, or whether the save returns the
-    /// file unchanged.
+    /// `through: "fountain"` builds both from the file the way the app does,
+    /// after `edit` — `find`, which occurs once in the Fountain source,
+    /// replaced by `replace`. The expected result is exact bytes, whether the
+    /// save returns the file unchanged, or the one change it makes: at UTF-16
+    /// `at`, `removed` became `inserted`.
     struct RewriteCase: Decodable {
         let name: String
         let source: String?
@@ -270,11 +272,24 @@ enum FdxCorpus {    struct Root: Decodable {
         let screenplay: Screenplay?
         let unedited: Screenplay?
         let through: String?
+        let edit: Edit?
         let expected: Expected
+
+        struct Edit: Decodable {
+            let find: String
+            let replace: String
+        }
 
         struct Expected: Decodable {
             let xml: String?
             let identical: Bool?
+            let changed: Changed?
+        }
+
+        struct Changed: Decodable {
+            let at: Int
+            let removed: String
+            let inserted: String
         }
 
         func xml() throws -> String {

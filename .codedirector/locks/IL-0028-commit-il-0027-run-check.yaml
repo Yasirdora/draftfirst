@@ -1,0 +1,170 @@
+schemaVersion: 1
+id: IL-0028
+status: failed
+utterance: Commit IL-0027, run check:conformance, and draft IL-0028.
+goal: "Editing a paragraph of a Final Draft file in eDraft changes only the characters the writer changed. The paragraph keeps its Type, attributes and nested blocks, its production tags, revision marks, run splits and AllCaps styling on every untouched word, its stored casing, its line breaks and its trailing whitespace; nothing Fountain added (a #2#, a leading '.') is ever written into the file. Proven on the Final Draft-written fixtures in both engines and through the app's own path, each proof failing on the IL-0027 save."
+interpretation: |
+  The lock the human approved to follow IL-0027 immediately ("edited
+  paragraphs keep what the writer didn't touch"), ahead of the counting fix;
+  the rebase onto sample02.fdx waits for it. Measured 2026-09-17 at 72a63c2,
+  through the app's path (Fountain reading + IL-0027's unedited gate), one
+  small edit per hazard on finaldraft-sample02.fdx / finaldraft-sample01.fdx:
+
+    E1  typo fix in a tagged action line: 11 runs collapse to one; 5 tags and
+        a revision mark lost.
+    E2  "(X1)" → "(X2)" in the emphasised numbered heading Fountain reads as
+        Action: the paragraph becomes Type="Action"; its SceneProperties, arc
+        beats, Number and id are gone; 7 tags lost; and the literal " #2#"
+        (Fountain's scene-number syntax) is written into the script's text.
+    E3b the italic "(beat)" after dialogue, edited: becomes Type="Dialogue".
+    E4  second line of a multi-line Summary edited: the Summary is cut at its
+        line break and the line becomes a new Action paragraph.
+    E5  edit early in a line that ends in a space: the space is dropped.
+    E6  edit in an action line with an AllCaps-styled word: that word's stored
+        letters are rewritten in capitals, its AllCaps style and 3 tags lost.
+    E7  a plain scene heading edited: its scene data survives, its 5 tags don't.
+
+  Cause, in one sentence: an edited paragraph is rewritten from the edited
+  ELEMENT — Fountain's representation — instead of having the writer's change
+  applied to the FILE's paragraph.
+
+  THE FIX: A THREE-WAY MERGE PER EDITED PARAGRAPH, written in the file's terms.
+  For a paragraph F with its unedited reading U (IL-0027's correspondence) and
+  the edited element(s) E:
+
+    1. The writer's change is U → E (common prefix and suffix, UTF-16).
+    2. U is aligned with F's own text character by character, casing aside, so
+       what Fountain added (" #2#", a leading ".") and what it dropped (a
+       trailing space, the file's casing) are known.
+    3. The change is applied to F: replaced characters are the file characters
+       matched to the replaced reading characters; a pure insertion deletes no
+       file-only character; an insertion is placed beside characters the file
+       actually has. An edit that cannot be placed that way — one that touches
+       only characters Fountain added, or whose placement is ambiguous — is not
+       guessed: that paragraph takes today's path, and the TypeScript result
+       reports it (FDX_REWRITE_EDIT_UNPLACED).
+    4. Runs: every <Text> run wholly outside the changed characters is written
+       as its original bytes. A run the change falls in keeps its opening tag
+       — every attribute — around its new text. Emphasis the writer changed
+       (bold, italic, underline, strikeout: what Fountain carries) is applied
+       to the file's runs over that range; everything Fountain cannot carry
+       (TagNumber, RevisionID, AdornmentStyle, Font, Size, AllCaps, HiddenText,
+       the eDraft highlight) stays as the file had it.
+    5. Type: if the writer did not change the element's kind in eDraft (E and U
+       agree), the file's Type stands — the heading Fountain reads as Action
+       stays a Scene Heading, the (beat) stays a Parenthetical. If they did,
+       the paragraph is retyped as today, attributes and nested blocks kept.
+    6. A paragraph Fountain split at its line breaks is merged over its joined
+       lines, so it stays one paragraph with its line breaks — when the writer
+       edited lines in place. Lines added or removed inside it take today's
+       path.
+
+  Prototyped on E1–E8 text: every case gives the file's paragraph with only the
+  writer's characters changed (casing kept, no #2#, no ".", the line break and
+  trailing space kept); two placement edge cases found and turned into rules 3's
+  wording (an insertion beside a Fountain artifact; an append at the very end).
+
+  PROOF, same rigor as IL-0027: each measured case as a corpus case and a test
+  in both engines and through ScreenplayFile/EditorState; an edit sweep across
+  both fixtures asserting that bytes change only inside the edited <Text> runs
+  (not merely inside the paragraph) and that every tag on an untouched word
+  survives; every new proof shown failing on the IL-0027 save. The no-edit
+  proofs and the provenance guard stay as they are.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: an edit through the app's path changes only the <Text> runs the edited characters fall in — every other byte of the file, the paragraph's own opening tag and nested blocks included, is unchanged; proven by a sweep over both Final Draft-written fixtures in both engines
+  - kind: custom
+    text: the file's Type stands unless the writer changed the element's kind in eDraft; nothing Fountain added is written into the file; stored casing, line breaks and trailing whitespace outside the changed characters are kept
+  - kind: custom
+    text: an edit that cannot be placed without guessing takes today's path and is reported — never a guessed placement
+  - kind: custom
+    text: each measured case (E1–E7, E3b) is a proof that fails on the IL-0027 save (recorded in the run)
+  - kind: custom
+    text: no-edit saves stay byte-identical, the provenance guard and both fixtures are unchanged, and the import, the ScriptNotes reader and the fresh export have no changed lines
+  - kind: custom
+    text: the Fountain parser and serialiser, the model and EditorState are unchanged
+  - kind: custom
+    text: every existing fdx.json case keeps its expected output except the IL-0027 case that pinned today's damage (unedited-split-paragraph-one-line-edited), whose change is the fix, reviewed
+  - kind: custom
+    text: both ports produce identical rewrite output for every corpus case
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - "*.xcodeproj/**"
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/style.ts
+  - packages/edraft/src/normalize.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/*.fdx
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/XmlScanner.swift
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - docs/**
+change: "An edited paragraph of a Final Draft file is merged, not rewritten: the writer's change (unedited reading → edited element) is placed onto the file's own paragraph by character alignment, runs outside the change keep their bytes, runs inside keep their attributes, and the file's Type, casing, line breaks and whitespace stand — in both engines, proven on the Final Draft-written fixtures."
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxPreservingRoundTripTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift
+  symbols: []
+  maxFiles: 9
+  maxLines: 2200
+accept:
+  - "E1–E7 and E3b, re-run through the app's path: each paragraph comes back as the file's own with only the writer's characters changed — Type, SceneProperties, Number, id, tags, revision marks, AdornmentStyle, AllCaps and stored casing on untouched words, line breaks and trailing whitespace all kept; no '#2#' or leading '.' in the file."
+  - "Sweep: an edit through Fountain at ≥10 positions in each fixture changes bytes only inside the <Text> runs it falls in; every TagNumber outside those runs survives. Both engines."
+  - Each E-case proof fails on the IL-0027 save (TypeScript and the app's Swift path).
+  - An unplaceable edit takes today's path and TypeScript reports FDX_REWRITE_EDIT_UNPLACED; a synthetic case pins it.
+  - "No-edit proofs, provenance guard and all other corpus cases unchanged; suites green: 671 TypeScript, 182 Swift engine, EDraftCore."
+assumptions:
+  - text: Budget replaced by hand. The auto-draft anchored on the words 'run' and 'check' (the conformance scripts) with low confidence, and proposed a paste gate, Fountain emphasis and an iOS navigator test.
+    source: system
+    confirmed: false
+  - text: "Approved by the human before drafting: IL-0028 follows IL-0027 immediately, ahead of the counting fix; the rebase onto sample02.fdx waits for both."
+    source: user
+    confirmed: true
+  - text: "Decided by the human — inserted text inherits its run's attributes (text typed inside a run, or at its end): tags, Font, Size, AdornmentStyle, AllCaps; never RevisionID — revision marks belong to the file's own history."
+    source: user
+    confirmed: true
+  - text: Scope approved by the human as drafted.
+    source: user
+    confirmed: true
+  - text: "Out of scope, noted: Fountain's own losses are routed around, not fixed — a Fountain export still reads an emphasised heading as Action; the eDraft highlight still cannot travel through Fountain; dual-dialogue speech is still invisible (its own lock, next after the counting fix)."
+    source: system
+    confirmed: false
+  - text: "maxLines 2,200: engine ~400 lines per port, tests ~600, corpus ~500, changelog. The fixtures are not touched (denied)."
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T11:40:40.986Z
+createdBy: Yasirdora

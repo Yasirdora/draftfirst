@@ -20,7 +20,7 @@ import type {
 	ElementType,
 	Screenplay,
 	ScreenplayElement,
-	TitlePageLine, StyleRun } from './types.js';
+	TitlePageLine, StyleRun, StyleToken } from './types.js';
 
 /* ---- diagnostics and limits -------------------------------------------- */
 
@@ -1640,6 +1640,520 @@ function unchangedFrom(
 	return matched;
 }
 
+/* ---- edited paragraphs -------------------------------------------------- */
+
+/** The emphasis a Fountain reading carries. Everything else on a run — tags,
+    revision, font, AllCaps, HiddenText — is the file's, and only the file's. */
+const CARRIED_STYLES: readonly StyleToken[] = ['Bold', 'Italic', 'Underline', 'Strikeout'];
+
+/** Past this many cells an alignment is not attempted. */
+const ALIGNMENT_CELLS = 4_000_000;
+
+/** One direct-child <Text> run of a file paragraph: its bytes and its words. */
+interface FileRun {
+	/** Where the whitespace before it starts. */
+	lead: number;
+	start: number;
+	end: number;
+	/** The opening tag's attributes, in the file's order, values verbatim. */
+	attributes: [string, string][];
+	text: string;
+}
+
+function isWhitespaceUnit(unit: number): boolean {
+	return /\s/.test(String.fromCharCode(unit));
+}
+
+/** A tag's attributes, strictly `name="value"` separated by whitespace — or null. */
+function strictAttributes(raw: string): [string, string][] | null {
+	const attributes: [string, string][] = [];
+	let cursor = 0;
+	while (cursor < raw.length) {
+		const at = cursor;
+		while (cursor < raw.length && isWhitespaceUnit(raw.charCodeAt(cursor))) cursor += 1;
+		if (cursor >= raw.length) break;
+		if (cursor === at) return null;
+		const nameStart = cursor;
+		while (cursor < raw.length && raw[cursor] !== '=' && !isWhitespaceUnit(raw.charCodeAt(cursor))) cursor += 1;
+		if (cursor === nameStart || raw[cursor] !== '=' || raw[cursor + 1] !== '"') return null;
+		const name = raw.slice(nameStart, cursor);
+		const valueStart = cursor + 2;
+		const valueEnd = raw.indexOf('"', valueStart);
+		if (valueEnd === -1) return null;
+		attributes.push([name, raw.slice(valueStart, valueEnd)]);
+		cursor = valueEnd + 1;
+	}
+	return attributes;
+}
+
+/**
+ * A paragraph's own runs, or null when its text region holds anything but
+ * plain `<Text>` runs and the whitespace between them — then nothing is safe
+ * to merge into, and the paragraph keeps today's path.
+ */
+function fileRunsOf(source: string, origin: OriginParagraph): FileRun[] | null {
+	if (origin.textStart < 0 || origin.textEnd <= origin.textStart) return null;
+	const runs: FileRun[] = [];
+	let cursor = origin.textStart;
+	while (cursor < origin.textEnd) {
+		const lead = cursor;
+		while (cursor < origin.textEnd && isWhitespaceUnit(source.charCodeAt(cursor))) cursor += 1;
+		if (cursor >= origin.textEnd) break;
+		if (!source.startsWith('<Text', cursor)) return null;
+		const close = source.indexOf('>', cursor);
+		if (close === -1 || close >= origin.textEnd) return null;
+		let raw = source.slice(cursor + '<Text'.length, close);
+		const selfClosing = raw.endsWith('/');
+		if (selfClosing) raw = raw.slice(0, -1);
+		if (raw !== '' && !isWhitespaceUnit(raw.charCodeAt(0))) return null;
+		const attributes = strictAttributes(raw);
+		if (attributes === null) return null;
+		if (selfClosing) {
+			runs.push({ lead, start: cursor, end: close + 1, attributes, text: '' });
+			cursor = close + 1;
+			continue;
+		}
+		const endTag = source.indexOf('</Text>', close + 1);
+		if (endTag === -1 || endTag + '</Text>'.length > origin.textEnd) return null;
+		const content = source.slice(close + 1, endTag);
+		if (content.includes('<')) return null;
+		runs.push({ lead, start: cursor, end: endTag + '</Text>'.length, attributes, text: decodeXmlEntities(content) });
+		cursor = endTag + '</Text>'.length;
+	}
+	return runs;
+}
+
+/** A text's UTF-16 units, as numbers to align. */
+function unitsOf(text: string): Int32Array {
+	const units = new Int32Array(text.length);
+	for (let u = 0; u < text.length; u++) units[u] = text.charCodeAt(u);
+	return units;
+}
+
+/**
+ * A text's UTF-16 units as numbers that are equal exactly when the units are
+ * the same letter, casing aside — a surrogate only ever equal to itself.
+ * `spelled` numbers the uppercase forms longer than one unit, across texts.
+ */
+function letterKeys(text: string, spelled: Map<string, number>): Int32Array {
+	const keys = new Int32Array(text.length);
+	for (let u = 0; u < text.length; u++) {
+		const unit = text.charCodeAt(u);
+		if (unit >= 0xd800 && unit <= 0xdfff) {
+			keys[u] = 0x20000 + unit;
+			continue;
+		}
+		const upper = String.fromCharCode(unit).toLocaleUpperCase();
+		if (upper.length === 1) {
+			keys[u] = upper.charCodeAt(0);
+			continue;
+		}
+		let key = spelled.get(upper);
+		if (key === undefined) {
+			key = 0x30000 + spelled.size;
+			spelled.set(upper, key);
+		}
+		keys[u] = key;
+	}
+	return keys;
+}
+
+/** For each unit of `a`, the unit of `b` a longest common subsequence pairs it
+    with, or -1 — null when the alignment would be too large to attempt. */
+function alignedUnits(a: Int32Array, b: Int32Array): Int32Array | null {
+	const n = a.length;
+	const m = b.length;
+	const pairs = new Int32Array(n).fill(-1);
+	if (n === 0 || m === 0) return pairs;
+	if (n * m > ALIGNMENT_CELLS) return null;
+	const table = new Int32Array((n + 1) * (m + 1));
+	const at = (i: number, j: number): number => i * (m + 1) + j;
+	for (let i = n - 1; i >= 0; i--) {
+		for (let j = m - 1; j >= 0; j--) {
+			table[at(i, j)] = a[i] === b[j]
+				? table[at(i + 1, j + 1)] + 1
+				: Math.max(table[at(i + 1, j)], table[at(i, j + 1)]);
+		}
+	}
+	let i = 0;
+	let j = 0;
+	while (i < n && j < m) {
+		if (a[i] === b[j]) {
+			pairs[i] = j;
+			i += 1;
+			j += 1;
+		} else if (table[at(i + 1, j)] >= table[at(i, j + 1)]) {
+			i += 1;
+		} else {
+			j += 1;
+		}
+	}
+	return pairs;
+}
+
+
+/** A stretch of the unedited reading and the edited text that do not correspond. */
+interface Hunk {
+	readStart: number;
+	readEnd: number;
+	nowStart: number;
+	nowEnd: number;
+}
+
+function changedUnits(hunks: Hunk[]): number {
+	return hunks.reduce((sum, hunk) => sum + (hunk.readEnd - hunk.readStart) + (hunk.nowEnd - hunk.nowStart), 0);
+}
+
+/**
+ * The hunks an alignment of reading to edited text leaves. A line retyped
+ * shares a space or a letter here and there with what it replaced; those are
+ * coincidences, not text the writer kept, so an unchanged stretch no longer
+ * than the changes on both sides of it is folded into them.
+ */
+function changeHunks(readToNow: Int32Array, readLength: number, nowLength: number): Hunk[] {
+	const hunks: Hunk[] = [];
+	const push = (hunk: Hunk) => {
+		let current = hunk;
+		while (hunks.length > 0) {
+			const last = hunks[hunks.length - 1];
+			const kept = current.readStart - last.readEnd;
+			if (kept > changedUnits([last]) || kept > changedUnits([current])) break;
+			hunks.pop();
+			current = { readStart: last.readStart, readEnd: current.readEnd, nowStart: last.nowStart, nowEnd: current.nowEnd };
+		}
+		hunks.push(current);
+	};
+	let lastRead = -1;
+	let lastNow = -1;
+	const close = (readNext: number, nowNext: number) => {
+		if (readNext - lastRead > 1 || nowNext - lastNow > 1) {
+			push({ readStart: lastRead + 1, readEnd: readNext, nowStart: lastNow + 1, nowEnd: nowNext });
+		}
+	};
+	for (let r = 0; r < readLength; r++) {
+		const n = readToNow[r];
+		if (n < 0) continue;
+		close(r, n);
+		lastRead = r;
+		lastNow = n;
+	}
+	close(readLength, nowLength);
+	return hunks;
+}
+
+/** The carried emphasis of each unit of a text, as a bit set per unit. */
+function carriedStylesPerUnit(text: string, runs: StyleRun[] | undefined): Uint8Array {
+	const styles = new Uint8Array(text.length);
+	for (const run of normaliseRuns(runs ?? [], text.length)) {
+		let bits = 0;
+		CARRIED_STYLES.forEach((token, bit) => {
+			if (run.styles.includes(token)) bits |= 1 << bit;
+		});
+		for (let unit = run.start; unit < run.end; unit++) styles[unit] = bits;
+	}
+	return styles;
+}
+
+/** A run's attributes with its Style made of the file's own tokens and the given carried emphasis. */
+function attributesWith(attributes: [string, string][], carried: number, dropRevision: boolean): [string, string][] {
+	const own = attributes.find(([name]) => name === 'Style')?.[1] ?? '';
+	const tokens = new Set(own.split('+').map((token) => token.trim()).filter((token) => token !== ''));
+	for (const [bit, token] of CARRIED_STYLES.entries()) {
+		if (carried & (1 << bit)) tokens.add(token);
+		else tokens.delete(token);
+	}
+	const known = STYLE_ORDER.filter((token) => tokens.has(token));
+	const unknown = [...tokens].filter((token) => !(STYLE_ORDER as readonly string[]).includes(token));
+	const style = [...known, ...unknown].join('+');
+	const out: [string, string][] = attributes.filter(([name]) => !(dropRevision && name === 'RevisionID'));
+	const index = out.findIndex(([name]) => name === 'Style');
+	if (index !== -1) {
+		if (style === '') out.splice(index, 1);
+		else out[index] = ['Style', style];
+	} else if (style !== '') {
+		const before = out.findIndex(([name]) => name > 'Style');
+		out.splice(before === -1 ? out.length : before, 0, ['Style', style]);
+	}
+	return out;
+}
+
+function carriedOf(styleValue: string | undefined): number {
+	const tokens = (styleValue ?? '').split('+').map((token) => token.trim());
+	let bits = 0;
+	CARRIED_STYLES.forEach((token, bit) => {
+		if (tokens.includes(token)) bits |= 1 << bit;
+	});
+	return bits;
+}
+
+/**
+ * The writer's change to one paragraph, written in the file's own terms — or
+ * null when it cannot be placed without guessing.
+ *
+ * The change is what separates the unedited reading from the edited elements;
+ * the reading is aligned with the file's own text, casing aside, so what the
+ * reading added (Fountain's `#2#`, a leading `.`) and dropped (a trailing
+ * space, the file's casing, a run split) is known and never written. Replaced
+ * characters are the file characters matched to the replaced reading
+ * characters; a pure insertion deletes nothing only the file has, and sits
+ * beside characters the file has. Every run the change does not touch is
+ * written as its bytes; a run it touches keeps its opening tag's attributes,
+ * with the writer's emphasis applied. Inserted text takes the attributes of
+ * the run it is typed into — or the run before, at a boundary — except its
+ * RevisionID: a revision mark is the file's record of when text changed.
+ * The file's Type stands unless the writer changed the element's kind.
+ */
+function mergedParagraph(
+	source: string,
+	origin: OriginParagraph,
+	unedited: ScreenplayElement[],
+	edited: ScreenplayElement[],
+	diagnostics: DiagnosticCollector,
+	index: number
+): string | null {
+	if (unedited.length !== edited.length || unedited.length === 0) return null;
+	for (const [at, read] of unedited.entries()) {
+		const now = edited[at];
+		if ((read.dual ?? false) !== (now.dual ?? false)) return null;
+		if ((read.sceneNumber ?? '') !== (now.sceneNumber ?? '')) return null;
+		if ((read.depth ?? 0) !== (now.depth ?? 0)) return null;
+		if (unedited.length > 1 && read.type !== now.type) return null;
+	}
+	const runs = fileRunsOf(source, origin);
+	if (runs === null || runs.length === 0) return null;
+
+	const joinRuns = (elements: ScreenplayElement[]) => {
+		let text = '';
+		const runsOut: StyleRun[] = [];
+		for (const [at, element] of elements.entries()) {
+			if (at > 0) text += '\n';
+			for (const run of normaliseRuns(element.runs ?? [], element.text.length)) {
+				runsOut.push({ ...run, start: run.start + text.length, end: run.end + text.length });
+			}
+			text += element.text;
+		}
+		return { text, runs: runsOut };
+	};
+	const read = joinRuns(unedited);
+	const now = joinRuns(edited);
+	const fileText = runs.map((run) => run.text).join('');
+
+	const spelled = new Map<string, number>();
+	const readToFile = alignedUnits(letterKeys(read.text, spelled), letterKeys(fileText, spelled));
+	if (readToFile === null) return null;
+	const readStyles = carriedStylesPerUnit(read.text, read.runs);
+	const nowStyles = carriedStylesPerUnit(now.text, now.runs);
+
+	// The writer's change: of the two smallest alignments, the one that changes less.
+	const readUnits = unitsOf(read.text);
+	const nowUnits = unitsOf(now.text);
+	const forward = alignedUnits(readUnits, nowUnits);
+	const mirrored = alignedUnits(readUnits.slice().reverse(), nowUnits.slice().reverse());
+	if (forward === null || mirrored === null) return null;
+	const backward = new Int32Array(read.text.length).fill(-1);
+	mirrored.forEach((n, r) => {
+		if (n >= 0) backward[read.text.length - 1 - r] = now.text.length - 1 - n;
+	});
+	const forwardHunks = changeHunks(forward, read.text.length, now.text.length);
+	const backwardHunks = changeHunks(backward, read.text.length, now.text.length);
+	const useBackward = changedUnits(backwardHunks) < changedUnits(forwardHunks);
+	const readToNow = useBackward ? backward : forward;
+	const hunks = useBackward ? backwardHunks : forwardHunks;
+
+	// Where each hunk lands in the file's text.
+	interface Placed { fileStart: number; fileEnd: number; nowStart: number; nowEnd: number }
+	const placed: Placed[] = [];
+	for (const [h, hunk] of hunks.entries()) {
+		if (hunk.readEnd > hunk.readStart) {
+			for (let r = hunk.readStart; r < hunk.readEnd; r++) if (readToFile[r] < 0) return null;
+			placed.push({
+				fileStart: readToFile[hunk.readStart],
+				fileEnd: readToFile[hunk.readEnd - 1] + 1,
+				nowStart: hunk.nowStart,
+				nowEnd: hunk.nowEnd
+			});
+			continue;
+		}
+		// A pure insertion may slide over equal characters; it goes where the file has neighbours.
+		const floor = h > 0 ? hunks[h - 1].readEnd : 0;
+		const ceiling = h + 1 < hunks.length ? hunks[h + 1].readStart : read.text.length;
+		const inserted = now.text.slice(hunk.nowStart, hunk.nowEnd);
+		const candidates: { position: number; text: string }[] = [{ position: hunk.readStart, text: inserted }];
+		for (let position = hunk.readStart, text = inserted; position > floor && read.text[position - 1] === text[text.length - 1];) {
+			text = read.text[position - 1] + text.slice(0, -1);
+			position -= 1;
+			candidates.push({ position, text });
+		}
+		for (let position = hunk.readStart, text = inserted; position < ceiling && read.text[position] === text[0];) {
+			text = text.slice(1) + read.text[position];
+			position += 1;
+			candidates.push({ position, text });
+		}
+		const leftHas = (p: number) => p > 0 && readToFile[p - 1] >= 0;
+		const rightHas = (p: number) => p < read.text.length && readToFile[p] >= 0;
+		const chosen =
+			candidates.find((c) => (c.position === 0 || leftHas(c.position)) && (c.position === read.text.length || rightHas(c.position))) ??
+			candidates.find((c) => leftHas(c.position)) ??
+			candidates.find((c) => c.position === 0 && rightHas(0));
+		if (chosen === undefined) return null;
+		const fileAt = chosen.position > 0 ? readToFile[chosen.position - 1] + 1 : 0;
+		// The inserted text is the edited text at the chosen position.
+		const shift = chosen.position - hunk.readStart;
+		placed.push({ fileStart: fileAt, fileEnd: fileAt, nowStart: hunk.nowStart + shift, nowEnd: hunk.nowEnd + shift });
+	}
+	for (let p = 1; p < placed.length; p++) {
+		if (placed[p].fileStart < placed[p - 1].fileEnd) return null;
+		if (placed[p].fileStart === placed[p - 1].fileEnd && placed[p].fileStart === placed[p].fileEnd && placed[p - 1].fileStart === placed[p - 1].fileEnd) return null;
+	}
+
+	// The emphasis the writer changed on characters they did not retype.
+	const fileToRead = new Int32Array(fileText.length).fill(-1);
+	readToFile.forEach((f, r) => {
+		if (f >= 0) fileToRead[f] = r;
+	});
+
+	// The merged paragraph, unit by unit: which run each unit comes from and its carried emphasis.
+	interface Unit { char: string; run: number; original: boolean; carried: number }
+	const runOfFileUnit = new Int32Array(fileText.length);
+	{
+		let at = 0;
+		runs.forEach((run, r) => {
+			for (let u = 0; u < run.text.length; u++) runOfFileUnit[at + u] = r;
+			at += run.text.length;
+		});
+	}
+	const units: Unit[] = [];
+	const ownCarried = runs.map((run) => carriedOf(run.attributes.find(([name]) => name === 'Style')?.[1]));
+	let next = 0;
+	const keepFileUnits = (until: number) => {
+		for (; next < until; next++) {
+			const r = fileToRead[next];
+			let carried = ownCarried[runOfFileUnit[next]];
+			if (r >= 0 && readToNow[r] >= 0 && readStyles[r] !== nowStyles[readToNow[r]]) carried = nowStyles[readToNow[r]];
+			units.push({ char: fileText[next], run: runOfFileUnit[next], original: true, carried });
+		}
+	};
+	for (const edit of placed) {
+		keepFileUnits(edit.fileStart);
+		/* Replaced characters take the run they replace; typed characters
+		   continue the run before them — the first run, at the very start. */
+		const donor =
+			edit.fileEnd > edit.fileStart
+				? runOfFileUnit[edit.fileStart]
+				: edit.fileStart > 0
+					? runOfFileUnit[edit.fileStart - 1]
+					: fileText.length > 0
+						? runOfFileUnit[0]
+						: 0;
+		for (let u = edit.nowStart; u < edit.nowEnd; u++) {
+			units.push({ char: now.text[u], run: donor, original: false, carried: nowStyles[u] });
+		}
+		next = edit.fileEnd;
+	}
+	keepFileUnits(fileText.length);
+	if (units.length === 0) return null;
+	// A character outside the BMP is one character: half of it retyped retypes both halves.
+	for (let at = 0; at + 1 < units.length; at++) {
+		const [high, low] = [units[at], units[at + 1]];
+		if (!/[\uD800-\uDBFF]/.test(high.char) || !/[\uDC00-\uDFFF]/.test(low.char) || high.original === low.original) continue;
+		const typed = high.original ? low : high;
+		units[at] = { ...high, run: typed.run, original: false, carried: typed.carried };
+		units[at + 1] = { ...low, run: typed.run, original: false, carried: typed.carried };
+	}
+
+	// Runs, emitted. Units group by the attributes they will carry; a run whose
+	// every unit is present, in place and unchanged is written as its bytes.
+	const keyCache = new Map<string, string>();
+	const keyOf = (unit: Unit): string => {
+		const cacheKey = `${unit.run}:${unit.carried}:${unit.original}`;
+		let key = keyCache.get(cacheKey);
+		if (key === undefined) {
+			key = JSON.stringify(attributesWith(runs[unit.run].attributes, unit.carried, !unit.original));
+			keyCache.set(cacheKey, key);
+		}
+		return key;
+	};
+	const firstUnitOfRun = new Int32Array(runs.length).fill(-1);
+	const unitsInRun = new Int32Array(runs.length);
+	units.forEach((unit, at) => {
+		if (!unit.original) return;
+		if (firstUnitOfRun[unit.run] === -1) firstUnitOfRun[unit.run] = at;
+		unitsInRun[unit.run] += 1;
+	});
+	const whole = runs.map((run, r) => {
+		if (run.text.length === 0 || unitsInRun[r] !== run.text.length) return false;
+		for (let k = 0; k < run.text.length; k++) {
+			const unit = units[firstUnitOfRun[r] + k];
+			if (!unit || !unit.original || unit.run !== r || unit.carried !== ownCarried[r]) return false;
+		}
+		return true;
+	});
+	// Text typed onto an untouched run with exactly its attributes joins that run.
+	for (const unit of units) {
+		if (unit.original || !whole[unit.run]) continue;
+		if (keyOf(unit) === keyOf({ ...unit, original: true, carried: ownCarried[unit.run] })) whole[unit.run] = false;
+	}
+
+	let out = '';
+	let emptyNext = 0;
+	const written = new Uint8Array(runs.length);
+	const emitEmptyBefore = (limit: number) => {
+		for (; emptyNext < limit; emptyNext++) {
+			if (runs[emptyNext].text === '' && !written[emptyNext]) out += source.slice(runs[emptyNext].lead, runs[emptyNext].end);
+		}
+	};
+	let u = 0;
+	while (u < units.length) {
+		const r = units[u].run;
+		emitEmptyBefore(r);
+		if (units[u].original && whole[r] && firstUnitOfRun[r] === u) {
+			out += source.slice(runs[r].lead, runs[r].end);
+			u += runs[r].text.length;
+			continue;
+		}
+		// Each run written is laid out as the file lays out the run it comes from.
+		const key = keyOf(units[u]);
+		const lead = source.slice(runs[r].lead, runs[r].start);
+		written[r] = 1;
+		let text = '';
+		while (u < units.length && keyOf(units[u]) === key && !(units[u].original && whole[units[u].run])) {
+			text += units[u].char;
+			u += 1;
+		}
+		const attributes = JSON.parse(key) as [string, string][];
+		out += `${lead}<Text${attributes.map(([name, value]) => ` ${name}="${value}"`).join('')}>${encodeXmlValue(text, diagnostics, 'paragraph text', index)}</Text>`;
+	}
+	emitEmptyBefore(runs.length);
+
+	const retyped = unedited.length === 1 && unedited[0].type !== edited[0].type && MODEL_TO_FDX[edited[0].type] !== undefined;
+	const head = retyped
+		? retypedOpenTag(source, origin, MODEL_TO_FDX[edited[0].type] as string)
+		: source.slice(origin.start, origin.textStart);
+	return head + out + source.slice(origin.textEnd, origin.end);
+}
+
+/** Each reading element paired with the saved element it became: unchanged, or edited in place — where a stretch between two unchanged pairs holds as many saved elements as reading ones. */
+function pairedInPlace(matches: (number | null)[], readingLength: number): Map<number, number> {
+	const pairs = new Map<number, number>();
+	let lastSaved = -1;
+	let lastRead = -1;
+	const fill = (savedNext: number, readNext: number) => {
+		const gap = savedNext - lastSaved - 1;
+		if (gap > 0 && gap === readNext - lastRead - 1) {
+			for (let d = 1; d <= gap; d++) pairs.set(lastRead + d, lastSaved + d);
+		}
+	};
+	matches.forEach((k, j) => {
+		if (k === null) return;
+		fill(j, k);
+		pairs.set(k, j);
+		lastSaved = j;
+		lastRead = k;
+	});
+	fill(matches.length, readingLength);
+	return pairs;
+}
+
 /**
  * Opens a Final Draft file and keeps it, so it can be written back whole.
  *
@@ -1683,6 +2197,7 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 			   Measured without this on a file Final Draft wrote, a save through
 			   Fountain that changed nothing lost 400 of 407 production tags. */
 			const verbatim = new Map<number, OriginParagraph>();
+			const merged = new Map<number, { span: OriginParagraph; bytes: string }>();
 			const consumed = new Set<number>();
 			const reading = rewriteOptions.unedited?.elements;
 			if (reading) {
@@ -1696,8 +2211,9 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 						count: unpaired
 					});
 				}
+				const matches = unchangedFrom(elements, reading);
 				const savedAt = new Map<number, number>();
-				unchangedFrom(elements, reading).forEach((k, j) => {
+				matches.forEach((k, j) => {
 					if (k !== null) savedAt.set(k, j);
 				});
 				ranges.forEach((range, i) => {
@@ -1711,11 +2227,56 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 					verbatim.set(at, aligned[i]);
 					for (let k = from + 1; k < to; k++) consumed.add(at + (k - from));
 				});
+
+				/* A paragraph the writer did edit — its elements edited in place —
+				   has only the writer's change written into it: its Type, its
+				   attributes, its nested blocks, and every tag, revision mark and
+				   run split on the words they did not touch stay the file's.
+				   Rewritten from the edited element instead, a typo fix lost a
+				   line's tags and an emphasised heading became Action with
+				   Fountain's `#2#` in its text. */
+				const inPlace = pairedInPlace(matches, reading.length);
+				let unplaced = 0;
+				ranges.forEach((range, i) => {
+					if (range === null) return;
+					const [from, to] = range;
+					const at = inPlace.get(from);
+					if (at === undefined || verbatim.has(at) || consumed.has(at)) return;
+					/* A line of another kind with other words, in its place, replaced
+					   it: that is not this paragraph edited, and is paired as before. */
+					if (to - from === 1 && reading[from].type !== elements[at].type && wordsKey(reading[from].text) !== wordsKey(elements[at].text)) return;
+					for (let k = from + 1; k < to; k++) {
+						const line = inPlace.get(k);
+						if (line !== at + (k - from) || verbatim.has(line) || consumed.has(line)) return;
+					}
+					const bytes = mergedParagraph(
+						source,
+						aligned[i],
+						reading.slice(from, to),
+						elements.slice(at, at + (to - from)),
+						diagnostics,
+						at
+					);
+					if (bytes === null) {
+						unplaced += 1;
+						return;
+					}
+					merged.set(at, { span: aligned[i], bytes });
+					for (let k = from + 1; k < to; k++) consumed.add(at + (k - from));
+				});
+				if (unplaced > 0) {
+					diagnostics.add({
+						code: 'FDX_REWRITE_EDIT_UNPLACED',
+						severity: 'warning',
+						message: `${unplaced} edited paragraph(s) could not have the edit placed in the file's own text and were rewritten from the edited element.`,
+						count: unplaced
+					});
+				}
 			}
 
 			// Everything else is paired as it always was.
-			const writtenAsRead = new Set(verbatim.values());
-			const rest = elements.flatMap((_, j) => (verbatim.has(j) || consumed.has(j) ? [] : [j]));
+			const writtenAsRead = new Set([...verbatim.values(), ...[...merged.values()].map((entry) => entry.span)]);
+			const rest = elements.flatMap((_, j) => (verbatim.has(j) || merged.has(j) || consumed.has(j) ? [] : [j]));
 			const restPaired = alignParagraphs(
 				aligned.filter((span) => !writtenAsRead.has(span)),
 				rest.map((j) => elements[j])
@@ -1726,6 +2287,9 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 			});
 			verbatim.forEach((span, j) => {
 				paired[j] = span;
+			});
+			merged.forEach((entry, j) => {
+				paired[j] = entry.span;
 			});
 
 			/* Each absorbed paragraph goes back, verbatim, in front of the first
@@ -1768,7 +2332,9 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 					out.push(
 						verbatim.get(index) === origin
 							? source.slice(origin.start, origin.end)
-							: rewriteParagraph(source, origin, element, diagnostics, index)
+							: merged.get(index)?.span === origin
+								? (merged.get(index) as { bytes: string }).bytes
+								: rewriteParagraph(source, origin, element, diagnostics, index)
 					);
 					continue;
 				}

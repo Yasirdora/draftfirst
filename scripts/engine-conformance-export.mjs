@@ -1218,18 +1218,18 @@ addRewrite(
    heading read as Action, a paragraph split at its line breaks, a trailing
    space trimmed. Before this, each of those made an untouched paragraph look
    edited, and the save rewrote it. */
-function fountainReading(source) {
+function fountainSource(source) {
 	const imported = parseFdx(source).script;
-	return parseFountain(
-		serialiseFountain({
-			...imported,
-			elements: imported.elements.map((element) => ({
-				...element,
-				text: canonicalCasing(element.type, element.text)
-			}))
-		}),
-		{ emphasis: 'runs' }
-	);
+	return serialiseFountain({
+		...imported,
+		elements: imported.elements.map((element) => ({
+			...element,
+			text: canonicalCasing(element.type, element.text)
+		}))
+	});
+}
+function fountainReading(source) {
+	return parseFountain(fountainSource(source), { emphasis: 'runs' });
 }
 /* Files Final Draft itself wrote, anonymised, still carrying their tags:
    a save with no edit must return them — `identical` pins that both engines
@@ -1299,6 +1299,88 @@ addUneditedRewrite(
 addUneditedRewrite('unedited-unaligned-falls-back', tagged, {
 	reading: parseFountain('EXT. SOMEWHERE ELSE - NIGHT\n\nNothing like the file.\n', { emphasis: 'runs' })
 });
+
+/* An edited paragraph is merged, not rewritten: the writer's change is placed
+   onto the file's own paragraph, so its Type, tags, revision marks, AllCaps,
+   casing, line breaks and trailing space stand wherever the writer did not
+   type. Each case is an edit made the app's way — `edit.find`, which occurs
+   once in the Fountain source, becomes `edit.replace` — and saved through
+   Fountain, by each engine for itself. An inline file is pinned whole; a
+   Final Draft-written one by the one change its save makes: at UTF-16 `at`,
+   `removed` became `inserted`. */
+function addMergedRewrite(name, { source, file }, find, replace) {
+	const xml = source ?? readFileSync(join(outDir, file), 'utf8');
+	const text = fountainSource(xml);
+	if (text.split(find).length !== 2) throw new Error(`${name}: ${JSON.stringify(find)} must occur once`);
+	const edited = parseFountain(text.replace(find, () => replace), { emphasis: 'runs' });
+	const saved = openFdx(xml).rewrite(edited, { unedited: parseFountain(text, { emphasis: 'runs' }) }).xml;
+	let at = 0;
+	while (at < xml.length && xml[at] === saved[at]) at++;
+	let tail = 0;
+	while (tail < xml.length - at && tail < saved.length - at && xml.at(-1 - tail) === saved.at(-1 - tail)) tail++;
+	// Never between the halves of a character outside the BMP.
+	if (at > 0 && /[\uD800-\uDBFF]/.test(xml[at - 1])) at--;
+	if (tail > 0 && /[\uDC00-\uDFFF]/.test(xml.at(-tail))) tail--;
+	const changed = { at, removed: xml.slice(at, xml.length - tail), inserted: saved.slice(at, saved.length - tail) };
+	fdxRewrite.push({
+		name,
+		...(file ? { sourceFile: file } : { source }),
+		through: 'fountain',
+		edit: { find, replace },
+		expected: file ? { changed } : { xml: saved }
+	});
+}
+const sample02 = { file: 'finaldraft-sample02.fdx' };
+const sample01 = { file: 'finaldraft-sample01.fdx' };
+addMergedRewrite('merged-tagged-action-typo', sample02, 'Xxxx XXXXXX, 12,', 'Xyxx XXXXXX, 12,');
+addMergedRewrite('merged-emphasised-numbered-heading', sample02, '***(X1)*** #2#', '***(X2)*** #2#');
+addMergedRewrite('merged-italic-parenthetical', sample02, '(*xx. xxxxx, xxx*)', '(*xx. xxxxx, xxx, xxxxx*)');
+addMergedRewrite('merged-beat-read-as-dialogue', sample02, '*...Xxx xxxxxxxx.*\n*(beat)*', '*...Xxx xxxxxxxx.*\n*(beat, xxxxx)*');
+addMergedRewrite('merged-summary-second-line', sample01, '\nX & X xxxx xxxx xxxxxxxx.\n', '\nX & X yxxx xxxx xxxxxxxx.\n');
+addMergedRewrite('merged-trailing-space-kept', sample01, 'Xx xxx. Xxx... ', 'Yx xxx. Xxx... ');
+addMergedRewrite('merged-beside-allcaps-word', sample02, 'XXXXXX xxxxx xxx xxxxx xxx xxxxxxx xxxxxx.', 'XXXXXX yxxxx xxx xxxxx xxx xxxxxxx xxxxxx.');
+addMergedRewrite('merged-plain-heading-stored-casing', sample02, '(D2) #4#', '(D3) #4#');
+addMergedRewrite(
+	'merged-typed-text-inherits-all-but-revision',
+	{ source: lab(['<Paragraph Type="Action"><Text AdornmentStyle="-1" Font="Courier Prime" RevisionID="3" Style="AllCaps" TagNumber="12">she waits</Text><Text>.</Text></Paragraph>']) },
+	'SHE WAITS.',
+	'SHE STILL WAITS.'
+);
+addMergedRewrite('merged-typed-at-the-start', { source: tagged }, 'She waits.', 'Now she waits.');
+addMergedRewrite('merged-two-edits-one-paragraph', { source: tagged }, 'She waits.', 'Then she waits!');
+addMergedRewrite('merged-tagged-word-deleted', { source: tagged }, 'She waits.', 'She .');
+addMergedRewrite('merged-line-retyped', { source: tagged }, 'She waits.', 'Rain falls.');
+const plainTagged = lab(['<Paragraph Type="Action"><Text TagNumber="7">He runs home.</Text></Paragraph>']);
+addMergedRewrite('merged-emphasis-added', { source: plainTagged }, 'He runs home.', 'He *runs* home.');
+addMergedRewrite(
+	'merged-emphasis-removed',
+	{ source: lab(['<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>', '<Paragraph Type="Parenthetical"><Text Style="Italic" TagNumber="8">(beat)</Text></Paragraph>']) },
+	'*(beat)*',
+	'(beat)'
+);
+addMergedRewrite(
+	'merged-kind-changed-retyped',
+	{ source: lab(['<Paragraph Type="Scene Heading"><Text TagNumber="1">INT. LAB - DAY</Text></Paragraph>', '<Paragraph Alignment="Left" Type="Action"><Text TagNumber="2">SHE WAITS</Text></Paragraph>']) },
+	'!SHE WAITS',
+	'> SHE WAITS'
+);
+addMergedRewrite(
+	'merged-astral-character-retyped-whole',
+	{ source: lab(['<Paragraph Type="Action"><Text RevisionID="1">Key 🔑.</Text></Paragraph>']) },
+	'Key 🔑.',
+	'Key 🔒.'
+);
+/* A line of another kind with other words in its place replaced the paragraph:
+   written as before, none of the old paragraph's attributes carried over. */
+addMergedRewrite('merged-replaced-by-another-kind', { source: tagged }, 'She waits.', '> CUT TO BLACK.');
+/* An edit only to what Fountain added cannot be placed: that paragraph takes
+   the old path (and TypeScript reports FDX_REWRITE_EDIT_UNPLACED). */
+addMergedRewrite(
+	'merged-unplaced-takes-the-old-path',
+	{ source: lab(['<Paragraph Number="2" Type="Scene Heading"><Text Style="Bold+Italic" TagNumber="601">INT. KITCHEN - NIGHT</Text></Paragraph>', '<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>']) },
+	'#2#',
+	'#3#'
+);
 
 writeFixture('fdx.json', {
 	import: fdxImport,

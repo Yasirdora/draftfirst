@@ -172,7 +172,7 @@ struct FdxEndOfActRoundTripTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.rewriteCases.count == 20)
+        #expect(Self.corpus.rewriteCases.count == 39)
     }
 
     @Test("rewrite", arguments: Self.corpus.rewriteCases)
@@ -182,12 +182,28 @@ struct FdxEndOfActRoundTripTests {
         let saved: String
         if case_.through == "fountain" {
             let reading = try FountainReading.of(source)
-            saved = document.rewrite(reading, unedited: reading)
+            if let edit = case_.edit {
+                let text = FountainReading.source(of: source)
+                #expect(text.components(separatedBy: edit.find).count == 2, "\(case_.name): the edit must occur once")
+                let edited = try Fountain.parse(text.replacingOccurrences(of: edit.find, with: edit.replace), emphasis: .runs)
+                saved = document.rewrite(edited, unedited: reading)
+            } else {
+                saved = document.rewrite(reading, unedited: reading)
+            }
         } else {
             saved = document.rewrite(case_.screenplay ?? document.script, unedited: case_.unedited)
         }
         if let xml = case_.expected.xml {
             #expect(saved == xml, "\(case_.name): the save differs from the TypeScript engine")
+        }
+        #expect(case_.expected.xml != nil || case_.expected.identical != nil || case_.expected.changed != nil,
+                "\(case_.name): nothing expected")
+        if let changed = case_.expected.changed {
+            let file = Array(source.utf16)
+            let end = changed.at + changed.removed.utf16.count
+            #expect(Array(file[changed.at..<end]) == Array(changed.removed.utf16), "\(case_.name): removed")
+            #expect(Array(saved.utf16) == Array(file[..<changed.at]) + Array(changed.inserted.utf16) + Array(file[end...]),
+                    "\(case_.name): the save differs from the TypeScript engine")
         }
         if let identical = case_.expected.identical {
             #expect((saved == source) == identical,
@@ -257,14 +273,20 @@ struct FdxEndOfActRoundTripTests {
 /// The file as the app's editor first holds it: carried through Fountain,
 /// casing applied the way `ScreenplayFile.open` applies it, and read back.
 enum FountainReading {
-    static func of(_ xml: String) throws -> Screenplay {
+    /// The file as the app's editor first holds it: its Fountain source…
+    static func source(of xml: String) -> String {
         var imported = Fdx.parse(xml).script
         imported.elements = imported.elements.map { element in
             var element = element
             element.text = Normalize.canonicalCasing(kind: element.type, text: element.text)
             return element
         }
-        return try Fountain.parse(Fountain.serialise(imported), emphasis: .runs)
+        return Fountain.serialise(imported)
+    }
+
+    /// …and that source read back.
+    static func of(_ xml: String) throws -> Screenplay {
+        try Fountain.parse(source(of: xml), emphasis: .runs)
     }
 }
 
@@ -446,5 +468,51 @@ struct FdxFinalDraftWrittenTests {
         edited.elements[index].text = marker
         #expect(Self.confinedToOneParagraph(xml, document.rewrite(edited), marker: marker),
                 "element \(index): the save changed bytes outside the edited paragraph")
+    }
+
+    /* An edited paragraph is merged, not rewritten (IL-0028). The measured
+       cases are corpus cases (`merged-*`), saved here through this engine's
+       own Fountain and held to the TypeScript engine's bytes; this sweeps the
+       rule across both files (TypeScript: the same sweep). */
+    @Test("An edit anywhere changes bytes only inside the runs it falls in", arguments: files)
+    func editIsConfinedToItsRuns(_ name: String) throws {
+        let xml = Self.fixture(name)
+        let file = Array(xml.utf16)
+        let source = Array(FountainReading.source(of: xml).utf16)
+        let reading = try Fountain.parse(String(decoding: source, as: UTF16.self), emphasis: .runs)
+        let runs = try NSRegularExpression(pattern: #"\s*<Text\b[^>]*?(?:/>|>[^<]*</Text>)"#)
+            .matches(in: xml, range: NSRange(location: 0, length: file.count)).map(\.range)
+        let letters: Set<UInt16> = [UInt16(UInt8(ascii: "x")), UInt16(UInt8(ascii: "X"))]
+        let between = (1..<source.count).filter { letters.contains(source[$0 - 1]) && letters.contains(source[$0]) }
+        var proven = 0
+        for at in stride(from: 0, to: between.count, by: between.count / 16) {
+            let position = between[at]
+            let typed = source[position] == UInt16(UInt8(ascii: "X")) ? "QZ" : "qz"
+            let edited = try Fountain.parse(
+                String(decoding: source[..<position], as: UTF16.self) + typed + String(decoding: source[position...], as: UTF16.self),
+                emphasis: .runs
+            )
+            guard edited.elements.count == reading.elements.count,
+                  zip(edited.elements, reading.elements).filter({ !$0.text.utf16.elementsEqual($1.text.utf16) }).count == 1,
+                  zip(edited.elements, reading.elements).allSatisfy({ $0.type == $1.type }) else { continue }
+
+            let saved = Array(Fdx.open(xml).rewrite(edited, unedited: reading).utf16)
+            var prefix = 0
+            while prefix < min(file.count, saved.count), file[prefix] == saved[prefix] { prefix += 1 }
+            var suffix = 0
+            while suffix < file.count - prefix, suffix < saved.count - prefix,
+                  file[file.count - 1 - suffix] == saved[saved.count - 1 - suffix] { suffix += 1 }
+            let from = prefix
+            let to = max(file.count - suffix, prefix + 1)
+            let touched = runs.filter { $0.location < to && $0.location + $0.length > from }
+            #expect((1...2).contains(touched.count), "\(name) at \(position): \(touched.count) runs changed")
+            if touched.count == 2 {
+                #expect(touched[1].location == touched[0].location + touched[0].length, "\(name) at \(position): runs apart")
+            }
+            #expect(String(decoding: saved[prefix..<(saved.count - suffix)], as: UTF16.self).contains(typed))
+            #expect(Self.tags(String(decoding: saved, as: UTF16.self)) >= Self.tags(xml))
+            proven += 1
+        }
+        #expect(proven >= 10, "\(name): only \(proven) positions proven")
     }
 }

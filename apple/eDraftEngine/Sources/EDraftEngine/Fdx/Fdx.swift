@@ -777,11 +777,13 @@ public enum Fdx {
                Measured without this on a file Final Draft wrote, a save through
                Fountain that changed nothing lost 400 of 407 production tags. */
             var verbatim: [Int: Span] = [:]
+            var merged: [Int: (span: Span, bytes: [UInt16])] = [:]
             var consumed = Set<Int>()
             if let reading = unedited?.elements {
                 let ranges = Fdx.correspondence(aligned, reading)
+                let matches = Fdx.unchangedFrom(elements, reading)
                 var savedAt: [Int: Int] = [:]
-                for (j, k) in Fdx.unchangedFrom(elements, reading).enumerated() {
+                for (j, k) in matches.enumerated() {
                     if let k { savedAt[k] = j }
                 }
                 paragraphs: for (i, range) in ranges.enumerated() {
@@ -795,11 +797,45 @@ public enum Fdx {
                         consumed.insert(at + (k - range.lowerBound))
                     }
                 }
+
+                /* A paragraph the writer did edit — its elements edited in place —
+                   has only the writer's change written into it: its Type, its
+                   attributes, its nested blocks, and every tag, revision mark and
+                   run split on the words they did not touch stay the file's.
+                   Rewritten from the edited element instead, a typo fix lost a
+                   line's tags and an emphasised heading became Action with
+                   Fountain's `#2#` in its text. An edit that cannot be placed
+                   is written as before (TypeScript reports it). */
+                let inPlace = Fdx.pairedInPlace(matches, readingCount: reading.count)
+                editedParagraphs: for (i, range) in ranges.enumerated() {
+                    guard let range, let at = inPlace[range.lowerBound],
+                          verbatim[at] == nil, !consumed.contains(at) else { continue }
+                    /* A line of another kind with other words, in its place, replaced
+                       it: that is not this paragraph edited, and is paired as before. */
+                    if range.count == 1, reading[range.lowerBound].type != elements[at].type,
+                       Fdx.wordsKey(reading[range.lowerBound].text) != Fdx.wordsKey(elements[at].text) {
+                        continue
+                    }
+                    for k in (range.lowerBound + 1)..<max(range.lowerBound + 1, range.upperBound) {
+                        let line = at + (k - range.lowerBound)
+                        guard inPlace[k] == line, verbatim[line] == nil, !consumed.contains(line) else {
+                            continue editedParagraphs
+                        }
+                    }
+                    guard let bytes = Fdx.mergedParagraph(
+                        aligned[i],
+                        unedited: Array(reading[range]),
+                        edited: Array(elements[at..<min(elements.count, at + range.count)]),
+                        in: units
+                    ) else { continue }
+                    merged[at] = (aligned[i], bytes)
+                    for k in 1..<max(1, range.count) { consumed.insert(at + k) }
+                }
             }
 
             // Everything else is paired as it always was.
-            let writtenAsRead = Set(verbatim.values.map(\.start))
-            let rest = elements.indices.filter { verbatim[$0] == nil && !consumed.contains($0) }
+            let writtenAsRead = Set(verbatim.values.map(\.start) + merged.values.map(\.span.start))
+            let rest = elements.indices.filter { verbatim[$0] == nil && merged[$0] == nil && !consumed.contains($0) }
             let restPaired = Fdx.align(
                 aligned.filter { !writtenAsRead.contains($0.start) },
                 to: rest.map { elements[$0] }
@@ -807,6 +843,7 @@ public enum Fdx {
             var paired = [Span?](repeating: nil, count: elements.count)
             for (r, j) in rest.enumerated() { paired[j] = restPaired[r] }
             for (j, span) in verbatim { paired[j] = span }
+            for (j, entry) in merged { paired[j] = entry.span }
 
             /* Each absorbed paragraph goes back, verbatim, in front of the
                first paragraph after it that this save keeps — anchored to what
@@ -845,6 +882,8 @@ public enum Fdx {
                     if !origin.lead.isEmpty { lead = origin.lead }
                     if verbatim[index]?.start == origin.start {
                         out += units[origin.start..<origin.end]
+                    } else if let entry = merged[index], entry.span.start == origin.start {
+                        out += entry.bytes
                     } else {
                         out += Fdx.rewritten(origin, as: element, in: units)
                     }
@@ -1098,6 +1137,524 @@ public enum Fdx {
             }
         }
         return matched
+    }
+
+    // MARK: - Edited paragraphs
+
+    /// The emphasis a Fountain reading carries — bold, italic, underline and
+    /// strikeout, the low four bits of `StyleSet`. Everything else on a run is
+    /// the file's, and only the file's.
+    private static let carriedTokens = ["Bold", "Italic", "Underline", "Strikeout"]
+    private static let carriedMask = 0b1111
+    private static let styleTokenOrder = ["Bold", "Italic", "Underline", "Strikeout", "AllCaps", "HiddenText"]
+
+    /// Past this many cells an alignment of two texts is not attempted.
+    private static let alignmentCells = 4_000_000
+
+    /// One direct-child <Text> run of a file paragraph: its bytes and its words
+    /// (TypeScript `FileRun`).
+    private struct FileRun {
+        /// Where the whitespace before it starts.
+        let lead: Int
+        let start: Int
+        let end: Int
+        /// The opening tag's attributes, in the file's order, values verbatim.
+        let attributes: [(name: String, value: String)]
+        let text: [UInt16]
+    }
+
+    /// A tag's attributes, strictly `name="value"` separated by whitespace — or
+    /// nil (TypeScript `strictAttributes`).
+    private static func strictAttributes(_ raw: ArraySlice<UInt16>) -> [(name: String, value: String)]? {
+        let equals = UInt16(UInt8(ascii: "="))
+        let quote = UInt16(UInt8(ascii: "\""))
+        var attributes: [(name: String, value: String)] = []
+        var cursor = raw.startIndex
+        while cursor < raw.endIndex {
+            let at = cursor
+            while cursor < raw.endIndex, JSWhitespace.matches(unit: raw[cursor]) { cursor += 1 }
+            if cursor >= raw.endIndex { break }
+            if cursor == at { return nil }
+            let nameStart = cursor
+            while cursor < raw.endIndex, raw[cursor] != equals, !JSWhitespace.matches(unit: raw[cursor]) { cursor += 1 }
+            guard cursor != nameStart, cursor + 1 < raw.endIndex,
+                  raw[cursor] == equals, raw[cursor + 1] == quote else { return nil }
+            let valueStart = cursor + 2
+            guard let valueEnd = raw[valueStart...].firstIndex(of: quote) else { return nil }
+            attributes.append((
+                String(decoding: raw[nameStart..<cursor], as: UTF16.self),
+                String(decoding: raw[valueStart..<valueEnd], as: UTF16.self)
+            ))
+            cursor = valueEnd + 1
+        }
+        return attributes
+    }
+
+    /// A paragraph's own runs, or nil when its text region holds anything but
+    /// plain `<Text>` runs and the whitespace between them — then nothing is
+    /// safe to merge into (TypeScript `fileRunsOf`).
+    private static func fileRuns(of origin: Span, in source: [UInt16]) -> [FileRun]? {
+        guard origin.textStart >= 0, origin.textEnd > origin.textStart else { return nil }
+        let open = Array("<Text".utf16)
+        let close = Array("</Text>".utf16)
+        let greater = UInt16(UInt8(ascii: ">"))
+        let slash = UInt16(UInt8(ascii: "/"))
+        let less = UInt16(UInt8(ascii: "<"))
+        var runs: [FileRun] = []
+        var cursor = origin.textStart
+        while cursor < origin.textEnd {
+            let lead = cursor
+            while cursor < origin.textEnd, JSWhitespace.matches(unit: source[cursor]) { cursor += 1 }
+            if cursor >= origin.textEnd { break }
+            guard source[cursor...].starts(with: open),
+                  let tagEnd = source[cursor..<origin.textEnd].firstIndex(of: greater) else { return nil }
+            var raw = source[(cursor + open.count)..<tagEnd]
+            let selfClosing = raw.last == slash
+            if selfClosing { raw = raw.dropLast() }
+            if let first = raw.first, !JSWhitespace.matches(unit: first) { return nil }
+            guard let attributes = strictAttributes(raw) else { return nil }
+            if selfClosing {
+                runs.append(FileRun(lead: lead, start: cursor, end: tagEnd + 1, attributes: attributes, text: []))
+                cursor = tagEnd + 1
+                continue
+            }
+            var endTag = tagEnd + 1
+            while endTag + close.count <= origin.textEnd, !source[endTag..<(endTag + close.count)].elementsEqual(close) {
+                endTag += 1
+            }
+            guard endTag + close.count <= origin.textEnd else { return nil }
+            let content = source[(tagEnd + 1)..<endTag]
+            if content.contains(less) { return nil }
+            runs.append(FileRun(
+                lead: lead, start: cursor, end: endTag + close.count, attributes: attributes,
+                text: Array(decodeXmlEntities(String(decoding: content, as: UTF16.self)).utf16)
+            ))
+            cursor = endTag + close.count
+        }
+        return runs
+    }
+
+    /// A text's UTF-16 units as numbers that are equal exactly when the units
+    /// are the same letter, casing aside — a surrogate only ever equal to
+    /// itself. `spelled` numbers the uppercase forms longer than one unit,
+    /// across texts (TypeScript `letterKeys`).
+    private static func letterKeys(_ text: [UInt16], _ spelled: inout [[UInt16]: Int32]) -> [Int32] {
+        var keys: [Int32] = []
+        keys.reserveCapacity(text.count)
+        for unit in text {
+            if (0xD800...0xDFFF).contains(unit) {
+                keys.append(0x20000 + Int32(unit))
+                continue
+            }
+            let upper = Array(String(utf16CodeUnits: [unit], count: 1).uppercased().utf16)
+            if upper.count == 1 {
+                keys.append(Int32(upper[0]))
+                continue
+            }
+            if let key = spelled[upper] {
+                keys.append(key)
+            } else {
+                let key = 0x30000 + Int32(spelled.count)
+                spelled[upper] = key
+                keys.append(key)
+            }
+        }
+        return keys
+    }
+
+    /// For each unit of `a`, the unit of `b` a longest common subsequence pairs
+    /// it with, or -1 — nil when the alignment would be too large to attempt
+    /// (TypeScript `alignedUnits`).
+    private static func alignedUnits(_ a: [Int32], _ b: [Int32]) -> [Int]? {
+        let n = a.count
+        let m = b.count
+        var pairs = [Int](repeating: -1, count: n)
+        if n == 0 || m == 0 { return pairs }
+        if n * m > alignmentCells { return nil }
+        var table = [Int32](repeating: 0, count: (n + 1) * (m + 1))
+        func at(_ i: Int, _ j: Int) -> Int { i * (m + 1) + j }
+        for i in stride(from: n - 1, through: 0, by: -1) {
+            for j in stride(from: m - 1, through: 0, by: -1) {
+                table[at(i, j)] = a[i] == b[j]
+                    ? table[at(i + 1, j + 1)] + 1
+                    : max(table[at(i + 1, j)], table[at(i, j + 1)])
+            }
+        }
+        var i = 0
+        var j = 0
+        while i < n && j < m {
+            if a[i] == b[j] {
+                pairs[i] = j
+                i += 1
+                j += 1
+            } else if table[at(i + 1, j)] >= table[at(i, j + 1)] {
+                i += 1
+            } else {
+                j += 1
+            }
+        }
+        return pairs
+    }
+
+    /// A stretch of the unedited reading and the edited text that do not
+    /// correspond (TypeScript `Hunk`).
+    private struct Hunk {
+        var readStart: Int
+        var readEnd: Int
+        var nowStart: Int
+        var nowEnd: Int
+        var size: Int { (readEnd - readStart) + (nowEnd - nowStart) }
+    }
+
+    /// The hunks an alignment of reading to edited text leaves (TypeScript
+    /// `changeHunks`). A line retyped shares a space or a letter here and there
+    /// with what it replaced; those are coincidences, not text the writer kept,
+    /// so an unchanged stretch no longer than the changes on both sides of it
+    /// is folded into them.
+    private static func changeHunks(_ readToNow: [Int], readLength: Int, nowLength: Int) -> [Hunk] {
+        var hunks: [Hunk] = []
+        func push(_ hunk: Hunk) {
+            var current = hunk
+            while let last = hunks.last {
+                let kept = current.readStart - last.readEnd
+                if kept > last.size || kept > current.size { break }
+                hunks.removeLast()
+                current = Hunk(readStart: last.readStart, readEnd: current.readEnd,
+                               nowStart: last.nowStart, nowEnd: current.nowEnd)
+            }
+            hunks.append(current)
+        }
+        var lastRead = -1
+        var lastNow = -1
+        func close(_ readNext: Int, _ nowNext: Int) {
+            if readNext - lastRead > 1 || nowNext - lastNow > 1 {
+                push(Hunk(readStart: lastRead + 1, readEnd: readNext, nowStart: lastNow + 1, nowEnd: nowNext))
+            }
+        }
+        for (r, n) in readToNow.enumerated() where n >= 0 {
+            close(r, n)
+            lastRead = r
+            lastNow = n
+        }
+        close(readLength, nowLength)
+        return hunks
+    }
+
+    /// The carried emphasis a run's Style attribute holds (TypeScript `carriedOf`).
+    private static func carriedBits(of style: String?) -> Int {
+        let tokens = (style ?? "").components(separatedBy: "+").map(\.jsTrimmed)
+        var bits = 0
+        for (bit, token) in carriedTokens.enumerated() where tokens.contains(token) { bits |= 1 << bit }
+        return bits
+    }
+
+    /// A run's attributes with its Style made of the file's own tokens and the
+    /// given carried emphasis (TypeScript `attributesWith`).
+    private static func attributes(
+        _ attributes: [(name: String, value: String)], carrying carried: Int, droppingRevision: Bool
+    ) -> [(name: String, value: String)] {
+        var tokens: [String] = []
+        let own = attributes.first { $0.name == "Style" }?.value ?? ""
+        for token in own.components(separatedBy: "+").map(\.jsTrimmed)
+        where !token.isEmpty && !tokens.contains(token) {
+            tokens.append(token)
+        }
+        for (bit, token) in carriedTokens.enumerated() {
+            if carried & (1 << bit) != 0 {
+                if !tokens.contains(token) { tokens.append(token) }
+            } else {
+                tokens.removeAll { $0 == token }
+            }
+        }
+        let style = (styleTokenOrder.filter { tokens.contains($0) } + tokens.filter { !styleTokenOrder.contains($0) })
+            .joined(separator: "+")
+        var out = attributes.filter { !(droppingRevision && $0.name == "RevisionID") }
+        if let index = out.firstIndex(where: { $0.name == "Style" }) {
+            if style.isEmpty { out.remove(at: index) } else { out[index].value = style }
+        } else if !style.isEmpty {
+            let before = out.firstIndex { "Style".utf16.lexicographicallyPrecedes($0.name.utf16) } ?? out.count
+            out.insert((name: "Style", value: style), at: before)
+        }
+        return out
+    }
+
+    /// The writer's change to one paragraph, written in the file's own terms —
+    /// or nil when it cannot be placed without guessing (TypeScript
+    /// `mergedParagraph`).
+    ///
+    /// The change is what separates the unedited reading from the edited
+    /// elements; the reading is aligned with the file's own text, casing aside,
+    /// so what the reading added (Fountain's `#2#`, a leading `.`) and dropped
+    /// (a trailing space, the file's casing, a run split) is known and never
+    /// written. Replaced characters are the file characters matched to the
+    /// replaced reading characters; a pure insertion deletes nothing only the
+    /// file has, and sits beside characters the file has. Every run the change
+    /// does not touch is written as its bytes; a run it touches keeps its
+    /// opening tag's attributes, with the writer's emphasis applied. Inserted
+    /// text takes the attributes of the run it is typed into — or the run
+    /// before, at a boundary — except its RevisionID: a revision mark is the
+    /// file's record of when text changed. The file's Type stands unless the
+    /// writer changed the element's kind.
+    fileprivate static func mergedParagraph(
+        _ origin: Span, unedited: [ScreenplayElement], edited: [ScreenplayElement], in source: [UInt16]
+    ) -> [UInt16]? {
+        guard unedited.count == edited.count, !unedited.isEmpty else { return nil }
+        for (read, now) in zip(unedited, edited) {
+            if (read.dual ?? false) != (now.dual ?? false) { return nil }
+            if !(read.sceneNumber ?? "").utf16.elementsEqual((now.sceneNumber ?? "").utf16) { return nil }
+            if (read.depth ?? 0) != (now.depth ?? 0) { return nil }
+            if unedited.count > 1 && read.type != now.type { return nil }
+        }
+        guard let runs = fileRuns(of: origin, in: source), !runs.isEmpty else { return nil }
+
+        // The elements' lines joined as the paragraph holds them, with each unit's carried emphasis.
+        func joined(_ elements: [ScreenplayElement]) -> (text: [UInt16], carried: [Int]) {
+            var text: [UInt16] = []
+            var carried: [Int] = []
+            for (at, element) in elements.enumerated() {
+                if at > 0 {
+                    text.append(0x0A)
+                    carried.append(0)
+                }
+                let units = Array(element.text.utf16)
+                var bits = [Int](repeating: 0, count: units.count)
+                for run in Emphasis.normalise(element.runs ?? [], textLength: units.count) where run.start < run.end {
+                    for unit in run.start..<run.end { bits[unit] = run.styles.rawValue & carriedMask }
+                }
+                text += units
+                carried += bits
+            }
+            return (text, carried)
+        }
+        let read = joined(unedited)
+        let now = joined(edited)
+        let fileText = runs.flatMap(\.text)
+
+        var spelled: [[UInt16]: Int32] = [:]
+        let readKeys = letterKeys(read.text, &spelled)
+        let fileKeys = letterKeys(fileText, &spelled)
+        guard let readToFile = alignedUnits(readKeys, fileKeys) else { return nil }
+
+        // The writer's change: of the two smallest alignments, the one that changes less.
+        let readUnits = read.text.map { Int32($0) }
+        let nowUnits = now.text.map { Int32($0) }
+        guard let forward = alignedUnits(readUnits, nowUnits),
+              let mirrored = alignedUnits(readUnits.reversed(), nowUnits.reversed()) else { return nil }
+        var backward = [Int](repeating: -1, count: read.text.count)
+        for (r, n) in mirrored.enumerated() where n >= 0 {
+            backward[read.text.count - 1 - r] = now.text.count - 1 - n
+        }
+        let forwardHunks = changeHunks(forward, readLength: read.text.count, nowLength: now.text.count)
+        let backwardHunks = changeHunks(backward, readLength: read.text.count, nowLength: now.text.count)
+        let useBackward = backwardHunks.reduce(0) { $0 + $1.size } < forwardHunks.reduce(0) { $0 + $1.size }
+        let readToNow = useBackward ? backward : forward
+        let hunks = useBackward ? backwardHunks : forwardHunks
+
+        // Where each hunk lands in the file's text.
+        var placed: [(fileStart: Int, fileEnd: Int, nowStart: Int, nowEnd: Int)] = []
+        for (h, hunk) in hunks.enumerated() {
+            if hunk.readEnd > hunk.readStart {
+                for r in hunk.readStart..<hunk.readEnd where readToFile[r] < 0 { return nil }
+                placed.append((readToFile[hunk.readStart], readToFile[hunk.readEnd - 1] + 1, hunk.nowStart, hunk.nowEnd))
+                continue
+            }
+            // A pure insertion may slide over equal characters; it goes where the file has neighbours.
+            let floor = h > 0 ? hunks[h - 1].readEnd : 0
+            let ceiling = h + 1 < hunks.count ? hunks[h + 1].readStart : read.text.count
+            let inserted = Array(now.text[hunk.nowStart..<hunk.nowEnd])
+            var candidates = [hunk.readStart]
+            var text = inserted
+            var position = hunk.readStart
+            while position > floor, read.text[position - 1] == text[text.count - 1] {
+                text = [read.text[position - 1]] + text.dropLast()
+                position -= 1
+                candidates.append(position)
+            }
+            text = inserted
+            position = hunk.readStart
+            while position < ceiling, read.text[position] == text[0] {
+                text = Array(text.dropFirst()) + [read.text[position]]
+                position += 1
+                candidates.append(position)
+            }
+            let readLength = read.text.count
+            let leftHas = { (p: Int) in p > 0 && readToFile[p - 1] >= 0 }
+            let rightHas = { (p: Int) in p < readLength && readToFile[p] >= 0 }
+            guard let chosen = candidates.first(where: { ($0 == 0 || leftHas($0)) && ($0 == readLength || rightHas($0)) })
+                ?? candidates.first(where: leftHas)
+                ?? candidates.first(where: { $0 == 0 && rightHas(0) })
+            else { return nil }
+            let fileAt = chosen > 0 ? readToFile[chosen - 1] + 1 : 0
+            // The inserted text is the edited text at the chosen position.
+            let shift = chosen - hunk.readStart
+            placed.append((fileAt, fileAt, hunk.nowStart + shift, hunk.nowEnd + shift))
+        }
+        for p in placed.indices.dropFirst() {
+            if placed[p].fileStart < placed[p - 1].fileEnd { return nil }
+            if placed[p].fileStart == placed[p - 1].fileEnd, placed[p].fileStart == placed[p].fileEnd,
+               placed[p - 1].fileStart == placed[p - 1].fileEnd { return nil }
+        }
+
+        // The emphasis the writer changed on characters they did not retype.
+        var fileToRead = [Int](repeating: -1, count: fileText.count)
+        for (r, f) in readToFile.enumerated() where f >= 0 { fileToRead[f] = r }
+
+        // The merged paragraph, unit by unit: which run each unit comes from and its carried emphasis.
+        struct Unit {
+            var unit: UInt16
+            var run: Int
+            var original: Bool
+            var carried: Int
+        }
+        var runOfFileUnit = [Int](repeating: 0, count: fileText.count)
+        var offset = 0
+        for (r, run) in runs.enumerated() {
+            for u in 0..<run.text.count { runOfFileUnit[offset + u] = r }
+            offset += run.text.count
+        }
+        let ownCarried = runs.map { run in carriedBits(of: run.attributes.first { $0.name == "Style" }?.value) }
+        var units: [Unit] = []
+        var next = 0
+        func keepFileUnits(until: Int) {
+            while next < until {
+                let r = fileToRead[next]
+                var carried = ownCarried[runOfFileUnit[next]]
+                if r >= 0, readToNow[r] >= 0, read.carried[r] != now.carried[readToNow[r]] {
+                    carried = now.carried[readToNow[r]]
+                }
+                units.append(Unit(unit: fileText[next], run: runOfFileUnit[next], original: true, carried: carried))
+                next += 1
+            }
+        }
+        for edit in placed {
+            keepFileUnits(until: edit.fileStart)
+            /* Replaced characters take the run they replace; typed characters
+               continue the run before them — the first run, at the very start. */
+            let donor = edit.fileEnd > edit.fileStart
+                ? runOfFileUnit[edit.fileStart]
+                : edit.fileStart > 0 ? runOfFileUnit[edit.fileStart - 1] : fileText.isEmpty ? 0 : runOfFileUnit[0]
+            for u in edit.nowStart..<edit.nowEnd {
+                units.append(Unit(unit: now.text[u], run: donor, original: false, carried: now.carried[u]))
+            }
+            next = edit.fileEnd
+        }
+        keepFileUnits(until: fileText.count)
+        guard !units.isEmpty else { return nil }
+        // A character outside the BMP is one character: half of it retyped retypes both halves.
+        for at in 0..<(units.count - 1) {
+            let high = units[at]
+            let low = units[at + 1]
+            guard (0xD800...0xDBFF).contains(high.unit), (0xDC00...0xDFFF).contains(low.unit),
+                  high.original != low.original else { continue }
+            let typed = high.original ? low : high
+            for k in at...(at + 1) {
+                units[k].run = typed.run
+                units[k].original = false
+                units[k].carried = typed.carried
+            }
+        }
+
+        // Runs, emitted. Units group by the attributes they will carry; a run whose
+        // every unit is present, in place and unchanged is written as its bytes.
+        var markupCache: [Int: [UInt16]] = [:]
+        func markup(_ unit: Unit) -> [UInt16] {
+            let id = unit.run << 5 | unit.carried << 1 | (unit.original ? 1 : 0)
+            if let cached = markupCache[id] { return cached }
+            let written = attributes(runs[unit.run].attributes, carrying: unit.carried, droppingRevision: !unit.original)
+                .map { " \($0.name)=\"\($0.value)\"" }.joined()
+            markupCache[id] = Array(written.utf16)
+            return markupCache[id] ?? []
+        }
+        var firstUnitOfRun = [Int](repeating: -1, count: runs.count)
+        var unitsInRun = [Int](repeating: 0, count: runs.count)
+        for (at, unit) in units.enumerated() where unit.original {
+            if firstUnitOfRun[unit.run] == -1 { firstUnitOfRun[unit.run] = at }
+            unitsInRun[unit.run] += 1
+        }
+        var whole: [Bool] = runs.indices.map { r in
+            guard !runs[r].text.isEmpty, unitsInRun[r] == runs[r].text.count else { return false }
+            for k in 0..<runs[r].text.count {
+                let at = firstUnitOfRun[r] + k
+                guard at < units.count, units[at].original, units[at].run == r,
+                      units[at].carried == ownCarried[r] else { return false }
+            }
+            return true
+        }
+        // Text typed onto an untouched run with exactly its attributes joins that run.
+        for unit in units where !unit.original && whole[unit.run] {
+            var asOwn = unit
+            asOwn.original = true
+            asOwn.carried = ownCarried[unit.run]
+            if markup(unit) == markup(asOwn) { whole[unit.run] = false }
+        }
+
+        var out: [UInt16] = []
+        var emptyNext = 0
+        var written = [Bool](repeating: false, count: runs.count)
+        func emitEmpty(before limit: Int) {
+            while emptyNext < limit {
+                if runs[emptyNext].text.isEmpty && !written[emptyNext] {
+                    out += source[runs[emptyNext].lead..<runs[emptyNext].end]
+                }
+                emptyNext += 1
+            }
+        }
+        var u = 0
+        while u < units.count {
+            let r = units[u].run
+            emitEmpty(before: r)
+            if units[u].original && whole[r] && firstUnitOfRun[r] == u {
+                out += source[runs[r].lead..<runs[r].end]
+                u += runs[r].text.count
+                continue
+            }
+            // Each run written is laid out as the file lays out the run it comes from.
+            let key = markup(units[u])
+            out += source[runs[r].lead..<runs[r].start]
+            written[r] = true
+            var text: [UInt16] = []
+            while u < units.count, markup(units[u]) == key, !(units[u].original && whole[units[u].run]) {
+                text.append(units[u].unit)
+                u += 1
+            }
+            out += Array("<Text".utf16) + key + Array(">".utf16)
+            out += Array(encodeXmlEntities(String(decoding: text, as: UTF16.self)).utf16)
+            out += Array("</Text>".utf16)
+        }
+        emitEmpty(before: runs.count)
+
+        var bytes: [UInt16]
+        if unedited.count == 1, unedited[0].type != edited[0].type, let fdxType = modelToFdx[edited[0].type] {
+            bytes = retypedOpenTag(origin, as: fdxType, in: source)
+        } else {
+            bytes = Array(source[origin.start..<origin.textStart])
+        }
+        bytes += out
+        bytes += source[origin.textEnd..<origin.end]
+        return bytes
+    }
+
+    /// Each reading element paired with the saved element it became: unchanged,
+    /// or edited in place — where a stretch between two unchanged pairs holds as
+    /// many saved elements as reading ones (TypeScript `pairedInPlace`).
+    fileprivate static func pairedInPlace(_ matches: [Int?], readingCount: Int) -> [Int: Int] {
+        var pairs: [Int: Int] = [:]
+        var lastSaved = -1
+        var lastRead = -1
+        func fill(_ savedNext: Int, _ readNext: Int) {
+            let gap = savedNext - lastSaved - 1
+            guard gap > 0, gap == readNext - lastRead - 1 else { return }
+            for d in 1...gap { pairs[lastRead + d] = lastSaved + d }
+        }
+        for (j, k) in matches.enumerated() {
+            guard let k else { continue }
+            fill(j, k)
+            pairs[k] = j
+            lastSaved = j
+            lastRead = k
+        }
+        fill(matches.count, readingCount)
+        return pairs
     }
 
     /// Which original paragraphs the new screenplay still contains.

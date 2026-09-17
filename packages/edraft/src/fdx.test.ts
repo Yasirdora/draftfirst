@@ -1104,28 +1104,28 @@ describe('openFdx · files Final Draft wrote', () => {
 		return problems;
 	};
 
-	/** The file as the app's editor first holds it: through Fountain and back. */
-	const fountainReading = (xml: string): Screenplay => {
+	/** The file as the app's editor first holds it: its Fountain source… */
+	const fountainSource = (xml: string): string => {
 		const imported = parseFdx(xml).script;
-		return parseFountain(
-			serialiseFountain({
-				...imported,
-				elements: imported.elements.map((element) => ({
-					...element,
-					text: canonicalCasing(element.type as ElementType, element.text)
-				}))
-			}),
-			{ emphasis: 'runs' }
-		);
+		return serialiseFountain({
+			...imported,
+			elements: imported.elements.map((element) => ({
+				...element,
+				text: canonicalCasing(element.type as ElementType, element.text)
+			}))
+		});
 	};
+	/** …and that source read back. */
+	const fountainReading = (xml: string): Screenplay => parseFountain(fountainSource(xml), { emphasis: 'runs' });
 	const tags = (xml: string) => (xml.match(/TagNumber="/g) ?? []).length;
 	/**
 	 * Every byte outside one paragraph matches: the changed stretch holds no
 	 * boundary between two of the script's paragraphs. Final Draft indents
 	 * those four spaces; the paragraphs nested inside a scene heading's
 	 * SceneProperties sit deeper, and are part of the paragraph they are in.
-	 * (Editing the numbered heading Fountain re-reads as Action replaces that
-	 * whole paragraph, scene data and all — edited-paragraph damage, IL-0028.)
+	 * (Retyping the whole numbered heading Fountain re-reads as Action retypes
+	 * Fountain's `#2#` too — an edit that cannot be placed — so that paragraph
+	 * is still rewritten whole, scene data and all.)
 	 */
 	const confinedToOneParagraph = (before: string, after: string, marker: string) => {
 		const shorter = Math.min(before.length, after.length);
@@ -1218,5 +1218,181 @@ describe('openFdx · files Final Draft wrote', () => {
 		const stranger = parseFountain('EXT. SOMEWHERE ELSE - NIGHT\n\nNothing like the file.\n', { emphasis: 'runs' });
 		const saved = openFdx(xml).rewrite(stranger, { unedited: stranger });
 		expect(saved.diagnostics.map((diagnostic) => diagnostic.code)).toContain('FDX_REWRITE_UNEDITED_UNALIGNED');
+	});
+
+	/* IL-0028: an edited paragraph is merged, not rewritten. Each edit is made
+	   the way the app makes it — to the Fountain source, read back with its
+	   emphasis — and each expected file is the original with only the writer's
+	   characters changed. */
+	describe('an edited paragraph keeps everything the writer did not touch', () => {
+		/** The save of `xml` after the app's source had `find` (once) replaced. */
+		const savedAfter = (xml: string, find: string, replace: string) => {
+			const source = fountainSource(xml);
+			expect(source.split(find)).toHaveLength(2);
+			const edited = parseFountain(source.replace(find, () => replace), { emphasis: 'runs' });
+			return openFdx(xml).rewrite(edited, { unedited: parseFountain(source, { emphasis: 'runs' }) });
+		};
+		/** The file with its one `before` replaced. */
+		const fileWith = (xml: string, before: string, after: string) => {
+			expect(xml.split(before)).toHaveLength(2);
+			return xml.replace(before, () => after);
+		};
+
+		it.each([
+			[
+				'E1 a typo in a tagged action line: one run changes; its 10 neighbours, 5 tags and revision mark stand',
+				'finaldraft-sample02.fdx',
+				['Xxxx XXXXXX, 12,', 'Xyxx XXXXXX, 12,'],
+				['31a77a253272">\n      <Text>Xxxx </Text>', '31a77a253272">\n      <Text>Xyxx </Text>']
+			],
+			[
+				'E2 the emphasised numbered heading Fountain reads as Action: a Scene Heading still, scene data and 7 tags kept, no #2# written',
+				'finaldraft-sample02.fdx',
+				['***(X1)*** #2#', '***(X2)*** #2#'],
+				['TagNumber="603">(X1)</Text>', 'TagNumber="603">(X2)</Text>']
+			],
+			[
+				'E3 an italic parenthetical: the italic run grows, the plain brackets stand',
+				'finaldraft-sample02.fdx',
+				['(*xx. xxxxx, xxx*)', '(*xx. xxxxx, xxx, xxxxx*)'],
+				['<Text Style="Italic">xx. xxxxx, xxx</Text>', '<Text Style="Italic">xx. xxxxx, xxx, xxxxx</Text>']
+			],
+			[
+				'E3b the italic (beat) Fountain reads as Dialogue: still a Parenthetical',
+				'finaldraft-sample02.fdx',
+				['*...Xxx xxxxxxxx.*\n*(beat)*', '*...Xxx xxxxxxxx.*\n*(beat, xxxxx)*'],
+				['<Text Style="Italic">(beat)</Text>', '<Text Style="Italic">(beat, xxxxx)</Text>']
+			],
+			[
+				'E4 the second line of a two-line Summary: one Summary still, its line break kept',
+				'finaldraft-sample01.fdx',
+				['\nX & X xxxx xxxx xxxxxxxx.\n', '\nX & X yxxx xxxx xxxxxxxx.\n'],
+				['xxxxx:\nX &amp; X xxxx xxxx xxxxxxxx.</Text>', 'xxxxx:\nX &amp; X yxxx xxxx xxxxxxxx.</Text>']
+			],
+			[
+				'E5 early in a line that ends in a space: the space is kept',
+				'finaldraft-sample01.fdx',
+				['Xx xxx. Xxx... ', 'Yx xxx. Xxx... '],
+				['<Text>Xx xxx. Xxx... </Text>', '<Text>Yx xxx. Xxx... </Text>']
+			],
+			[
+				'E6 beside an AllCaps word: its stored letters, style and tag stand',
+				'finaldraft-sample02.fdx',
+				['XXXXXX xxxxx xxx xxxxx xxx xxxxxxx xxxxxx.', 'XXXXXX yxxxx xxx xxxxx xxx xxxxxxx xxxxxx.'],
+				['<Text>xxxxx xxx </Text>', '<Text>yxxxx xxx </Text>']
+			],
+			[
+				'E7 a plain scene heading: its 5 tags and the stored casing stand',
+				'finaldraft-sample02.fdx',
+				['(D2) #4#', '(D3) #4#'],
+				['<Text TagNumber="617">(d2)</Text>', '<Text TagNumber="617">(d3)</Text>']
+			]
+		] as const)('%s', (_, name, [find, replace], [before, after]) => {
+			const xml = fixture(name);
+			const saved = savedAfter(xml, find, replace);
+			expect(saved.diagnostics).toEqual([]);
+			expect(saved.xml).toBe(fileWith(xml, before, after));
+		});
+
+		it.each(FILES)('an edit anywhere in %s changes bytes only inside the runs it falls in', (name) => {
+			const xml = fixture(name);
+			const source = fountainSource(xml);
+			const reading = parseFountain(source, { emphasis: 'runs' });
+			const runs = [...xml.matchAll(/\s*<Text\b[^>]*?(?:\/>|>[^<]*<\/Text>)/g)].map((match) => ({
+				start: match.index,
+				end: match.index + match[0].length
+			}));
+			const between = [...source.matchAll(/(?<=[xX])(?=[xX])/g)].map((match) => match.index);
+			let proven = 0;
+			for (let at = 0; at < between.length; at += Math.floor(between.length / 16)) {
+				const position = between[at];
+				const typed = source[position] === 'X' ? 'QZ' : 'qz';
+				const edited = parseFountain(source.slice(0, position) + typed + source.slice(position), { emphasis: 'runs' });
+				const changed = edited.elements.filter((element, index) => element.text !== reading.elements[index]?.text);
+				if (edited.elements.length !== reading.elements.length || changed.length !== 1) continue;
+				if (edited.elements.some((element, index) => element.type !== reading.elements[index].type)) continue;
+
+				const saved = openFdx(xml).rewrite(edited, { unedited: reading });
+				let prefix = 0;
+				while (prefix < xml.length && xml[prefix] === saved.xml[prefix]) prefix++;
+				let suffix = 0;
+				while (suffix < xml.length - prefix && xml[xml.length - 1 - suffix] === saved.xml[saved.xml.length - 1 - suffix]) suffix++;
+				const from = prefix;
+				const to = Math.max(xml.length - suffix, prefix + 1);
+				const touched = runs.filter((run) => run.start < to && run.end > from);
+				expect(saved.diagnostics).toEqual([]);
+				expect(touched.length).toBeGreaterThanOrEqual(1);
+				expect(touched.length).toBeLessThanOrEqual(2);
+				if (touched.length === 2) expect(touched[1].start).toBe(touched[0].end);
+				expect(saved.xml.slice(prefix, saved.xml.length - suffix)).toContain(typed);
+				expect(tags(saved.xml)).toBeGreaterThanOrEqual(tags(xml));
+				proven += 1;
+			}
+			expect(proven).toBeGreaterThanOrEqual(10);
+		});
+
+		const lab = (paragraphs: string) => `<FinalDraft><Content>\n${paragraphs}\n</Content></FinalDraft>`;
+		const labSaved = (xml: string, find: string, replace: string) => {
+			const source = fountainSource(xml);
+			expect(source.split(find)).toHaveLength(2);
+			return openFdx(xml).rewrite(parseFountain(source.replace(find, () => replace), { emphasis: 'runs' }), {
+				unedited: parseFountain(source, { emphasis: 'runs' })
+			});
+		};
+
+		it("typed text takes its run's tags, font, adornment and AllCaps — never its revision mark", () => {
+			const xml = lab(
+				'<Paragraph Type="Action"><Text AdornmentStyle="-1" Font="Courier Prime" RevisionID="3" Style="AllCaps" TagNumber="12">she waits</Text><Text>.</Text></Paragraph>'
+			);
+			expect(labSaved(xml, 'SHE WAITS.', 'SHE STILL WAITS.').xml).toBe(
+				lab(
+					'<Paragraph Type="Action"><Text AdornmentStyle="-1" Font="Courier Prime" RevisionID="3" Style="AllCaps" TagNumber="12">she </Text><Text AdornmentStyle="-1" Font="Courier Prime" Style="AllCaps" TagNumber="12">STILL </Text><Text AdornmentStyle="-1" Font="Courier Prime" RevisionID="3" Style="AllCaps" TagNumber="12">waits</Text><Text>.</Text></Paragraph>'
+				)
+			);
+		});
+
+		it('emphasis the writer adds is applied to the file’s own run, which keeps its tag', () => {
+			const xml = lab('<Paragraph Type="Action"><Text TagNumber="7">He runs home.</Text></Paragraph>');
+			expect(labSaved(xml, 'He runs home.', 'He *runs* home.').xml).toBe(
+				lab(
+					'<Paragraph Type="Action"><Text TagNumber="7">He </Text><Text Style="Italic" TagNumber="7">runs</Text><Text TagNumber="7"> home.</Text></Paragraph>'
+				)
+			);
+		});
+
+		it('a paragraph whose kind the writer changed is retyped, its runs and attributes kept', () => {
+			const xml = lab(
+				'<Paragraph Type="Scene Heading"><Text TagNumber="1">INT. LAB - DAY</Text></Paragraph>\n<Paragraph Alignment="Left" Type="Action"><Text TagNumber="2">SHE WAITS</Text></Paragraph>'
+			);
+			expect(labSaved(xml, '!SHE WAITS', '> SHE WAITS').xml).toBe(
+				lab(
+					'<Paragraph Type="Scene Heading"><Text TagNumber="1">INT. LAB - DAY</Text></Paragraph>\n<Paragraph Alignment="Left" Type="Transition"><Text TagNumber="2">SHE WAITS</Text></Paragraph>'
+				)
+			);
+		});
+
+		it('a split paragraph with one line edited stays one paragraph, its line break and tag kept', () => {
+			const xml = lab('<Paragraph Type="Action"><Text TagNumber="3">Lands her point:\nThey must work together.</Text></Paragraph>');
+			expect(labSaved(xml, 'They must work together.', 'They must work as one.').xml).toBe(
+				lab('<Paragraph Type="Action"><Text TagNumber="3">Lands her point:\nThey must work as one.</Text></Paragraph>')
+			);
+		});
+
+		it('a character outside the BMP retyped in a marked run is typed whole, without the mark', () => {
+			const xml = lab('<Paragraph Type="Action"><Text RevisionID="1">Key 🔑.</Text></Paragraph>');
+			expect(labSaved(xml, 'Key 🔑.', 'Key 🔒.').xml).toBe(
+				lab('<Paragraph Type="Action"><Text RevisionID="1">Key </Text><Text>🔒</Text><Text RevisionID="1">.</Text></Paragraph>')
+			);
+		});
+
+		it('an edit only to what Fountain added is not guessed: that paragraph takes the old path and is reported', () => {
+			const xml = lab(
+				'<Paragraph Number="2" Type="Scene Heading"><Text Style="Bold+Italic" TagNumber="601">INT. KITCHEN - NIGHT</Text></Paragraph>\n<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>'
+			);
+			const saved = labSaved(xml, '#2#', '#3#');
+			expect(saved.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['FDX_REWRITE_EDIT_UNPLACED']);
+			expect(saved.xml).toContain('<Paragraph Type="Action"><Text Style="Bold+Italic">INT. KITCHEN - NIGHT</Text><Text> #3#</Text></Paragraph>');
+			expect(saved.xml).toContain('<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>');
+		});
 	});
 });

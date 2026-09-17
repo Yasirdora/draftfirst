@@ -1,0 +1,59 @@
+schemaVersion: 1
+id: IL-0029
+status: verified
+utterance: "Take your recommended path: undo IL-0028, commit the hook under its own small lock, then re-run the same apply for a clean record."
+goal: .githooks/commit-msg — the hook that rejects AI co-author trailers — is committed to eDraft, alone, so the folder is tracked and no longer reads as a change after a locked run.
+interpretation: |
+  The small lock asked for before IL-0028 is re-applied. The human added
+  .githooks/commit-msg (core.hooksPath=.githooks), which rejects a commit
+  message crediting an AI assistant as co-author, and asked for it to be
+  committed under its own lock.
+
+  Committing it also removes what failed IL-0028's first run: Code Director
+  0.4.5 fingerprints `git status --porcelain`, which reports an untracked
+  folder as one `?? .githooks/` line, never its files — so the folder read
+  as a change after a run that never touched it (logged for Code Director
+  separately). Once tracked, the folder is ordinary committed content.
+
+  One commit, one file, the hook exactly as the human wrote it (sha256
+  47999ec3…). Nothing else is staged: IL-0028's work was undone and is
+  re-applied only after this lock.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the commit contains only .githooks/commit-msg, byte-identical to the file the human wrote (sha256 47999ec3641c7819d21daf81f67b24387680c1a10f0fe3a8e58722ce358a71fb)
+  - kind: custom
+    text: the commit message carries no co-author trailer
+deny:
+  - package.json
+  - package-lock.json
+  - packages/**
+  - apple/**
+  - src/**
+  - scripts/**
+  - docs/**
+change: Commit .githooks/commit-msg — the hook that rejects AI co-author trailers — alone, as the human wrote it.
+verifyCommand: 'test "$(git show --name-only --format= HEAD)" = ".githooks/commit-msg" && test "$(shasum -a 256 .githooks/commit-msg | cut -d" " -f1)" = "47999ec3641c7819d21daf81f67b24387680c1a10f0fe3a8e58722ce358a71fb" && git diff --quiet HEAD -- .githooks/commit-msg && ! git log -1 --format=%B | grep -iq "co-authored-by" && m=$(mktemp) && printf "x\n\nCo-authored-by: Claude <noreply@anthropic.com>\n" > "$m" && ! sh .githooks/commit-msg "$m" 2>/dev/null && rm -f "$m"'
+verifyTimeoutMs: 60000
+budget:
+  files:
+    - .githooks/commit-msg
+  symbols: []
+  maxFiles: 1
+  maxLines: 20
+accept:
+  - HEAD is one commit whose only file is .githooks/commit-msg, byte-identical to the human's hook, with no co-author trailer.
+  - The committed hook rejects a message carrying an AI co-author trailer.
+  - git status no longer lists .githooks/.
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on the words "same", "own" and "run" (name-only anchors) and proposed six unrelated engine, UI and script files.
+    source: system
+    confirmed: false
+  - text: "Asked for by the human: commit the hook under its own small lock, between undoing IL-0028 and re-running its apply."
+    source: user
+    confirmed: true
+  - text: This lock's own record (its YAML and seal) is committed with IL-0028's commit, not in the hook commit — the hook commit stays one file.
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T13:21:42.722Z
+createdBy: Yasirdora

@@ -250,4 +250,74 @@ final class FdxSaveBackTests: XCTestCase {
         )
         XCTAssertEqual(Self.tags(written), Self.tags(data))
     }
+
+    // MARK: - Edited paragraphs
+
+    /// The file with its one `before` replaced.
+    private static func file(_ data: Data, with before: String, as after: String) -> String {
+        let original = String(decoding: data, as: UTF8.self)
+        XCTAssertEqual(original.components(separatedBy: before).count, 2, "\(before) must occur once")
+        return original.replacingOccurrences(of: before, with: after)
+    }
+
+    /// Each measured edit, typed into the source the app opened: the save
+    /// changes only the writer's characters. Before, each lost what Fountain
+    /// cannot carry — tags, a heading's Type and scene data, the (beat)'s
+    /// Parenthetical, a Summary's line break, a trailing space, an AllCaps
+    /// word's stored letters.
+    func testEachMeasuredEditChangesOnlyTheWritersCharacters() throws {
+        let cases: [(name: String, file: String, find: String, replace: String, before: String, after: String)] = [
+            ("E1", "finaldraft-sample02.fdx", "Xxxx XXXXXX, 12,", "Xyxx XXXXXX, 12,",
+             "31a77a253272\">\n      <Text>Xxxx </Text>", "31a77a253272\">\n      <Text>Xyxx </Text>"),
+            ("E2", "finaldraft-sample02.fdx", "***(X1)*** #2#", "***(X2)*** #2#",
+             "TagNumber=\"603\">(X1)</Text>", "TagNumber=\"603\">(X2)</Text>"),
+            ("E3", "finaldraft-sample02.fdx", "(*xx. xxxxx, xxx*)", "(*xx. xxxxx, xxx, xxxxx*)",
+             "<Text Style=\"Italic\">xx. xxxxx, xxx</Text>", "<Text Style=\"Italic\">xx. xxxxx, xxx, xxxxx</Text>"),
+            ("E3b", "finaldraft-sample02.fdx", "*...Xxx xxxxxxxx.*\n*(beat)*", "*...Xxx xxxxxxxx.*\n*(beat, xxxxx)*",
+             "<Text Style=\"Italic\">(beat)</Text>", "<Text Style=\"Italic\">(beat, xxxxx)</Text>"),
+            ("E4", "finaldraft-sample01.fdx", "\nX & X xxxx xxxx xxxxxxxx.\n", "\nX & X yxxx xxxx xxxxxxxx.\n",
+             "xxxxx:\nX &amp; X xxxx xxxx xxxxxxxx.</Text>", "xxxxx:\nX &amp; X yxxx xxxx xxxxxxxx.</Text>"),
+            ("E5", "finaldraft-sample01.fdx", "Xx xxx. Xxx... ", "Yx xxx. Xxx... ",
+             "<Text>Xx xxx. Xxx... </Text>", "<Text>Yx xxx. Xxx... </Text>"),
+            ("E6", "finaldraft-sample02.fdx", "XXXXXX xxxxx xxx xxxxx xxx xxxxxxx xxxxxx.", "XXXXXX yxxxx xxx xxxxx xxx xxxxxxx xxxxxx.",
+             "<Text>xxxxx xxx </Text>", "<Text>yxxxx xxx </Text>"),
+            ("E7", "finaldraft-sample02.fdx", "(D2) #4#", "(D3) #4#",
+             "<Text TagNumber=\"617\">(d2)</Text>", "<Text TagNumber=\"617\">(d3)</Text>")
+        ]
+        for edit in cases {
+            let data = try Self.finalDraftWritten(edit.file)
+            let file = try ScreenplayFile.open(data, as: .finalDraftScreenplay)
+            XCTAssertEqual(file.source.components(separatedBy: edit.find).count, 2, "\(edit.name): the edit must occur once")
+            let written = try ScreenplayFile.encode(
+                file.source.replacingOccurrences(of: edit.find, with: edit.replace),
+                as: .finalDraftScreenplay, origin: file.origin
+            )
+            XCTAssertEqual(String(decoding: written, as: UTF8.self), Self.file(data, with: edit.before, as: edit.after),
+                           "\(edit.name): the save changed more than the writer's characters")
+        }
+    }
+
+    /// The same through the editor itself: text replaced in an element, its
+    /// emphasis carried by the editor's own rule, published and saved.
+    func testAnEditInTheEditorChangesOnlyTheWritersCharacters() throws {
+        let data = try Self.finalDraftWritten("finaldraft-sample02.fdx")
+        let file = try ScreenplayFile.open(data, as: .finalDraftScreenplay)
+        let editor = EditorState(source: file.source)
+        var published: String?
+        editor.onSourceChange = { published = $0 }
+
+        let beat = try XCTUnwrap(editor.screenplay.elements.first { $0.type == .dialogue && $0.text == "(beat)" })
+        editor.replaceElementText(id: beat.id, text: "(beat, xxxxx)")
+        let typo = try XCTUnwrap(editor.screenplay.elements.first { $0.text.hasPrefix("Xxxx XXXXXX, 12,") })
+        editor.replaceElementText(id: typo.id, text: "Xyxx" + typo.text.dropFirst(4))
+        editor.flushPendingWork()
+
+        let written = try ScreenplayFile.encode(try XCTUnwrap(published), as: .finalDraftScreenplay, origin: file.origin)
+        let expected = Self.file(
+            Data(Self.file(data, with: "<Text Style=\"Italic\">(beat)</Text>", as: "<Text Style=\"Italic\">(beat, xxxxx)</Text>").utf8),
+            with: "31a77a253272\">\n      <Text>Xxxx </Text>", as: "31a77a253272\">\n      <Text>Xyxx </Text>"
+        )
+        XCTAssertEqual(String(decoding: written, as: UTF8.self), expected)
+        XCTAssertEqual(Self.tags(written), Self.tags(data))
+    }
 }
