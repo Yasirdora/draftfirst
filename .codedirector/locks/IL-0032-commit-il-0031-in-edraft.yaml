@@ -1,0 +1,150 @@
+schemaVersion: 1
+id: IL-0032
+status: verified
+utterance: Commit IL-0031 in eDraft and IL-0013 in Code Director, same convention, then draft the dual-dialogue lock.
+goal: "Final Draft's dual dialogue is visible in eDraft: every line of a <DualDialogue> block imports as its own element, the second speaker's cue dual, and a save keeps the block — byte-identical when unedited, only the writer's characters changed when a line is edited, lines added inside it, the block dissolved only when the writer un-duals it — in both engines, proven on the Final Draft-written fixtures."
+interpretation: |
+  The dual-dialogue lock the human queued straight after the counting fix
+  ("invisible dialogue is a fidelity emergency").
+
+  MEASURED at 3b4f05f on both Final Draft-written fixtures. All 12
+  <DualDialogue> blocks, 6 per file, have the same shape: a top-level
+  General paragraph with no text of its own, holding one <DualDialogue>
+  whose children are a SpellCheckIgnoreLists and four paragraphs —
+  Character, Dialogue, Character, Dialogue — each with its own id, some with
+  tags. The import reads nested paragraphs as metadata, so each block
+  arrives as one empty General element (an empty action line in the app)
+  and its 48 lines are invisible. A save keeps them only because it never
+  looks inside.
+
+  PROTOTYPED (TypeScript) at 3b4f05f:
+
+    - import: sample02 780 elements (762 + 18), sample01 842; 6 dual cues
+      each; no empty placeholder left; every ScriptNote still anchored on
+      whole words or empty
+    - no-edit save, through the engine and through Fountain: byte-identical,
+      both files
+    - a typo in either speaker's cue or line: exactly one character changes,
+      inside the block
+    - the whole dual dialogue deleted: its paragraph goes, blocks 6 to 5
+    - a line added to the second speaker: written AFTER the block (Final
+      Draft would show it as ordinary dialogue) ← rule 3 below
+    - the caret removed (un-dual): the block stays dual in the file and the
+      cue loses its tag ← rule 4 below
+
+  THE CHANGE, both engines:
+
+    1. Import. A top-level paragraph with no text of its own holding exactly
+       one <DualDialogue> imports as that block's paragraphs, in order, each
+       exactly as a body paragraph imports (type, text, runs, tags). The
+       second speaker's cue is dual, as Fountain's `^` marks it. A Range's
+       two units for the block land on its first line. Any other paragraph
+       holding a <DualDialogue> (text of its own, or two blocks; none
+       measured) imports as today and is reported,
+       FDX_DUAL_DIALOGUE_NOT_READ, so no dialogue is ever silently
+       invisible.
+    2. Save, lines. To the preserving save each line of a block is its own
+       paragraph: unedited, its own bytes (IL-0027); edited, the writer's
+       characters merged into it (IL-0028). The block's frame (the outer
+       paragraph's tags, <DualDialogue>, SpellCheckIgnoreLists, whitespace)
+       is written verbatim around them.
+    3. Save, lines added. Lines the writer adds within the pair, from the
+       first cue to the second speaker's last line as Fountain reads a dual
+       pair, are written inside the block where they stand.
+    4. Save, dissolved. When the lines kept from a block no longer form a
+       dual pair — the caret removed, or the lines no longer contiguous —
+       the block is dissolved: its lines are written in its place as
+       ordinary paragraphs, each keeping its own bytes where unedited, and
+       the frame goes. Reported: FDX_REWRITE_DUAL_DIALOGUE_DISSOLVED.
+       Deleting the whole pair removes the block, as measured.
+
+  NOT IN SCOPE: a dual pair made in eDraft becoming a new <DualDialogue>
+  block, and the fresh export writing one. Both mean writing a form Final
+  Draft has not been shown to accept (the human's Final Draft check), so
+  today's Dual="Yes" stays for them. Side-by-side display: the app lists the
+  two speakers one after the other, the second cue marked `^`, as it
+  already does for Fountain.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: every line of all 12 dual-dialogue blocks in the Final Draft-written fixtures imports as its own element, the second cue dual, and no empty placeholder element remains; each import proof fails on today's reader
+  - kind: custom
+    text: a save with no edit returns both Final Draft-written fixtures byte for byte, through the engine and through Fountain, in both engines
+  - kind: custom
+    text: an edit to a dual-dialogue line changes only the <Text> runs it falls in; the block's frame is written verbatim; lines added within the pair land inside the block; a block is dissolved only when its kept lines no longer form a dual pair, and that is reported — never a guessed block
+  - kind: custom
+    text: every ScriptNote on both Final Draft-written fixtures stays anchored on whole words or empty
+  - kind: custom
+    text: the Fountain parser and serialiser, the model, EditorState and the app surfaces are unchanged; the fresh export is unchanged
+  - kind: custom
+    text: corpus expectations change only where dual dialogue now imports — the ScriptNotes cases' element indices and the synthetic embedded-blocks case — each listed and reviewed; both ports produce identical output for every case
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/style.ts
+  - packages/edraft/src/normalize.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/*.fdx
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/XmlScanner.swift
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Paginate/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - docs/**
+  - "*.xcodeproj/**"
+  - "**/DerivedData/**"
+change: "Final Draft's <DualDialogue> lines import as elements, the second cue dual, and the preserving save keeps the block around them: lines kept as bytes or merged, added lines inside, the block dissolved and reported only when the writer un-duals it — in both engines."
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxPreservingRoundTripTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxScriptNotesTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/ImportedNotesTests.swift
+  symbols: []
+  maxFiles: 10
+  maxLines: 2000
+accept:
+  - "Import: both Final Draft-written fixtures show all 48 dual-dialogue lines (24 each), 6 dual cues each, no empty General placeholder; FDX_DUAL_DIALOGUE_NOT_READ pinned by a synthetic case. Fails on today's reader."
+  - "No edit: both fixtures byte-identical through the engine and through Fountain, both engines."
+  - "Edits through Fountain on the fixtures: a cue or line typo in each of the 12 blocks changes one character inside its run; a line added to either speaker lands inside the block; the pair deleted removes its paragraph; the caret removed dissolves the block in place, lines keeping their bytes, reported. Both engines, via corpus cases."
+  - "Through the app: the editor holds the dual lines of a Final Draft file, and a line edited in the editor saves as that character alone."
+  - "ScriptNotes on both fixtures: still all anchored, none mid-word."
+  - "Suites green: 690 TypeScript, 184 Swift engine, 336 EDraftCore, plus the new proofs."
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on "same" (RevisionDiff.same) and proposed Revisions, transcription and title-page files.
+    source: system
+    confirmed: false
+  - text: "Queued by the human: dual-dialogue visibility is its own lock, immediately after the counting fix."
+    source: user
+    confirmed: true
+  - text: "Measured structure only: the rules cover a paragraph with no text of its own holding one <DualDialogue> (12 of 12 measured). Anything else is imported as today and reported, never guessed at."
+    source: system
+    confirmed: false
+  - text: "Out of scope pending the human's Final Draft check: creating a new <DualDialogue> block from a pair made in eDraft, and the fresh export writing one."
+    source: system
+    confirmed: false
+  - text: "maxLines 2,000: engine ~300 lines per port, tests ~500, corpus ~600 (element indices moved in the ScriptNotes cases, and the new dual-dialogue rewrite cases), exporter ~100."
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T15:57:28.434Z
+createdBy: Yasirdora

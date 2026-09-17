@@ -1024,7 +1024,6 @@ addFdxImport(
 	`<FinalDraft><Content><Paragraph Type="Action"><Text>a</Text></Paragraph><Paragraph Type="Action"><Text>b</Text></Paragraph></Content></FinalDraft>`,
 	{ maxParagraphs: 1 }
 );
-
 /* Every corpus screenplay, exported. The torture script drags NFD marks,
    a NEL, emoji, and an unclosed boneyard through the XML writer; the
    feature pins the export at production length. */
@@ -1390,6 +1389,25 @@ addMergedRewrite(
 	'Key 🔑.',
 	'Key 🔒.'
 );
+/* Final Draft's dual dialogue: a paragraph with no text of its own holding a
+   <DualDialogue>, whose paragraphs are the two speeches. Each line is a
+   paragraph to the save; the block is kept around the lines kept as a dual
+   pair, lines added inside the pair go inside it, and a pair the writer
+   undid is dissolved in place and reported. */
+const dualPair = '\nXXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n';
+addMergedRewrite('dual-dialogue-line-typo', sample02, dualPair, '\nXXXXX\nXxx?\n\nXXXXXX ^\nQxx.\n');
+addMergedRewrite('dual-dialogue-cue-typo', sample02, dualPair, '\nQXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n');
+addMergedRewrite('dual-dialogue-line-added', sample02, dualPair, '\nXXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n(xxxxx)\nXxx xxx.\n');
+addMergedRewrite('dual-dialogue-deleted', sample02, dualPair, '\n');
+addMergedRewrite('dual-dialogue-caret-removed', sample02, dualPair, '\nXXXXX\nXxx?\n\nXXXXXX\nXxx.\n');
+const dualLab = lab([
+	'<Paragraph Type="General"><DualDialogue><Paragraph Type="Character"><Text>MARA</Text></Paragraph><Paragraph Type="Dialogue"><Text>Yes.</Text></Paragraph><Paragraph Type="Character"><Text TagNumber="4">JON</Text></Paragraph><Paragraph Type="Parenthetical"><Text>(beat)</Text></Paragraph><Paragraph Type="Dialogue"><Text>No.</Text></Paragraph></DualDialogue></Paragraph>',
+	'<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>'
+]);
+addUneditedRewrite('dual-dialogue-first-in-body-no-edit', dualLab);
+addMergedRewrite('dual-dialogue-first-speaker-line-added', { source: dualLab }, 'MARA\nYes.\n', 'MARA\nYes.\n(softly)\nAgain.\n');
+addMergedRewrite('dual-dialogue-first-speaker-removed', { source: dualLab }, 'MARA\nYes.\n\n', '');
+
 /* A line of another kind with other words in its place replaced the paragraph:
    written as before, none of the old paragraph's attributes carried over. */
 addMergedRewrite('merged-replaced-by-another-kind', { source: tagged }, 'She waits.', '> CUT TO BLACK.');

@@ -562,6 +562,8 @@ interface FdxParagraph {
 	/** Where each block Final Draft embeds in the paragraph — a <DualDialogue>,
 	    an <OmittedScene> — sits among its text, as an offset into `text`. */
 	blocks: number[];
+	/** Each <DualDialogue> directly inside it, as source offsets. */
+	dialogues: { start: number; end: number }[];
 }
 
 interface ParsedParagraphs {
@@ -720,6 +722,7 @@ function paragraphsOf(
 				   metadata, but its place is kept: a ScriptNote Range counts it. */
 				if (current && metadataDepth === 0 && EMBEDDED_BLOCKS.has(tag.name)) {
 					current.blocks.push(current.text.length);
+					if (tag.name === 'dualdialogue') current.dialogues.push({ start: offset, end: -1 });
 				}
 				// Inside a paragraph, anything that is not its own <Text> is
 				// metadata — including nested paragraphs. Skipped whole.
@@ -754,7 +757,8 @@ function paragraphsOf(
 						textStart: -1,
 						textEnd: -1,
 						runs: [],
-						blocks: []
+						blocks: [],
+						dialogues: []
 					};
 					paragraphCount++;
 				}
@@ -776,6 +780,9 @@ function paragraphsOf(
 				if (open[open.length - 1] === name) open.pop();
 
 				if (current && metadataDepth > 0) {
+					if (name === 'dualdialogue' && metadataDepth === 1 && current.dialogues.length > 0) {
+						current.dialogues[current.dialogues.length - 1].end = tagEnd(offset);
+					}
 					metadataDepth--;
 					if (name === 'content') contents.pop();
 					return true;
@@ -946,19 +953,30 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 				});
 			}
 
-			const type = refineGeneral(kind?.type ?? 'general', paragraph);
-
-			const element: ScreenplayElement = { type, text: paragraph.text };
-			if (paragraph.runs.length > 0) {
-				element.runs = normaliseRuns(paragraph.runs, (paragraph.text as string).length);
+			/* Final Draft keeps dual dialogue as a paragraph with no text of its
+			   own holding a <DualDialogue>, whose paragraphs are the two
+			   speeches. Read as metadata, all of it was invisible: each block
+			   arrived as one empty General element. Its lines are the script. */
+			const lines = dualDialogueOf(source, paragraph, limits);
+			if (lines) {
+				let cues = 0;
+				for (const line of lines) {
+					const element = elementOf(line, fdxElementKind(attributeOf(line, 'type').trim().toLowerCase()));
+					// The second speaker's cue is the one Fountain marks `^`.
+					if (element.type === 'character' && ++cues === 2) element.dual = true;
+					elements.push(element);
+				}
+				continue;
 			}
-			if (type === 'section' && kind?.depth !== undefined) element.depth = kind.depth;
-			const sceneNumber = attributeOf(paragraph, 'number');
-			if (type === 'scene' && sceneNumber !== '') element.sceneNumber = sceneNumber;
-			if (type === 'character' && attributeOf(paragraph, 'dual').toLowerCase() === 'yes') {
-				element.dual = true;
+			if (paragraph.dialogues.length > 0) {
+				diagnostics.add({
+					code: 'FDX_DUAL_DIALOGUE_NOT_READ',
+					severity: 'warning',
+					message: 'A paragraph holds dual dialogue in a form not read (text of its own, or more than one block); its speeches are not shown.',
+					paragraphIndex: paragraph.paragraphIndex
+				});
 			}
-			elements.push(element);
+			elements.push(elementOf(paragraph, kind));
 		}
 
 		const scriptNotes = scriptNotesOf(source, layout, limits, diagnostics);
@@ -1005,6 +1023,51 @@ const OUTLINE_TYPE = /^outline\s+(\d+)(?:\s*\(.*\))?$/;
  * `undefined` for a type we have never heard of — the caller warns and falls
  * back to General, which is what it always did.
  */
+function elementOf(paragraph: FdxParagraph, kind: { type: AnyElementType; depth?: number } | undefined): ScreenplayElement {
+	const type = refineGeneral(kind?.type ?? 'general', paragraph);
+	const element: ScreenplayElement = { type, text: paragraph.text };
+	if (paragraph.runs.length > 0) {
+		element.runs = normaliseRuns(paragraph.runs, (paragraph.text as string).length);
+	}
+	if (type === 'section' && kind?.depth !== undefined) element.depth = kind.depth;
+	const sceneNumber = attributeOf(paragraph, 'number');
+	if (type === 'scene' && sceneNumber !== '') element.sceneNumber = sceneNumber;
+	if (type === 'character' && attributeOf(paragraph, 'dual').toLowerCase() === 'yes') {
+		element.dual = true;
+	}
+	return element;
+}
+
+const DUAL_DIALOGUE_FRAME = '<FinalDraft><Content>';
+
+/**
+ * The lines of a dual dialogue: the paragraphs of the one <DualDialogue> a
+ * paragraph with no text of its own holds, in order, with where they sit —
+ * or null for any other paragraph.
+ *
+ * Measured on files Final Draft wrote, every dual dialogue has this form: a
+ * General paragraph, no text, one block of Character, Dialogue, Character,
+ * Dialogue. The block is read as a script of its own, so each line is read
+ * exactly as a body paragraph is.
+ */
+function dualDialogueOf(source: string, paragraph: FdxParagraph, limits: FdxLimits): MutableFdxParagraph[] | null {
+	if (paragraph.text !== '' || paragraph.dialogues.length !== 1 || paragraph.dialogues[0].end === -1) return null;
+	const { start, end } = paragraph.dialogues[0];
+	const shift = start - DUAL_DIALOGUE_FRAME.length;
+	const parsed = paragraphsOf(`${DUAL_DIALOGUE_FRAME}${source.slice(start, end)}</Content></FinalDraft>`, limits, new DiagnosticCollector(1));
+	if (parsed.body.length === 0) return null;
+	return parsed.body.map((line) => {
+		const held = line as MutableFdxParagraph;
+		return {
+			...held,
+			start: held.start + shift,
+			end: held.end + shift,
+			textStart: held.textStart === -1 ? -1 : held.textStart + shift,
+			textEnd: held.textEnd === -1 ? -1 : held.textEnd + shift
+		};
+	});
+}
+
 function fdxElementKind(key: string): { type: AnyElementType; depth?: number } | undefined {
 	const known = FDX_TO_MODEL[key];
 	if (known) return { type: known };
@@ -1374,6 +1437,25 @@ interface OriginParagraph {
 	 * and never lets the alignment see them; see `openFdx`.
 	 */
 	absorbed: boolean;
+	/** The dual dialogue this paragraph is a line of. */
+	block?: DualDialogueBlock;
+}
+
+/**
+ * A Final Draft dual dialogue as the save sees it: the paragraph that holds
+ * the <DualDialogue>, as a frame around its lines. Each line is a paragraph
+ * to the save like any other; the frame is written around the lines kept
+ * together, verbatim.
+ */
+interface DualDialogueBlock {
+	/** The whitespace before the holding paragraph. */
+	lead: string;
+	start: number;
+	end: number;
+	/** The frame: its bytes up to the first line, and after the last line. */
+	head: string;
+	tail: string;
+	lines: OriginParagraph[];
 }
 
 /**
@@ -1954,7 +2036,8 @@ function mergedParagraph(
 	if (unedited.length !== edited.length || unedited.length === 0) return null;
 	for (const [at, read] of unedited.entries()) {
 		const now = edited[at];
-		if ((read.dual ?? false) !== (now.dual ?? false)) return null;
+		// A dual dialogue line's `dual` is its block's, not its paragraph's.
+		if (!origin.block && (read.dual ?? false) !== (now.dual ?? false)) return null;
 		if ((read.sceneNumber ?? '') !== (now.sceneNumber ?? '')) return null;
 		if ((read.depth ?? 0) !== (now.depth ?? 0)) return null;
 		if (unedited.length > 1 && read.type !== now.type) return null;
@@ -2210,8 +2293,8 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 	// The paragraphs of the script's own <Content>, in order, with where they
 	// sit. `parseFdx` has already decided which those are.
 	const spans = bodySpansOf(source, options);
-	const first = spans.length > 0 ? spans[0].start : -1;
-	const last = spans.length > 0 ? spans[spans.length - 1].end : -1;
+	const first = spans.length > 0 ? (spans[0].block?.start ?? spans[0].start) : -1;
+	const last = spans.length > 0 ? (spans[spans.length - 1].block?.end ?? spans[spans.length - 1].end) : -1;
 	/* Only paragraphs the import turned into elements can be matched to one.
 	   An absorbed End of Act left in the alignment was deleted by every save,
 	   and — typed General when it has no Alignment — was paired with the
@@ -2351,6 +2434,35 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 				}
 			}
 
+			/* A dual dialogue is kept whole where the writer kept it a dual pair:
+			   its frame is written verbatim around its lines, and lines added
+			   inside the pair go inside the block. Where the lines kept from it
+			   are no longer a dual pair — the second cue no longer dual, or the
+			   lines apart — the block is dissolved: its lines are written in its
+			   place as ordinary paragraphs, and the frame goes. */
+			const keptLines = new Map<DualDialogueBlock, number[]>();
+			paired.forEach((origin, index) => {
+				if (!origin?.block) return;
+				const kept = keptLines.get(origin.block) ?? [];
+				kept.push(index);
+				keptLines.set(origin.block, kept);
+			});
+			const pairs = new Map<number, { block: DualDialogueBlock; end: number }>();
+			let dissolved = 0;
+			for (const [block, kept] of keptLines) {
+				const end = dualPairEnd(elements, paired, consumed, block, kept);
+				if (end === null) dissolved += 1;
+				else pairs.set(kept[0], { block, end });
+			}
+			if (dissolved > 0) {
+				diagnostics.add({
+					code: 'FDX_REWRITE_DUAL_DIALOGUE_DISSOLVED',
+					severity: 'warning',
+					message: `${dissolved} dual dialogue(s) no longer a dual pair were written as ordinary paragraphs, without Final Draft's dual dialogue block.`,
+					count: dissolved
+				});
+			}
+
 			const out: string[] = [];
 			// A new paragraph is laid out like the one it follows, so an insert
 			// does not announce itself as the one differently-indented line in
@@ -2361,30 +2473,50 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 				if (span.lead !== '') lead = span.lead;
 				out.push(source.slice(span.start, span.end));
 			};
-			for (const [index, element] of elements.entries()) {
+			const keptBytes = (index: number, origin: OriginParagraph): string =>
+				verbatim.get(index) === origin
+					? source.slice(origin.start, origin.end)
+					: merged.get(index)?.span === origin
+						? (merged.get(index) as { bytes: string }).bytes
+						: rewriteParagraph(source, origin, elements[index], diagnostics, index);
+			const freshBytes = (element: ScreenplayElement): string => {
+				const fresh = writeFdxWithDiagnostics({ titlePage: [], elements: [element] }, options);
+				return fresh.xml.match(/<Paragraph[\s\S]*<\/Paragraph>/)?.[0] ?? '';
+			};
+			for (let index = 0; index < elements.length; index++) {
 				// A line of a paragraph already written whole.
 				if (consumed.has(index)) continue;
+				const pair = pairs.get(index);
+				if (pair) {
+					const { block } = pair;
+					for (const line of block.lines) for (const span of absorbedBefore.get(line.start) ?? []) restore(span);
+					if (out.length > 0) out.push(block.lead === '' ? lead : block.lead);
+					if (block.lead !== '') lead = block.lead;
+					out.push(block.head);
+					let lineLead = block.lines[1]?.lead ?? block.lead;
+					for (let line = index; line <= pair.end; line++) {
+						const origin = paired[line];
+						if (line > index) out.push(origin && origin.lead !== '' ? origin.lead : lineLead);
+						if (origin && origin.lead !== '') lineLead = origin.lead;
+						// Inside Final Draft's block, a speaker is dual by where it stands.
+						const { dual: _dual, ...speech } = elements[line];
+						out.push(origin ? keptBytes(line, origin) : freshBytes(speech));
+					}
+					out.push(block.tail);
+					index = pair.end;
+					continue;
+				}
 				const origin = paired[index];
 				if (origin) {
 					for (const span of absorbedBefore.get(origin.start) ?? []) restore(span);
-					if (out.length > 0) out.push(origin.lead === '' ? lead : origin.lead);
-					if (origin.lead !== '') lead = origin.lead;
-					out.push(
-						verbatim.get(index) === origin
-							? source.slice(origin.start, origin.end)
-							: merged.get(index)?.span === origin
-								? (merged.get(index) as { bytes: string }).bytes
-								: rewriteParagraph(source, origin, element, diagnostics, index)
-					);
+					const ownLead = origin.block ? origin.block.lead : origin.lead;
+					if (out.length > 0) out.push(ownLead === '' ? lead : ownLead);
+					if (ownLead !== '') lead = ownLead;
+					out.push(keptBytes(index, origin));
 					continue;
 				}
 				if (out.length > 0) out.push(lead === '' ? '\n' : lead);
-				const fresh = writeFdxWithDiagnostics(
-					{ titlePage: [], elements: [element] },
-					options
-				);
-				const body = fresh.xml.match(/<Paragraph[\s\S]*<\/Paragraph>/);
-				if (body) out.push(body[0]);
+				out.push(freshBytes(elements[index]));
 			}
 			for (const span of waiting) restore(span);
 
@@ -2409,36 +2541,93 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
  */
 function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph[] {
 	const diagnostics = new DiagnosticCollector(1);
-	const parsed = paragraphsOf(source, importLimits(options), diagnostics);
+	const limits = importLimits(options);
+	const parsed = paragraphsOf(source, limits, diagnostics);
 	let previousEnd = -1;
-	return parsed.body.map((paragraph) => {
-		const held = paragraph as FdxParagraph & {
-			start: number;
-			end: number;
-			textStart: number;
-			textEnd: number;
-		};
-		const fdxType = attributeOf(paragraph, 'type').trim().toLowerCase();
+	const spans: OriginParagraph[] = [];
+	const spanOf = (paragraph: MutableFdxParagraph, fdxType: string, lead: string): OriginParagraph => {
 		/* End of Act is kept as a span, marked absorbed, by the same rule the
 		   import absorbs it with (RFC-ACT-BREAK D3). No element ever stands
 		   for it, so the rewrite owns its bytes: dropping the span here would
 		   lose them, and leaving it unmarked let the alignment delete it. */
 		const type = refineGeneral(fdxElementKind(fdxType)?.type ?? 'general', paragraph);
-		const lead = previousEnd === -1 ? '' : source.slice(previousEnd, held.start);
-		previousEnd = held.end;
 		return {
 			key: originKey(type, paragraph.text),
 			text: paragraph.text,
 			type,
-			start: held.start,
-			end: held.end,
-			textStart: held.textStart,
-			textEnd: held.textEnd,
+			start: paragraph.start,
+			end: paragraph.end,
+			textStart: paragraph.textStart,
+			textEnd: paragraph.textEnd,
 			lead,
 			runs: normaliseRuns(paragraph.runs, paragraph.text.length),
 			absorbed: fdxType === 'end of act'
 		};
-	});
+	};
+	for (const paragraph of parsed.body) {
+		const held = paragraph as MutableFdxParagraph;
+		const fdxType = attributeOf(paragraph, 'type').trim().toLowerCase();
+		const lead = previousEnd === -1 ? '' : source.slice(previousEnd, held.start);
+		previousEnd = held.end;
+		const lines = fdxType === 'end of act' ? null : dualDialogueOf(source, paragraph, limits);
+		if (!lines) {
+			spans.push(spanOf(held, fdxType, lead));
+			continue;
+		}
+		const block: DualDialogueBlock = {
+			lead,
+			start: held.start,
+			end: held.end,
+			head: source.slice(held.start, lines[0].start),
+			tail: source.slice(lines[lines.length - 1].end, held.end),
+			lines: []
+		};
+		lines.forEach((line, at) => {
+			const span = spanOf(line, attributeOf(line, 'type').trim().toLowerCase(), at === 0 ? '' : source.slice(lines[at - 1].end, line.start));
+			span.block = block;
+			block.lines.push(span);
+			spans.push(span);
+		});
+	}
+	return spans;
+}
+
+/** The kinds that belong to a speech after its cue. */
+const SPEECH_TYPES: ReadonlySet<string> = new Set(['dialogue', 'parenthetical', 'lyrics']);
+
+/**
+ * Where a dual dialogue kept by a save ends — the element index of the
+ * second speaker's last line — or null when the lines kept from it no longer
+ * form a dual pair there.
+ *
+ * A dual pair is what Fountain reads as one: a cue, its speech, the cue
+ * marked dual, its speech. It must open on the first line kept from the
+ * block, hold every line kept from it, and hold nothing another paragraph of
+ * the file became — only the block's own lines and lines the writer added.
+ */
+function dualPairEnd(
+	elements: ScreenplayElement[],
+	paired: (OriginParagraph | null)[],
+	consumed: Set<number>,
+	block: DualDialogueBlock,
+	kept: number[]
+): number | null {
+	const start = kept[0];
+	let at = start;
+	if (elements[at]?.type !== 'character' || elements[at].dual) return null;
+	at += 1;
+	while (at < elements.length && SPEECH_TYPES.has(elements[at].type)) at += 1;
+	if (elements[at]?.type !== 'character' || !elements[at].dual) return null;
+	at += 1;
+	while (at < elements.length && SPEECH_TYPES.has(elements[at].type)) at += 1;
+	const end = at - 1;
+	if (kept[kept.length - 1] > end) return null;
+	for (let index = start; index <= end; index++) {
+		if (consumed.has(index)) return null;
+		const origin = paired[index];
+		if (origin && origin.block !== block) return null;
+	}
+	return end;
 }
 
 /* ---- export ------------------------------------------------------------- */

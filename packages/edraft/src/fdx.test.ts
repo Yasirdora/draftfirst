@@ -863,16 +863,16 @@ describe('FDX · ScriptNotes', () => {
 		expect(at('107')).toEqual({ start: { element: 6, offset: 0 }, end: { element: 6, offset: 20 } });
 		expect([elements[6].type, elements[6].text.length]).toEqual(['shot', 20]);
 		/* after five dual dialogues: exactly one action line */
-		expect(at('109')).toEqual({ start: { element: 295, offset: 0 }, end: { element: 295, offset: 41 } });
-		expect([elements[295].type, elements[295].text.length]).toEqual(['action', 41]);
+		expect(at('109')).toEqual({ start: { element: 310, offset: 0 }, end: { element: 310, offset: 41 } });
+		expect([elements[310].type, elements[310].text.length]).toEqual(['action', 41]);
 		/* exactly one line of dialogue */
-		expect(at('110')).toEqual({ start: { element: 533, offset: 0 }, end: { element: 533, offset: 6 } });
-		expect([elements[533].type, elements[533].text.length]).toEqual(['dialogue', 6]);
+		expect(at('110')).toEqual({ start: { element: 548, offset: 0 }, end: { element: 548, offset: 6 } });
+		expect([elements[548].type, elements[548].text.length]).toEqual(['dialogue', 6]);
 		/* after the omitted scene too: from a cue to the start of the next line */
-		expect(at('111')).toEqual({ start: { element: 578, offset: 0 }, end: { element: 580, offset: 0 } });
+		expect(at('111')).toEqual({ start: { element: 593, offset: 0 }, end: { element: 595, offset: 0 } });
 		/* zero-length, at the end of the script's last line */
-		expect(at('112')).toEqual({ start: { element: 761, offset: 13 }, end: { element: 761, offset: 13 } });
-		expect(elements).toHaveLength(762);
+		expect(at('112')).toEqual({ start: { element: 779, offset: 13 }, end: { element: 779, offset: 13 } });
+		expect(elements).toHaveLength(780);
 	});
 
 	it('counts a block embedded in a paragraph as two units where it sits, its own text nothing', () => {
@@ -883,7 +883,10 @@ describe('FDX · ScriptNotes', () => {
 		const { script, scriptNotes } = parseFdx(xml);
 		expect(script.elements.map((element) => [element.type, element.text])).toEqual([
 			['action', 'Hum.'],
-			['general', ''],
+			['character', 'MARA'],
+			['dialogue', 'Yes.'],
+			['character', 'JON'],
+			['dialogue', 'No.'],
 			['scene', 'Omitted'],
 			['action', 'Go.']
 		]);
@@ -893,11 +896,11 @@ describe('FDX · ScriptNotes', () => {
 		});
 		expect(scriptNotes.map((scriptNote) => scriptNote.anchor)).toEqual([
 			span(0, 0, 0, 4), // the line before
-			span(1, 0, 1, 0), // the dual dialogue's two units and its break: its place
-			span(2, 0, 2, 7), // "Omitted"
-			span(2, 7, 2, 7), // the omitted scene's two units: its place, after the text
-			span(2, 7, 3, 0), // the break after it, to the next line
-			span(3, 0, 3, 3) // the line after both — past the script's end, counted as zero
+			span(1, 0, 1, 0), // the dual dialogue's two units and its break: its first line
+			span(5, 0, 5, 7), // "Omitted"
+			span(5, 7, 5, 7), // the omitted scene's two units: its place, after the text
+			span(5, 7, 6, 0), // the break after it, to the next line
+			span(6, 0, 6, 3) // the line after both — past the script's end, counted as zero
 		]);
 	});
 
@@ -1017,7 +1020,11 @@ ${card}
 				text: canonicalCasing(element.type as ElementType, element.text)
 			}))
 		});
-		expect(openFdx(SAMPLE).rewrite(parseFountain(source, { emphasis: 'runs' })).xml).toBe(SAMPLE);
+		// With the reading the app passes since IL-0027: without it, every
+		// paragraph Fountain cannot carry — the dual dialogue cues' tags among
+		// them — is judged edited.
+		const reading = parseFountain(source, { emphasis: 'runs' });
+		expect(openFdx(SAMPLE).rewrite(reading, { unedited: reading }).xml).toBe(SAMPLE);
 	});
 
 	it('a card with no Alignment never takes the writer’s edit', () => {
@@ -1133,14 +1140,14 @@ describe('openFdx · files Final Draft wrote', () => {
 	};
 	const REQUIRED: Record<(typeof FILES)[number], ReturnType<typeof hazards>> = {
 		'finaldraft-sample02.fdx': {
-			eDraftNamespace: false, bareParagraphLines: 0, taggedRuns: 392, revisionRuns: 98,
+			eDraftNamespace: false, bareParagraphLines: 0, taggedRuns: 394, revisionRuns: 98,
 			adornmentSplits: 10, dualDialogue: 6, omittedScenes: 1, endOfAct: 1, emphasisedHeadings: 1,
-			italicParentheticals: 2, multiLineParagraphs: 0, trailingSpaces: 1, astral: 0
+			italicParentheticals: 2, multiLineParagraphs: 0, trailingSpaces: 9, astral: 0
 		},
 		'finaldraft-sample01.fdx': {
 			eDraftNamespace: false, bareParagraphLines: 0, taggedRuns: 0, revisionRuns: 2,
 			adornmentSplits: 3, dualDialogue: 6, omittedScenes: 0, endOfAct: 1, emphasisedHeadings: 1,
-			italicParentheticals: 2, multiLineParagraphs: 1, trailingSpaces: 1, astral: 4
+			italicParentheticals: 2, multiLineParagraphs: 1, trailingSpaces: 3, astral: 4
 		}
 	};
 	/** Why a file cannot stand as a fidelity fixture — nothing, when it can. */
@@ -1274,6 +1281,144 @@ describe('openFdx · files Final Draft wrote', () => {
 	   the way the app makes it — to the Fountain source, read back with its
 	   emphasis — and each expected file is the original with only the writer's
 	   characters changed. */
+	/* IL-0032: Final Draft keeps dual dialogue as a paragraph with no text of
+	   its own holding a <DualDialogue>, its paragraphs the two speeches. Read
+	   as metadata, all 48 lines in these two files were invisible. */
+	describe('dual dialogue', () => {
+		/** Each dual dialogue in the file: where its paragraph sits (from the
+		    line break before it), and its lines' paragraphs. */
+		const blocksOf = (xml: string) =>
+			[...xml.matchAll(/\n {4}<Paragraph [^>]*>\n {6}<DualDialogue>[\s\S]*?<\/DualDialogue>\n {4}<\/Paragraph>/g)].map((match) => ({
+				start: match.index,
+				end: match.index + match[0].length,
+				lines: [...match[0].matchAll(/\n {8}(<Paragraph Type="([^"]+)"[^>]*>[\s\S]*?\n {8}<\/Paragraph>)/g)].map((line) => ({
+					bytes: line[1],
+					type: line[2].toLowerCase(),
+					text: [...line[1].matchAll(/<Text[^>]*>([^<]*)<\/Text>/g)].map((run) => decodeXmlEntities(run[1])).join('')
+				}))
+			}));
+
+		it.each(FILES)('every line of every dual dialogue in %s is in the script, the second cue dual', (name) => {
+			const xml = fixture(name);
+			const { script, diagnostics } = parseFdx(xml);
+			const blocks = blocksOf(xml);
+			expect(blocks).toHaveLength(6);
+			expect(diagnostics).toEqual([]);
+			expect(script.elements.filter((element) => element.type === 'general' && element.text === '')).toEqual([]);
+			const dualCues = script.elements.flatMap((element, index) => (element.dual ? [index] : []));
+			expect(dualCues).toHaveLength(6);
+			blocks.forEach((block, at) => {
+				const first = dualCues[at] - 2;
+				const lines = script.elements.slice(first, first + block.lines.length);
+				expect(lines.map((line) => [line.type, line.text])).toEqual(block.lines.map((line) => [line.type, line.text]));
+				expect(lines.map((line) => line.dual ?? false)).toEqual([false, false, true, false]);
+			});
+		});
+
+		it.each(FILES)('a typo in any dual dialogue line of %s changes that one character, inside its block', (name) => {
+			const xml = fixture(name);
+			const reading = fountainReading(xml);
+			const dualCues = reading.elements.flatMap((element, index) => (element.dual ? [index] : []));
+			expect(dualCues).toHaveLength(6);
+			for (const cue of dualCues) {
+				for (const line of [cue - 2, cue - 1, cue, cue + 1]) {
+					const edited = {
+						...reading,
+						elements: reading.elements.map((element, index) =>
+							index === line ? { ...element, text: `Q${element.text.slice(1)}` } : element
+						)
+					};
+					const saved = openFdx(xml).rewrite(edited, { unedited: reading });
+					let at = 0;
+					while (xml[at] === saved.xml[at]) at++;
+					expect(saved.diagnostics).toEqual([]);
+					expect(saved.xml).toBe(`${xml.slice(0, at)}Q${xml.slice(at + 1)}`);
+					expect(blocksOf(xml).some((block) => block.start < at && at < block.end)).toBe(true);
+				}
+			}
+		});
+
+		const firstBlockSaved = (find: string, replace: string) => {
+			const xml = fixture('finaldraft-sample02.fdx');
+			const source = fountainSource(xml);
+			expect(source.split(find)).toHaveLength(2);
+			const saved = openFdx(xml).rewrite(parseFountain(source.replace(find, () => replace), { emphasis: 'runs' }), {
+				unedited: parseFountain(source, { emphasis: 'runs' })
+			});
+			return { xml, saved, block: blocksOf(xml)[0] };
+		};
+		const PAIR = '\nXXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n';
+
+		it('lines added to the second speaker are written inside the block', () => {
+			const { xml, saved, block } = firstBlockSaved(PAIR, `${PAIR}(xxxxx)\nXxx xxx.\n`);
+			const closing = block.end - '\n      </DualDialogue>\n    </Paragraph>'.length;
+			expect(saved.diagnostics).toEqual([]);
+			expect(saved.xml).toBe(
+				`${xml.slice(0, closing)}\n        <Paragraph Type="Parenthetical"><Text>(xxxxx)</Text></Paragraph>\n        <Paragraph Type="Dialogue"><Text>Xxx xxx.</Text></Paragraph>${xml.slice(closing)}`
+			);
+		});
+
+		it('deleting the whole pair removes its paragraph and nothing else', () => {
+			const { xml, saved, block } = firstBlockSaved(PAIR, '\n');
+			expect(saved.diagnostics).toEqual([]);
+			expect(saved.xml).toBe(xml.slice(0, block.start) + xml.slice(block.end));
+		});
+
+		it('a pair the writer un-duals is dissolved in place — each line keeping its own bytes — and reported', () => {
+			const { xml, saved, block } = firstBlockSaved(PAIR, PAIR.replace(' ^', ''));
+			expect(saved.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['FDX_REWRITE_DUAL_DIALOGUE_DISSOLVED']);
+			expect(saved.xml).toBe(
+				xml.slice(0, block.start) + block.lines.map((line) => `\n    ${line.bytes}`).join('') + xml.slice(block.end)
+			);
+		});
+
+		it('an edit through the engine alone lands inside the block too', () => {
+			const xml = fixture('finaldraft-sample01.fdx');
+			const document = openFdx(xml);
+			const cue = document.script.elements.findIndex((element) => element.dual);
+			const saved = document.rewrite({
+				...document.script,
+				elements: document.script.elements.map((element, index) => (index === cue + 1 ? { ...element, text: `Q${element.text.slice(1)}` } : element))
+			});
+			let at = 0;
+			while (xml[at] === saved.xml[at]) at++;
+			expect(saved.xml).toBe(`${xml.slice(0, at)}Q${xml.slice(at + 1)}`);
+			expect(blocksOf(xml)[0].start).toBeLessThan(at);
+			expect(at).toBeLessThan(blocksOf(xml)[0].end);
+		});
+
+		it('reads each line of a dual dialogue exactly as a body paragraph — a parenthetical, a tag — the second cue dual', () => {
+			const { script, diagnostics } = parseFdx(
+				'<FinalDraft><Content><Paragraph Type="Action"><Text>Hum.</Text></Paragraph><Paragraph Type="General"><DualDialogue><Paragraph Type="Character"><Text>MARA</Text></Paragraph><Paragraph Type="Dialogue"><Text>Yes.</Text></Paragraph><Paragraph Type="Character"><Text TagNumber="4">JON</Text></Paragraph><Paragraph Type="Parenthetical"><Text>(beat)</Text></Paragraph><Paragraph Type="Dialogue"><Text>No.</Text></Paragraph></DualDialogue></Paragraph><Paragraph Type="Action"><Text>Go.</Text></Paragraph></Content></FinalDraft>'
+			);
+			expect(diagnostics).toEqual([]);
+			expect(script.elements).toEqual([
+				{ type: 'action', text: 'Hum.' },
+				{ type: 'character', text: 'MARA' },
+				{ type: 'dialogue', text: 'Yes.' },
+				{ type: 'character', text: 'JON', runs: [{ start: 0, end: 3, styles: [], tagNumbers: [4] }], dual: true },
+				{ type: 'parenthetical', text: '(beat)' },
+				{ type: 'dialogue', text: 'No.' },
+				{ type: 'action', text: 'Go.' }
+			]);
+		});
+
+		it('dual dialogue in any other form is read as before, and reported', () => {
+			const block = '<DualDialogue><Paragraph Type="Character"><Text>MARA</Text></Paragraph><Paragraph Type="Dialogue"><Text>Yes.</Text></Paragraph><Paragraph Type="Character"><Text>JON</Text></Paragraph><Paragraph Type="Dialogue"><Text>No.</Text></Paragraph></DualDialogue>';
+			const { script, diagnostics } = parseFdx(
+				`<FinalDraft><Content><Paragraph Type="General"><Text>Look:</Text>${block}</Paragraph><Paragraph Type="General">${block}${block}</Paragraph></Content></FinalDraft>`
+			);
+			expect(script.elements).toEqual([
+				{ type: 'general', text: 'Look:' },
+				{ type: 'general', text: '' }
+			]);
+			expect(diagnostics.map((diagnostic) => [diagnostic.code, diagnostic.paragraphIndex])).toEqual([
+				['FDX_DUAL_DIALOGUE_NOT_READ', 0],
+				['FDX_DUAL_DIALOGUE_NOT_READ', 1]
+			]);
+		});
+	});
+
 	describe('an edited paragraph keeps everything the writer did not touch', () => {
 		/** The save of `xml` after the app's source had `find` (once) replaced. */
 		const savedAfter = (xml: string, find: string, replace: string) => {

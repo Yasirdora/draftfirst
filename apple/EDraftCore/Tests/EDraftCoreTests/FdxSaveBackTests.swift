@@ -320,4 +320,48 @@ final class FdxSaveBackTests: XCTestCase {
         XCTAssertEqual(String(decoding: written, as: UTF8.self), expected)
         XCTAssertEqual(Self.tags(written), Self.tags(data))
     }
+
+    // MARK: - Dual dialogue
+
+    /// Final Draft keeps dual dialogue as a paragraph with no text of its own
+    /// holding a <DualDialogue>. Read as metadata, its speeches never reached
+    /// the editor: each block was an empty line.
+    func testDualDialogueFromFinalDraftIsInTheEditor() throws {
+        let data = try Self.finalDraftWritten("finaldraft-sample02.fdx")
+        let file = try ScreenplayFile.open(data, as: .finalDraftScreenplay)
+        let editor = EditorState(source: file.source)
+        let elements = editor.screenplay.elements
+        let dualCues = elements.indices.filter { elements[$0].dual == true }
+        XCTAssertEqual(dualCues.count, 6)
+        let first = try XCTUnwrap(dualCues.first)
+        XCTAssertEqual(elements[(first - 2)...(first + 1)].map(\.type), [.character, .dialogue, .character, .dialogue])
+        XCTAssertEqual(elements[(first - 2)...(first + 1)].map(\.text), ["XXXXX", "Xxx?", "XXXXXX", "Xxx."])
+    }
+
+    /// A line of a dual dialogue edited in the editor saves as that character,
+    /// inside Final Draft's block; the block and every tag stay.
+    func testADualDialogueLineEditedInTheEditorSavesAsThatCharacter() throws {
+        let data = try Self.finalDraftWritten("finaldraft-sample02.fdx")
+        let file = try ScreenplayFile.open(data, as: .finalDraftScreenplay)
+        let editor = EditorState(source: file.source)
+        var published: String?
+        editor.onSourceChange = { published = $0 }
+
+        let cue = try XCTUnwrap(editor.screenplay.elements.firstIndex { $0.dual == true })
+        let line = editor.screenplay.elements[cue + 1]
+        XCTAssertEqual(line.text, "Xxx.")
+        editor.replaceElementText(id: line.id, text: "Qxx.")
+        editor.flushPendingWork()
+
+        let written = try ScreenplayFile.encode(try XCTUnwrap(published), as: .finalDraftScreenplay, origin: file.origin)
+        XCTAssertEqual(
+            String(decoding: written, as: UTF8.self),
+            Self.file(
+                data,
+                with: "id=\"2220856b-967a-4a2f-85da-74f9df596dbb\">\n          <Text>Xxx.</Text>",
+                as: "id=\"2220856b-967a-4a2f-85da-74f9df596dbb\">\n          <Text>Qxx.</Text>"
+            )
+        )
+        XCTAssertEqual(Self.tags(written), Self.tags(data))
+    }
 }

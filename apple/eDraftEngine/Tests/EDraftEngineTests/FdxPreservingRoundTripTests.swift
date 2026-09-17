@@ -172,7 +172,7 @@ struct FdxEndOfActRoundTripTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.rewriteCases.count == 39)
+        #expect(Self.corpus.rewriteCases.count == 47)
     }
 
     @Test("rewrite", arguments: Self.corpus.rewriteCases)
@@ -363,13 +363,13 @@ struct FdxFinalDraftWrittenTests {
 
     static let required: [String: Hazards] = {
         var sample02 = Hazards()
-        sample02.taggedRuns = 392; sample02.revisionRuns = 98; sample02.adornmentSplits = 10
+        sample02.taggedRuns = 394; sample02.revisionRuns = 98; sample02.adornmentSplits = 10
         sample02.dualDialogue = 6; sample02.omittedScenes = 1; sample02.endOfAct = 1
-        sample02.emphasisedHeadings = 1; sample02.italicParentheticals = 2; sample02.trailingSpaces = 1
+        sample02.emphasisedHeadings = 1; sample02.italicParentheticals = 2; sample02.trailingSpaces = 9
         var sample01 = Hazards()
         sample01.revisionRuns = 2; sample01.adornmentSplits = 3; sample01.dualDialogue = 6
         sample01.endOfAct = 1; sample01.emphasisedHeadings = 1; sample01.italicParentheticals = 2
-        sample01.multiLineParagraphs = 1; sample01.trailingSpaces = 1; sample01.astral = 4
+        sample01.multiLineParagraphs = 1; sample01.trailingSpaces = 3; sample01.astral = 4
         return ["finaldraft-sample02.fdx": sample02, "finaldraft-sample01.fdx": sample01]
     }()
 
@@ -514,5 +514,96 @@ struct FdxFinalDraftWrittenTests {
             proven += 1
         }
         #expect(proven >= 10, "\(name): only \(proven) positions proven")
+    }
+
+    /* IL-0032: Final Draft keeps dual dialogue as a paragraph with no text of
+       its own holding a <DualDialogue>, its paragraphs the two speeches. Read
+       as metadata, all 48 lines in these two files were invisible
+       (TypeScript: the same proofs; the save cases are corpus cases). */
+
+    /// Each dual dialogue in the file: its lines as (type, text).
+    private static func dualDialogueLines(_ xml: String) -> [[(type: String, text: String)]] {
+        let block = try! NSRegularExpression(pattern: #"<DualDialogue>([\s\S]*?)</DualDialogue>"#)
+        let line = try! NSRegularExpression(pattern: #"\n {8}<Paragraph Type="([^"]+)"[^>]*>([\s\S]*?)\n {8}</Paragraph>"#)
+        let run = try! NSRegularExpression(pattern: #"<Text[^>]*>([^<]*)</Text>"#)
+        let whole = xml as NSString
+        return block.matches(in: xml, range: NSRange(location: 0, length: whole.length)).map { match in
+            let inner = whole.substring(with: match.range(at: 1)) as NSString
+            return line.matches(in: inner as String, range: NSRange(location: 0, length: inner.length)).map { paragraph in
+                let body = inner.substring(with: paragraph.range(at: 2)) as NSString
+                let text = run.matches(in: body as String, range: NSRange(location: 0, length: body.length))
+                    .map { Fdx.decodeXmlEntities(body.substring(with: $0.range(at: 1))) }
+                    .joined()
+                return (inner.substring(with: paragraph.range(at: 1)).lowercased(), text)
+            }
+        }
+    }
+
+    @Test("Every line of every dual dialogue is in the script, the second cue dual", arguments: files)
+    func dualDialogueIsRead(_ name: String) {
+        let xml = Self.fixture(name)
+        let result = Fdx.parse(xml)
+        let blocks = Self.dualDialogueLines(xml)
+        #expect(blocks.count == 6)
+        #expect(result.diagnostics.isEmpty)
+        #expect(!result.script.elements.contains { $0.type == .general && $0.text.isEmpty })
+        let dualCues = result.script.elements.indices.filter { result.script.elements[$0].dual == true }
+        #expect(dualCues.count == 6)
+        for (block, cue) in zip(blocks, dualCues) {
+            let lines = Array(result.script.elements[(cue - 2)..<(cue - 2 + block.count)])
+            #expect(lines.map { "\($0.type.rawValue)|\($0.text)" } == block.map { "\($0.type)|\($0.text)" })
+            #expect(lines.map { $0.dual ?? false } == [false, false, true, false])
+        }
+    }
+
+    @Test("A typo in any dual dialogue line changes that one character, inside its block", arguments: files)
+    func dualDialogueTypos(_ name: String) throws {
+        let xml = Self.fixture(name)
+        let file = Array(xml.utf16)
+        let reading = try FountainReading.of(xml)
+        let dualCues = reading.elements.indices.filter { reading.elements[$0].dual == true }
+        #expect(dualCues.count == 6)
+        let blockPattern = try NSRegularExpression(pattern: #"<DualDialogue>[\s\S]*?</DualDialogue>"#)
+        let blocks = blockPattern.matches(in: xml, range: NSRange(location: 0, length: file.count)).map(\.range)
+        for cue in dualCues {
+            for line in [cue - 2, cue - 1, cue, cue + 1] {
+                var edited = reading
+                edited.elements[line].text = "Q" + String(edited.elements[line].text.dropFirst())
+                let saved = Array(Fdx.open(xml).rewrite(edited, unedited: reading).utf16)
+                var at = 0
+                while at < file.count, file[at] == saved[at] { at += 1 }
+                #expect(saved == Array(file[..<at]) + Array("Q".utf16) + Array(file[(at + 1)...]),
+                        "\(name) line \(line): more than one character changed")
+                #expect(blocks.contains { $0.location < at && at < $0.location + $0.length })
+            }
+        }
+    }
+
+    @Test("Reads each line of a dual dialogue exactly as a body paragraph, the second cue dual")
+    func dualDialogueLinesRead() {
+        let result = Fdx.parse(#"<FinalDraft><Content><Paragraph Type="Action"><Text>Hum.</Text></Paragraph><Paragraph Type="General"><DualDialogue><Paragraph Type="Character"><Text>MARA</Text></Paragraph><Paragraph Type="Dialogue"><Text>Yes.</Text></Paragraph><Paragraph Type="Character"><Text TagNumber="4">JON</Text></Paragraph><Paragraph Type="Parenthetical"><Text>(beat)</Text></Paragraph><Paragraph Type="Dialogue"><Text>No.</Text></Paragraph></DualDialogue></Paragraph><Paragraph Type="Action"><Text>Go.</Text></Paragraph></Content></FinalDraft>"#)
+        #expect(result.diagnostics.isEmpty)
+        #expect(result.script.elements == [
+            ScreenplayElement(type: .action, text: "Hum."),
+            ScreenplayElement(type: .character, text: "MARA"),
+            ScreenplayElement(type: .dialogue, text: "Yes."),
+            ScreenplayElement(type: .character, text: "JON",
+                              runs: [StyleRun(start: 0, end: 3, styles: [], tagNumbers: [4])], dual: true),
+            ScreenplayElement(type: .parenthetical, text: "(beat)"),
+            ScreenplayElement(type: .dialogue, text: "No."),
+            ScreenplayElement(type: .action, text: "Go."),
+        ])
+    }
+
+    @Test("Dual dialogue in any other form is read as before, and reported")
+    func dualDialogueNotRead() {
+        let block = #"<DualDialogue><Paragraph Type="Character"><Text>MARA</Text></Paragraph><Paragraph Type="Dialogue"><Text>Yes.</Text></Paragraph><Paragraph Type="Character"><Text>JON</Text></Paragraph><Paragraph Type="Dialogue"><Text>No.</Text></Paragraph></DualDialogue>"#
+        let result = Fdx.parse(#"<FinalDraft><Content><Paragraph Type="General"><Text>Look:</Text>"# + block + #"</Paragraph><Paragraph Type="General">"# + block + block + "</Paragraph></Content></FinalDraft>")
+        #expect(result.script.elements == [
+            ScreenplayElement(type: .general, text: "Look:"),
+            ScreenplayElement(type: .general, text: ""),
+        ])
+        #expect(result.diagnostics.map(\.code) == ["FDX_DUAL_DIALOGUE_NOT_READ", "FDX_DUAL_DIALOGUE_NOT_READ"])
+        #expect(result.diagnostics.map(\.paragraphIndex) == [0, 1])
     }
 }

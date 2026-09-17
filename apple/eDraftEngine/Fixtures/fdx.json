@@ -5729,11 +5729,11 @@
             },
             "anchor": {
               "start": {
-                "element": 298,
+                "element": 313,
                 "offset": 48
               },
               "end": {
-                "element": 299,
+                "element": 314,
                 "offset": 22
               }
             },
@@ -5752,11 +5752,11 @@
             },
             "anchor": {
               "start": {
-                "element": 535,
+                "element": 550,
                 "offset": 14
               },
               "end": {
-                "element": 535,
+                "element": 550,
                 "offset": 20
               }
             },
@@ -5775,11 +5775,11 @@
             },
             "anchor": {
               "start": {
-                "element": 580,
+                "element": 595,
                 "offset": 58
               },
               "end": {
-                "element": 583,
+                "element": 598,
                 "offset": 81
               }
             },
@@ -5798,11 +5798,11 @@
             },
             "anchor": {
               "start": {
-                "element": 765,
+                "element": 783,
                 "offset": 2
               },
               "end": {
-                "element": 765,
+                "element": 783,
                 "offset": 2
               }
             },
@@ -5995,11 +5995,11 @@
             },
             "anchor": {
               "start": {
-                "element": 295,
+                "element": 310,
                 "offset": 0
               },
               "end": {
-                "element": 295,
+                "element": 310,
                 "offset": 41
               }
             },
@@ -6018,11 +6018,11 @@
             },
             "anchor": {
               "start": {
-                "element": 533,
+                "element": 548,
                 "offset": 0
               },
               "end": {
-                "element": 533,
+                "element": 548,
                 "offset": 6
               }
             },
@@ -6041,11 +6041,11 @@
             },
             "anchor": {
               "start": {
-                "element": 578,
+                "element": 593,
                 "offset": 0
               },
               "end": {
-                "element": 580,
+                "element": 595,
                 "offset": 0
               }
             },
@@ -6064,11 +6064,11 @@
             },
             "anchor": {
               "start": {
-                "element": 761,
+                "element": 779,
                 "offset": 13
               },
               "end": {
-                "element": 761,
+                "element": 779,
                 "offset": 13
               }
             },
@@ -6285,11 +6285,11 @@
             },
             "anchor": {
               "start": {
-                "element": 302,
+                "element": 317,
                 "offset": 0
               },
               "end": {
-                "element": 302,
+                "element": 317,
                 "offset": 41
               }
             },
@@ -6308,11 +6308,11 @@
             },
             "anchor": {
               "start": {
-                "element": 567,
+                "element": 582,
                 "offset": 0
               },
               "end": {
-                "element": 567,
+                "element": 582,
                 "offset": 6
               }
             },
@@ -6331,11 +6331,11 @@
             },
             "anchor": {
               "start": {
-                "element": 631,
+                "element": 646,
                 "offset": 0
               },
               "end": {
-                "element": 631,
+                "element": 646,
                 "offset": 99
               }
             },
@@ -6354,11 +6354,11 @@
             },
             "anchor": {
               "start": {
-                "element": 823,
+                "element": 841,
                 "offset": 13
               },
               "end": {
-                "element": 823,
+                "element": 841,
                 "offset": 13
               }
             },
@@ -6418,11 +6418,11 @@
             },
             "anchor": {
               "start": {
-                "element": 2,
+                "element": 5,
                 "offset": 0
               },
               "end": {
-                "element": 2,
+                "element": 5,
                 "offset": 7
               }
             },
@@ -6436,11 +6436,11 @@
             },
             "anchor": {
               "start": {
-                "element": 2,
+                "element": 5,
                 "offset": 7
               },
               "end": {
-                "element": 2,
+                "element": 5,
                 "offset": 7
               }
             },
@@ -6454,11 +6454,11 @@
             },
             "anchor": {
               "start": {
-                "element": 2,
+                "element": 5,
                 "offset": 7
               },
               "end": {
-                "element": 3,
+                "element": 6,
                 "offset": 0
               }
             },
@@ -6472,11 +6472,11 @@
             },
             "anchor": {
               "start": {
-                "element": 3,
+                "element": 6,
                 "offset": 0
               },
               "end": {
-                "element": 3,
+                "element": 6,
                 "offset": 3
               }
             },
@@ -6491,8 +6491,21 @@
               "text": "Hum."
             },
             {
-              "type": "general",
-              "text": ""
+              "type": "character",
+              "text": "MARA"
+            },
+            {
+              "type": "dialogue",
+              "text": "Yes."
+            },
+            {
+              "type": "character",
+              "text": "JON",
+              "dual": true
+            },
+            {
+              "type": "dialogue",
+              "text": "No."
             },
             {
               "type": "scene",
@@ -7341,6 +7354,177 @@
       },
       "expected": {
         "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text RevisionID=\"1\">Key </Text><Text>🔒</Text><Text RevisionID=\"1\">.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "dual-dialogue-line-typo",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "through": "fountain",
+      "edit": {
+        "find": "\nXXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n",
+        "replace": "\nXXXXX\nXxx?\n\nXXXXXX ^\nQxx.\n"
+      },
+      "expected": {
+        "changed": {
+          "at": 36863,
+          "removed": "X",
+          "inserted": "Q"
+        }
+      }
+    },
+    {
+      "name": "dual-dialogue-cue-typo",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "through": "fountain",
+      "edit": {
+        "find": "\nXXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n",
+        "replace": "\nQXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n"
+      },
+      "expected": {
+        "changed": {
+          "at": 36462,
+          "removed": "X",
+          "inserted": "Q"
+        }
+      }
+    },
+    {
+      "name": "dual-dialogue-line-added",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "through": "fountain",
+      "edit": {
+        "find": "\nXXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n",
+        "replace": "\nXXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n(xxxxx)\nXxx xxx.\n"
+      },
+      "expected": {
+        "changed": {
+          "at": 36902,
+          "removed": "",
+          "inserted": "  <Paragraph Type=\"Parenthetical\"><Text>(xxxxx)</Text></Paragraph>\n        <Paragraph Type=\"Dialogue\"><Text>Xxx xxx.</Text></Paragraph>\n      "
+        }
+      }
+    },
+    {
+      "name": "dual-dialogue-deleted",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "through": "fountain",
+      "edit": {
+        "find": "\nXXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n",
+        "replace": "\n"
+      },
+      "expected": {
+        "changed": {
+          "at": 36015,
+          "removed": "Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.50\" RightIndent=\"7.50\" SpaceBefore=\"12\" Spacing=\"1\" StartsNewPage=\"No\" Type=\"General\" id=\"76c01355-7ba3-48e6-94b5-6ddf927adf68\">\n      <DualDialogue>\n        <SpellCheckIgnoreLists>\n          <IgnoredRanges/>\n          <IgnoredWords/>\n        </SpellCheckIgnoreLists>\n        <Paragraph Type=\"Character\" id=\"3277aa7a-b268-43ac-a468-d3901298d7dc\">\n          <Text TagNumber=\"515\">XXXXX</Text>\n        </Paragraph>\n        <Paragraph Type=\"Dialogue\" id=\"c6ccfb33-1399-4711-a9b2-e052aa9ef46b\">\n          <Text>Xxx?</Text>\n        </Paragraph>\n        <Paragraph Type=\"Character\" id=\"3f0139db-c0b0-43b8-9679-602180ad7451\">\n          <Text TagNumber=\"519\">XXXXXX</Text>\n        </Paragraph>\n        <Paragraph Type=\"Dialogue\" id=\"2220856b-967a-4a2f-85da-74f9df596dbb\">\n          <Text>Xxx.</Text>\n        </Paragraph>\n      </DualDialogue>\n    </Paragraph>\n    <Paragraph ",
+          "inserted": ""
+        }
+      }
+    },
+    {
+      "name": "dual-dialogue-caret-removed",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "through": "fountain",
+      "edit": {
+        "find": "\nXXXXX\nXxx?\n\nXXXXXX ^\nXxx.\n",
+        "replace": "\nXXXXX\nXxx?\n\nXXXXXX\nXxx.\n"
+      },
+      "expected": {
+        "changed": {
+          "at": 36015,
+          "removed": "Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.50\" RightIndent=\"7.50\" SpaceBefore=\"12\" Spacing=\"1\" StartsNewPage=\"No\" Type=\"General\" id=\"76c01355-7ba3-48e6-94b5-6ddf927adf68\">\n      <DualDialogue>\n        <SpellCheckIgnoreLists>\n          <IgnoredRanges/>\n          <IgnoredWords/>\n        </SpellCheckIgnoreLists>\n        <Paragraph Type=\"Character\" id=\"3277aa7a-b268-43ac-a468-d3901298d7dc\">\n          <Text TagNumber=\"515\">XXXXX</Text>\n        </Paragraph>\n        <Paragraph Type=\"Dialogue\" id=\"c6ccfb33-1399-4711-a9b2-e052aa9ef46b\">\n          <Text>Xxx?</Text>\n        </Paragraph>\n        <Paragraph Type=\"Character\" id=\"3f0139db-c0b0-43b8-9679-602180ad7451\">\n          <Text TagNumber=\"519\">XXXXXX</Text>\n        </Paragraph>\n        <Paragraph Type=\"Dialogue\" id=\"2220856b-967a-4a2f-85da-74f9df596dbb\">\n          <Text>Xxx.</Text>\n        </Paragraph>\n      </DualDialogue>\n",
+          "inserted": "Type=\"Character\" id=\"3277aa7a-b268-43ac-a468-d3901298d7dc\">\n          <Text TagNumber=\"515\">XXXXX</Text>\n        </Paragraph>\n    <Paragraph Type=\"Dialogue\" id=\"c6ccfb33-1399-4711-a9b2-e052aa9ef46b\">\n          <Text>Xxx?</Text>\n        </Paragraph>\n    <Paragraph Type=\"Character\" id=\"3f0139db-c0b0-43b8-9679-602180ad7451\">\n          <Text TagNumber=\"519\">XXXXXX</Text>\n        </Paragraph>\n    <Paragraph Type=\"Dialogue\" id=\"2220856b-967a-4a2f-85da-74f9df596dbb\">\n          <Text>Xxx.</Text>\n    "
+        }
+      }
+    },
+    {
+      "name": "dual-dialogue-first-in-body-no-edit",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"General\"><DualDialogue><Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>Yes.</Text></Paragraph><Paragraph Type=\"Character\"><Text TagNumber=\"4\">JON</Text></Paragraph><Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>No.</Text></Paragraph></DualDialogue></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "Yes."
+          },
+          {
+            "type": "character",
+            "text": "JON",
+            "dual": true
+          },
+          {
+            "type": "parenthetical",
+            "text": "(beat)"
+          },
+          {
+            "type": "dialogue",
+            "text": "No."
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "Yes."
+          },
+          {
+            "type": "character",
+            "text": "JON",
+            "dual": true
+          },
+          {
+            "type": "parenthetical",
+            "text": "(beat)"
+          },
+          {
+            "type": "dialogue",
+            "text": "No."
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"General\"><DualDialogue><Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>Yes.</Text></Paragraph><Paragraph Type=\"Character\"><Text TagNumber=\"4\">JON</Text></Paragraph><Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>No.</Text></Paragraph></DualDialogue></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "dual-dialogue-first-speaker-line-added",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"General\"><DualDialogue><Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>Yes.</Text></Paragraph><Paragraph Type=\"Character\"><Text TagNumber=\"4\">JON</Text></Paragraph><Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>No.</Text></Paragraph></DualDialogue></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>",
+      "through": "fountain",
+      "edit": {
+        "find": "MARA\nYes.\n",
+        "replace": "MARA\nYes.\n(softly)\nAgain.\n"
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"General\"><DualDialogue><Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>Yes.</Text></Paragraph><Paragraph Type=\"Parenthetical\"><Text>(softly)</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>Again.</Text></Paragraph><Paragraph Type=\"Character\"><Text TagNumber=\"4\">JON</Text></Paragraph><Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>No.</Text></Paragraph></DualDialogue></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "dual-dialogue-first-speaker-removed",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"General\"><DualDialogue><Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>Yes.</Text></Paragraph><Paragraph Type=\"Character\"><Text TagNumber=\"4\">JON</Text></Paragraph><Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>No.</Text></Paragraph></DualDialogue></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>",
+      "through": "fountain",
+      "edit": {
+        "find": "MARA\nYes.\n\n",
+        "replace": ""
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Character\"><Text TagNumber=\"4\">JON</Text></Paragraph><Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>No.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>"
       }
     },
     {

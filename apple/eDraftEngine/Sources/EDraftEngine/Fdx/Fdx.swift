@@ -336,6 +336,9 @@ public enum Fdx {
         /// <DualDialogue>, an <OmittedScene> — sits among its text, as a
         /// UTF-16 offset into `text` (TypeScript `FdxParagraph.blocks`).
         var blocks: [Int] = []
+        /// Each <DualDialogue> directly inside it, as UTF-16 source offsets
+        /// (TypeScript `FdxParagraph.dialogues`).
+        var dialogues: [(start: Int, end: Int)] = []
 
         func attribute(_ name: String) -> String? {
             attributes.last { $0.name == name }?.value
@@ -447,6 +450,7 @@ public enum Fdx {
                metadata, but its place is kept: a ScriptNote Range counts it. */
             if metadataDepth == 0, Fdx.embeddedBlocks.contains(tag.name), let place = current?.text.utf16.count {
                 current?.blocks.append(place)
+                if tag.name == "dualdialogue" { current?.dialogues.append((start: offset, end: -1)) }
             }
             // Inside a paragraph, anything that is not its own <Text> is
             // metadata — including nested paragraphs. Skipped whole.
@@ -503,6 +507,9 @@ public enum Fdx {
             if open.last == name { open.removeLast() }
 
             if current != nil && metadataDepth > 0 {
+                if name == "dualdialogue", metadataDepth == 1, let count = current?.dialogues.count, count > 0 {
+                    current?.dialogues[count - 1].end = tagEnd(offset)
+                }
                 metadataDepth -= 1
                 if name == "content", !contents.isEmpty { contents.removeLast() }
                 return true
@@ -644,6 +651,7 @@ public enum Fdx {
         /* Every body paragraph as a ScriptNote Range counts it — absorbed ones
            included, because Final Draft's text still holds them. */
         var layout: [ParagraphLayout] = []
+        let sourceUnits: [UInt16] = parsed.body.contains { !$0.dialogues.isEmpty } ? Array(source.utf16) : []
         for paragraph in parsed.body {
             let fdxType = paragraph.attribute("type") ?? ""
             let key = fdxType.jsTrimmed.lowercased()
@@ -667,22 +675,35 @@ public enum Fdx {
                 ))
             }
 
-            let type: ElementKind = refineGeneral(kind?.type ?? .general, paragraph)
-
-            var element = ScreenplayElement(type: type, text: paragraph.text)
-            if !paragraph.runs.isEmpty {
-                element.runs = Emphasis.normalise(
-                    paragraph.runs, textLength: paragraph.text.utf16.count
-                )
+            /* Final Draft keeps dual dialogue as a paragraph with no text of its
+               own holding a <DualDialogue>, whose paragraphs are the two
+               speeches. Read as metadata, all of it was invisible: each block
+               arrived as one empty General element. Its lines are the script. */
+            if !paragraph.dialogues.isEmpty,
+               let lines = dualDialogue(of: paragraph, in: sourceUnits, limits: limits) {
+                var cues = 0
+                for line in lines {
+                    var element = importedElement(
+                        line, kind: fdxElementKind((line.attribute("type") ?? "").jsTrimmed.lowercased())
+                    )
+                    // The second speaker's cue is the one Fountain marks `^`.
+                    if element.type == .character {
+                        cues += 1
+                        if cues == 2 { element.dual = true }
+                    }
+                    elements.append(element)
+                }
+                continue
             }
-            if type == .section, let depth = kind?.depth { element.depth = depth }
-            let sceneNumber = paragraph.attribute("number") ?? ""
-            if type == .scene && !sceneNumber.isEmpty { element.sceneNumber = sceneNumber }
-            if type == .character,
-               (paragraph.attribute("dual") ?? "").lowercased() == "yes" {
-                element.dual = true
+            if !paragraph.dialogues.isEmpty {
+                diagnostics.add(.init(
+                    code: "FDX_DUAL_DIALOGUE_NOT_READ",
+                    severity: .warning,
+                    message: "A paragraph holds dual dialogue in a form not read (text of its own, or more than one block); its speeches are not shown.",
+                    paragraphIndex: paragraph.paragraphIndex
+                ))
             }
-            elements.append(element)
+            elements.append(importedElement(paragraph, kind: kind))
         }
 
         /* The title page reads verbatim — it reports no diagnostics, so the
@@ -721,6 +742,59 @@ public enum Fdx {
 
     /// The element a paragraph becomes, warnings aside — the same answer the
     /// import reaches, so a rewrite cannot disagree with it.
+    /// One paragraph as the import reads it into an element (TypeScript `elementOf`).
+    private static func importedElement(
+        _ paragraph: CollectedParagraph, kind: (type: ElementKind, depth: Int?)?
+    ) -> ScreenplayElement {
+        let type: ElementKind = refineGeneral(kind?.type ?? .general, paragraph)
+        var element = ScreenplayElement(type: type, text: paragraph.text)
+        if !paragraph.runs.isEmpty {
+            element.runs = Emphasis.normalise(paragraph.runs, textLength: paragraph.text.utf16.count)
+        }
+        if type == .section, let depth = kind?.depth { element.depth = depth }
+        let sceneNumber = paragraph.attribute("number") ?? ""
+        if type == .scene && !sceneNumber.isEmpty { element.sceneNumber = sceneNumber }
+        if type == .character, (paragraph.attribute("dual") ?? "").lowercased() == "yes" {
+            element.dual = true
+        }
+        return element
+    }
+
+    private static let dualDialogueFrame = Array("<FinalDraft><Content>".utf16)
+    private static let dualDialogueFrameEnd = Array("</Content></FinalDraft>".utf16)
+
+    /// The lines of a dual dialogue: the paragraphs of the one <DualDialogue> a
+    /// paragraph with no text of its own holds, in order, with where they sit
+    /// in UTF-16 units — or nil for any other paragraph (TypeScript
+    /// `dualDialogueOf`).
+    ///
+    /// Measured on files Final Draft wrote, every dual dialogue has this form:
+    /// a General paragraph, no text, one block of Character, Dialogue,
+    /// Character, Dialogue. The block is read as a script of its own, so each
+    /// line is read exactly as a body paragraph is.
+    private static func dualDialogue(
+        of paragraph: CollectedParagraph, in units: [UInt16], limits: Limits
+    ) -> [CollectedParagraph]? {
+        guard paragraph.text.isEmpty, paragraph.dialogues.count == 1,
+              let block = paragraph.dialogues.first, block.end != -1 else { return nil }
+        let shift = block.start - dualDialogueFrame.count
+        let wrapped = dualDialogueFrame + Array(units[block.start..<block.end]) + dualDialogueFrameEnd
+        let lines = collectParagraphs(
+            from: String(decoding: wrapped, as: UTF16.self),
+            limits: limits,
+            diagnostics: DiagnosticCollector(limit: 1)
+        ).body
+        guard !lines.isEmpty else { return nil }
+        return lines.map { line in
+            var line = line
+            line.start += shift
+            line.end += shift
+            if line.textStart != -1 { line.textStart += shift }
+            if line.textEnd != -1 { line.textEnd += shift }
+            return line
+        }
+    }
+
     private static func elementKind(of paragraph: CollectedParagraph) -> ElementKind {
         let key = (paragraph.attribute("type") ?? "").jsTrimmed.lowercased()
         /* End of Act falls to .general here and is kept as a span, marked
@@ -755,6 +829,7 @@ public enum Fdx {
 
         fileprivate let units: [UInt16]
         fileprivate let spans: [Span]
+        fileprivate let blocks: [DualDialogueBlock]
 
         /// The screenplay written back into the file it came from.
         ///
@@ -874,7 +949,27 @@ public enum Fdx {
                 }
             }
 
-            var out: [UInt16] = Array(units[0..<first.start])
+            /* A dual dialogue is kept whole where the writer kept it a dual pair:
+               its frame is written verbatim around its lines, and lines added
+               inside the pair go inside the block. Where the lines kept from it
+               are no longer a dual pair — the second cue no longer dual, or the
+               lines apart — the block is dissolved: its lines are written in its
+               place as ordinary paragraphs, and the frame goes (TypeScript
+               reports it). */
+            var keptLines: [Int: [Int]] = [:]
+            for (index, origin) in paired.enumerated() {
+                if let block = origin?.block { keptLines[block, default: []].append(index) }
+            }
+            var pairs: [Int: (block: Int, end: Int)] = [:]
+            for (block, kept) in keptLines {
+                if let end = Fdx.dualPairEnd(elements, paired, consumed, block: block, kept: kept) {
+                    pairs[kept[0]] = (block, end)
+                }
+            }
+
+            let firstStart = first.block.map { blocks[$0].start } ?? first.start
+            let lastEnd = last.block.map { blocks[$0].end } ?? last.end
+            var out: [UInt16] = Array(units[0..<firstStart])
             var lead: [UInt16] = []
             var wrote = false
             func restore(_ span: Span) {
@@ -883,29 +978,64 @@ public enum Fdx {
                 out += units[span.start..<span.end]
                 wrote = true
             }
-            for (index, element) in elements.enumerated() {
+            func keptBytes(_ index: Int, _ origin: Span) -> [UInt16] {
+                if verbatim[index]?.start == origin.start { return Array(units[origin.start..<origin.end]) }
+                if let entry = merged[index], entry.span.start == origin.start { return entry.bytes }
+                return Fdx.rewritten(origin, as: elements[index], in: units)
+            }
+            func freshBytes(_ element: ScreenplayElement) -> [UInt16] {
+                let fresh = Fdx.writeXml(Screenplay(titlePage: [], elements: [element]))
+                return Fdx.paragraphBody(of: fresh).map { Array($0.utf16) } ?? []
+            }
+            var index = 0
+            while index < elements.count {
                 // A line of a paragraph already written whole.
-                if consumed.contains(index) { continue }
+                if consumed.contains(index) {
+                    index += 1
+                    continue
+                }
+                if let pair = pairs[index] {
+                    let block = blocks[pair.block]
+                    for start in block.lineStarts { absorbedBefore[start]?.forEach(restore) }
+                    if wrote { out += block.lead.isEmpty ? lead : block.lead }
+                    if !block.lead.isEmpty { lead = block.lead }
+                    out += block.head
+                    var lineLead = block.lineLead
+                    for line in index...pair.end {
+                        let origin = paired[line]
+                        if line > index {
+                            if let origin, !origin.lead.isEmpty { out += origin.lead } else { out += lineLead }
+                        }
+                        if let origin, !origin.lead.isEmpty { lineLead = origin.lead }
+                        if let origin {
+                            out += keptBytes(line, origin)
+                        } else {
+                            // Inside Final Draft's block, a speaker is dual by where it stands.
+                            var speech = elements[line]
+                            speech.dual = nil
+                            out += freshBytes(speech)
+                        }
+                    }
+                    out += block.tail
+                    wrote = true
+                    index = pair.end + 1
+                    continue
+                }
                 if let origin = paired[index] {
                     absorbedBefore[origin.start]?.forEach(restore)
-                    if wrote { out += origin.lead.isEmpty ? lead : origin.lead }
-                    if !origin.lead.isEmpty { lead = origin.lead }
-                    if verbatim[index]?.start == origin.start {
-                        out += units[origin.start..<origin.end]
-                    } else if let entry = merged[index], entry.span.start == origin.start {
-                        out += entry.bytes
-                    } else {
-                        out += Fdx.rewritten(origin, as: element, in: units)
-                    }
+                    let ownLead = origin.block.map { blocks[$0].lead } ?? origin.lead
+                    if wrote { out += ownLead.isEmpty ? lead : ownLead }
+                    if !ownLead.isEmpty { lead = ownLead }
+                    out += keptBytes(index, origin)
                 } else {
                     if wrote { out += lead.isEmpty ? Array("\n".utf16) : lead }
-                    let fresh = Fdx.writeXml(Screenplay(titlePage: [], elements: [element]))
-                    if let body = Fdx.paragraphBody(of: fresh) { out += Array(body.utf16) }
+                    out += freshBytes(elements[index])
                 }
                 wrote = true
+                index += 1
             }
             waiting.forEach(restore)
-            out += Array(units[last.end...])
+            out += Array(units[lastEnd...])
             return Fdx.ensureNamespaceDeclared(
                 String(utf16CodeUnits: out, count: out.count)
             )
@@ -965,6 +1095,58 @@ public enum Fdx {
         /// that no element will ever stand for it. The rewrite writes these
         /// back itself and never lets the alignment see them.
         let absorbed: Bool
+        /// The dual dialogue this paragraph is a line of: an index into the
+        /// document's blocks.
+        var block: Int? = nil
+    }
+
+    /// A Final Draft dual dialogue as the save sees it: the paragraph that
+    /// holds the <DualDialogue>, as a frame around its lines (TypeScript
+    /// `DualDialogueBlock`). Each line is a paragraph to the save like any
+    /// other; the frame is written around the lines kept together, verbatim.
+    fileprivate struct DualDialogueBlock: Sendable {
+        /// The whitespace before the holding paragraph.
+        let lead: [UInt16]
+        let start: Int
+        let end: Int
+        /// The frame: its bytes up to the first line, and after the last line.
+        let head: [UInt16]
+        let tail: [UInt16]
+        /// Where each line starts, and the whitespace before its second line.
+        let lineStarts: [Int]
+        let lineLead: [UInt16]
+    }
+
+    /// The kinds that belong to a speech after its cue.
+    fileprivate static let speechTypes: Set<ElementKind> = [.dialogue, .parenthetical, .lyrics]
+
+    /// Where a dual dialogue kept by a save ends — the element index of the
+    /// second speaker's last line — or nil when the lines kept from it no
+    /// longer form a dual pair there (TypeScript `dualPairEnd`).
+    ///
+    /// A dual pair is what Fountain reads as one: a cue, its speech, the cue
+    /// marked dual, its speech. It must open on the first line kept from the
+    /// block, hold every line kept from it, and hold nothing another paragraph
+    /// of the file became — only the block's own lines and lines the writer
+    /// added.
+    fileprivate static func dualPairEnd(
+        _ elements: [ScreenplayElement], _ paired: [Span?], _ consumed: Set<Int>, block: Int, kept: [Int]
+    ) -> Int? {
+        guard let start = kept.first, let lastKept = kept.last else { return nil }
+        var at = start
+        guard at < elements.count, elements[at].type == .character, elements[at].dual != true else { return nil }
+        at += 1
+        while at < elements.count, speechTypes.contains(elements[at].type) { at += 1 }
+        guard at < elements.count, elements[at].type == .character, elements[at].dual == true else { return nil }
+        at += 1
+        while at < elements.count, speechTypes.contains(elements[at].type) { at += 1 }
+        let end = at - 1
+        guard lastKept <= end else { return nil }
+        for index in start...end {
+            if consumed.contains(index) { return nil }
+            if let origin = paired[index], origin.block != block { return nil }
+        }
+        return end
     }
 
     /// Opens a Final Draft file and keeps it, so it can be written back whole.
@@ -980,14 +1162,8 @@ public enum Fdx {
         )
         let units = Array(xml.utf16)
 
-        var spans: [Span] = []
-        var previousEnd = -1
-        for paragraph in collected.body {
-            let lead: [UInt16] = previousEnd == -1
-                ? []
-                : Array(units[previousEnd..<max(previousEnd, paragraph.start)])
-            previousEnd = paragraph.end
-            spans.append(Span(
+        func span(of paragraph: CollectedParagraph, lead: [UInt16]) -> Span {
+            Span(
                 type: elementKind(of: paragraph),
                 text: paragraph.text,
                 start: paragraph.start,
@@ -997,7 +1173,37 @@ public enum Fdx {
                 lead: lead,
                 runs: Emphasis.normalise(paragraph.runs, textLength: paragraph.text.utf16.count),
                 absorbed: (paragraph.attribute("type") ?? "").jsTrimmed.lowercased() == "end of act"
+            )
+        }
+        var spans: [Span] = []
+        var blocks: [DualDialogueBlock] = []
+        var previousEnd = -1
+        for paragraph in collected.body {
+            let lead: [UInt16] = previousEnd == -1
+                ? []
+                : Array(units[previousEnd..<max(previousEnd, paragraph.start)])
+            previousEnd = paragraph.end
+            let endOfAct = (paragraph.attribute("type") ?? "").jsTrimmed.lowercased() == "end of act"
+            guard !endOfAct, !paragraph.dialogues.isEmpty,
+                  let lines = dualDialogue(of: paragraph, in: units, limits: limits) else {
+                spans.append(span(of: paragraph, lead: lead))
+                continue
+            }
+            let index = blocks.count
+            blocks.append(DualDialogueBlock(
+                lead: lead,
+                start: paragraph.start,
+                end: paragraph.end,
+                head: Array(units[paragraph.start..<lines[0].start]),
+                tail: Array(units[lines[lines.count - 1].end..<paragraph.end]),
+                lineStarts: lines.map(\.start),
+                lineLead: lines.count > 1 ? Array(units[lines[0].end..<lines[1].start]) : lead
             ))
+            for (at, line) in lines.enumerated() {
+                var lineSpan = span(of: line, lead: at == 0 ? [] : Array(units[lines[at - 1].end..<line.start]))
+                lineSpan.block = index
+                spans.append(lineSpan)
+            }
         }
 
         return Document(
@@ -1005,7 +1211,8 @@ public enum Fdx {
             warnings: imported.warnings,
             diagnostics: imported.diagnostics,
             units: units,
-            spans: spans
+            spans: spans,
+            blocks: blocks
         )
     }
 
@@ -1410,7 +1617,8 @@ public enum Fdx {
     ) -> [UInt16]? {
         guard unedited.count == edited.count, !unedited.isEmpty else { return nil }
         for (read, now) in zip(unedited, edited) {
-            if (read.dual ?? false) != (now.dual ?? false) { return nil }
+            // A dual dialogue line's `dual` is its block's, not its paragraph's.
+            if origin.block == nil, (read.dual ?? false) != (now.dual ?? false) { return nil }
             if !(read.sceneNumber ?? "").utf16.elementsEqual((now.sceneNumber ?? "").utf16) { return nil }
             if (read.depth ?? 0) != (now.depth ?? 0) { return nil }
             if unedited.count > 1 && read.type != now.type { return nil }

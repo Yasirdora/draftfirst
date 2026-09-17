@@ -114,16 +114,16 @@ struct FdxScriptNotesTests {
         #expect(at("107") == span(6, 0, 6, 20))
         #expect(elements[6].type == .shot && elements[6].text.utf16.count == 20)
         // After five dual dialogues: exactly one action line.
-        #expect(at("109") == span(295, 0, 295, 41))
-        #expect(elements[295].type == .action && elements[295].text.utf16.count == 41)
+        #expect(at("109") == span(310, 0, 310, 41))
+        #expect(elements[310].type == .action && elements[310].text.utf16.count == 41)
         // Exactly one line of dialogue.
-        #expect(at("110") == span(533, 0, 533, 6))
-        #expect(elements[533].type == .dialogue && elements[533].text.utf16.count == 6)
+        #expect(at("110") == span(548, 0, 548, 6))
+        #expect(elements[548].type == .dialogue && elements[548].text.utf16.count == 6)
         // After the omitted scene too: from a cue to the start of the next line.
-        #expect(at("111") == span(578, 0, 580, 0))
+        #expect(at("111") == span(593, 0, 595, 0))
         // Zero-length, at the end of the script's last line.
-        #expect(at("112") == span(761, 13, 761, 13))
-        #expect(elements.count == 762)
+        #expect(at("112") == span(779, 13, 779, 13))
+        #expect(elements.count == 780)
     }
 
     @Test("a body keeps its paragraphs, blank ones included")
