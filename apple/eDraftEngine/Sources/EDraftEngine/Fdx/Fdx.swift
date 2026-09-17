@@ -84,6 +84,8 @@ public enum Fdx {
         /// Backward-compatible messages. Prefer `diagnostics` for programmatic use.
         public let warnings: [String]
         public let diagnostics: [Diagnostic]
+        /// The file's ScriptNotes, in file order. See `Fdx.ScriptNote`.
+        public let scriptNotes: [ScriptNote]
     }
 
     public struct ExportResult: Sendable {
@@ -596,7 +598,8 @@ public enum Fdx {
         return ImportResult(
             script: Screenplay(titlePage: [], elements: []),
             warnings: items.map(\.message),
-            diagnostics: items
+            diagnostics: items,
+            scriptNotes: []
         )
     }
 
@@ -629,6 +632,9 @@ public enum Fdx {
         }
 
         var elements: [ScreenplayElement] = []
+        /* Every body paragraph as a ScriptNote Range counts it — absorbed ones
+           included, because Final Draft's text still holds them. */
+        var layout: [ParagraphLayout] = []
         for paragraph in parsed.body {
             let fdxType = paragraph.attribute("type") ?? ""
             let key = fdxType.jsTrimmed.lowercased()
@@ -636,6 +642,10 @@ public enum Fdx {
                an act ends where the next one begins, and the export regenerates
                these. Absorbed without a warning: a diagnostic the reader cannot
                act on only teaches them to ignore the list. */
+            layout.append(ParagraphLayout(
+                length: paragraph.text.utf16.count,
+                element: key == "end of act" ? nil : elements.count
+            ))
             if key == "end of act" { continue }
             let kind = fdxElementKind(key)
             if kind == nil && !fdxType.isEmpty {
@@ -668,11 +678,13 @@ public enum Fdx {
         /* The title page reads verbatim — it reports no diagnostics, so the
            collector's snapshot needs no particular order against it. */
         let title = titlePageLines(of: parsed.title)
+        let notes = scriptNotes(in: source, layout: layout, limits: limits, diagnostics: diagnostics)
         let items = diagnostics.result()
         return ImportResult(
             script: Screenplay(titlePage: title, elements: elements),
             warnings: items.map(\.message),
-            diagnostics: items
+            diagnostics: items,
+            scriptNotes: notes
         )
     }
 

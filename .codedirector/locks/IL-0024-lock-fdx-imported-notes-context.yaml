@@ -1,0 +1,188 @@
+schemaVersion: 1
+id: IL-0024
+status: verified
+utterance: "Lock B, FDX imported notes. Context: sample0-2.fdx (in ~/Documents) has 11 ScriptNotes with WriterName attributes that survive our round-trip but surface nowhere. Two decisions are settled: (1) display color is derived from the author, overriding the file's per-note colors at display level only — never rewrite the file's bytes; round-trip fidelity is a hard keep. (2) Authorship comes from the file's WriterName for imported notes; no login system, ever. Your job tonight: design pass first, then implement the engine layer under one or more locks — parse ScriptNotes with their WriterName into the note model in both engine ports (packages/edraft and apple/eDraftEngine), with conformance fixtures built from sample0-2.fdx (copy it into the repo as a fixture)."
+goal: "Opening a Final Draft file yields its ScriptNotes as structured notes beside the screenplay, in both engines, identically: each note carries its author from WriterName, its title, category, dates, the file's Range, the element and offsets that Range lands on, and its body text. Nothing about saving changes — the file's bytes, including the whole ScriptNotes block, round-trip exactly as they do today. Both ports are pinned by conformance fixtures built from sample0-2.fdx, committed as a fixture."
+interpretation: |
+  Design pass first, as asked; every choice below was measured on
+  ~/Documents/sample0-2.fdx on 2026-09-17, not assumed.
+
+  THE MODEL. A ScriptNote becomes a record on the import result —
+  FdxImportResult.scriptNotes (TypeScript) and Fdx.ImportResult.scriptNotes
+  (Swift), also on FdxDocument / Fdx.Document — not a field on Screenplay and
+  not a `note` element in the stream. Wire shape, identical in both ports:
+
+    id        the file's Id, verbatim ("107")
+    author    WriterName, entity-decoded and trimmed; absent when empty
+    title     Name; absent when empty ("Re: Gold Key" threads stay as text)
+    category  Type — free text, not a role ("Producer", "Alt Scenes")
+    color     Color verbatim (#RRRRGGGGBBBB); absent when #000000000000 or missing
+    created   DateTime verbatim;  modified  DateModified verbatim
+    range     { start, end } as the file states it; absent when unparseable
+    anchor    { start: { element, offset }, end: { element, offset } } — where
+              the range lands in script.elements; absent when past the script
+    text      body paragraphs joined with "\n", blank paragraphs kept
+
+  WriterID and RefId are not read: all 11 notes share one WriterID across two
+  WriterNames, so it identifies nobody.
+
+  WHY NOT `note` ELEMENTS. Folding each ScriptNote into the stream as a
+  `[[Joe Jarvis: …]]` note would light up the Notes tab with no UI work, and
+  it was measured: note 112 (9 paragraphs, 4 blank) does not survive Fountain.
+  It comes back as five Action lines printed on the page, and the preserving
+  save would then write them into the FDX as new paragraphs. It would also put
+  authorship back under the text-prefix roster rule, which drops a one-note
+  author, contrary to decision 2. Rejected on the measurement.
+
+  WHY NOT ON Screenplay. The app keeps an .fdx as Fountain source plus the
+  original bytes (ScreenplayFile.open → origin). A Screenplay field evaporates
+  at the Fountain boundary, the trap IL-0016 measured. The original is always
+  in hand, so the notes are a reading of it, re-derived on every open, and
+  nothing flows back.
+
+  RANGE. Offsets count the script <Content>'s paragraphs in file order, UTF-16
+  units, one unit per paragraph boundary — including the End of Act paragraph
+  the import absorbs. Evidence: Range 174,194 lands at +0 of the Shot
+  paragraph; 18213,18219 is exactly the cue TANGLE; 25736 falls inside the
+  script's single End of Act only when End of Act is counted. The other ranges
+  land mid-word — stale ranges are real, so anchoring is tolerant: a position
+  inside an absorbed paragraph snaps to the next element's start, a position
+  exactly at the end anchors to the end of the last element, and one past the
+  end leaves `anchor` absent while `range` stays.
+
+  ROUND TRIP. The <ScriptNotes> block sits outside the script's <Content>,
+  which the preserving save already copies byte for byte. The notes are read
+  by a second, narrow scan — the pattern bodySpansOf already uses — so
+  paragraphsOf, the collector, alignParagraphs and rewrite do not change in
+  either port. Fidelity holds because the code that owns it is not touched,
+  and tests prove it on the real file.
+
+  FIXTURE. The real screenplay is NOT published (human's decision: the repo is
+  public). apple/eDraftEngine/Fixtures/sample0-2.fdx is an anonymised
+  derivative, made by a scratchpad script from ~/Documents/sample0-2.fdx:
+  every letter of text and of content-bearing attributes becomes x/X, so each
+  paragraph keeps its UTF-16 length, case, digits and punctuation and every
+  Range lands where it did. WriterNames become Writer A / Writer B in order of
+  first appearance, a ScriptNote Name keeps its "Re: " prefixes, the embedded
+  image payload (a 431 KB artwork PNG) is emptied, and a leading XML comment
+  records all this. Structure, Types, Styles, Ranges, Ids, Colors and dates are
+  verbatim. Equivalence was measured against the real file with the current
+  engine: 768 elements with identical types, text lengths, runs, scene numbers
+  and diagnostics, and all 11 notes with identical attributes (bar WriterName
+  and Name) and body lengths. One copy, beside the golden masters it pins. The exporter reads it and writes a new `scriptNotes`
+  section into fdx.json: the sample's expected notes, plus small synthetic
+  cases (zero-length range, End of Act snap, past-the-end, entity-encoded
+  author, missing attributes, unset colour). Swift reads the .fdx by name.
+  Every existing fdx.json case is left exactly as it is.
+
+  Swift puts the port in a new Fdx/FdxScriptNotes.swift, because
+  CollectedParagraph is private to Fdx.swift; Fdx.swift gains only the
+  result fields and the call.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the preserving write is untouched in both ports — openFdx/rewrite/alignParagraphs/rewriteParagraph/bodySpansOf/paragraphsOf (TypeScript) and Fdx.Document.rewrite/align/rewritten/open/ParagraphCollector (Swift) have no changed lines
+  - kind: custom
+    text: through a no-edit save of the fixture, and through an edit to an annotated line, the whole <ScriptNotes>…</ScriptNotes> block is byte-identical — proven by tests in both ports
+  - kind: custom
+    text: the fixture contains no real screenplay text, no real names and no image data; WriterNames are Writer A and Writer B
+  - kind: custom
+    text: Screenplay, ScreenplayElement and the Fountain parser/serialiser are unchanged; notes never enter the document model or the Fountain source
+  - kind: custom
+    text: author comes only from WriterName; WriterID and RefId are not read; nothing infers, guesses or defaults an author
+  - kind: custom
+    text: the file's Color is carried verbatim as data and is never used as identity; this lock contains no display code
+  - kind: custom
+    text: every existing fdx.json import and export case keeps its expected output exactly — the corpus only grows
+  - kind: custom
+    text: both ports produce identical scriptNotes for every corpus case, the anonymised sample0-2.fdx included
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Package.swift
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - docs/**
+change: Read FDX ScriptNotes — author from WriterName, title, category, dates, Range and its resolved anchor, body text — into a scriptNotes list on the import result in both engines, pinned by a conformance corpus built from sample0-2.fdx; the save path is not touched.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Fixtures/sample0-2.*
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.*
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxConformanceTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxScriptNotesTests.*
+  symbols: []
+  maxFiles: 11
+  maxLines: 8000
+accept:
+  - "The fixture imports 11 scriptNotes in file order, in both ports: author Writer A on 8 (Ids 107, 143, 152, 108, 109, 110, 111, 112), Writer B on 3 (Ids 113, 119, 137)."
+  - Range 18213,18219 anchors to exactly one whole character cue (element 536, offsets 0–6); Range 174,194 anchors at offset 0 of the Shot paragraph (element 6); zero-length 25736,25736 lands in the absorbed End of Act and snaps to the next element; 970,1364 spans several elements.
+  - Note 112's text keeps its four blank paragraphs as empty lines; note 137's eight paragraphs arrive in order.
+  - In both ports, the <ScriptNotes> block of rewrite(script) is byte-identical to the fixture's, with no edit and after editing an annotated line.
+  - Every pre-existing fdx.json case's expected output is unchanged; the new scriptNotes section is reproduced exactly by Swift.
+  - All existing TypeScript package tests and Swift engine tests stay green, 0 failures.
+assumptions:
+  - text: Budget replaced by hand. The auto-draft anchored on NoteAttribution.author, PageScroll.settled, PageZoom.settled and PdfSignal.bytes — matches on the words 'author', 'settled' and 'bytes' — and proposed four EDraftCore files, while suggesting a deny on packages/edraft/src/**/*.test.* that would have blocked this lock's own tests.
+    source: system
+    confirmed: false
+  - text: "'The note model' is read as a structured ScriptNote record on the import result, not as `note` elements in the stream. Measured, not preferred: note 112 breaks Fountain (see interpretation)."
+    source: system
+    confirmed: false
+  - text: Range is UTF-16 units over the script <Content>'s paragraphs, one unit per boundary, End of Act counted. Two exact hits and one End-of-Act-only hit support it; the other five ranges are stale, so anchors are best-effort by design.
+    source: system
+    confirmed: false
+  - text: "Note bodies keep text only: per-run styling inside a note (fonts, Bold) is not modelled; AllCaps is applied the way the script's own text applies it. The file keeps every byte either way."
+    source: system
+    confirmed: false
+  - text: "The repository is public. The human declined publishing the real screenplay: build the fixture with same-length placeholder script text and anonymise the WriterNames (Writer A, Writer B). Scope approved with that substitution. The sanitiser extends the rule to every content-bearing place the survey found — title page, character and tag names, beat-board titles, scene-property titles, revision names, alternates, a /Users/<name> image path, and the artwork itself."
+    source: user
+    confirmed: true
+  - text: "FOUND, NOT FIXED — pre-existing data loss in the preserving save, both ports by code reading, reproduced in TypeScript: rewrite() emits only origin paragraphs paired to an element, and End of Act is absorbed on import, so ANY save — even with no edit — deletes every End of Act card. The fixture loses its one card (261 chars) on a no-op save. This lock denies itself the save path, so the no-op byte-identity acceptance is narrowed to the <ScriptNotes> block; the bug is reported for its own lock."
+    source: system
+    confirmed: false
+  - text: Stale Range on save parked for a later lock by the human.
+    source: user
+    confirmed: true
+  - text: "maxLines 8000 counts the fixture: the anonymised sample0-2.fdx is 6,285 lines. Code, tests and regenerated JSON are estimated at ~1,500."
+    source: system
+    confirmed: false
+  - text: "New files are budgeted as basename globs (sample0-2.*, FdxScriptNotes.*, FdxScriptNotesTests.*): lock_check errors on a budget path that does not exist yet — the cdir gap recorded in IL-0023."
+    source: system
+    confirmed: false
+  - text: "check:conformance is not in verifyCommand: it compares against the committed tree, so it fails on any uncommitted fixture change by design. The verify instead regenerates the corpus from a fresh build before Swift runs, so Swift is judged against today's TypeScript. check:conformance is run after commit."
+    source: system
+    confirmed: false
+  - text: "Out of scope, left for later locks: surfacing notes in the app (Notes tab, markers, author colours — Lock C); Range drift on save; correcting the two wrong docs (evaluation-draft-format-plan.md 'ARGB colour', rfc-viewport-editing-model.md §5.1)."
+    source: system
+    confirmed: false
+createdAt: 2026-09-16T22:49:48.976Z
+createdBy: Yasirdora

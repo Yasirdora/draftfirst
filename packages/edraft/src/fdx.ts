@@ -57,6 +57,56 @@ export interface FdxImportResult {
 	/** Backward-compatible messages. Prefer `diagnostics` for programmatic use. */
 	warnings: string[];
 	diagnostics: FdxDiagnostic[];
+	/** The file's ScriptNotes, in file order. See `FdxScriptNote`. */
+	scriptNotes: FdxScriptNote[];
+}
+
+/** A place in the imported screenplay: an index into `script.elements` and a
+    ContentIndex into that element's text. */
+export interface FdxScriptNotePosition {
+	element: number;
+	offset: number;
+}
+
+/**
+ * A Final Draft ScriptNote — a comment the file keeps beside the script.
+ *
+ * Final Draft does not put these in the script's <Content>. They live in a
+ * top-level <ScriptNotes> container and point back into the script with a
+ * character Range, so they are read here as what they are: a reading of the
+ * file, not part of the screenplay. A screenplay field would evaporate the
+ * moment the app turns the file into Fountain, and a `note` element cannot
+ * hold one — measured on a real feature, a note of nine paragraphs, four of
+ * them blank, came back from Fountain as five printed Action lines. Nothing
+ * here is ever written: the preserving save copies <ScriptNotes> byte for
+ * byte, because it lies outside the paragraphs a save rewrites.
+ *
+ * Every field is the file's own, verbatim, and absent when the file leaves it
+ * empty. What the file does not say is not inferred:
+ *
+ * - `author` is `WriterName`. `WriterID` is not read — all eleven notes in
+ *   the measured file shared one WriterID across two different writers.
+ * - `category` is `Type`, and it is free text, not a role: one writer's notes
+ *   were typed both "Writer" and "Alt Scenes".
+ * - `color` is `#RRRRGGGGBBBB`, sixteen bits a channel, no alpha; the all-zero
+ *   value means unset and reads as absent. It says what kind of note this is,
+ *   never who wrote it — one writer's eight notes came in four colours.
+ * - `range` is the file's Range. `anchor` is where it lands (see
+ *   `anchorOf`), and is absent when the Range starts past the script — a
+ *   stale Range is kept rather than guessed at.
+ * - `text` is the body's paragraphs joined with "\n", blank paragraphs kept.
+ */
+export interface FdxScriptNote {
+	id?: string;
+	author?: string;
+	title?: string;
+	category?: string;
+	color?: string;
+	created?: string;
+	modified?: string;
+	range?: { start: number; end: number };
+	anchor?: { start: FdxScriptNotePosition; end: FdxScriptNotePosition };
+	text: string;
 }
 
 export interface FdxExportResult {
@@ -820,7 +870,8 @@ function emptyImport(diagnostics: DiagnosticCollector): FdxImportResult {
 	return {
 		script: { titlePage: [], elements: [] },
 		warnings: messagesOf(items),
-		diagnostics: items
+		diagnostics: items,
+		scriptNotes: []
 	};
 }
 
@@ -860,6 +911,9 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 		}
 
 		const elements: ScreenplayElement[] = [];
+		/* Every body paragraph as a ScriptNote Range counts it — absorbed ones
+		   included, because Final Draft's text still holds them. */
+		const layout: ParagraphLayout[] = [];
 		for (const paragraph of parsed.body) {
 			const fdxType = attributeOf(paragraph, 'type');
 			const key = fdxType.trim().toLowerCase();
@@ -867,6 +921,7 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 			   an act ends where the next one begins, and the export regenerates
 			   these. Absorbed without a warning: a diagnostic the reader cannot
 			   act on only teaches them to ignore the list. */
+			layout.push({ length: paragraph.text.length, element: key === 'end of act' ? -1 : elements.length });
 			if (key === 'end of act') continue;
 			const kind = fdxElementKind(key);
 			if (!kind && fdxType !== '') {
@@ -893,10 +948,12 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 			elements.push(element);
 		}
 
+		const scriptNotes = scriptNotesOf(source, layout, limits, diagnostics);
 		return {
 			script: { titlePage: titlePageLinesOf(parsed.title), elements },
 			warnings: messagesOf(diagnostics.result()),
-			diagnostics: diagnostics.result()
+			diagnostics: diagnostics.result(),
+			scriptNotes
 		};
 	} catch (error) {
 		diagnostics.add({
@@ -971,6 +1028,228 @@ function refineGeneral(type: AnyElementType, paragraph: FdxParagraph): AnyElemen
 	if (extensionAttribute(paragraph, 'elementtype').toLowerCase() === 'lyrics') return 'lyrics';
 	if (attributeOf(paragraph, 'alignment').toLowerCase() === 'center') return 'centered';
 	return type;
+}
+
+/* ---- script notes ------------------------------------------------------- */
+
+/** One body paragraph as a ScriptNote Range counts it: its text length, and
+    the element it became — -1 when the import absorbed it. */
+interface ParagraphLayout {
+	length: number;
+	element: number;
+}
+
+/** The script's text as a ScriptNote Range counts it. */
+interface ScriptText {
+	layout: ParagraphLayout[];
+	starts: number[];
+	/** The position just past the last paragraph's text. */
+	end: number;
+}
+
+function scriptTextOf(layout: ParagraphLayout[]): ScriptText {
+	const starts: number[] = [];
+	let cursor = 0;
+	for (const paragraph of layout) {
+		starts.push(cursor);
+		cursor += paragraph.length + 1;
+	}
+	return { layout, starts, end: cursor - 1 };
+}
+
+/**
+ * Where a Range position lands in the imported screenplay.
+ *
+ * Final Draft counts the script paragraph by paragraph, one unit for each
+ * paragraph break — measured on a real feature, where one Range began on the
+ * first character of the shot it was about and another covered exactly one
+ * character cue. A break belongs to the paragraph before it, so every position
+ * from 0 to the end of the script lands in exactly one paragraph.
+ *
+ * A position in a paragraph the import absorbed — an End of Act — moves to the
+ * start of the next element, or to the end of the last one when nothing
+ * follows. Past the end of the script there is nothing honest to point at.
+ */
+function positionIn(text: ScriptText, position: number): FdxScriptNotePosition | undefined {
+	const { layout, starts } = text;
+	if (layout.length === 0 || position < 0 || position > text.end) return undefined;
+	let low = 0;
+	let high = layout.length - 1;
+	while (low < high) {
+		const middle = (low + high + 1) >> 1;
+		if (starts[middle] <= position) low = middle;
+		else high = middle - 1;
+	}
+	if (layout[low].element !== -1) {
+		return { element: layout[low].element, offset: position - starts[low] };
+	}
+	for (let next = low + 1; next < layout.length; next++) {
+		if (layout[next].element !== -1) return { element: layout[next].element, offset: 0 };
+	}
+	for (let previous = low - 1; previous >= 0; previous--) {
+		if (layout[previous].element !== -1) {
+			return { element: layout[previous].element, offset: layout[previous].length };
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Where a Range lands. A Range that starts past the script is stale and has
+ * no anchor; one that only ends past it is held to the script's end, so the
+ * note still marks the text it does cover.
+ */
+function anchorOf(
+	range: { start: number; end: number },
+	text: ScriptText
+): FdxScriptNote['anchor'] {
+	const start = positionIn(text, range.start);
+	const end = positionIn(text, Math.min(range.end, text.end));
+	return start && end ? { start, end } : undefined;
+}
+
+/** A Range attribute, `start,end` in digits. A reversed pair is the same span. */
+function rangeOf(value: string): { start: number; end: number } | undefined {
+	const match = /^\s*(\d+)\s*,\s*(\d+)\s*$/.exec(value);
+	if (!match) return undefined;
+	const first = Number(match[1]);
+	const second = Number(match[2]);
+	if (!Number.isSafeInteger(first) || !Number.isSafeInteger(second)) return undefined;
+	return { start: Math.min(first, second), end: Math.max(first, second) };
+}
+
+function scriptNoteOf(
+	attributes: Map<string, string>,
+	paragraphs: string[],
+	text: ScriptText
+): FdxScriptNote {
+	const verbatim = (name: string): string | undefined => {
+		const value = attributes.get(name) ?? '';
+		return value.trim() === '' ? undefined : value;
+	};
+	const note = {} as FdxScriptNote;
+	const id = verbatim('id');
+	if (id !== undefined) note.id = id;
+	const author = (attributes.get('writername') ?? '').trim();
+	if (author !== '') note.author = author;
+	const title = verbatim('name');
+	if (title !== undefined) note.title = title;
+	const category = verbatim('type');
+	if (category !== undefined) note.category = category;
+	const color = verbatim('color');
+	if (color !== undefined && !/^#0+$/.test(color)) note.color = color;
+	const created = verbatim('datetime');
+	if (created !== undefined) note.created = created;
+	const modified = verbatim('datemodified');
+	if (modified !== undefined) note.modified = modified;
+	const range = rangeOf(attributes.get('range') ?? '');
+	if (range) {
+		note.range = range;
+		const anchor = anchorOf(range, text);
+		if (anchor) note.anchor = anchor;
+	}
+	note.text = paragraphs.join('\n');
+	return note;
+}
+
+/**
+ * The file's ScriptNotes.
+ *
+ * A second, narrow scan, like `bodySpansOf`, so the reader the preserving
+ * save depends on is not touched to serve it. A note is a <ScriptNote>
+ * directly inside <ScriptNotes>; its body is its direct-child paragraphs'
+ * direct-child <Text>, the same rule the script's own paragraphs follow.
+ * Notes and their paragraphs are bounded by `maxParagraphs`, their runs by
+ * `maxTextRuns`, counted apart from the script's.
+ */
+function scriptNotesOf(
+	source: string,
+	layout: ParagraphLayout[],
+	limits: FdxLimits,
+	diagnostics: DiagnosticCollector
+): FdxScriptNote[] {
+	const text = scriptTextOf(layout);
+	const notes: FdxScriptNote[] = [];
+	const open: string[] = [];
+	let note: { attributes: Map<string, string>; depth: number; paragraphs: string[] } | null = null;
+	let paragraph: { text: string; depth: number } | null = null;
+	let run: { uppercases: boolean; depth: number } | null = null;
+	let paragraphCount = 0;
+	let textRunCount = 0;
+	let limitReached = false;
+
+	const finishNote = (): void => {
+		if (!note) return;
+		if (paragraph) note.paragraphs.push(paragraph.text);
+		notes.push(scriptNoteOf(note.attributes, note.paragraphs, text));
+		note = null;
+		paragraph = null;
+		run = null;
+	};
+
+	scanXml(
+		source,
+		{
+			start(tag): boolean {
+				const parent = open[open.length - 1];
+				open.push(tag.name);
+				const opensNote = tag.name === 'scriptnote' && parent === 'scriptnotes' && !note;
+				const opensParagraph =
+					note !== null && tag.name === 'paragraph' && open.length === note.depth + 1;
+				if (opensNote || opensParagraph) {
+					if (paragraphCount >= limits.maxParagraphs) {
+						limitReached = true;
+						return false;
+					}
+					paragraphCount++;
+				}
+				if (opensNote) {
+					note = { attributes: tag.attributes, depth: open.length, paragraphs: [] };
+				} else if (opensParagraph) {
+					paragraph = { text: '', depth: open.length };
+				} else if (paragraph && tag.name === 'text' && open.length === paragraph.depth + 1) {
+					if (textRunCount >= limits.maxTextRuns) {
+						limitReached = true;
+						return false;
+					}
+					textRunCount++;
+					run = { uppercases: runIsAllCaps(tag.attributes.get('style')), depth: open.length };
+				}
+				return true;
+			},
+			end(name): boolean {
+				if (run && name === 'text' && open.length === run.depth) {
+					run = null;
+				} else if (note && paragraph && name === 'paragraph' && open.length === paragraph.depth) {
+					note.paragraphs.push(paragraph.text);
+					paragraph = null;
+				} else if (note && name === 'scriptnote' && open.length === note.depth) {
+					finishNote();
+				}
+				if (open[open.length - 1] === name) open.pop();
+				return true;
+			},
+			text(value, cdata): boolean {
+				if (run && paragraph && open.length === run.depth) {
+					const decoded = cdata ? value : decodeXmlEntities(value);
+					paragraph.text += run.uppercases ? decoded.toLocaleUpperCase() : decoded;
+				}
+				return true;
+			}
+		},
+		new DiagnosticCollector(1)
+	);
+
+	finishNote();
+	if (limitReached) {
+		diagnostics.add({
+			code: 'FDX_SCRIPT_NOTES_LIMIT_REACHED',
+			severity: 'warning',
+			message: `Script notes stopped at ${limits.maxParagraphs} notes and paragraphs or ${limits.maxTextRuns} Text runs.`,
+			count: notes.length
+		});
+	}
+	return notes;
 }
 
 /* ---- preserving round trip ---------------------------------------------- */

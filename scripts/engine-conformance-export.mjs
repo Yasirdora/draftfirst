@@ -1087,6 +1087,74 @@ addFdxExport('act-breaks', {
 	]
 });
 
-writeFixture('fdx.json', { import: fdxImport, export: fdxExport });
+/* ScriptNotes: the comments Final Draft keeps beside the script, in a
+   top-level <ScriptNotes> container, pointing back with a character Range.
+   Kept in their own section so every case above keeps its expected output
+   exactly. The synthetic cases pin each rule of where a Range lands; the
+   file case pins the whole reading of a real feature's eleven notes. */
+const fdxScriptNotes = [];
+function addScriptNotes(name, input, options = {}, { withScript = true } = {}) {
+	const source = input.file ? readFileSync(join(outDir, input.file), 'utf8') : input.source;
+	const result = parseFdx(source, options);
+	const expected = { diagnostics: result.diagnostics, scriptNotes: result.scriptNotes };
+	if (withScript) expected.script = result.script;
+	fdxScriptNotes.push({
+		name,
+		...(input.file ? { sourceFile: input.file } : { source }),
+		options,
+		expected
+	});
+}
+
+/* Offsets count every script paragraph, one unit per paragraph break, the
+   absorbed End of Act included. Paragraphs start at 0, 15, 20, 35, 43, 48;
+   the script ends at 51. */
+addScriptNotes('script-notes-anchoring', {
+	source: `<FinalDraft><Content><Paragraph Type="Scene Heading"><Text>INT. LAB - DAY</Text></Paragraph><Paragraph Type="Action"><Text>Hum.</Text></Paragraph><Paragraph Type="End of Act" Alignment="Center"><Text>END OF ACT ONE</Text></Paragraph><Paragraph Type="New Act"><Text>ACT TWO</Text></Paragraph><Paragraph Type="Character"><Text>MARA</Text></Paragraph><Paragraph Type="Dialogue"><Text>Go.</Text></Paragraph></Content><ScriptNotes>${[
+		['1', '15,19', 'one paragraph, exactly'],
+		['2', '14,14', 'a paragraph break belongs to the paragraph before it'],
+		['3', '22,22', 'inside the absorbed End of Act: the next element'],
+		['4', '43,51', 'across elements, to the end of the script'],
+		['5', '60,70', 'starts past the script: range kept, no anchor'],
+		['6', '48,99', 'ends past the script: held to its end'],
+		['7', '19,15', 'reversed: the same span'],
+		['8', 'abc', 'unreadable: no range'],
+		['9', '1,2,3', 'three numbers: no range']
+	]
+		.map(
+			([id, range, body]) =>
+				`<ScriptNote Id="${id}" Range="${range}" WriterName="Writer A"><Paragraph><Text>${body}</Text></Paragraph></ScriptNote>`
+		)
+		.join('')}</ScriptNotes></FinalDraft>`
+});
+/* An End of Act with nothing after it: the end of the last element. */
+addScriptNotes('script-notes-trailing-end-of-act', {
+	source: `<FinalDraft><Content><Paragraph Type="Action"><Text>Last.</Text></Paragraph><Paragraph Type="End of Act" Alignment="Center"><Text>THE END</Text></Paragraph></Content><ScriptNotes><ScriptNote Id="1" Range="8,8" WriterName="Writer A"><Paragraph><Text>After the end.</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>`
+});
+/* The attributes, verbatim or absent — never inferred. WriterName is decoded
+   and trimmed; WriterID is not read; an all-zero Color is unset. The body is
+   each direct-child paragraph's direct-child Text, AllCaps shouted, a
+   self-closing paragraph a blank line, nested metadata skipped. A ScriptNote
+   that is not directly inside <ScriptNotes> is not one. */
+addScriptNotes('script-notes-attributes', {
+	source: `<FinalDraft><Content><Paragraph Type="Action"><ScriptNote WriterName="Nobody"><Paragraph><Text>not a note</Text></Paragraph></ScriptNote><Text>Hum.</Text></Paragraph></Content><ScriptNotes><TableColumnSettings><Column>Order</Column></TableColumnSettings><ScriptNote Color="#000000000000" DateModified="20201214T005236" DateTime="20201214T005118" Id="143" Name="Re: Re: Xxxx" Range="0,4" RefId="2f18438e-60f5-4514-9ebf-5ab2a3e17bb5" Type="Alt Scenes" WriterID="b63f73e5-f9f4-4d1e-bd09-5539fa3e726b" WriterName="  Ren&#233;e &amp; Co  "><Paragraph Type="Transition"><Text Style="AllCaps">cut to:</Text></Paragraph><Paragraph/><Paragraph><SceneProperties><Paragraph><Text>hidden</Text></Paragraph></SceneProperties><Text>seen</Text><Text><![CDATA[ & kept]]></Text></Paragraph></ScriptNote><ScriptNote Color="#FEEACC8166BA" Name="" Type="" WriterName="   "><Paragraph><Text>No author, no title.</Text></Paragraph></ScriptNote><ScriptNote/></ScriptNotes></FinalDraft>`
+});
+addScriptNotes('script-notes-none', { source: FOREIGN_FDX });
+addScriptNotes('script-notes-unterminated', {
+	source: `<FinalDraft><Content><Paragraph Type="Action"><Text>x</Text></Paragraph></Content><ScriptNotes><ScriptNote Id="1" WriterName="Writer A"><Paragraph><Text>open`
+});
+addScriptNotes(
+	'script-notes-limit',
+	{
+		source: `<FinalDraft><Content><Paragraph Type="Action"><Text>x</Text></Paragraph></Content><ScriptNotes><ScriptNote Id="1"><Paragraph><Text>kept</Text></Paragraph></ScriptNote><ScriptNote Id="2"><Paragraph><Text>past the limit</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>`
+	},
+	{ maxParagraphs: 2 }
+);
+/* A real feature's eleven notes, anonymised: every letter is x or X, so each
+   paragraph keeps its length and every Range lands where it did. The script
+   itself is pinned elsewhere; this case pins the notes. */
+addScriptNotes('sample0-2', { file: 'sample0-2.fdx' }, {}, { withScript: false });
+
+writeFixture('fdx.json', { import: fdxImport, export: fdxExport, scriptNotes: fdxScriptNotes });
 
 console.log('✓ conformance corpus written to apple/eDraftEngine/Fixtures/');

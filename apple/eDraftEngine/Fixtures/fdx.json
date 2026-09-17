@@ -5172,5 +5172,644 @@
         "diagnostics": []
       }
     }
+  ],
+  "scriptNotes": [
+    {
+      "name": "script-notes-anchoring",
+      "source": "<FinalDraft><Content><Paragraph Type=\"Scene Heading\"><Text>INT. LAB - DAY</Text></Paragraph><Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph><Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END OF ACT ONE</Text></Paragraph><Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph><Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>Go.</Text></Paragraph></Content><ScriptNotes><ScriptNote Id=\"1\" Range=\"15,19\" WriterName=\"Writer A\"><Paragraph><Text>one paragraph, exactly</Text></Paragraph></ScriptNote><ScriptNote Id=\"2\" Range=\"14,14\" WriterName=\"Writer A\"><Paragraph><Text>a paragraph break belongs to the paragraph before it</Text></Paragraph></ScriptNote><ScriptNote Id=\"3\" Range=\"22,22\" WriterName=\"Writer A\"><Paragraph><Text>inside the absorbed End of Act: the next element</Text></Paragraph></ScriptNote><ScriptNote Id=\"4\" Range=\"43,51\" WriterName=\"Writer A\"><Paragraph><Text>across elements, to the end of the script</Text></Paragraph></ScriptNote><ScriptNote Id=\"5\" Range=\"60,70\" WriterName=\"Writer A\"><Paragraph><Text>starts past the script: range kept, no anchor</Text></Paragraph></ScriptNote><ScriptNote Id=\"6\" Range=\"48,99\" WriterName=\"Writer A\"><Paragraph><Text>ends past the script: held to its end</Text></Paragraph></ScriptNote><ScriptNote Id=\"7\" Range=\"19,15\" WriterName=\"Writer A\"><Paragraph><Text>reversed: the same span</Text></Paragraph></ScriptNote><ScriptNote Id=\"8\" Range=\"abc\" WriterName=\"Writer A\"><Paragraph><Text>unreadable: no range</Text></Paragraph></ScriptNote><ScriptNote Id=\"9\" Range=\"1,2,3\" WriterName=\"Writer A\"><Paragraph><Text>three numbers: no range</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>",
+      "options": {},
+      "expected": {
+        "diagnostics": [],
+        "scriptNotes": [
+          {
+            "id": "1",
+            "author": "Writer A",
+            "range": {
+              "start": 15,
+              "end": 19
+            },
+            "anchor": {
+              "start": {
+                "element": 1,
+                "offset": 0
+              },
+              "end": {
+                "element": 1,
+                "offset": 4
+              }
+            },
+            "text": "one paragraph, exactly"
+          },
+          {
+            "id": "2",
+            "author": "Writer A",
+            "range": {
+              "start": 14,
+              "end": 14
+            },
+            "anchor": {
+              "start": {
+                "element": 0,
+                "offset": 14
+              },
+              "end": {
+                "element": 0,
+                "offset": 14
+              }
+            },
+            "text": "a paragraph break belongs to the paragraph before it"
+          },
+          {
+            "id": "3",
+            "author": "Writer A",
+            "range": {
+              "start": 22,
+              "end": 22
+            },
+            "anchor": {
+              "start": {
+                "element": 2,
+                "offset": 0
+              },
+              "end": {
+                "element": 2,
+                "offset": 0
+              }
+            },
+            "text": "inside the absorbed End of Act: the next element"
+          },
+          {
+            "id": "4",
+            "author": "Writer A",
+            "range": {
+              "start": 43,
+              "end": 51
+            },
+            "anchor": {
+              "start": {
+                "element": 3,
+                "offset": 0
+              },
+              "end": {
+                "element": 4,
+                "offset": 3
+              }
+            },
+            "text": "across elements, to the end of the script"
+          },
+          {
+            "id": "5",
+            "author": "Writer A",
+            "range": {
+              "start": 60,
+              "end": 70
+            },
+            "text": "starts past the script: range kept, no anchor"
+          },
+          {
+            "id": "6",
+            "author": "Writer A",
+            "range": {
+              "start": 48,
+              "end": 99
+            },
+            "anchor": {
+              "start": {
+                "element": 4,
+                "offset": 0
+              },
+              "end": {
+                "element": 4,
+                "offset": 3
+              }
+            },
+            "text": "ends past the script: held to its end"
+          },
+          {
+            "id": "7",
+            "author": "Writer A",
+            "range": {
+              "start": 15,
+              "end": 19
+            },
+            "anchor": {
+              "start": {
+                "element": 1,
+                "offset": 0
+              },
+              "end": {
+                "element": 1,
+                "offset": 4
+              }
+            },
+            "text": "reversed: the same span"
+          },
+          {
+            "id": "8",
+            "author": "Writer A",
+            "text": "unreadable: no range"
+          },
+          {
+            "id": "9",
+            "author": "Writer A",
+            "text": "three numbers: no range"
+          }
+        ],
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "scene",
+              "text": "INT. LAB - DAY"
+            },
+            {
+              "type": "action",
+              "text": "Hum."
+            },
+            {
+              "type": "actbreak",
+              "text": "ACT TWO"
+            },
+            {
+              "type": "character",
+              "text": "MARA"
+            },
+            {
+              "type": "dialogue",
+              "text": "Go."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "script-notes-trailing-end-of-act",
+      "source": "<FinalDraft><Content><Paragraph Type=\"Action\"><Text>Last.</Text></Paragraph><Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>THE END</Text></Paragraph></Content><ScriptNotes><ScriptNote Id=\"1\" Range=\"8,8\" WriterName=\"Writer A\"><Paragraph><Text>After the end.</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>",
+      "options": {},
+      "expected": {
+        "diagnostics": [],
+        "scriptNotes": [
+          {
+            "id": "1",
+            "author": "Writer A",
+            "range": {
+              "start": 8,
+              "end": 8
+            },
+            "anchor": {
+              "start": {
+                "element": 0,
+                "offset": 5
+              },
+              "end": {
+                "element": 0,
+                "offset": 5
+              }
+            },
+            "text": "After the end."
+          }
+        ],
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "action",
+              "text": "Last."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "script-notes-attributes",
+      "source": "<FinalDraft><Content><Paragraph Type=\"Action\"><ScriptNote WriterName=\"Nobody\"><Paragraph><Text>not a note</Text></Paragraph></ScriptNote><Text>Hum.</Text></Paragraph></Content><ScriptNotes><TableColumnSettings><Column>Order</Column></TableColumnSettings><ScriptNote Color=\"#000000000000\" DateModified=\"20201214T005236\" DateTime=\"20201214T005118\" Id=\"143\" Name=\"Re: Re: Xxxx\" Range=\"0,4\" RefId=\"2f18438e-60f5-4514-9ebf-5ab2a3e17bb5\" Type=\"Alt Scenes\" WriterID=\"b63f73e5-f9f4-4d1e-bd09-5539fa3e726b\" WriterName=\"  Ren&#233;e &amp; Co  \"><Paragraph Type=\"Transition\"><Text Style=\"AllCaps\">cut to:</Text></Paragraph><Paragraph/><Paragraph><SceneProperties><Paragraph><Text>hidden</Text></Paragraph></SceneProperties><Text>seen</Text><Text><![CDATA[ & kept]]></Text></Paragraph></ScriptNote><ScriptNote Color=\"#FEEACC8166BA\" Name=\"\" Type=\"\" WriterName=\"   \"><Paragraph><Text>No author, no title.</Text></Paragraph></ScriptNote><ScriptNote/></ScriptNotes></FinalDraft>",
+      "options": {},
+      "expected": {
+        "diagnostics": [],
+        "scriptNotes": [
+          {
+            "id": "143",
+            "author": "Renée & Co",
+            "title": "Re: Re: Xxxx",
+            "category": "Alt Scenes",
+            "created": "20201214T005118",
+            "modified": "20201214T005236",
+            "range": {
+              "start": 0,
+              "end": 4
+            },
+            "anchor": {
+              "start": {
+                "element": 0,
+                "offset": 0
+              },
+              "end": {
+                "element": 0,
+                "offset": 4
+              }
+            },
+            "text": "CUT TO:\n\nseen & kept"
+          },
+          {
+            "color": "#FEEACC8166BA",
+            "text": "No author, no title."
+          },
+          {
+            "text": ""
+          }
+        ],
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "action",
+              "text": "Hum."
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "script-notes-none",
+      "source": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Version=\"3\">\n  <Content>\n    <Paragraph Type=\"Scene Heading\" Number=\"1\">\n      <SceneProperties Length=\"2/8\" Page=\"1\"/>\n      <Text>INT. FISH &amp; CHIP SHOP - DAY</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\"><Text>A &quot;quiet&quot; room &lt;somehow&gt;.</Text></Paragraph>\n    <Paragraph Type=\"Character\"><Text>MOLLY (V.O.)</Text></Paragraph>\n    <Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph>\n    <Paragraph Type=\"Dialogue\"><Text>We&apos;re closed.</Text></Paragraph>\n    <Paragraph Type=\"Dialogue\"><Text>Come back tomorrow.</Text></Paragraph>\n    <Paragraph Type=\"Transition\"><Text>CUT TO:</Text></Paragraph>\n    <Paragraph Alignment=\"Center\" Type=\"General\"><Text>THE END</Text></Paragraph>\n  </Content>\n  <TitlePage>\n    <Content>\n      <Paragraph Alignment=\"Center\" Type=\"General\"><Text>Chips</Text></Paragraph>\n      <Paragraph Alignment=\"Center\" Type=\"General\"><Text>written by</Text></Paragraph>\n      <Paragraph Alignment=\"Center\" Type=\"General\"><Text>A. Writer</Text></Paragraph>\n    </Content>\n  </TitlePage>\n</FinalDraft>",
+      "options": {},
+      "expected": {
+        "diagnostics": [],
+        "scriptNotes": [],
+        "script": {
+          "titlePage": [
+            {
+              "text": "Chips",
+              "alignment": "center"
+            },
+            {
+              "text": "written by",
+              "alignment": "center"
+            },
+            {
+              "text": "A. Writer",
+              "alignment": "center"
+            }
+          ],
+          "elements": [
+            {
+              "type": "scene",
+              "text": "INT. FISH & CHIP SHOP - DAY",
+              "sceneNumber": "1"
+            },
+            {
+              "type": "action",
+              "text": "A \"quiet\" room <somehow>."
+            },
+            {
+              "type": "character",
+              "text": "MOLLY (V.O.)"
+            },
+            {
+              "type": "parenthetical",
+              "text": "(beat)"
+            },
+            {
+              "type": "dialogue",
+              "text": "We're closed."
+            },
+            {
+              "type": "dialogue",
+              "text": "Come back tomorrow."
+            },
+            {
+              "type": "transition",
+              "text": "CUT TO:"
+            },
+            {
+              "type": "centered",
+              "text": "THE END"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "script-notes-unterminated",
+      "source": "<FinalDraft><Content><Paragraph Type=\"Action\"><Text>x</Text></Paragraph></Content><ScriptNotes><ScriptNote Id=\"1\" WriterName=\"Writer A\"><Paragraph><Text>open",
+      "options": {},
+      "expected": {
+        "diagnostics": [],
+        "scriptNotes": [
+          {
+            "id": "1",
+            "author": "Writer A",
+            "text": "open"
+          }
+        ],
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "action",
+              "text": "x"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "script-notes-limit",
+      "source": "<FinalDraft><Content><Paragraph Type=\"Action\"><Text>x</Text></Paragraph></Content><ScriptNotes><ScriptNote Id=\"1\"><Paragraph><Text>kept</Text></Paragraph></ScriptNote><ScriptNote Id=\"2\"><Paragraph><Text>past the limit</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>",
+      "options": {
+        "maxParagraphs": 2
+      },
+      "expected": {
+        "diagnostics": [
+          {
+            "code": "FDX_SCRIPT_NOTES_LIMIT_REACHED",
+            "severity": "warning",
+            "message": "Script notes stopped at 2 notes and paragraphs or 500000 Text runs.",
+            "count": 1
+          }
+        ],
+        "scriptNotes": [
+          {
+            "id": "1",
+            "text": "kept"
+          }
+        ],
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "action",
+              "text": "x"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "sample0-2",
+      "sourceFile": "sample0-2.fdx",
+      "options": {},
+      "expected": {
+        "diagnostics": [],
+        "scriptNotes": [
+          {
+            "id": "107",
+            "author": "Writer A",
+            "title": "Xxxx Xxx",
+            "category": "Producer",
+            "color": "#6363A7A7EFEF",
+            "created": "20201213T214959",
+            "modified": "20201213T220106",
+            "range": {
+              "start": 174,
+              "end": 194
+            },
+            "anchor": {
+              "start": {
+                "element": 6,
+                "offset": 0
+              },
+              "end": {
+                "element": 6,
+                "offset": 20
+              }
+            },
+            "text": "X xxxxx xx xxxx xx xxx xxx XXX xxxx xx xxxxxxxxx xxxx xxxxxx/xxxx xxxxxx xx xxx xxxx xx xxx xxxxxx."
+          },
+          {
+            "id": "113",
+            "author": "Writer B",
+            "title": "Re: Xxxx Xxx",
+            "category": "Writer",
+            "color": "#FEEACC8166BA",
+            "created": "20201213T221815",
+            "modified": "20201213T222852",
+            "range": {
+              "start": 174,
+              "end": 194
+            },
+            "anchor": {
+              "start": {
+                "element": 6,
+                "offset": 0
+              },
+              "end": {
+                "element": 6,
+                "offset": 20
+              }
+            },
+            "text": "Xx xx xxxx xxx xxx xxxx, xxxx xxx xxxxxxxx xx xxxxxxxx - xxxxx xx'x xxx xxxxxxxx xxxxxxxx xx x xxxxx? (Xxxxxx'x xxx xxxxxxx xx xx xxxx Xxxxx, xx xxxxxxxx xxxx xxxx.)"
+          },
+          {
+            "id": "143",
+            "author": "Writer A",
+            "title": "Re: Re: Xxxx Xxx",
+            "category": "Producer",
+            "created": "20201214T005118",
+            "modified": "20201214T005236",
+            "range": {
+              "start": 174,
+              "end": 194
+            },
+            "anchor": {
+              "start": {
+                "element": 6,
+                "offset": 0
+              },
+              "end": {
+                "element": 6,
+                "offset": 20
+              }
+            },
+            "text": "Xxx'x xxx xx. Xx xxx xxxxxx xxx xx xxxx."
+          },
+          {
+            "id": "119",
+            "author": "Writer B",
+            "title": "Xxxxxxxx",
+            "category": "Writer",
+            "color": "#9A9AAEAEDBDB",
+            "created": "20201213T222957",
+            "modified": "20201213T223015",
+            "range": {
+              "start": 261,
+              "end": 268
+            },
+            "anchor": {
+              "start": {
+                "element": 9,
+                "offset": 7
+              },
+              "end": {
+                "element": 9,
+                "offset": 14
+              }
+            },
+            "text": "Xx xx xxxx xxx xxx xxxxx, xx xxx'x xxxx xxx xxxx \"xxxx\" xx Xxxxxx'x xxx-xxx."
+          },
+          {
+            "id": "152",
+            "author": "Writer A",
+            "category": "Producer",
+            "created": "20201214T005259",
+            "modified": "20201214T005307",
+            "range": {
+              "start": 261,
+              "end": 268
+            },
+            "anchor": {
+              "start": {
+                "element": 9,
+                "offset": 7
+              },
+              "end": {
+                "element": 9,
+                "offset": 14
+              }
+            },
+            "text": "Xxxxx."
+          },
+          {
+            "id": "137",
+            "author": "Writer B",
+            "title": "Xx xx xxx xxxx xxxxx, xxxx'x xxx xxxxx",
+            "category": "Alt Scenes",
+            "color": "#EFEFA4A46262",
+            "created": "20201213T224046",
+            "modified": "20201213T224151",
+            "range": {
+              "start": 970,
+              "end": 1364
+            },
+            "anchor": {
+              "start": {
+                "element": 17,
+                "offset": 176
+              },
+              "end": {
+                "element": 27,
+                "offset": 21
+              }
+            },
+            "text": "XXX XX:\nXXXXXXX - XXXXX (XXXXXXXXX)\nXXXXX XXXXX xxxx xxxxxx Xxxxxx, xxx'x xxxx xxxxxxx. Xxxx'xx xxxxxxx x xxxxxx xx Xxxxx'x xxxxxxx. Xxxx xx xxxxx xxxxxxx.\nXXXX XXXX\nXxxxx x xxxx, xx'xx xxxx xxx xx xxxx xxxx xxx!\nXxx XXXXXX XXXX xxxxx x xxxx XXXXXXX xxxx x xxxxxxx xxx -- XXXX! Xxx XXXXX XXXX XXXXX xxx xxx --\nXXXX XX:\nXXXX - XXXXXXX XXXX"
+          },
+          {
+            "id": "108",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201213T220318",
+            "modified": "20201213T220416",
+            "range": {
+              "start": 2183,
+              "end": 2191
+            },
+            "anchor": {
+              "start": {
+                "element": 53,
+                "offset": 51
+              },
+              "end": {
+                "element": 53,
+                "offset": 59
+              }
+            },
+            "text": "Xxxx xxxx."
+          },
+          {
+            "id": "109",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#7A7A8181FFFF",
+            "created": "20201213T220740",
+            "modified": "20201213T220820",
+            "range": {
+              "start": 10601,
+              "end": 10642
+            },
+            "anchor": {
+              "start": {
+                "element": 298,
+                "offset": 58
+              },
+              "end": {
+                "element": 299,
+                "offset": 32
+              }
+            },
+            "text": "X xxxx xxxx - xxx xxxxxxxxx xxx xxxxxxxxxxxx xxxxxxxx."
+          },
+          {
+            "id": "110",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201213T221012",
+            "modified": "20201213T221038",
+            "range": {
+              "start": 18213,
+              "end": 18219
+            },
+            "anchor": {
+              "start": {
+                "element": 536,
+                "offset": 0
+              },
+              "end": {
+                "element": 536,
+                "offset": 6
+              }
+            },
+            "text": "XXX xxxx xx xxxxxx xx xxxxxxxxx. X xxxx xx."
+          },
+          {
+            "id": "111",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201213T221215",
+            "modified": "20201213T221340",
+            "range": {
+              "start": 19549,
+              "end": 19662
+            },
+            "anchor": {
+              "start": {
+                "element": 581,
+                "offset": 8
+              },
+              "end": {
+                "element": 583,
+                "offset": 93
+              }
+            },
+            "text": "Xxx'x xxx xxxx xx xxxxx xx xxx xxxxxx. \nXxxx xxxxxx xx xxxx xx x xxxxxxxx."
+          },
+          {
+            "id": "112",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201213T221455",
+            "modified": "20201213T221547",
+            "range": {
+              "start": 25736,
+              "end": 25736
+            },
+            "anchor": {
+              "start": {
+                "element": 766,
+                "offset": 0
+              },
+              "end": {
+                "element": 766,
+                "offset": 0
+              }
+            },
+            "text": "Xxxx xx xxxxx. X xxxx xx.\n\nX xxxx xx xxxxx xxxx xxxx xx xxx xxxxxxxxxxx xxxxx xxxxx xxxx x xxx xxxxxx.  \n\nXxx'x xxxx xxx xxxxxxxx XXX xxx xxx. Xxx'x xxxx xxx xxxxxxxx xxxxx xxx xxxx xxx xxxx - xxx xx'x xxx xxxx xxxxxx.  Xxxx xxx xxx/xxx xxx.  \n\nXxx'x xxxx xxx xxx xxxxxx xxxxxxx - xxx xxx xxx xxx xx xxxx xxx.  Xx xxxx xx xxxx xx'x x xxxxxxx.  \n\nXxxx xxxxxx xxxxx xxxx x xxxxxx xx xxx xxx xxx x xxxx xx xxxx xxxxxx xxxxxxxx xx xxxx xx xx xxx xx xxxx xx xxxxx xxxxxxxxx xx xx x xxxx xxxxx xxx xxx xxxx xxxx. Xxxx'x xxxx x xxxxx xxxxxx x xxxxx."
+          }
+        ]
+      }
+    }
   ]
 }

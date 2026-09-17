@@ -1,4 +1,5 @@
 /** FDX import, export, diagnostics, limits, and round-trip behavior. */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
 	decodeXmlEntities,
@@ -800,5 +801,124 @@ describe('FDX · act breaks (RFC-ACT-BREAK §3)', () => {
 			]
 		});
 		expect(fdx).toContain('<Text>END FISH &amp; CHIP SHOP</Text>');
+	});
+});
+
+describe('FDX · ScriptNotes', () => {
+	/* A real feature's eleven notes, anonymised: every letter is x or X, so
+	   each paragraph keeps its length and every Range lands where it did. */
+	const SAMPLE = readFileSync(
+		new URL('../../../apple/eDraftEngine/Fixtures/sample0-2.fdx', import.meta.url),
+		'utf8'
+	);
+	const sample = parseFdx(SAMPLE);
+	const note = (id: string) => sample.scriptNotes.find((candidate) => candidate.id === id);
+	const block = (xml: string) =>
+		xml.slice(xml.indexOf('<ScriptNotes>'), xml.indexOf('</ScriptNotes>') + '</ScriptNotes>'.length);
+
+	it('reads eleven notes in file order, each by the writer the file names', () => {
+		expect(sample.scriptNotes.map((n) => n.id)).toEqual([
+			'107', '113', '143', '119', '152', '137', '108', '109', '110', '111', '112'
+		]);
+		expect(sample.scriptNotes.filter((n) => n.author === 'Writer A').map((n) => n.id)).toEqual([
+			'107', '143', '152', '108', '109', '110', '111', '112'
+		]);
+		expect(sample.scriptNotes.filter((n) => n.author === 'Writer B').map((n) => n.id)).toEqual([
+			'113', '119', '137'
+		]);
+		expect(sample.diagnostics).toEqual([]);
+	});
+
+	it('anchors each Range on the text it was measured on', () => {
+		const elements = sample.script.elements;
+		/* exactly one whole character cue */
+		expect(note('110')?.anchor).toEqual({
+			start: { element: 536, offset: 0 },
+			end: { element: 536, offset: 6 }
+		});
+		expect(elements[536].type).toBe('character');
+		expect(elements[536].text.length).toBe(6);
+		/* the shot it is about, from its first character */
+		expect(note('107')?.anchor?.start).toEqual({ element: 6, offset: 0 });
+		expect(elements[6].type).toBe('shot');
+		/* zero-length, inside the absorbed End of Act: the next element */
+		expect(note('112')?.range).toEqual({ start: 25736, end: 25736 });
+		expect(note('112')?.anchor?.start).toEqual({ element: 766, offset: 0 });
+		/* across elements */
+		expect(note('137')?.anchor?.start.element).toBe(17);
+		expect(note('137')?.anchor?.end.element).toBe(27);
+	});
+
+	it('keeps a body’s paragraphs, blank ones included', () => {
+		const long = note('112')?.text.split('\n') ?? [];
+		expect(long).toHaveLength(9);
+		expect(long.filter((line) => line === '')).toHaveLength(4);
+		expect(note('137')?.text.split('\n')).toHaveLength(8);
+	});
+
+	it('leaves out what the file leaves empty, and never reads WriterID', () => {
+		expect(note('143')?.color).toBeUndefined(); // #000000000000
+		expect(note('107')?.color).toBe('#6363A7A7EFEF');
+		expect(note('152')?.title).toBeUndefined(); // Name=""
+		expect(note('143')?.title).toBe('Re: Re: Xxxx Xxx');
+		expect(note('137')?.category).toBe('Alt Scenes');
+		expect(JSON.stringify(sample.scriptNotes)).not.toContain('b63f73e5');
+	});
+
+	it('is the same reading through openFdx', () => {
+		expect(openFdx(SAMPLE).scriptNotes).toEqual(sample.scriptNotes);
+		expect(parseFdx(FOREIGN_FDX).scriptNotes).toEqual([]);
+	});
+
+	it('a save with no edit keeps the ScriptNotes block byte for byte', () => {
+		const document = openFdx(SAMPLE);
+		const saved = document.rewrite(document.script).xml;
+		expect(saved).toContain('<ScriptNotes>');
+		expect(block(saved)).toBe(block(SAMPLE));
+	});
+
+	it('editing an annotated line keeps the ScriptNotes block byte for byte', () => {
+		const document = openFdx(SAMPLE);
+		const script: Screenplay = {
+			...document.script,
+			elements: document.script.elements.map((element, index) =>
+				index === 536 ? { ...element, text: 'XXXXXX (V.O.)' } : element
+			)
+		};
+		const saved = document.rewrite(script).xml;
+		expect(saved).toContain('XXXXXX (V.O.)');
+		expect(block(saved)).toBe(block(SAMPLE));
+	});
+
+	it('counts every paragraph break, the absorbed End of Act included', () => {
+		/* paragraphs start at 0, 15, 20 and 35; the script ends at 38 */
+		const xml = `<FinalDraft><Content><Paragraph Type="Scene Heading"><Text>INT. LAB - DAY</Text></Paragraph><Paragraph Type="Action"><Text>Hum.</Text></Paragraph><Paragraph Type="End of Act"><Text>END OF ACT ONE</Text></Paragraph><Paragraph Type="Action"><Text>Go.</Text></Paragraph></Content><ScriptNotes>${[
+			'15,19', '14,14', '22,22', '35,99', '60,70', '19,15', 'abc'
+		]
+			.map((range) => `<ScriptNote Range="${range}"><Paragraph><Text>n</Text></Paragraph></ScriptNote>`)
+			.join('')}</ScriptNotes></FinalDraft>`;
+		const [exact, onBreak, inAbsorbed, pastEnd, stale, reversed, unreadable] = parseFdx(xml).scriptNotes;
+		expect(exact.anchor).toEqual({ start: { element: 1, offset: 0 }, end: { element: 1, offset: 4 } });
+		expect(onBreak.anchor?.start).toEqual({ element: 0, offset: 14 });
+		expect(inAbsorbed.anchor?.start).toEqual({ element: 2, offset: 0 });
+		expect(pastEnd.anchor?.end).toEqual({ element: 2, offset: 3 });
+		expect(stale.range).toEqual({ start: 60, end: 70 });
+		expect(stale.anchor).toBeUndefined();
+		expect(reversed.range).toEqual({ start: 15, end: 19 });
+		expect(unreadable.range).toBeUndefined();
+	});
+
+	it('reads only direct children, decodes the author, and stops at the limit', () => {
+		const xml = `<FinalDraft><Content><Paragraph Type="Action"><ScriptNote WriterName="Nobody"/><Text>Hum.</Text></Paragraph></Content><ScriptNotes><ScriptNote WriterName="  Ren&#233;e &amp; Co  "><Paragraph><Text Style="AllCaps">cut to:</Text></Paragraph><Paragraph/><Paragraph><SceneProperties><Paragraph><Text>hidden</Text></Paragraph></SceneProperties><Text>seen</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>`;
+		const [only, ...rest] = parseFdx(xml).scriptNotes;
+		expect(rest).toEqual([]);
+		expect(only.author).toBe('Renée & Co');
+		expect(only.text).toBe('CUT TO:\n\nseen');
+
+		const limited = parseFdx(xml.replace('</ScriptNotes>', '<ScriptNote/></ScriptNotes>'), {
+			maxParagraphs: 4
+		});
+		expect(limited.scriptNotes).toHaveLength(1);
+		expect(limited.diagnostics.map((d) => d.code)).toEqual(['FDX_SCRIPT_NOTES_LIMIT_REACHED']);
 	});
 });

@@ -242,10 +242,48 @@ enum StyleEditsCorpus {
 enum FdxCorpus {    struct Root: Decodable {
         let importCases: [ImportCase]
         let exportCases: [ExportCase]
+        /// The ScriptNotes section — apart, so every import case keeps its
+        /// expected output exactly.
+        var scriptNoteCases: [ScriptNotesCase] = []
 
         enum CodingKeys: String, CodingKey {
             case importCases = "import"
             case exportCases = "export"
+            case scriptNoteCases = "scriptNotes"
+        }
+    }
+
+    /// A ScriptNotes reading. The source is inline, or a file beside the
+    /// corpus named by `sourceFile`; the screenplay is pinned only for an
+    /// inline source.
+    struct ScriptNotesCase: Decodable {
+        let name: String
+        let source: String?
+        let sourceFile: String?
+        let options: ImportCase.Options
+        let expected: Expected
+
+        struct Expected: Decodable {
+            let script: Screenplay?
+            let diagnostics: [Fdx.Diagnostic]
+            let scriptNotes: [Fdx.ScriptNote]
+        }
+
+        func xml() throws -> String {
+            if let source { return source }
+            return try String(
+                contentsOf: FixtureStore.directory.appendingPathComponent(sourceFile ?? ""),
+                encoding: .utf8
+            )
+        }
+
+        var importOptions: Fdx.ImportOptions {
+            Fdx.ImportOptions(
+                maxSourceCharacters: options.maxSourceCharacters,
+                maxParagraphs: options.maxParagraphs,
+                maxTextRuns: options.maxTextRuns,
+                maxWarnings: options.maxWarnings
+            )
         }
     }
 
