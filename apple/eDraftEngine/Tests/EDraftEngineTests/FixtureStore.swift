@@ -257,14 +257,32 @@ enum FdxCorpus {    struct Root: Decodable {
         }
     }
 
+    /// The source is inline, or a file beside the corpus named by
+    /// `sourceFile`. The screenplay saved is `screenplay`, or the document's
+    /// own script; `unedited` is the caller's reading passed to the save;
+    /// `through: "fountain"` builds both from the file the way the app does.
+    /// The expected result is exact bytes, or whether the save returns the
+    /// file unchanged.
     struct RewriteCase: Decodable {
         let name: String
-        let source: String
-        let screenplay: Screenplay
+        let source: String?
+        let sourceFile: String?
+        let screenplay: Screenplay?
+        let unedited: Screenplay?
+        let through: String?
         let expected: Expected
 
         struct Expected: Decodable {
-            let xml: String
+            let xml: String?
+            let identical: Bool?
+        }
+
+        func xml() throws -> String {
+            if let source { return source }
+            return try String(
+                contentsOf: FixtureStore.directory.appendingPathComponent(sourceFile ?? ""),
+                encoding: .utf8
+            )
         }
     }
 

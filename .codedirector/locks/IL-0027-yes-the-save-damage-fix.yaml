@@ -1,0 +1,182 @@
+schemaVersion: 1
+id: IL-0027
+status: verified
+utterance: '1) YES — the save-damage fix jumps the queue, effective immediately. Your proposed order stands: save-damage → counting → dual dialogue → Range maintenance → role → write-into-ScriptNotes. 2) YES — the rebase onto sample02.fdx waits until the save fix lands; rebasing now would just re-strip the tags on my first edit. 3) Migrate nothing — "test" was a test, and the 8 changes are test typing and save artifacts, not script work. One requirement for the save-damage lock: the conformance suite must gain anonymized copies of PRISTINE Final Draft-written files (sample02, sample01) so the byte-identical proof runs against files that still carry their tags — the IL-0025 blind spot must become impossible.'
+goal: A save never changes a paragraph the writer did not edit — not in the engine, and not through the app's Fountain open-and-save path. Proven byte for byte on anonymised copies of two files Final Draft itself wrote, which still carry their production tags, revision marks and Final Draft's own run splits, and which fail on today's code; and guarded so a fixture that cannot fail is itself a failing test.
+interpretation: |
+  Measured 2026-09-17 at 20b25f2 on ~/Documents/sample02.fdx (Final Draft's
+  own save) and Final Draft's backup 20260909090409sample01.fdx. The human
+  verified the engine-level loss independently (8 tags, 706 bytes).
+
+  TWO LEAKS, BOTH IN THE SAVE'S "DID THIS PARAGRAPH CHANGE?" GATE.
+
+  1. ENGINE. rewriteParagraph (TypeScript) / rewritten (Swift) compare the
+     file's RAW runs with the element's NORMALISED runs. Final Draft splits
+     runs the model merges ("HOME LIBRARY, " + "CASALINDA", same tag, one
+     with AdornmentStyle="-1"), so 8 untouched headings read as edited and are
+     rewritten — tags, AdornmentStyle and the AllCaps style lost. Prototyped:
+     comparing normalised with normalised makes a no-edit engine save
+     byte-identical on both files.
+
+  2. APP PATH. The app edits Fountain. Fountain carries Bold, Italic,
+     Underline and Strikeout only — tightened off whitespace — and nothing
+     else: no TagNumber, RevisionID, highlight, AllCaps, HiddenText. It also
+     re-reads some paragraphs differently, measured with no edit at all: an
+     emphasised scene heading becomes Action (`… (N1) #2#`, `.KITCHEN …`),
+     an italic "(beat)" after dialogue becomes Dialogue, a paragraph with a
+     line break is split in two, a trailing space is trimmed. The gate calls
+     all of it an edit. Today: sample02 loses 400 of 407 tags, one scene's
+     SceneProperties, 21 KB. These are the Sep 12 "save artifacts" (#2#,
+     (beat), the trimmed space) — reproduced now with no edit.
+
+  THE FIX, ONE PRINCIPLE: an unedited paragraph is written back untouched.
+  "Unedited" is judged in the representation the caller edits, not the
+  file's:
+
+    - The engine gate compares normalised runs with normalised runs.
+    - rewrite gains an optional `unedited` screenplay — the caller's own
+      reading of this file before any edit (TypeScript: an options object;
+      Swift: a parameter). The engine corresponds each file paragraph with
+      the unedited element(s) it became — one to one, or one paragraph to the
+      consecutive elements it was split into at its line breaks, or by
+      position inside an otherwise-aligned gap (the #2# heading) — aligns the
+      incoming screenplay against the unedited one by whole-element equality,
+      and writes every paragraph whose unedited element(s) come back unchanged
+      as its original bytes, with no further gate. Everything else takes
+      today's path. Where no correspondence can be established, that region
+      takes today's path too, and the TypeScript result reports it
+      (FDX_REWRITE_UNEDITED_UNALIGNED).
+    - ScreenplayFile.encode passes it: `Fountain.parse(open(origin).source,
+      emphasis: .runs)` — deterministic from the origin. Measured on both
+      files: an unedited document published by the real EditorState reads back
+      identical to exactly this, so the app's no-edit save is byte-identical
+      by construction.
+
+  FIXTURES — THE HUMAN'S REQUIREMENT. Two new fixtures, anonymised from files
+  Final Draft wrote: apple/eDraftEngine/Fixtures/finaldraft-sample02.fdx (407
+  TagNumber runs, revision marks, AdornmentStyle splits, 6 dual-dialogue
+  blocks, an omitted scene, End of Act, an emphasised numbered heading, an
+  italic parenthetical after dialogue, a trailing space) and
+  finaldraft-sample01.fdx (a multi-line paragraph, an emphasised heading
+  without INT/EXT, an italic parenthetical, a trailing space, an emoji,
+  outline and Beat Board). Anonymiser v2: letters become x/X as before, but
+  screenplay grammar words (INT, EXT, DAY, NIGHT, V.O., CUT TO, …) stay in
+  headings, transitions, cues, parentheticals and shots, and as the first word
+  of a paragraph — so Fountain's detection hazards survive. Measured: both
+  anonymised files fail on today's code (engine and app path) and contain no
+  real names.
+
+  THE BLIND SPOT, MADE IMPOSSIBLE. A provenance guard runs in both ports:
+  every fidelity fixture must carry no eDraft save marks (no bare
+  `<Paragraph Type="…"><Text>` line, no xmlns:EDraft) and must carry the
+  hazards listed above, counted. A fixture that has lost what the proof
+  depends on fails the guard before the proof can pass vacuously.
+
+  CONFORMANCE. fdx.json's rewrite section gains cases that read these files
+  by name: the engine no-edit save and the app path (open → Fountain →
+  rewrite with unedited), both expected identical to the file; plus
+  synthetic cases for each leak and each correspondence rule. Swift must
+  reproduce all of them.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: a save with no edit returns finaldraft-sample02.fdx and finaldraft-sample01.fdx byte for byte through openFdx, Fdx.open, and EDraftCore's ScreenplayFile.open → encode — and each of these proofs fails on the save code before this lock (recorded in the run)
+  - kind: custom
+    text: the provenance guard fails for any fidelity fixture that carries an eDraft save mark or lacks the counted Final Draft hazards
+  - kind: custom
+    text: an edit still changes bytes only inside the edited paragraph — the IL-0025 sweep runs on both new fixtures, engine and app path
+  - kind: custom
+    text: "the import, the ScriptNotes reader and the fresh export are unchanged: parseFdx/Fdx.parse, FdxScriptNotes and writeFdx/Fdx.write have no changed lines, and every existing fdx.json case keeps its expected output"
+  - kind: custom
+    text: the Fountain parser and serialiser, the model and EditorState are unchanged — the Fountain losses are routed around here, not fixed
+  - kind: custom
+    text: the fixtures contain no real screenplay text, names or image data; grammar words appear only in headings, transitions, cues, parentheticals, shots and as a paragraph's first word
+  - kind: custom
+    text: both ports produce identical rewrite output for every corpus case
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - "*.xcodeproj/**"
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/style.ts
+  - packages/edraft/src/normalize.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/sample0-2.fdx
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+  - apple/EDraftCore/Sources/EDraftCore/ScriptAsides.swift
+  - apple/EDraftCore/Sources/EDraftCore/ImportedNotes.swift
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - docs/**
+change: The preserving FDX save writes every paragraph the writer did not edit back as its original bytes — engine gate normalised, and an `unedited` reading passed from the app so Fountain's losses are not mistaken for edits — proven on anonymised pristine Final Draft files that fail on today's code, with a provenance guard that makes a vacuous fixture a failing test.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Fixtures/finaldraft-sample02.*
+    - apple/eDraftEngine/Fixtures/finaldraft-sample01.*
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxPreservingRoundTripTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayFile.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift
+  symbols: []
+  maxFiles: 12
+  maxLines: 13500
+accept:
+  - "No-edit save byte-identical on finaldraft-sample02.fdx and finaldraft-sample01.fdx: openFdx, Fdx.open, and ScreenplayFile.open → encode. Before this lock: engine −8 tags on sample02; app path 407 → 7 tags, −21 KB."
+  - Each proof is shown to fail on the pre-lock save code (TypeScript and Swift), the way IL-0025's suite was.
+  - The provenance guard counts, per fixture, the hazards listed in the interpretation and rejects an eDraft save mark; it fails if pointed at sample0-2.fdx.
+  - The IL-0025 edit sweep holds on both new fixtures, through the engine and the app path.
+  - "Existing suites stay green: 647 TypeScript package tests, 175 Swift engine tests, 330 EDraftCore tests."
+assumptions:
+  - text: Budget replaced by hand. The auto-draft anchored on ScanCreation.write, PageScroll.range, Fdx.write and the ScriptNotes reader — matches on 'write', 'range', 'fdx', 'scriptnotes' — and proposed a document scanner and page scrolling.
+    source: system
+    confirmed: false
+  - text: "Ordered by the human: this lock jumps the queue (save-damage → counting → dual dialogue → Range maintenance → role → write-into-ScriptNotes). The rebase onto sample02.fdx waits for it. Nothing migrates from sample0-2.fdx."
+    source: user
+    confirmed: true
+  - text: "Required by the human: anonymised copies of pristine Final Draft-written sample02 and sample01 in the conformance suite, so the byte-identical proof runs on files that still carry their tags."
+    source: user
+    confirmed: true
+  - text: "Decided by the human — not in this lock: an EDITED paragraph still loses what Fountain cannot carry (a typo fix in a tagged line drops its tags; an edited emphasised heading becomes Action; an edited italic (beat) after dialogue becomes Dialogue; an edited multi-line paragraph is split). That is IL-0028, approved to follow immediately, ahead of the counting fix. The rebase onto sample02.fdx waits for both."
+    source: user
+    confirmed: true
+  - text: "Approved by the human: scope as drafted, and anonymiser v2 as described (grammar words kept only in headings, transitions, cues, parentheticals, shots and as a paragraph's first word)."
+    source: user
+    confirmed: true
+  - text: "New fixtures are budgeted as globs (finaldraft-sample0*.*) — the cdir gap recorded in IL-0023. maxLines 13,500 counts them: 6,888 + 5,011 lines; code, tests and corpus estimated ~1,400."
+    source: system
+    confirmed: false
+  - text: "The IL-0024/IL-0025 fixture sample0-2.fdx stays as it is (denied): its tests remain valid, and the guard documents why it cannot be a fidelity fixture."
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T06:11:32.872Z
+createdBy: Yasirdora

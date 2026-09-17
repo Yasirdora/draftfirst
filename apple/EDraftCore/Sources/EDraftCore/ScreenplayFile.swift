@@ -94,14 +94,28 @@ public nonisolated enum ScreenplayFile {
     /// would refuse to open.
     ///
     /// With `origin` — the file as it was read — the save *edits* it: only the
-    /// paragraphs whose text changed are rewritten, and everything eDraft does
+    /// paragraphs the writer changed are rewritten, and everything eDraft does
     /// not model survives untouched. Without one, as when exporting a
     /// screenplay that began life here, a whole file is written.
     public static func encode(_ source: String, as type: UTType, origin: String? = nil) throws -> Data {
         guard type.conforms(to: .finalDraftScreenplay) else { return try encode(source) }
         let screenplay = try Fountain.parse(source, emphasis: .runs)
         guard let origin else { return try encode(Fdx.writeXml(screenplay)) }
-        return try encode(Fdx.open(origin).rewrite(screenplay))
+        return try encode(Fdx.open(origin).rewrite(screenplay, unedited: uneditedReading(of: origin)))
+    }
+
+    /// The script as the editor first held it: the file carried through
+    /// Fountain, exactly as `open` carries it, and read back.
+    ///
+    /// Fountain cannot carry everything a Final Draft file does — production
+    /// tags, revision marks, an emphasised heading as a heading — so without
+    /// this every such paragraph looked edited to the save and was rewritten:
+    /// measured on a file Final Draft wrote, a save that changed nothing lost
+    /// 400 of its 407 tags. With it, a paragraph that comes back as it was read
+    /// is written as its original bytes. Deterministic from the origin, and
+    /// measured: an unedited document publishes exactly this reading.
+    private static func uneditedReading(of origin: String) -> EDraftEngine.Screenplay? {
+        try? Fountain.parse(Fountain.serialise(shouted(Fdx.parse(origin).script)), emphasis: .runs)
     }
 
     /// A new screenplay is a blank page, not a pre-written ritual: title

@@ -6027,6 +6027,390 @@
       "expected": {
         "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n<Paragraph Type=\"End of Act\"><Text>END OF TEASER</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n<Paragraph Type=\"New Act\"><Text>ACT TWO: THE TURN</Text></Paragraph>\n</Content></FinalDraft>"
       }
+    },
+    {
+      "name": "finaldraft-sample02-no-edit",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "expected": {
+        "identical": true
+      }
+    },
+    {
+      "name": "finaldraft-sample02-no-edit-through-fountain",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "through": "fountain",
+      "expected": {
+        "identical": true
+      }
+    },
+    {
+      "name": "finaldraft-sample01-no-edit",
+      "sourceFile": "finaldraft-sample01.fdx",
+      "expected": {
+        "identical": true
+      }
+    },
+    {
+      "name": "finaldraft-sample01-no-edit-through-fountain",
+      "sourceFile": "finaldraft-sample01.fdx",
+      "through": "fountain",
+      "expected": {
+        "identical": true
+      }
+    },
+    {
+      "name": "engine-split-runs-no-edit",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"597\">INT. </Text><Text TagNumber=\"823\">HOME LIBRARY, </Text><Text AdornmentStyle=\"-1\" TagNumber=\"823\">CASALINDA</Text><Text TagNumber=\"599\"> - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. HOME LIBRARY, CASALINDA - DAY",
+            "runs": [
+              {
+                "start": 0,
+                "end": 5,
+                "styles": [],
+                "tagNumbers": [
+                  597
+                ]
+              },
+              {
+                "start": 5,
+                "end": 28,
+                "styles": [],
+                "tagNumbers": [
+                  823
+                ]
+              },
+              {
+                "start": 28,
+                "end": 34,
+                "styles": [],
+                "tagNumbers": [
+                  599
+                ]
+              }
+            ]
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"597\">INT. </Text><Text TagNumber=\"823\">HOME LIBRARY, </Text><Text AdornmentStyle=\"-1\" TagNumber=\"823\">CASALINDA</Text><Text TagNumber=\"599\"> - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "unedited-tags-kept-no-edit",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"1\">INT. LAB - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text RevisionID=\"2\">She </Text><Text TagNumber=\"7\">waits</Text><Text>.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>He leaves.</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. LAB - DAY"
+          },
+          {
+            "type": "action",
+            "text": "She waits."
+          },
+          {
+            "type": "action",
+            "text": "He leaves."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. LAB - DAY"
+          },
+          {
+            "type": "action",
+            "text": "She waits."
+          },
+          {
+            "type": "action",
+            "text": "He leaves."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"1\">INT. LAB - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text RevisionID=\"2\">She </Text><Text TagNumber=\"7\">waits</Text><Text>.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>He leaves.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "unedited-tags-kept-beside-an-edit",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"1\">INT. LAB - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text RevisionID=\"2\">She </Text><Text TagNumber=\"7\">waits</Text><Text>.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>He leaves.</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. LAB - DAY"
+          },
+          {
+            "type": "action",
+            "text": "She waits."
+          },
+          {
+            "type": "action",
+            "text": "He runs."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. LAB - DAY"
+          },
+          {
+            "type": "action",
+            "text": "She waits."
+          },
+          {
+            "type": "action",
+            "text": "He leaves."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"1\">INT. LAB - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text RevisionID=\"2\">She </Text><Text TagNumber=\"7\">waits</Text><Text>.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>He runs.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "unedited-split-paragraph-no-edit",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text TagNumber=\"3\">Lands her point:\nThey must work together.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "Lands her point:"
+          },
+          {
+            "type": "action",
+            "text": "They must work together."
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "Lands her point:"
+          },
+          {
+            "type": "action",
+            "text": "They must work together."
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text TagNumber=\"3\">Lands her point:\nThey must work together.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "unedited-split-paragraph-one-line-edited",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text TagNumber=\"3\">Lands her point:\nThey must work together.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "Lands her point:"
+          },
+          {
+            "type": "action",
+            "text": "They agree."
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "Lands her point:"
+          },
+          {
+            "type": "action",
+            "text": "They must work together."
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text>Lands her point:</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>They agree.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "unedited-reread-heading-no-edit",
+      "source": "<FinalDraft><Content>\n<Paragraph Number=\"2\" Type=\"Scene Heading\"><Text Style=\"Bold+Italic\" TagNumber=\"601\">INT. </Text><Text Style=\"Bold+Italic\" TagNumber=\"824\">KITCHEN - NIGHT</Text><Text> </Text><Text Style=\"Bold+Italic\">(N1)</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>MAID</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Not horrible.</Text></Paragraph>\n<Paragraph Type=\"Parenthetical\"><Text Style=\"Italic\">(beat)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Me too. But... </Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "INT. KITCHEN - NIGHT (N1) #2#",
+            "runs": [
+              {
+                "start": 0,
+                "end": 20,
+                "styles": [
+                  "Bold",
+                  "Italic"
+                ]
+              },
+              {
+                "start": 21,
+                "end": 25,
+                "styles": [
+                  "Bold",
+                  "Italic"
+                ]
+              }
+            ]
+          },
+          {
+            "type": "character",
+            "text": "MAID"
+          },
+          {
+            "type": "dialogue",
+            "text": "Not horrible."
+          },
+          {
+            "type": "dialogue",
+            "text": "(beat)",
+            "runs": [
+              {
+                "start": 0,
+                "end": 6,
+                "styles": [
+                  "Italic"
+                ]
+              }
+            ]
+          },
+          {
+            "type": "dialogue",
+            "text": "Me too. But..."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "INT. KITCHEN - NIGHT (N1) #2#",
+            "runs": [
+              {
+                "start": 0,
+                "end": 20,
+                "styles": [
+                  "Bold",
+                  "Italic"
+                ]
+              },
+              {
+                "start": 21,
+                "end": 25,
+                "styles": [
+                  "Bold",
+                  "Italic"
+                ]
+              }
+            ]
+          },
+          {
+            "type": "character",
+            "text": "MAID"
+          },
+          {
+            "type": "dialogue",
+            "text": "Not horrible."
+          },
+          {
+            "type": "dialogue",
+            "text": "(beat)",
+            "runs": [
+              {
+                "start": 0,
+                "end": 6,
+                "styles": [
+                  "Italic"
+                ]
+              }
+            ]
+          },
+          {
+            "type": "dialogue",
+            "text": "Me too. But..."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Number=\"2\" Type=\"Scene Heading\"><Text Style=\"Bold+Italic\" TagNumber=\"601\">INT. </Text><Text Style=\"Bold+Italic\" TagNumber=\"824\">KITCHEN - NIGHT</Text><Text> </Text><Text Style=\"Bold+Italic\">(N1)</Text></Paragraph>\n<Paragraph Type=\"Character\"><Text>MAID</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Not horrible.</Text></Paragraph>\n<Paragraph Type=\"Parenthetical\"><Text Style=\"Italic\">(beat)</Text></Paragraph>\n<Paragraph Type=\"Dialogue\"><Text>Me too. But... </Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "unedited-unaligned-falls-back",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"1\">INT. LAB - DAY</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text RevisionID=\"2\">She </Text><Text TagNumber=\"7\">waits</Text><Text>.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>He leaves.</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "EXT. SOMEWHERE ELSE - NIGHT"
+          },
+          {
+            "type": "action",
+            "text": "Nothing like the file."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "EXT. SOMEWHERE ELSE - NIGHT"
+          },
+          {
+            "type": "action",
+            "text": "Nothing like the file."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Scene Heading\"><Text>EXT. SOMEWHERE ELSE - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Nothing like the file.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
     }
   ]
 }

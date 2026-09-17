@@ -172,13 +172,27 @@ struct FdxEndOfActRoundTripTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.rewriteCases.count == 9)
+        #expect(Self.corpus.rewriteCases.count == 20)
     }
 
     @Test("rewrite", arguments: Self.corpus.rewriteCases)
-    func rewrite(_ case_: FdxCorpus.RewriteCase) {
-        #expect(Fdx.open(case_.source).rewrite(case_.screenplay) == case_.expected.xml,
-                "\(case_.name): the save differs from the TypeScript engine")
+    func rewrite(_ case_: FdxCorpus.RewriteCase) throws {
+        let source = try case_.xml()
+        let document = Fdx.open(source)
+        let saved: String
+        if case_.through == "fountain" {
+            let reading = try FountainReading.of(source)
+            saved = document.rewrite(reading, unedited: reading)
+        } else {
+            saved = document.rewrite(case_.screenplay ?? document.script, unedited: case_.unedited)
+        }
+        if let xml = case_.expected.xml {
+            #expect(saved == xml, "\(case_.name): the save differs from the TypeScript engine")
+        }
+        if let identical = case_.expected.identical {
+            #expect((saved == source) == identical,
+                    "\(case_.name): the TypeScript engine says identical is \(identical)")
+        }
     }
 
     @Test("A save with no edit returns the feature byte for byte, its End of Act included")
@@ -237,5 +251,200 @@ struct FdxEndOfActRoundTripTests {
         let window = saved[max(0, prefix - marker.utf8.count)..<min(saved.count, saved.count - suffix + marker.utf8.count)]
         #expect(String(decoding: window, as: UTF8.self).contains(marker),
                 "element \(index): the change is not where the edit is")
+    }
+}
+
+/// The file as the app's editor first holds it: carried through Fountain,
+/// casing applied the way `ScreenplayFile.open` applies it, and read back.
+enum FountainReading {
+    static func of(_ xml: String) throws -> Screenplay {
+        var imported = Fdx.parse(xml).script
+        imported.elements = imported.elements.map { element in
+            var element = element
+            element.text = Normalize.canonicalCasing(kind: element.type, text: element.text)
+            return element
+        }
+        return try Fountain.parse(Fountain.serialise(imported), emphasis: .runs)
+    }
+}
+
+/// Files Final Draft itself wrote.
+///
+/// The no-edit proof above runs on a file an old eDraft save had already
+/// stripped of its production tags, so it could not fail — and a save that
+/// lost 400 of 407 tags passed it. These fixtures are anonymised copies of
+/// files Final Draft wrote, still carrying everything a careless save loses,
+/// and the guard refuses any fixture that does not.
+@Suite("FDX preserving round trip · files Final Draft wrote")
+struct FdxFinalDraftWrittenTests {
+
+    static let files = ["finaldraft-sample02.fdx", "finaldraft-sample01.fdx"]
+
+    private static func fixture(_ name: String) -> String {
+        do {
+            return try String(contentsOf: FixtureStore.directory.appendingPathComponent(name), encoding: .utf8)
+        } catch {
+            Issue.record("Failed to load \(name): \(error)")
+            return ""
+        }
+    }
+
+    /// What a no-edit proof on a file depends on, counted (TypeScript `hazards`).
+    struct Hazards: Equatable, CustomStringConvertible {
+        var eDraftNamespace = false
+        var bareParagraphLines = 0
+        var taggedRuns = 0
+        var revisionRuns = 0
+        var adornmentSplits = 0
+        var dualDialogue = 0
+        var omittedScenes = 0
+        var endOfAct = 0
+        var emphasisedHeadings = 0
+        var italicParentheticals = 0
+        var multiLineParagraphs = 0
+        var trailingSpaces = 0
+        var astral = 0
+
+        var description: String {
+            "tags \(taggedRuns) · revisions \(revisionRuns) · adornment splits \(adornmentSplits) · dual \(dualDialogue) · omitted \(omittedScenes) · end of act \(endOfAct) · emphasised headings \(emphasisedHeadings) · italic parentheticals \(italicParentheticals) · multi-line \(multiLineParagraphs) · trailing spaces \(trailingSpaces) · astral \(astral) · eDraft namespace \(eDraftNamespace) · bare lines \(bareParagraphLines)"
+        }
+
+        init() {}
+
+        init(_ xml: String) {
+            let elements = Fdx.parse(xml).script.elements
+            let runs = elements.flatMap { $0.runs ?? [] }
+            func count(_ pattern: String, lines: Bool = false) -> Int {
+                let regex = try! NSRegularExpression(pattern: pattern, options: lines ? [.anchorsMatchLines] : [])
+                return regex.numberOfMatches(in: xml, range: NSRange(xml.startIndex..., in: xml))
+            }
+            func styled(_ kind: ElementKind, _ styles: StyleSet) -> Int {
+                elements.filter { element in
+                    element.type == kind && (element.runs ?? []).contains { !$0.styles.intersection(styles).isEmpty }
+                }.count
+            }
+            eDraftNamespace = xml.contains("xmlns:EDraft")
+            bareParagraphLines = count(#"^\s*<Paragraph Type="[^"]+"><Text>"#, lines: true)
+            taggedRuns = runs.filter { !($0.tagNumbers ?? []).isEmpty }.count
+            revisionRuns = runs.filter { $0.revisionID != nil }.count
+            adornmentSplits = count(#"<Text [^>]*AdornmentStyle="-1""#)
+            dualDialogue = count("<DualDialogue>")
+            omittedScenes = count("<OmittedScene>")
+            endOfAct = count(#"<Paragraph [^>]*Type="End of Act""#)
+            emphasisedHeadings = styled(.scene, [.bold, .italic])
+            italicParentheticals = styled(.parenthetical, .italic)
+            multiLineParagraphs = elements.filter { $0.text.contains("\n") }.count
+            trailingSpaces = elements.filter { $0.text.hasSuffix(" ") }.count
+            astral = elements.filter { $0.text.utf16.contains { (0xD800...0xDBFF).contains($0) } }.count
+        }
+    }
+
+    static let required: [String: Hazards] = {
+        var sample02 = Hazards()
+        sample02.taggedRuns = 392; sample02.revisionRuns = 98; sample02.adornmentSplits = 10
+        sample02.dualDialogue = 6; sample02.omittedScenes = 1; sample02.endOfAct = 1
+        sample02.emphasisedHeadings = 1; sample02.italicParentheticals = 2; sample02.trailingSpaces = 1
+        var sample01 = Hazards()
+        sample01.revisionRuns = 2; sample01.adornmentSplits = 3; sample01.dualDialogue = 6
+        sample01.endOfAct = 1; sample01.emphasisedHeadings = 1; sample01.italicParentheticals = 2
+        sample01.multiLineParagraphs = 1; sample01.trailingSpaces = 1; sample01.astral = 4
+        return ["finaldraft-sample02.fdx": sample02, "finaldraft-sample01.fdx": sample01]
+    }()
+
+    /// Why a file cannot stand as a fidelity fixture — nothing, when it can.
+    static func provenanceProblems(_ xml: String, required: Hazards) -> [String] {
+        let found = Hazards(xml)
+        var problems: [String] = []
+        if found.eDraftNamespace || found.bareParagraphLines > 0 { problems.append("carries eDraft save marks") }
+        if found != required { problems.append("hazards: \(found), needs \(required)") }
+        return problems
+    }
+
+    private static func tags(_ xml: String) -> Int {
+        xml.components(separatedBy: "TagNumber=\"").count - 1
+    }
+
+    /// Every byte outside one paragraph matches: the changed stretch holds no
+    /// boundary between two of the script's paragraphs, which Final Draft
+    /// indents four spaces (TypeScript `confinedToOneParagraph`).
+    private static func confinedToOneParagraph(_ before: String, _ after: String, marker: String) -> Bool {
+        let original = Array(before.utf16)
+        let saved = Array(after.utf16)
+        let shorter = min(original.count, saved.count)
+        var prefix = 0
+        while prefix < shorter, original[prefix] == saved[prefix] { prefix += 1 }
+        var suffix = 0
+        while suffix < shorter - prefix, original[original.count - 1 - suffix] == saved[saved.count - 1 - suffix] {
+            suffix += 1
+        }
+        let boundary = try! NSRegularExpression(pattern: #"</Paragraph>\s*\n {4}<Paragraph[ >]|\n {4}<Paragraph[ >][\s\S]*\n {4}<Paragraph[ >]"#)
+        func crosses(_ units: ArraySlice<UInt16>) -> Bool {
+            let text = String(decoding: units, as: UTF16.self)
+            return boundary.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+        }
+        let window = saved[max(0, prefix - marker.utf16.count)..<min(saved.count, saved.count - suffix + marker.utf16.count)]
+        return !crosses(original[prefix..<(original.count - suffix)])
+            && !crosses(saved[prefix..<(saved.count - suffix)])
+            && String(decoding: window, as: UTF16.self).contains(marker)
+    }
+
+    @Test("Each fixture is a file Final Draft wrote, with everything the proofs depend on", arguments: files)
+    func provenance(_ name: String) throws {
+        let required = try #require(Self.required[name])
+        #expect(Self.provenanceProblems(Self.fixture(name), required: required).isEmpty,
+                "\(name): \(Self.provenanceProblems(Self.fixture(name), required: required))")
+    }
+
+    @Test("The guard turns away a file eDraft has saved")
+    func guardRejectsASavedFile() throws {
+        let required = try #require(Self.required["finaldraft-sample02.fdx"])
+        let problems = Self.provenanceProblems(Self.fixture("sample0-2.fdx"), required: required)
+        #expect(problems.contains("carries eDraft save marks"))
+        #expect(problems.count == 2)
+    }
+
+    @Test("A save with no edit returns the file byte for byte", arguments: files)
+    func engineNoOp(_ name: String) {
+        let xml = Self.fixture(name)
+        let document = Fdx.open(xml)
+        #expect(document.rewrite(document.script) == xml)
+    }
+
+    @Test("So does a save through Fountain with no edit, given the unedited reading", arguments: files)
+    func fountainNoOp(_ name: String) throws {
+        let xml = Self.fixture(name)
+        let reading = try FountainReading.of(xml)
+        #expect(Fdx.open(xml).rewrite(reading, unedited: reading) == xml)
+    }
+
+    @Test("Without the unedited reading, that same save loses the tags — the leak this closes")
+    func withoutTheReadingTagsAreLost() throws {
+        let xml = Self.fixture("finaldraft-sample02.fdx")
+        let saved = Fdx.open(xml).rewrite(try FountainReading.of(xml))
+        #expect(Self.tags(saved) < Self.tags(xml) / 2)
+    }
+
+    @Test("An edit through Fountain changes bytes only inside the edited paragraph",
+          arguments: [0, 6, 19, 42, 150, 336, 520, 700, 760, 761])
+    func fountainEditIsConfined(_ index: Int) throws {
+        let xml = Self.fixture("finaldraft-sample02.fdx")
+        let reading = try FountainReading.of(xml)
+        var edited = reading
+        let marker = "EDITED \(index)"
+        edited.elements[index].text = marker
+        #expect(Self.confinedToOneParagraph(xml, Fdx.open(xml).rewrite(edited, unedited: reading), marker: marker),
+                "element \(index): the save changed bytes outside the edited paragraph")
+    }
+
+    @Test("An edit through the engine changes bytes only inside the edited paragraph",
+          arguments: [0, 21, 300, 823])
+    func engineEditIsConfined(_ index: Int) {
+        let xml = Self.fixture("finaldraft-sample01.fdx")
+        let document = Fdx.open(xml)
+        var edited = document.script
+        let marker = "EDITED \(index)"
+        edited.elements[index].text = marker
+        #expect(Self.confinedToOneParagraph(xml, document.rewrite(edited), marker: marker),
+                "element \(index): the save changed bytes outside the edited paragraph")
     }
 }

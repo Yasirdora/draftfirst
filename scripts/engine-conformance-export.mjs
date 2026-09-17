@@ -47,6 +47,7 @@ import {
 	unwrapParenthetical
 } from '../packages/edraft/dist/editor.js';
 import { crc32 } from '../packages/edraft/dist/crc32.js';
+import { canonicalCasing } from '../packages/edraft/dist/normalize.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'apple/eDraftEngine/Fixtures');
@@ -1209,6 +1210,95 @@ addRewrite(
 	`<FinalDraft><Content>\n<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>\n<Paragraph Type="End of Act"><Text>END OF TEASER</Text></Paragraph>\n<Paragraph Alignment="Center" Type="End of Act"><Text>END OF ACT ONE</Text></Paragraph>\n<Paragraph Type="New Act"><Text>ACT TWO</Text></Paragraph>\n</Content></FinalDraft>`,
 	retext('ACT TWO', 'ACT TWO: THE TURN')
 );
+
+/* A paragraph the writer did not edit is written as its original bytes —
+   through the engine, and through Fountain when the caller passes its own
+   unedited reading. Fountain carries bold, italic, underline and strikeout
+   and nothing else: no production tags, no revision marks, an emphasised
+   heading read as Action, a paragraph split at its line breaks, a trailing
+   space trimmed. Before this, each of those made an untouched paragraph look
+   edited, and the save rewrote it. */
+function fountainReading(source) {
+	const imported = parseFdx(source).script;
+	return parseFountain(
+		serialiseFountain({
+			...imported,
+			elements: imported.elements.map((element) => ({
+				...element,
+				text: canonicalCasing(element.type, element.text)
+			}))
+		}),
+		{ emphasis: 'runs' }
+	);
+}
+/* Files Final Draft itself wrote, anonymised, still carrying their tags:
+   a save with no edit must return them — `identical` pins that both engines
+   agree it does. `through: 'fountain'` is the app's path. */
+function addFileRewrite(name, file, through) {
+	const source = readFileSync(join(outDir, file), 'utf8');
+	const document = openFdx(source);
+	const reading = through === 'fountain' ? fountainReading(source) : undefined;
+	const xml = reading
+		? document.rewrite(reading, { unedited: reading }).xml
+		: document.rewrite(document.script).xml;
+	fdxRewrite.push({ name, sourceFile: file, ...(through ? { through } : {}), expected: { identical: xml === source } });
+}
+addFileRewrite('finaldraft-sample02-no-edit', 'finaldraft-sample02.fdx');
+addFileRewrite('finaldraft-sample02-no-edit-through-fountain', 'finaldraft-sample02.fdx', 'fountain');
+addFileRewrite('finaldraft-sample01-no-edit', 'finaldraft-sample01.fdx');
+addFileRewrite('finaldraft-sample01-no-edit-through-fountain', 'finaldraft-sample01.fdx', 'fountain');
+
+/* Each rule, small: the screenplay being saved and the unedited reading are
+   pinned as data, so Swift is judged without its own Fountain in the way. */
+function addUneditedRewrite(name, source, { reading = fountainReading(source), edit = (elements) => elements } = {}) {
+	const screenplay = { ...reading, elements: edit(reading.elements) };
+	fdxRewrite.push({
+		name,
+		source,
+		screenplay,
+		unedited: reading,
+		expected: { xml: openFdx(source).rewrite(screenplay, { unedited: reading }).xml }
+	});
+}
+const lab = (paragraphs) => `<FinalDraft><Content>\n${paragraphs.join('\n')}\n</Content></FinalDraft>`;
+/* Final Draft splits runs the model merges; compared raw, this read as edited. */
+addRewrite(
+	'engine-split-runs-no-edit',
+	lab([
+		'<Paragraph Type="Scene Heading"><Text TagNumber="597">INT. </Text><Text TagNumber="823">HOME LIBRARY, </Text><Text AdornmentStyle="-1" TagNumber="823">CASALINDA</Text><Text TagNumber="599"> - DAY</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>'
+	])
+);
+const tagged = lab([
+	'<Paragraph Type="Scene Heading"><Text TagNumber="1">INT. LAB - DAY</Text></Paragraph>',
+	'<Paragraph Type="Action"><Text RevisionID="2">She </Text><Text TagNumber="7">waits</Text><Text>.</Text></Paragraph>',
+	'<Paragraph Type="Action"><Text>He leaves.</Text></Paragraph>'
+]);
+addUneditedRewrite('unedited-tags-kept-no-edit', tagged);
+addUneditedRewrite('unedited-tags-kept-beside-an-edit', tagged, {
+	edit: (elements) => elements.map((element) => (element.text === 'He leaves.' ? { ...element, text: 'He runs.' } : element))
+});
+const split = lab([
+	'<Paragraph Type="Action"><Text TagNumber="3">Lands her point:\nThey must work together.</Text></Paragraph>',
+	'<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>'
+]);
+addUneditedRewrite('unedited-split-paragraph-no-edit', split);
+addUneditedRewrite('unedited-split-paragraph-one-line-edited', split, {
+	edit: (elements) => elements.map((element) => (element.text === 'They must work together.' ? { ...element, text: 'They agree.' } : element))
+});
+addUneditedRewrite(
+	'unedited-reread-heading-no-edit',
+	lab([
+		'<Paragraph Number="2" Type="Scene Heading"><Text Style="Bold+Italic" TagNumber="601">INT. </Text><Text Style="Bold+Italic" TagNumber="824">KITCHEN - NIGHT</Text><Text> </Text><Text Style="Bold+Italic">(N1)</Text></Paragraph>',
+		'<Paragraph Type="Character"><Text>MAID</Text></Paragraph>',
+		'<Paragraph Type="Dialogue"><Text>Not horrible.</Text></Paragraph>',
+		'<Paragraph Type="Parenthetical"><Text Style="Italic">(beat)</Text></Paragraph>',
+		'<Paragraph Type="Dialogue"><Text>Me too. But... </Text></Paragraph>'
+	])
+);
+addUneditedRewrite('unedited-unaligned-falls-back', tagged, {
+	reading: parseFountain('EXT. SOMEWHERE ELSE - NIGHT\n\nNothing like the file.\n', { emphasis: 'runs' })
+});
 
 writeFixture('fdx.json', {
 	import: fdxImport,

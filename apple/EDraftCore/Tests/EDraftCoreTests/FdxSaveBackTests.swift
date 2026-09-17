@@ -180,4 +180,74 @@ final class FdxSaveBackTests: XCTestCase {
         XCTAssertTrue(xml.contains("<FinalDraft"))
         XCTAssertTrue(xml.contains("INT. LAB - DAY"))
     }
+
+    // MARK: - Files Final Draft wrote
+
+    /// An anonymised copy of a file Final Draft itself wrote — still carrying
+    /// its production tags, revision marks and Final Draft's own run splits,
+    /// which is what a save through Fountain used to lose. The End of Act
+    /// fixture above could not show it: an old eDraft save had stripped its
+    /// tags before it ever became a fixture.
+    private static func finalDraftWritten(_ name: String) throws -> Data {
+        try Data(contentsOf: URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // EDraftCoreTests/
+            .deletingLastPathComponent()   // Tests/
+            .deletingLastPathComponent()   // EDraftCore/
+            .deletingLastPathComponent()   // apple/
+            .appendingPathComponent("eDraftEngine/Fixtures/\(name)"))
+    }
+
+    private static func tags(_ data: Data) -> Int {
+        String(decoding: data, as: UTF8.self).components(separatedBy: "TagNumber=\"").count - 1
+    }
+
+    /// Opened, carried into the editor as Fountain, and saved with no edit:
+    /// the file Final Draft wrote, to the byte, every tag still on it.
+    func testFilesFinalDraftWroteSaveWithoutEditingToTheIdenticalFile() throws {
+        for name in ["finaldraft-sample02.fdx", "finaldraft-sample01.fdx"] {
+            let data = try Self.finalDraftWritten(name)
+            let file = try ScreenplayFile.open(data, as: .finalDraftScreenplay)
+            let written = try ScreenplayFile.encode(file.source, as: .finalDraftScreenplay, origin: file.origin)
+            XCTAssertEqual(written, data, "\(name): a save with no edit changed the file")
+            XCTAssertEqual(Self.tags(written), Self.tags(data), "\(name): production tags were lost")
+        }
+    }
+
+    /// The same through the editor the app actually uses: what it publishes
+    /// for an unedited document saves back to the identical file.
+    func testTheEditorsUneditedSourceSavesToTheIdenticalFile() throws {
+        for name in ["finaldraft-sample02.fdx", "finaldraft-sample01.fdx"] {
+            let data = try Self.finalDraftWritten(name)
+            let file = try ScreenplayFile.open(data, as: .finalDraftScreenplay)
+            let editor = EditorState(source: file.source)
+            var published: String?
+            editor.onSourceChange = { published = $0 }
+            editor.flushPendingWork()
+            let written = try ScreenplayFile.encode(
+                published ?? file.source, as: .finalDraftScreenplay, origin: file.origin
+            )
+            XCTAssertEqual(written, data, "\(name): the editor's unedited save changed the file")
+        }
+    }
+
+    /// A line edited in the editor's Fountain changes that paragraph and
+    /// nothing else; the 407 tags on the lines around it all survive.
+    func testAnEditChangesOnlyItsParagraphAndEveryOtherTagSurvives() throws {
+        let data = try Self.finalDraftWritten("finaldraft-sample02.fdx")
+        let original = String(decoding: data, as: UTF8.self)
+        let file = try ScreenplayFile.open(data, as: .finalDraftScreenplay)
+        let line = "Xxxxxxxx, xxxxx xxxxxxxx xxx xx."
+        XCTAssertEqual(file.source.components(separatedBy: line).count, 2, "the edited line must be unique")
+
+        let written = try ScreenplayFile.encode(
+            file.source.replacingOccurrences(of: line, with: "Xxxxxxxx, xxxxx xxxxxxxx xxx xx, EDITED."),
+            as: .finalDraftScreenplay, origin: file.origin
+        )
+        XCTAssertEqual(
+            String(decoding: written, as: UTF8.self),
+            original.replacingOccurrences(of: "<Text>\(line)</Text>", with: "<Text>Xxxxxxxx, xxxxx xxxxxxxx xxx xx, EDITED.</Text>"),
+            "the save changed more than the edited line"
+        )
+        XCTAssertEqual(Self.tags(written), Self.tags(data))
+    }
 }

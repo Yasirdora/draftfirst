@@ -1284,12 +1284,29 @@ export interface FdxDocument extends FdxImportResult {
 	 * <SceneProperties> and its arc beats — and only its own <Text> is
 	 * rewritten. New paragraphs are written the way `writeFdx` writes them.
 	 */
-	rewrite(script: Screenplay): FdxExportResult;
+	rewrite(script: Screenplay, options?: FdxRewriteOptions): FdxExportResult;
+}
+
+export interface FdxRewriteOptions {
+	/**
+	 * This file as the caller read it before any edit — for an editor that
+	 * works in Fountain, the file carried through Fountain and read back.
+	 *
+	 * A representation that cannot carry everything the file does makes every
+	 * paragraph it cannot carry look edited: Fountain has no production tags,
+	 * no revision marks, and reads an emphasised heading as Action. Given this
+	 * reading, a paragraph whose element comes back exactly as it was read is
+	 * written as its original bytes, whatever the representation lost. Without
+	 * it, the save judges each paragraph against the file itself.
+	 */
+	unedited?: Screenplay;
 }
 
 /** One paragraph as it sits in the original file. */
 interface OriginParagraph {
 	key: string;
+	/** Its words, as the import read them. */
+	text: string;
 	type: AnyElementType;
 	start: number;
 	end: number;
@@ -1304,9 +1321,12 @@ interface OriginParagraph {
 	 * read and makes it impossible to see what actually changed.
 	 */
 	lead: string;
-	/** The runs the file itself declared, for the content gate on a
-	    preserving save — a run changed without a character moving still
-	    rewrites the paragraph. */
+	/** The runs the file itself declared, in canonical form, for the content
+	    gate on a preserving save — a run changed without a character moving
+	    still rewrites the paragraph. Canonical because Final Draft splits runs
+	    the model merges ("HOME LIBRARY, " and "CASALINDA", one tag): compared
+	    raw, every such paragraph read as edited and lost its tags on a save
+	    that changed nothing. */
 	runs: StyleRun[];
 	/**
 	 * Whether the import absorbed this paragraph — an End of Act — so that no
@@ -1467,6 +1487,159 @@ function rewriteParagraph(
 	return head + textRunsMarkup(element, diagnostics, index) + source.slice(origin.textEnd, origin.end);
 }
 
+/* ---- unedited paragraphs ------------------------------------------------ */
+
+/** How far ahead the correspondence looks to find its footing again. */
+const CORRESPONDENCE_REACH = 16;
+
+/** A paragraph's words as the correspondence compares them: casing and the
+    whitespace at either end are not what makes two paragraphs different. */
+function wordsKey(text: string): string {
+	return text.toLocaleUpperCase().trim();
+}
+
+/**
+ * Which elements of the unedited reading each file paragraph became.
+ *
+ * The reading may carry a paragraph differently from the file — Fountain
+ * reads an emphasised heading as Action, trims a trailing space, and splits a
+ * paragraph at its line breaks — so this pairs by words, never by element:
+ * one paragraph to one element when their words agree; to the run of
+ * consecutive elements its lines became when those agree; and, where the
+ * words disagree for as many paragraphs as elements before both sides agree
+ * again, by position — a heading Fountain re-read is still that heading. A
+ * region that cannot be paired stays unpaired and is judged against the file
+ * as before. Each paragraph gets a half-open range of elements, or null.
+ */
+function correspondence(
+	spans: OriginParagraph[],
+	reading: ScreenplayElement[]
+): ([number, number] | null)[] {
+	const ranges: ([number, number] | null)[] = new Array(spans.length).fill(null);
+	const file = spans.map((span) => wordsKey(span.text));
+	const read = reading.map((element) => wordsKey(element.text));
+	let i = 0;
+	let k = 0;
+	while (i < spans.length && k < reading.length) {
+		if (file[i] === read[k]) {
+			ranges[i] = [k, k + 1];
+			i += 1;
+			k += 1;
+			continue;
+		}
+		const lines = spans[i].text.split('\n').length;
+		if (
+			lines > 1 &&
+			k + lines <= reading.length &&
+			wordsKey(reading.slice(k, k + lines).map((element) => element.text).join('\n')) === file[i]
+		) {
+			ranges[i] = [k, k + lines];
+			i += 1;
+			k += lines;
+			continue;
+		}
+		// Find footing again: the nearest place both sides agree, nearest first.
+		let found: [number, number] | null = null;
+		for (let reach = 1; reach <= CORRESPONDENCE_REACH && found === null; reach++) {
+			for (let skipped = 0; skipped <= reach; skipped++) {
+				const di = skipped;
+				const dk = reach - skipped;
+				if (i + di < spans.length && k + dk < reading.length && file[i + di] === read[k + dk]) {
+					found = [di, dk];
+					break;
+				}
+			}
+		}
+		if (found === null) break;
+		const [di, dk] = found;
+		if (di === dk) {
+			for (let step = 0; step < di; step++) ranges[i + step] = [k + step, k + step + 1];
+		}
+		i += di;
+		k += dk;
+	}
+	return ranges;
+}
+
+/** Whether two elements are the same element, property for property. */
+function sameElement(a: ScreenplayElement, b: ScreenplayElement): boolean {
+	return (
+		a.type === b.type &&
+		a.text === b.text &&
+		(a.dual ?? false) === (b.dual ?? false) &&
+		(a.sceneNumber ?? '') === (b.sceneNumber ?? '') &&
+		(a.depth ?? 0) === (b.depth ?? 0) &&
+		runsEqual(
+			normaliseRuns(a.runs ?? [], a.text.length),
+			normaliseRuns(b.runs ?? [], b.text.length)
+		)
+	);
+}
+
+/**
+ * For each element being saved, the element of the unedited reading it still
+ * is, unchanged — or null.
+ *
+ * A longest common subsequence over whole elements, run only between the
+ * common prefix and suffix, which is where an edit actually is. Past four
+ * million cells the middle pairs by position: still exact for an unedited
+ * script and for an edit in place.
+ */
+function unchangedFrom(
+	saved: ScreenplayElement[],
+	reading: ScreenplayElement[]
+): (number | null)[] {
+	const matched: (number | null)[] = new Array(saved.length).fill(null);
+	let head = 0;
+	while (head < saved.length && head < reading.length && sameElement(saved[head], reading[head])) {
+		matched[head] = head;
+		head += 1;
+	}
+	let tail = 0;
+	while (
+		tail < saved.length - head &&
+		tail < reading.length - head &&
+		sameElement(saved[saved.length - 1 - tail], reading[reading.length - 1 - tail])
+	) {
+		matched[saved.length - 1 - tail] = reading.length - 1 - tail;
+		tail += 1;
+	}
+	const n = saved.length - head - tail;
+	const m = reading.length - head - tail;
+	if (n === 0 || m === 0) return matched;
+
+	if (n * m > 4_000_000) {
+		for (let d = 0; d < Math.min(n, m); d++) {
+			if (sameElement(saved[head + d], reading[head + d])) matched[head + d] = head + d;
+		}
+		return matched;
+	}
+
+	const table = new Int32Array((n + 1) * (m + 1));
+	const at = (i: number, j: number): number => i * (m + 1) + j;
+	for (let i = n - 1; i >= 0; i--) {
+		for (let j = m - 1; j >= 0; j--) {
+			table[at(i, j)] = sameElement(saved[head + i], reading[head + j])
+				? table[at(i + 1, j + 1)] + 1
+				: Math.max(table[at(i + 1, j)], table[at(i, j + 1)]);
+		}
+	}
+	let i = 0;
+	let j = 0;
+	while (i < n && j < m) {
+		if (sameElement(saved[head + i], reading[head + j])) {
+			matched[head + i] = head + j;
+			i += 1;
+			j += 1;
+		} else if (table[at(i + 1, j)] >= table[at(i, j + 1)]) {
+			i += 1;
+		} else {
+			j += 1;
+		}
+	}
+	return matched;
+}
+
 /**
  * Opens a Final Draft file and keeps it, so it can be written back whole.
  *
@@ -1493,7 +1666,7 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 
 	return {
 		...imported,
-		rewrite(script: Screenplay): FdxExportResult {
+		rewrite(script: Screenplay, rewriteOptions: FdxRewriteOptions = {}): FdxExportResult {
 			// Nothing recognisable to edit: write a whole new file rather than
 			// pretend, so a malformed or empty original cannot corrupt a save.
 			if (spans.length === 0 || first < 0) return writeFdxWithDiagnostics(script);
@@ -1501,7 +1674,59 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 			const diagnostics = new DiagnosticCollector(
 				positiveInteger(options.maxWarnings, DEFAULT_FDX_LIMITS.maxWarnings)
 			);
-			const paired = alignParagraphs(aligned, script.elements);
+			const elements = script.elements;
+
+			/* A paragraph the writer did not edit is written as its original
+			   bytes. With the caller's unedited reading, "did not edit" is asked
+			   in the caller's own terms: the paragraph's element — or the run of
+			   elements its lines became — comes back exactly as it was read.
+			   Measured without this on a file Final Draft wrote, a save through
+			   Fountain that changed nothing lost 400 of 407 production tags. */
+			const verbatim = new Map<number, OriginParagraph>();
+			const consumed = new Set<number>();
+			const reading = rewriteOptions.unedited?.elements;
+			if (reading) {
+				const ranges = correspondence(aligned, reading);
+				const unpaired = ranges.filter((range) => range === null).length;
+				if (unpaired > 0) {
+					diagnostics.add({
+						code: 'FDX_REWRITE_UNEDITED_UNALIGNED',
+						severity: 'warning',
+						message: `${unpaired} paragraph(s) could not be paired with the unedited reading and were judged against the file itself.`,
+						count: unpaired
+					});
+				}
+				const savedAt = new Map<number, number>();
+				unchangedFrom(elements, reading).forEach((k, j) => {
+					if (k !== null) savedAt.set(k, j);
+				});
+				ranges.forEach((range, i) => {
+					if (range === null) return;
+					const [from, to] = range;
+					const at = savedAt.get(from);
+					if (at === undefined) return;
+					for (let k = from + 1; k < to; k++) {
+						if (savedAt.get(k) !== at + (k - from)) return;
+					}
+					verbatim.set(at, aligned[i]);
+					for (let k = from + 1; k < to; k++) consumed.add(at + (k - from));
+				});
+			}
+
+			// Everything else is paired as it always was.
+			const writtenAsRead = new Set(verbatim.values());
+			const rest = elements.flatMap((_, j) => (verbatim.has(j) || consumed.has(j) ? [] : [j]));
+			const restPaired = alignParagraphs(
+				aligned.filter((span) => !writtenAsRead.has(span)),
+				rest.map((j) => elements[j])
+			);
+			const paired: (OriginParagraph | null)[] = new Array(elements.length).fill(null);
+			rest.forEach((j, r) => {
+				paired[j] = restPaired[r];
+			});
+			verbatim.forEach((span, j) => {
+				paired[j] = span;
+			});
 
 			/* Each absorbed paragraph goes back, verbatim, in front of the first
 			   paragraph after it that this save keeps — anchored to what
@@ -1532,13 +1757,19 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 				if (span.lead !== '') lead = span.lead;
 				out.push(source.slice(span.start, span.end));
 			};
-			for (const [index, element] of script.elements.entries()) {
+			for (const [index, element] of elements.entries()) {
+				// A line of a paragraph already written whole.
+				if (consumed.has(index)) continue;
 				const origin = paired[index];
 				if (origin) {
 					for (const span of absorbedBefore.get(origin.start) ?? []) restore(span);
 					if (out.length > 0) out.push(origin.lead === '' ? lead : origin.lead);
 					if (origin.lead !== '') lead = origin.lead;
-					out.push(rewriteParagraph(source, origin, element, diagnostics, index));
+					out.push(
+						verbatim.get(index) === origin
+							? source.slice(origin.start, origin.end)
+							: rewriteParagraph(source, origin, element, diagnostics, index)
+					);
 					continue;
 				}
 				if (out.length > 0) out.push(lead === '' ? '\n' : lead);
@@ -1591,13 +1822,14 @@ function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph
 		previousEnd = held.end;
 		return {
 			key: originKey(type, paragraph.text),
+			text: paragraph.text,
 			type,
 			start: held.start,
 			end: held.end,
 			textStart: held.textStart,
 			textEnd: held.textEnd,
 			lead,
-			runs: paragraph.runs,
+			runs: normaliseRuns(paragraph.runs, paragraph.text.length),
 			absorbed: fdxType === 'end of act'
 		};
 	});

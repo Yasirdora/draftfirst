@@ -747,7 +747,16 @@ public enum Fdx {
         fileprivate let spans: [Span]
 
         /// The screenplay written back into the file it came from.
-        public func rewrite(_ script: Screenplay) -> String {
+        ///
+        /// `unedited` is this file as the caller read it before any edit — for
+        /// an editor that works in Fountain, the file carried through Fountain
+        /// and read back (TypeScript `FdxRewriteOptions.unedited`). A
+        /// representation that cannot carry everything the file does makes
+        /// every paragraph it cannot carry look edited: Fountain has no
+        /// production tags and reads an emphasised heading as Action. Given
+        /// this reading, a paragraph whose element comes back exactly as it
+        /// was read is written as its original bytes, whatever was lost.
+        public func rewrite(_ script: Screenplay, unedited: Screenplay? = nil) -> String {
             guard let first = spans.first, let last = spans.last else {
                 // Nothing recognisable to edit: write a whole new file rather
                 // than pretend, so a malformed original cannot corrupt a save.
@@ -758,7 +767,46 @@ public enum Fdx {
                one. An absorbed End of Act left in the alignment was deleted by
                every save, and — typed General when it has no Alignment — was
                paired with the writer's next edit and given their text. */
-            let paired = Fdx.align(spans.filter { !$0.absorbed }, to: script.elements)
+            let aligned = spans.filter { !$0.absorbed }
+            let elements = script.elements
+
+            /* A paragraph the writer did not edit is written as its original
+               bytes. With the caller's unedited reading, "did not edit" is asked
+               in the caller's own terms: the paragraph's element — or the run of
+               elements its lines became — comes back exactly as it was read.
+               Measured without this on a file Final Draft wrote, a save through
+               Fountain that changed nothing lost 400 of 407 production tags. */
+            var verbatim: [Int: Span] = [:]
+            var consumed = Set<Int>()
+            if let reading = unedited?.elements {
+                let ranges = Fdx.correspondence(aligned, reading)
+                var savedAt: [Int: Int] = [:]
+                for (j, k) in Fdx.unchangedFrom(elements, reading).enumerated() {
+                    if let k { savedAt[k] = j }
+                }
+                paragraphs: for (i, range) in ranges.enumerated() {
+                    guard let range, let at = savedAt[range.lowerBound] else { continue }
+                    for k in (range.lowerBound + 1)..<max(range.lowerBound + 1, range.upperBound)
+                    where savedAt[k] != at + (k - range.lowerBound) {
+                        continue paragraphs
+                    }
+                    verbatim[at] = aligned[i]
+                    for k in (range.lowerBound + 1)..<max(range.lowerBound + 1, range.upperBound) {
+                        consumed.insert(at + (k - range.lowerBound))
+                    }
+                }
+            }
+
+            // Everything else is paired as it always was.
+            let writtenAsRead = Set(verbatim.values.map(\.start))
+            let rest = elements.indices.filter { verbatim[$0] == nil && !consumed.contains($0) }
+            let restPaired = Fdx.align(
+                aligned.filter { !writtenAsRead.contains($0.start) },
+                to: rest.map { elements[$0] }
+            )
+            var paired = [Span?](repeating: nil, count: elements.count)
+            for (r, j) in rest.enumerated() { paired[j] = restPaired[r] }
+            for (j, span) in verbatim { paired[j] = span }
 
             /* Each absorbed paragraph goes back, verbatim, in front of the
                first paragraph after it that this save keeps — anchored to what
@@ -788,12 +836,18 @@ public enum Fdx {
                 out += units[span.start..<span.end]
                 wrote = true
             }
-            for (index, element) in script.elements.enumerated() {
+            for (index, element) in elements.enumerated() {
+                // A line of a paragraph already written whole.
+                if consumed.contains(index) { continue }
                 if let origin = paired[index] {
                     absorbedBefore[origin.start]?.forEach(restore)
                     if wrote { out += origin.lead.isEmpty ? lead : origin.lead }
                     if !origin.lead.isEmpty { lead = origin.lead }
-                    out += Fdx.rewritten(origin, as: element, in: units)
+                    if verbatim[index]?.start == origin.start {
+                        out += units[origin.start..<origin.end]
+                    } else {
+                        out += Fdx.rewritten(origin, as: element, in: units)
+                    }
                 } else {
                     if wrote { out += lead.isEmpty ? Array("\n".utf16) : lead }
                     let fresh = Fdx.writeXml(Screenplay(titlePage: [], elements: [element]))
@@ -851,9 +905,12 @@ public enum Fdx {
         /// The whitespace before it, kept so a save reproduces the file byte
         /// for byte rather than re-indenting every line of a 750KB document.
         let lead: [UInt16]
-        /// The runs the file itself declared, for the content gate on a
-        /// preserving save — a run changed without a character moving still
-        /// rewrites the paragraph.
+        /// The runs the file itself declared, in canonical form, for the
+        /// content gate on a preserving save — a run changed without a
+        /// character moving still rewrites the paragraph. Canonical because
+        /// Final Draft splits runs the model merges ("HOME LIBRARY, " and
+        /// "CASALINDA", one tag): compared raw, every such paragraph read as
+        /// edited and lost its tags on a save that changed nothing.
         let runs: [StyleRun]
         /// Whether the import absorbed this paragraph — an End of Act — so
         /// that no element will ever stand for it. The rewrite writes these
@@ -889,7 +946,7 @@ public enum Fdx {
                 textStart: paragraph.textStart,
                 textEnd: paragraph.textEnd,
                 lead: lead,
-                runs: paragraph.runs,
+                runs: Emphasis.normalise(paragraph.runs, textLength: paragraph.text.utf16.count),
                 absorbed: (paragraph.attribute("type") ?? "").jsTrimmed.lowercased() == "end of act"
             ))
         }
@@ -901,6 +958,146 @@ public enum Fdx {
             units: units,
             spans: spans
         )
+    }
+
+    // MARK: - Unedited paragraphs
+
+    /// How far ahead the correspondence looks to find its footing again.
+    private static let correspondenceReach = 16
+
+    /// A paragraph's words as the correspondence compares them, in UTF-16
+    /// units (TypeScript `wordsKey`): casing and the whitespace at either end
+    /// are not what makes two paragraphs different.
+    private static func wordsKey(_ text: String) -> [UInt16] {
+        Array(text.uppercased().jsTrimmed.utf16)
+    }
+
+    /// Which elements of the unedited reading each file paragraph became
+    /// (TypeScript `correspondence`).
+    ///
+    /// The reading may carry a paragraph differently from the file — Fountain
+    /// reads an emphasised heading as Action, trims a trailing space, and
+    /// splits a paragraph at its line breaks — so this pairs by words, never by
+    /// element: one paragraph to one element when their words agree; to the
+    /// run of consecutive elements its lines became when those agree; and,
+    /// where the words disagree for as many paragraphs as elements before both
+    /// sides agree again, by position. A region that cannot be paired stays
+    /// unpaired and is judged against the file as before.
+    fileprivate static func correspondence(
+        _ spans: [Span], _ reading: [ScreenplayElement]
+    ) -> [Range<Int>?] {
+        var ranges = [Range<Int>?](repeating: nil, count: spans.count)
+        let file = spans.map { wordsKey($0.text) }
+        let read = reading.map { wordsKey($0.text) }
+        var i = 0
+        var k = 0
+        while i < spans.count && k < reading.count {
+            if file[i] == read[k] {
+                ranges[i] = k..<(k + 1)
+                i += 1
+                k += 1
+                continue
+            }
+            let lines = spans[i].text.components(separatedBy: "\n").count
+            if lines > 1, k + lines <= reading.count,
+               wordsKey(reading[k..<(k + lines)].map(\.text).joined(separator: "\n")) == file[i] {
+                ranges[i] = k..<(k + lines)
+                i += 1
+                k += lines
+                continue
+            }
+            // Find footing again: the nearest place both sides agree, nearest first.
+            var found: (Int, Int)?
+            reaching: for reach in 1...correspondenceReach {
+                for skipped in 0...reach {
+                    let di = skipped
+                    let dk = reach - skipped
+                    if i + di < spans.count, k + dk < reading.count, file[i + di] == read[k + dk] {
+                        found = (di, dk)
+                        break reaching
+                    }
+                }
+            }
+            guard let (di, dk) = found else { break }
+            if di == dk {
+                for step in 0..<di { ranges[i + step] = (k + step)..<(k + step + 1) }
+            }
+            i += di
+            k += dk
+        }
+        return ranges
+    }
+
+    /// Whether two elements are the same element, property for property,
+    /// text compared in UTF-16 units (TypeScript `sameElement`).
+    private static func sameElement(_ a: ScreenplayElement, _ b: ScreenplayElement) -> Bool {
+        a.type == b.type
+            && a.text.utf16.elementsEqual(b.text.utf16)
+            && (a.dual ?? false) == (b.dual ?? false)
+            && Array((a.sceneNumber ?? "").utf16) == Array((b.sceneNumber ?? "").utf16)
+            && (a.depth ?? 0) == (b.depth ?? 0)
+            && runsEqual(
+                Emphasis.normalise(a.runs ?? [], textLength: a.text.utf16.count),
+                Emphasis.normalise(b.runs ?? [], textLength: b.text.utf16.count)
+            )
+    }
+
+    /// For each element being saved, the element of the unedited reading it
+    /// still is, unchanged — or nil (TypeScript `unchangedFrom`).
+    ///
+    /// A longest common subsequence over whole elements, run only between the
+    /// common prefix and suffix, which is where an edit actually is. Past four
+    /// million cells the middle pairs by position: still exact for an unedited
+    /// script and for an edit in place.
+    fileprivate static func unchangedFrom(
+        _ saved: [ScreenplayElement], _ reading: [ScreenplayElement]
+    ) -> [Int?] {
+        var matched = [Int?](repeating: nil, count: saved.count)
+        var head = 0
+        while head < saved.count, head < reading.count, sameElement(saved[head], reading[head]) {
+            matched[head] = head
+            head += 1
+        }
+        var tail = 0
+        while tail < saved.count - head, tail < reading.count - head,
+              sameElement(saved[saved.count - 1 - tail], reading[reading.count - 1 - tail]) {
+            matched[saved.count - 1 - tail] = reading.count - 1 - tail
+            tail += 1
+        }
+        let n = saved.count - head - tail
+        let m = reading.count - head - tail
+        guard n > 0, m > 0 else { return matched }
+
+        guard n * m <= 4_000_000 else {
+            for d in 0..<min(n, m) where sameElement(saved[head + d], reading[head + d]) {
+                matched[head + d] = head + d
+            }
+            return matched
+        }
+
+        var table = [Int32](repeating: 0, count: (n + 1) * (m + 1))
+        func at(_ i: Int, _ j: Int) -> Int { i * (m + 1) + j }
+        for i in stride(from: n - 1, through: 0, by: -1) {
+            for j in stride(from: m - 1, through: 0, by: -1) {
+                table[at(i, j)] = sameElement(saved[head + i], reading[head + j])
+                    ? table[at(i + 1, j + 1)] + 1
+                    : max(table[at(i + 1, j)], table[at(i, j + 1)])
+            }
+        }
+        var i = 0
+        var j = 0
+        while i < n && j < m {
+            if sameElement(saved[head + i], reading[head + j]) {
+                matched[head + i] = head + j
+                i += 1
+                j += 1
+            } else if table[at(i + 1, j)] >= table[at(i, j + 1)] {
+                i += 1
+            } else {
+                j += 1
+            }
+        }
+        return matched
     }
 
     /// Which original paragraphs the new screenplay still contains.

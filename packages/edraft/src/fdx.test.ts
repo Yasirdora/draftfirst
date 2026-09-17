@@ -1039,3 +1039,184 @@ ${card}
 		}
 	);
 });
+
+/**
+ * Files Final Draft itself wrote.
+ *
+ * The no-edit proof above ran on a file an old eDraft save had already
+ * stripped of its production tags, so it could not fail — and a save that
+ * lost 400 of 407 tags passed it. These fixtures are anonymised copies of
+ * files Final Draft wrote, still carrying everything a careless save loses,
+ * and the guard below refuses any fixture that does not.
+ */
+describe('openFdx · files Final Draft wrote', () => {
+	const fixture = (name: string) =>
+		readFileSync(new URL(`../../../apple/eDraftEngine/Fixtures/${name}`, import.meta.url), 'utf8');
+	const FILES = ['finaldraft-sample02.fdx', 'finaldraft-sample01.fdx'] as const;
+
+	/** What a no-edit proof on a file depends on, counted. */
+	const hazards = (xml: string) => {
+		const elements = parseFdx(xml).script.elements;
+		const runs = elements.flatMap((element) => element.runs ?? []);
+		const count = (pattern: RegExp) => (xml.match(pattern) ?? []).length;
+		const styled = (type: string, styles: string[]) =>
+			elements.filter(
+				(element) =>
+					element.type === type &&
+					(element.runs ?? []).some((run) => run.styles.some((style) => styles.includes(style)))
+			).length;
+		return {
+			eDraftNamespace: xml.includes('xmlns:EDraft'),
+			bareParagraphLines: count(/^\s*<Paragraph Type="[^"]+"><Text>/gm),
+			taggedRuns: runs.filter((run) => (run.tagNumbers ?? []).length > 0).length,
+			revisionRuns: runs.filter((run) => run.revisionID !== undefined).length,
+			adornmentSplits: count(/<Text [^>]*AdornmentStyle="-1"/g),
+			dualDialogue: count(/<DualDialogue>/g),
+			omittedScenes: count(/<OmittedScene>/g),
+			endOfAct: count(/<Paragraph [^>]*Type="End of Act"/g),
+			emphasisedHeadings: styled('scene', ['Bold', 'Italic']),
+			italicParentheticals: styled('parenthetical', ['Italic']),
+			multiLineParagraphs: elements.filter((element) => element.text.includes('\n')).length,
+			trailingSpaces: elements.filter((element) => element.text.endsWith(' ')).length,
+			astral: elements.filter((element) => /[\uD800-\uDBFF]/.test(element.text)).length
+		};
+	};
+	const REQUIRED: Record<(typeof FILES)[number], ReturnType<typeof hazards>> = {
+		'finaldraft-sample02.fdx': {
+			eDraftNamespace: false, bareParagraphLines: 0, taggedRuns: 392, revisionRuns: 98,
+			adornmentSplits: 10, dualDialogue: 6, omittedScenes: 1, endOfAct: 1, emphasisedHeadings: 1,
+			italicParentheticals: 2, multiLineParagraphs: 0, trailingSpaces: 1, astral: 0
+		},
+		'finaldraft-sample01.fdx': {
+			eDraftNamespace: false, bareParagraphLines: 0, taggedRuns: 0, revisionRuns: 2,
+			adornmentSplits: 3, dualDialogue: 6, omittedScenes: 0, endOfAct: 1, emphasisedHeadings: 1,
+			italicParentheticals: 2, multiLineParagraphs: 1, trailingSpaces: 1, astral: 4
+		}
+	};
+	/** Why a file cannot stand as a fidelity fixture — nothing, when it can. */
+	const provenanceProblems = (xml: string, required: ReturnType<typeof hazards>): string[] => {
+		const found = hazards(xml);
+		const problems: string[] = [];
+		if (found.eDraftNamespace || found.bareParagraphLines > 0) problems.push('carries eDraft save marks');
+		for (const key of Object.keys(required) as (keyof typeof required)[]) {
+			if (found[key] !== required[key]) problems.push(`${key}: ${found[key]}, needs ${required[key]}`);
+		}
+		return problems;
+	};
+
+	/** The file as the app's editor first holds it: through Fountain and back. */
+	const fountainReading = (xml: string): Screenplay => {
+		const imported = parseFdx(xml).script;
+		return parseFountain(
+			serialiseFountain({
+				...imported,
+				elements: imported.elements.map((element) => ({
+					...element,
+					text: canonicalCasing(element.type as ElementType, element.text)
+				}))
+			}),
+			{ emphasis: 'runs' }
+		);
+	};
+	const tags = (xml: string) => (xml.match(/TagNumber="/g) ?? []).length;
+	/**
+	 * Every byte outside one paragraph matches: the changed stretch holds no
+	 * boundary between two of the script's paragraphs. Final Draft indents
+	 * those four spaces; the paragraphs nested inside a scene heading's
+	 * SceneProperties sit deeper, and are part of the paragraph they are in.
+	 * (Editing the numbered heading Fountain re-reads as Action replaces that
+	 * whole paragraph, scene data and all — edited-paragraph damage, IL-0028.)
+	 */
+	const confinedToOneParagraph = (before: string, after: string, marker: string) => {
+		const shorter = Math.min(before.length, after.length);
+		let prefix = 0;
+		while (prefix < shorter && before[prefix] === after[prefix]) prefix++;
+		let suffix = 0;
+		while (suffix < shorter - prefix && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix++;
+		const boundary = /<\/Paragraph>\s*\n {4}<Paragraph[ >]|\n {4}<Paragraph[ >][\s\S]*\n {4}<Paragraph[ >]/;
+		expect(before.slice(prefix, before.length - suffix)).not.toMatch(boundary);
+		expect(after.slice(prefix, after.length - suffix)).not.toMatch(boundary);
+		expect(after.slice(Math.max(0, prefix - marker.length), after.length - suffix + marker.length)).toContain(marker);
+	};
+
+	it.each(FILES)('%s is a file Final Draft wrote, with everything the proofs depend on', (name) => {
+		expect(provenanceProblems(fixture(name), REQUIRED[name])).toEqual([]);
+	});
+
+	it('the guard turns away a file eDraft has saved', () => {
+		const problems = provenanceProblems(fixture('sample0-2.fdx'), REQUIRED['finaldraft-sample02.fdx']);
+		expect(problems).toContain('carries eDraft save marks');
+		expect(problems.some((problem) => problem.startsWith('taggedRuns'))).toBe(true);
+	});
+
+	it.each(FILES)('a save with no edit returns %s byte for byte', (name) => {
+		const xml = fixture(name);
+		const document = openFdx(xml);
+		expect(document.rewrite(document.script).xml).toBe(xml);
+	});
+
+	it.each(FILES)('so does a save through Fountain with no edit, given the unedited reading (%s)', (name) => {
+		const xml = fixture(name);
+		const reading = fountainReading(xml);
+		const saved = openFdx(xml).rewrite(reading, { unedited: reading });
+		expect(saved.diagnostics).toEqual([]);
+		expect(saved.xml).toBe(xml);
+	});
+
+	it('without the unedited reading, that same save loses the tags — the leak this closes', () => {
+		const xml = fixture('finaldraft-sample02.fdx');
+		const saved = openFdx(xml).rewrite(fountainReading(xml)).xml;
+		expect(tags(saved)).toBeLessThan(tags(xml) / 2);
+	});
+
+	/* An edit through Fountain changes bytes only inside the edited paragraph —
+	   across the script, and beside the omitted scene, the dual dialogue and
+	   the End of Act. */
+	it.each([0, 6, 19, 42, 150, 336, 520, 700, 760, 761])(
+		'an edit through Fountain to element %i of sample02 changes bytes only inside that paragraph',
+		(index) => {
+			const xml = fixture('finaldraft-sample02.fdx');
+			const reading = fountainReading(xml);
+			const marker = `EDITED ${index}`;
+			const edited = {
+				...reading,
+				elements: reading.elements.map((element, at) => (at === index ? { ...element, text: marker } : element))
+			};
+			confinedToOneParagraph(xml, openFdx(xml).rewrite(edited, { unedited: reading }).xml, marker);
+		}
+	);
+
+	it.each([0, 21, 300, 823])('an edit through the engine to element %i of sample01 changes bytes only inside that paragraph', (index) => {
+		const xml = fixture('finaldraft-sample01.fdx');
+		const document = openFdx(xml);
+		const marker = `EDITED ${index}`;
+		const edited = {
+			...document.script,
+			elements: document.script.elements.map((element, at) => (at === index ? { ...element, text: marker } : element))
+		};
+		confinedToOneParagraph(xml, document.rewrite(edited).xml, marker);
+	});
+
+	it('a tagged paragraph beside an edited one keeps every tag', () => {
+		const xml = fixture('finaldraft-sample02.fdx');
+		const reading = fountainReading(xml);
+		const imported = parseFdx(xml).script.elements;
+		const taggedAt = imported.findIndex((element, at) => at > 0 && (element.runs ?? []).some((run) => run.tagNumbers?.length) && imported[at + 1]?.type === 'action');
+		const edited = {
+			...reading,
+			elements: reading.elements.map((element, at) => (at === taggedAt + 1 ? { ...element, text: 'A new line.' } : element))
+		};
+		const saved = openFdx(xml).rewrite(edited, { unedited: reading }).xml;
+		const lost = tags(xml) - tags(saved);
+		const inEdited = ((imported[taggedAt + 1].runs ?? []).filter((run) => run.tagNumbers?.length)).length;
+		expect(lost).toBeLessThanOrEqual(inEdited);
+		expect(taggedAt).toBeGreaterThan(0);
+	});
+
+	it('reports the paragraphs an unedited reading cannot be paired with, and judges them as before', () => {
+		const xml = fixture('finaldraft-sample01.fdx');
+		const stranger = parseFountain('EXT. SOMEWHERE ELSE - NIGHT\n\nNothing like the file.\n', { emphasis: 'runs' });
+		const saved = openFdx(xml).rewrite(stranger, { unedited: stranger });
+		expect(saved.diagnostics.map((diagnostic) => diagnostic.code)).toContain('FDX_REWRITE_UNEDITED_UNALIGNED');
+	});
+});
