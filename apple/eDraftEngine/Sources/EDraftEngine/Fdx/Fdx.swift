@@ -830,6 +830,12 @@ public enum Fdx {
         fileprivate let units: [UInt16]
         fileprivate let spans: [Span]
         fileprivate let blocks: [DualDialogueBlock]
+        /// The script's top-level paragraphs as a ScriptNote Range counts them,
+        /// where each starts, and where each note's Range value sits.
+        fileprivate let topLevelUnits: [[Int32]]
+        fileprivate let topLevelAt: [Int: Int]
+        fileprivate let rangeValues: [ScriptNoteRangeValue?]
+        fileprivate let limits: Limits
 
         /// The screenplay written back into the file it came from.
         ///
@@ -969,13 +975,21 @@ public enum Fdx {
 
             let firstStart = first.block.map { blocks[$0].start } ?? first.start
             let lastEnd = last.block.map { blocks[$0].end } ?? last.end
-            var out: [UInt16] = Array(units[0..<firstStart])
+            var out: [UInt16] = []
+            /* Which original paragraph each paragraph written came from, in
+               order, so each ScriptNote's Range can follow its words. */
+            var written: [WrittenParagraph] = []
+            func writtenFrom(_ start: Int, _ kind: WrittenParagraph.Kind) {
+                written.append(WrittenParagraph(origin: topLevelAt[start], kind: kind))
+            }
+            var dissolvedWritten = Set<Int>()
             var lead: [UInt16] = []
             var wrote = false
             func restore(_ span: Span) {
                 if wrote { out += span.lead.isEmpty ? lead : span.lead }
                 if !span.lead.isEmpty { lead = span.lead }
                 out += units[span.start..<span.end]
+                writtenFrom(span.start, .same)
                 wrote = true
             }
             func keptBytes(_ index: Int, _ origin: Span) -> [UInt16] {
@@ -1000,6 +1014,7 @@ public enum Fdx {
                     if wrote { out += block.lead.isEmpty ? lead : block.lead }
                     if !block.lead.isEmpty { lead = block.lead }
                     out += block.head
+                    writtenFrom(block.start, .same)
                     var lineLead = block.lineLead
                     for line in index...pair.end {
                         let origin = paired[line]
@@ -1027,17 +1042,62 @@ public enum Fdx {
                     if wrote { out += ownLead.isEmpty ? lead : ownLead }
                     if !ownLead.isEmpty { lead = ownLead }
                     out += keptBytes(index, origin)
+                    if let block = origin.block {
+                        // A dissolved dual dialogue: its place is its first line.
+                        if dissolvedWritten.contains(block) {
+                            written.append(WrittenParagraph(origin: nil, kind: .same))
+                        } else {
+                            writtenFrom(blocks[block].start, .firstLine)
+                        }
+                        dissolvedWritten.insert(block)
+                    } else {
+                        writtenFrom(origin.start, verbatim[index]?.start == origin.start ? .same : .text)
+                    }
                 } else {
                     if wrote { out += lead.isEmpty ? Array("\n".utf16) : lead }
                     out += freshBytes(elements[index])
+                    written.append(WrittenParagraph(origin: nil, kind: .same))
                 }
                 wrote = true
                 index += 1
             }
             waiting.forEach(restore)
-            out += Array(units[lastEnd...])
+
+            /* Each ScriptNote stays on its words (TypeScript reports the moves).
+               Final Draft counts a Range over the script as it now stands, so a
+               Range written for the old text points at other words after any
+               edit that moves them. Only the Range values that move are
+               rewritten. */
+            var prefix = Array(units[0..<firstStart])
+            var suffix = Array(units[lastEnd...])
+            if rangeValues.contains(where: { $0 != nil }) {
+                let after = Fdx.collectParagraphs(
+                    from: String(decoding: prefix + out + suffix, as: UTF16.self),
+                    limits: limits,
+                    diagnostics: DiagnosticCollector(limit: 1)
+                ).body
+                if after.count == written.count {
+                    let replacements = Fdx.movedScriptNoteRanges(
+                        before: topLevelUnits, written: written, after: after.map(Fdx.rangeUnits), values: rangeValues
+                    )
+                    func apply(_ text: [UInt16], base: Int, limit: Int) -> [UInt16] {
+                        var result = text
+                        for replacement in replacements.reversed()
+                        where replacement.start >= base && replacement.end <= limit {
+                            result.replaceSubrange(
+                                (replacement.start - base)..<(replacement.end - base),
+                                with: Array(replacement.value.utf16)
+                            )
+                        }
+                        return result
+                    }
+                    prefix = apply(prefix, base: 0, limit: firstStart)
+                    suffix = apply(suffix, base: lastEnd, limit: units.count)
+                }
+            }
+            let whole = prefix + out + suffix
             return Fdx.ensureNamespaceDeclared(
-                String(utf16CodeUnits: out, count: out.count)
+                String(utf16CodeUnits: whole, count: whole.count)
             )
         }
     }
@@ -1149,6 +1209,154 @@ public enum Fdx {
         return end
     }
 
+    // MARK: - ScriptNote Ranges through a save
+
+    /// A paragraph of a written script, as a Range counts it, and what it came
+    /// from: the original top-level paragraph, and how its units relate — its
+    /// own bytes, text that changed, or the first line of a dissolved dual
+    /// dialogue. `nil` for a paragraph the writer added (TypeScript
+    /// `WrittenParagraph`).
+    fileprivate struct WrittenParagraph {
+        enum Kind { case same, text, firstLine }
+        let origin: Int?
+        let kind: Kind
+    }
+
+    /// A paragraph's units as a Range counts them: its text, with two for each
+    /// embedded block where it sits (-1, which no text unit equals)
+    /// (TypeScript `rangeUnitsOf`).
+    private static func rangeUnits(_ paragraph: CollectedParagraph) -> [Int32] {
+        let text = Array(paragraph.text.utf16)
+        var units: [Int32] = []
+        units.reserveCapacity(text.count + blockUnits * paragraph.blocks.count)
+        var block = 0
+        for unit in 0...text.count {
+            while block < paragraph.blocks.count, paragraph.blocks[block] == unit {
+                units += [Int32](repeating: -1, count: blockUnits)
+                block += 1
+            }
+            if unit < text.count { units.append(Int32(text[unit])) }
+        }
+        return units
+    }
+
+    /// For each old unit, the new unit it is — or -1: the common prefix and
+    /// suffix, and a longest common subsequence between them when small enough
+    /// (TypeScript `unitCorrespondence`).
+    fileprivate static func unitCorrespondence(_ before: [Int32], _ after: [Int32]) -> [Int] {
+        var pairs = [Int](repeating: -1, count: before.count)
+        var head = 0
+        while head < before.count, head < after.count, before[head] == after[head] {
+            pairs[head] = head
+            head += 1
+        }
+        var tail = 0
+        while tail < before.count - head, tail < after.count - head,
+              before[before.count - 1 - tail] == after[after.count - 1 - tail] {
+            pairs[before.count - 1 - tail] = after.count - 1 - tail
+            tail += 1
+        }
+        if let middle = alignedUnits(
+            Array(before[head..<(before.count - tail)]), Array(after[head..<(after.count - tail)])
+        ) {
+            for (r, n) in middle.enumerated() where n >= 0 { pairs[head + r] = head + n }
+        }
+        return pairs
+    }
+
+    /// The Range values a save must rewrite so each note stays on its words
+    /// (TypeScript `movedScriptNoteRanges`).
+    ///
+    /// Each end of a Range stays with its character: a start before the first
+    /// character of the note that survives, an end after the last. Text typed
+    /// inside a note joins it; text typed at its edges does not. A note whose
+    /// words are all gone closes to zero length where they stood. A Range
+    /// already past the script's end when the file was read keeps its bytes,
+    /// as does every Range that does not move.
+    fileprivate static func movedScriptNoteRanges(
+        before: [[Int32]], written: [WrittenParagraph], after: [[Int32]], values: [ScriptNoteRangeValue?]
+    ) -> [(start: Int, end: Int, value: String)] {
+        func layout(_ paragraphs: [[Int32]]) -> (starts: [Int], lengths: [Int], end: Int) {
+            var starts: [Int] = []
+            var lengths: [Int] = []
+            var cursor = 0
+            for paragraph in paragraphs {
+                starts.append(cursor)
+                lengths.append(paragraph.count)
+                cursor += paragraph.count + 1
+            }
+            return (starts, lengths, cursor - 1)
+        }
+        let old = layout(before)
+        let now = layout(after)
+        var writtenAt: [Int: Int] = [:]
+        for (at, paragraph) in written.enumerated() {
+            if let origin = paragraph.origin, writtenAt[origin] == nil { writtenAt[origin] = at }
+        }
+        var correspondences: [Int: [Int]] = [:]
+
+        func boundary(_ position: Int, start side: Bool) -> Int {
+            var low = 0
+            var high = before.count - 1
+            while low < high {
+                let middle = (low + high + 1) >> 1
+                if old.starts[middle] <= position { low = middle } else { high = middle - 1 }
+            }
+            guard let at = writtenAt[low] else {
+                // Gone: where it stood — the start of what follows the last paragraph kept before it.
+                var previous = -1
+                for (index, paragraph) in written.enumerated() {
+                    if let origin = paragraph.origin, origin < low { previous = index }
+                }
+                return previous == -1 ? 0 : min(now.starts[previous] + now.lengths[previous] + 1, now.end)
+            }
+            let offset = position - old.starts[low]
+            switch written[at].kind {
+            case .firstLine:
+                return now.starts[at]
+            case .same:
+                return now.starts[at] + min(offset, now.lengths[at])
+            case .text:
+                let pairs = correspondences[low] ?? unitCorrespondence(before[low], after[at])
+                correspondences[low] = pairs
+                if side {
+                    var unit = offset
+                    while unit < pairs.count {
+                        if pairs[unit] >= 0 { return now.starts[at] + pairs[unit] }
+                        unit += 1
+                    }
+                    return now.starts[at] + now.lengths[at]
+                }
+                var unit = min(offset, pairs.count) - 1
+                while unit >= 0 {
+                    if pairs[unit] >= 0 { return now.starts[at] + pairs[unit] + 1 }
+                    unit -= 1
+                }
+                return now.starts[at]
+            }
+        }
+
+        var replacements: [(start: Int, end: Int, value: String)] = []
+        guard !before.isEmpty, !after.isEmpty else { return replacements }
+        for value in values {
+            guard let value, value.range.end <= old.end else { continue }
+            let start = value.range.start
+            let end = value.range.end
+            var movedStart = boundary(start, start: true)
+            var movedEnd = start == end ? movedStart : boundary(end, start: false)
+            if start < end && movedEnd <= movedStart {
+                movedStart = min(movedStart, movedEnd)
+                movedEnd = movedStart
+            }
+            if movedStart == start && movedEnd == end { continue }
+            replacements.append((
+                value.valueStart, value.valueEnd,
+                value.reversed ? "\(movedEnd),\(movedStart)" : "\(movedStart),\(movedEnd)"
+            ))
+        }
+        return replacements
+    }
+
     /// Opens a Final Draft file and keeps it, so it can be written back whole.
     ///
     /// The screenplay is exactly `parse`'s. Use this whenever the file may be
@@ -1206,13 +1414,19 @@ public enum Fdx {
             }
         }
 
+        var topLevelAt: [Int: Int] = [:]
+        for (index, paragraph) in collected.body.enumerated() { topLevelAt[paragraph.start] = index }
         return Document(
             script: imported.script,
             warnings: imported.warnings,
             diagnostics: imported.diagnostics,
             units: units,
             spans: spans,
-            blocks: blocks
+            blocks: blocks,
+            topLevelUnits: collected.body.map(rangeUnits),
+            topLevelAt: topLevelAt,
+            rangeValues: scriptNoteRangeValues(in: xml, limits: limits),
+            limits: limits
         )
     }
 

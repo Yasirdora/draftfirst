@@ -159,13 +159,121 @@ struct FdxScriptNotesTests {
         #expect(Self.scriptNotesBlock(saved) == Self.scriptNotesBlock(Self.sample))
     }
 
-    @Test("editing an annotated line keeps the ScriptNotes block byte for byte")
+    @Test("editing an annotated line keeps every byte of the ScriptNotes block but the Ranges that follow their words")
     func editKeepsNotes() {
         let document = Fdx.open(Self.sample)
         var script = document.script
         script.elements[536].text = "XXXXXX (V.O.)"
         let saved = document.rewrite(script)
         #expect(saved.contains("XXXXXX (V.O.)"))
-        #expect(Self.scriptNotesBlock(saved) == Self.scriptNotesBlock(Self.sample))
+        #expect(Self.scriptNotesBlock(ScriptNoteRanges.emptied(saved)) == Self.scriptNotesBlock(ScriptNoteRanges.emptied(Self.sample)))
+    }
+
+    /* IL-0033: a save keeps every ScriptNote on its words. Final Draft counts a
+       Range over the script as it stands; copied unchanged, one word typed near
+       the start moved ten of the eleven notes in sample02 off their words
+       (TypeScript: the same proofs). */
+
+    /// The words a note covers, as the import reads them.
+    private static func covered(_ script: Screenplay, _ anchor: Fdx.ScriptNote.Anchor?) -> String? {
+        guard let anchor else { return nil }
+        var texts = script.elements[anchor.start.element...anchor.end.element].map { Array($0.text.utf16) }
+        if texts.count == 1 {
+            return String(decoding: texts[0][anchor.start.offset..<anchor.end.offset], as: UTF16.self)
+        }
+        texts[0] = Array(texts[0][anchor.start.offset...])
+        texts[texts.count - 1] = Array(texts[texts.count - 1][..<anchor.end.offset])
+        return texts.map { String(decoding: $0, as: UTF16.self) }.joined(separator: "\n")
+    }
+
+    @Test("After any edit, every note the edit did not touch covers the same words",
+          arguments: ["finaldraft-sample02.fdx", "finaldraft-sample01.fdx"])
+    func notesKeepTheirWords(_ name: String) throws {
+        let xml = try String(contentsOf: FixtureStore.directory.appendingPathComponent(name), encoding: .utf8)
+        let before = Fdx.parse(xml)
+        let reading = try FountainReading.of(xml)
+        var noted = Set<Int>()
+        for note in before.scriptNotes {
+            if let anchor = note.anchor { noted.formUnion(anchor.start.element...anchor.end.element) }
+        }
+        // Lines the reading holds at the import's own index, with no note on them.
+        let free = reading.elements.indices.filter { index in
+            let element = reading.elements[index]
+            return index < before.script.elements.count && element.text == before.script.elements[index].text
+                && element.text.contains(" ") && !noted.contains(index) && element.type == .action
+        }
+        let spread = (0..<6).map { free[((($0 + 1) * free.count) / 8)] }
+        let dual = try #require(reading.elements.firstIndex { $0.dual == true })
+        var edits: [(String, (inout [ScreenplayElement]) -> Void)] = []
+        for at in spread {
+            edits.append(("a word typed in line \(at)", { elements in
+                if let space = elements[at].text.firstIndex(of: " ") {
+                    elements[at].text.replaceSubrange(space...space, with: " QZQZ ")
+                }
+            }))
+        }
+        for at in spread.prefix(3) {
+            edits.append(("a word deleted in line \(at)", { elements in
+                elements[at].text = elements[at].text.replacingOccurrences(of: #" \S+"#, with: "", options: .regularExpression, range: elements[at].text.range(of: #" \S+"#, options: .regularExpression))
+            }))
+        }
+        edits.append(("a line added", { elements in elements.insert(ScreenplayElement(type: .action, text: "A new line."), at: free[1]) }))
+        edits.append(("a line deleted", { elements in elements.remove(at: free[1]) }))
+        edits.append(("a dual dialogue line edited", { elements in elements[dual + 1].text = "Q" + elements[dual + 1].text }))
+        edits.append(("a dual dialogue dissolved", { elements in elements[dual].dual = nil }))
+        #expect(edits.count >= 12)
+
+        for (label, change) in edits {
+            var edited = reading
+            change(&edited.elements)
+            let saved = Fdx.open(xml).rewrite(edited, unedited: reading)
+            let after = Fdx.parse(saved)
+            let off = zip(before.scriptNotes, after.scriptNotes).filter { original, now in
+                Self.covered(before.script, original.anchor) != Self.covered(after.script, now.anchor)
+            }.compactMap { $0.0.id }
+            #expect(off.isEmpty, "\(name), \(label): notes off their words \(off)")
+            #expect(Self.scriptNotesBlock(ScriptNoteRanges.emptied(saved)) == Self.scriptNotesBlock(ScriptNoteRanges.emptied(xml)),
+                    "\(name), \(label): more than Range values changed")
+        }
+    }
+
+    @Test("An edit inside a note's words stays inside the note; a note whose words are all deleted closes where they stood")
+    func notesFollowTheirWords() throws {
+        let xml = try String(contentsOf: FixtureStore.directory.appendingPathComponent("finaldraft-sample02.fdx"), encoding: .utf8)
+        let reading = try FountainReading.of(xml)
+
+        var inside = reading
+        if let space = inside.elements[310].text.firstIndex(of: " ") {
+            inside.elements[310].text.replaceSubrange(space...space, with: " INSIDE ")
+        }
+        let edited = Fdx.parse(Fdx.open(xml).rewrite(inside, unedited: reading))
+        #expect(edited.script.elements[310].text.contains("INSIDE"))
+        #expect(Self.covered(edited.script, edited.scriptNotes.first { $0.id == "109" }?.anchor) == edited.script.elements[310].text)
+
+        var gone = reading
+        gone.elements.removeSubrange(52...53)   // note 108's line of dialogue, and its cue
+        let deleted = Fdx.parse(Fdx.open(xml).rewrite(gone, unedited: reading)).scriptNotes.first { $0.id == "108" }
+        #expect(deleted?.range == .init(start: 2177, end: 2177))
+        #expect(deleted?.anchor == .init(start: .init(element: 52, offset: 0), end: .init(element: 52, offset: 0)))
+    }
+
+    @Test("A note keeps its edges: typed at an edge stays out, typed inside joins, written end first stays so, stale stays stale")
+    func noteEdges() {
+        func lab(_ lines: [String], _ ranges: [String]) -> String {
+            "<FinalDraft><Content>\n" + lines.map { "<Paragraph Type=\"Action\"><Text>\($0)</Text></Paragraph>" }.joined(separator: "\n")
+                + "\n</Content><ScriptNotes>"
+                + ranges.enumerated().map { "<ScriptNote Id=\"\($0.offset + 1)\" Range=\"\($0.element)\"><Paragraph><Text>n</Text></Paragraph></ScriptNote>" }.joined()
+                + "</ScriptNotes></FinalDraft>"
+        }
+        // Paragraphs start at 0, 9 and 21; the script ends at 30.
+        let xml = lab(["One two.", "Three four.", "Five six."], ["0,3", "9,14", "19,15", "30,30", "99,120"])
+        let document = Fdx.open(xml)
+        func edited(_ texts: [String]) -> Screenplay {
+            Screenplay(titlePage: [], elements: texts.map { ScreenplayElement(type: .action, text: $0) })
+        }
+        #expect(document.rewrite(edited(["One and two.", "Thrxee four.", "Five six."]))
+                == lab(["One and two.", "Thrxee four.", "Five six."], ["0,3", "13,19", "24,20", "35,35", "99,120"]))
+        #expect(document.rewrite(edited(["One two.", "Five six."]))
+                == lab(["One two.", "Five six."], ["0,3", "9,9", "9,9", "18,18", "99,120"]))
     }
 }

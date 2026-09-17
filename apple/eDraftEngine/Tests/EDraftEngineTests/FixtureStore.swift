@@ -264,7 +264,9 @@ enum FdxCorpus {    struct Root: Decodable {
     /// after `edit` — `find`, which occurs once in the Fountain source,
     /// replaced by `replace`. The expected result is exact bytes, whether the
     /// save returns the file unchanged, or the one change it makes: at UTF-16
-    /// `at`, `removed` became `inserted`.
+    /// `at`, `removed` became `inserted` — read, when `scriptNoteRanges` is
+    /// given, with every ScriptNote Range value emptied on both sides, and the
+    /// saved Range values, in note order, those.
     struct RewriteCase: Decodable {
         let name: String
         let source: String?
@@ -284,6 +286,7 @@ enum FdxCorpus {    struct Root: Decodable {
             let xml: String?
             let identical: Bool?
             let changed: Changed?
+            let scriptNoteRanges: [String]?
         }
 
         struct Changed: Decodable {

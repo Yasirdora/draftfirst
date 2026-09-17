@@ -1327,12 +1327,21 @@ addUneditedRewrite('unedited-unaligned-falls-back', tagged, {
    Fountain, by each engine for itself. An inline file is pinned whole; a
    Final Draft-written one by the one change its save makes: at UTF-16 `at`,
    `removed` became `inserted`. */
+/* A file's ScriptNote Range values, in note order, and the file with each one
+   emptied — so a pinned change to the script is read apart from the Ranges a
+   save moves to keep every note on its words. */
+const NOTE_RANGE = /(<ScriptNote\b[^>]*?\sRange=")([^"]*)(")/g;
+const scriptNoteRangesOf = (xml) => [...xml.matchAll(NOTE_RANGE)].map((match) => match[2]);
+const withoutNoteRanges = (xml) => xml.replace(NOTE_RANGE, '$1$3');
 function addMergedRewrite(name, { source, file }, find, replace) {
-	const xml = source ?? readFileSync(join(outDir, file), 'utf8');
-	const text = fountainSource(xml);
+	const original = source ?? readFileSync(join(outDir, file), 'utf8');
+	const text = fountainSource(original);
 	if (text.split(find).length !== 2) throw new Error(`${name}: ${JSON.stringify(find)} must occur once`);
 	const edited = parseFountain(text.replace(find, () => replace), { emphasis: 'runs' });
-	const saved = openFdx(xml).rewrite(edited, { unedited: parseFountain(text, { emphasis: 'runs' }) }).xml;
+	const written = openFdx(original).rewrite(edited, { unedited: parseFountain(text, { emphasis: 'runs' }) }).xml;
+	const scriptNoteRanges = file ? scriptNoteRangesOf(written) : [];
+	const xml = scriptNoteRanges.length > 0 ? withoutNoteRanges(original) : original;
+	const saved = scriptNoteRanges.length > 0 ? withoutNoteRanges(written) : written;
 	let at = 0;
 	while (at < xml.length && xml[at] === saved[at]) at++;
 	let tail = 0;
@@ -1346,7 +1355,9 @@ function addMergedRewrite(name, { source, file }, find, replace) {
 		...(file ? { sourceFile: file } : { source }),
 		through: 'fountain',
 		edit: { find, replace },
-		expected: file ? { changed } : { xml: saved }
+		expected: file
+			? { changed, ...(scriptNoteRanges.length > 0 ? { scriptNoteRanges } : {}) }
+			: { xml: saved }
 	});
 }
 const sample02 = { file: 'finaldraft-sample02.fdx' };
@@ -1407,6 +1418,35 @@ const dualLab = lab([
 addUneditedRewrite('dual-dialogue-first-in-body-no-edit', dualLab);
 addMergedRewrite('dual-dialogue-first-speaker-line-added', { source: dualLab }, 'MARA\nYes.\n', 'MARA\nYes.\n(softly)\nAgain.\n');
 addMergedRewrite('dual-dialogue-first-speaker-removed', { source: dualLab }, 'MARA\nYes.\n\n', '');
+
+/* A save keeps every ScriptNote on its words: each Range value whose words
+   moved is rewritten to where they now are, counted as Final Draft counts; a
+   note whose words are all gone closes to zero length where they stood. On
+   the files Final Draft wrote the change to the script is pinned apart from
+   the Range values, which are pinned in note order. */
+addMergedRewrite('note-ranges-words-typed-early', sample02, 'Xxxx XXXXXX, 12,', 'Xxxx QZQZ XXXXXX, 12,');
+addMergedRewrite('note-ranges-line-added-early', sample02, 'Xxx xxxxxxxx XXXXX, 40x,', 'A new line.\n\nXxx xxxxxxxx XXXXX, 40x,');
+addMergedRewrite(
+	'note-ranges-line-deleted-early',
+	sample02,
+	'Xxx xxxxxxxx XXXXX, 40x, xxxxxx xxxxxxxx xxxxxxxxx xxxxxxx, xxxxx xxxx xxxxxxx xxxx xxxxxx xxxxxx x xxxxx xxxxx.\n\n',
+	''
+);
+addMergedRewrite('note-ranges-a-notes-words-deleted', sample02, 'X xxxxx xxxxxxx. Xxxx:\n\nXXXXX\nXxxxxxx.\n', 'X xxxxx xxxxxxx. Xxxx:\n');
+/* Paragraphs start at 0, 9 and 21; the script ends at 30. */
+const notedLab = `<FinalDraft><Content>\n<Paragraph Type="Action"><Text>One two.</Text></Paragraph>\n<Paragraph Type="Action"><Text>Three four.</Text></Paragraph>\n<Paragraph Type="Action"><Text>Five six.</Text></Paragraph>\n</Content><ScriptNotes>${[
+	['1', '0,3', 'One'],
+	['2', '9,14', 'Three'],
+	['3', '19,15', 'four, written end first'],
+	['4', '30,30', 'at the end'],
+	['5', '99,120', 'already past the end']
+]
+	.map(([id, range, text]) => `<ScriptNote Id="${id}" Range="${range}"><Paragraph><Text>${text}</Text></Paragraph></ScriptNote>`)
+	.join('')}</ScriptNotes></FinalDraft>`;
+/* Typed at a note's edge: not joined. Typed inside its words: joined. */
+addMergedRewrite('note-ranges-edges-and-inside', { source: notedLab }, 'One two.\n\nThree four.', 'One and two.\n\nThrxee four.');
+/* A note's words all deleted: zero length where they stood, reversed or not. */
+addMergedRewrite('note-ranges-words-all-deleted', { source: notedLab }, 'Three four.\n\n', '');
 
 /* A line of another kind with other words in its place replaced the paragraph:
    written as before, none of the old paragraph's attributes carried over. */

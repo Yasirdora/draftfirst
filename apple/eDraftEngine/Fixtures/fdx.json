@@ -7133,7 +7133,20 @@
           "at": 4580,
           "removed": "x",
           "inserted": "y"
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10601,10642",
+          "18213,18219",
+          "19549,19662",
+          "25736,25736"
+        ]
       }
     },
     {
@@ -7149,7 +7162,20 @@
           "at": 8539,
           "removed": "1",
           "inserted": "2"
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10601,10642",
+          "18213,18219",
+          "19549,19662",
+          "25736,25736"
+        ]
       }
     },
     {
@@ -7165,7 +7191,20 @@
           "at": 39896,
           "removed": "",
           "inserted": ", xxxxx"
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10608,10649",
+          "18220,18226",
+          "19556,19669",
+          "25743,25743"
+        ]
       }
     },
     {
@@ -7181,7 +7220,20 @@
           "at": 60004,
           "removed": "",
           "inserted": ", xxxxx"
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10608,10649",
+          "18220,18226",
+          "19556,19669",
+          "25743,25743"
+        ]
       }
     },
     {
@@ -7197,7 +7249,21 @@
           "at": 40930,
           "removed": "x",
           "inserted": "y"
-        }
+        },
+        "scriptNoteRanges": [
+          "513,533",
+          "513,533",
+          "513,533",
+          "600,607",
+          "600,607",
+          "661,672",
+          "1303,1982",
+          "2824,2832",
+          "12359,12400",
+          "21524,21530",
+          "24629,24728",
+          "31820,31820"
+        ]
       }
     },
     {
@@ -7213,7 +7279,21 @@
           "at": 183537,
           "removed": "X",
           "inserted": "Y"
-        }
+        },
+        "scriptNoteRanges": [
+          "513,533",
+          "513,533",
+          "513,533",
+          "600,607",
+          "600,607",
+          "661,672",
+          "1303,1982",
+          "2824,2832",
+          "12359,12400",
+          "21524,21530",
+          "24629,24728",
+          "31820,31820"
+        ]
       }
     },
     {
@@ -7229,7 +7309,20 @@
           "at": 18583,
           "removed": "x",
           "inserted": "y"
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10601,10642",
+          "18213,18219",
+          "19549,19662",
+          "25736,25736"
+        ]
       }
     },
     {
@@ -7245,7 +7338,20 @@
           "at": 18377,
           "removed": "2",
           "inserted": "3"
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10601,10642",
+          "18213,18219",
+          "19549,19662",
+          "25736,25736"
+        ]
       }
     },
     {
@@ -7369,7 +7475,20 @@
           "at": 36863,
           "removed": "X",
           "inserted": "Q"
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10601,10642",
+          "18213,18219",
+          "19549,19662",
+          "25736,25736"
+        ]
       }
     },
     {
@@ -7385,7 +7504,20 @@
           "at": 36462,
           "removed": "X",
           "inserted": "Q"
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10601,10642",
+          "18213,18219",
+          "19549,19662",
+          "25736,25736"
+        ]
       }
     },
     {
@@ -7401,7 +7533,20 @@
           "at": 36902,
           "removed": "",
           "inserted": "  <Paragraph Type=\"Parenthetical\"><Text>(xxxxx)</Text></Paragraph>\n        <Paragraph Type=\"Dialogue\"><Text>Xxx xxx.</Text></Paragraph>\n      "
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10601,10642",
+          "18213,18219",
+          "19549,19662",
+          "25736,25736"
+        ]
       }
     },
     {
@@ -7417,7 +7562,20 @@
           "at": 36015,
           "removed": "Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.50\" RightIndent=\"7.50\" SpaceBefore=\"12\" Spacing=\"1\" StartsNewPage=\"No\" Type=\"General\" id=\"76c01355-7ba3-48e6-94b5-6ddf927adf68\">\n      <DualDialogue>\n        <SpellCheckIgnoreLists>\n          <IgnoredRanges/>\n          <IgnoredWords/>\n        </SpellCheckIgnoreLists>\n        <Paragraph Type=\"Character\" id=\"3277aa7a-b268-43ac-a468-d3901298d7dc\">\n          <Text TagNumber=\"515\">XXXXX</Text>\n        </Paragraph>\n        <Paragraph Type=\"Dialogue\" id=\"c6ccfb33-1399-4711-a9b2-e052aa9ef46b\">\n          <Text>Xxx?</Text>\n        </Paragraph>\n        <Paragraph Type=\"Character\" id=\"3f0139db-c0b0-43b8-9679-602180ad7451\">\n          <Text TagNumber=\"519\">XXXXXX</Text>\n        </Paragraph>\n        <Paragraph Type=\"Dialogue\" id=\"2220856b-967a-4a2f-85da-74f9df596dbb\">\n          <Text>Xxx.</Text>\n        </Paragraph>\n      </DualDialogue>\n    </Paragraph>\n    <Paragraph ",
           "inserted": ""
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10598,10639",
+          "18210,18216",
+          "19546,19659",
+          "25733,25733"
+        ]
       }
     },
     {
@@ -7433,7 +7591,20 @@
           "at": 36015,
           "removed": "Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"1.50\" RightIndent=\"7.50\" SpaceBefore=\"12\" Spacing=\"1\" StartsNewPage=\"No\" Type=\"General\" id=\"76c01355-7ba3-48e6-94b5-6ddf927adf68\">\n      <DualDialogue>\n        <SpellCheckIgnoreLists>\n          <IgnoredRanges/>\n          <IgnoredWords/>\n        </SpellCheckIgnoreLists>\n        <Paragraph Type=\"Character\" id=\"3277aa7a-b268-43ac-a468-d3901298d7dc\">\n          <Text TagNumber=\"515\">XXXXX</Text>\n        </Paragraph>\n        <Paragraph Type=\"Dialogue\" id=\"c6ccfb33-1399-4711-a9b2-e052aa9ef46b\">\n          <Text>Xxx?</Text>\n        </Paragraph>\n        <Paragraph Type=\"Character\" id=\"3f0139db-c0b0-43b8-9679-602180ad7451\">\n          <Text TagNumber=\"519\">XXXXXX</Text>\n        </Paragraph>\n        <Paragraph Type=\"Dialogue\" id=\"2220856b-967a-4a2f-85da-74f9df596dbb\">\n          <Text>Xxx.</Text>\n        </Paragraph>\n      </DualDialogue>\n",
           "inserted": "Type=\"Character\" id=\"3277aa7a-b268-43ac-a468-d3901298d7dc\">\n          <Text TagNumber=\"515\">XXXXX</Text>\n        </Paragraph>\n    <Paragraph Type=\"Dialogue\" id=\"c6ccfb33-1399-4711-a9b2-e052aa9ef46b\">\n          <Text>Xxx?</Text>\n        </Paragraph>\n    <Paragraph Type=\"Character\" id=\"3f0139db-c0b0-43b8-9679-602180ad7451\">\n          <Text TagNumber=\"519\">XXXXXX</Text>\n        </Paragraph>\n    <Paragraph Type=\"Dialogue\" id=\"2220856b-967a-4a2f-85da-74f9df596dbb\">\n          <Text>Xxx.</Text>\n    "
-        }
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2183,2191",
+          "10621,10662",
+          "18233,18239",
+          "19569,19682",
+          "25756,25756"
+        ]
       }
     },
     {
@@ -7525,6 +7696,146 @@
       },
       "expected": {
         "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Character\"><Text TagNumber=\"4\">JON</Text></Paragraph><Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>No.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "note-ranges-words-typed-early",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "through": "fountain",
+      "edit": {
+        "find": "Xxxx XXXXXX, 12,",
+        "replace": "Xxxx QZQZ XXXXXX, 12,"
+      },
+      "expected": {
+        "changed": {
+          "at": 4584,
+          "removed": "",
+          "inserted": "QZQZ "
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "975,1369",
+          "2188,2196",
+          "10606,10647",
+          "18218,18224",
+          "19554,19667",
+          "25741,25741"
+        ]
+      }
+    },
+    {
+      "name": "note-ranges-line-added-early",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "through": "fountain",
+      "edit": {
+        "find": "Xxx xxxxxxxx XXXXX, 40x,",
+        "replace": "A new line.\n\nXxx xxxxxxxx XXXXX, 40x,"
+      },
+      "expected": {
+        "changed": {
+          "at": 5039,
+          "removed": "",
+          "inserted": "><Text>A new line.</Text></Paragraph>\n    <Paragraph Type=\"Action\""
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "982,1376",
+          "2195,2203",
+          "10613,10654",
+          "18225,18231",
+          "19561,19674",
+          "25748,25748"
+        ]
+      }
+    },
+    {
+      "name": "note-ranges-line-deleted-early",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "through": "fountain",
+      "edit": {
+        "find": "Xxx xxxxxxxx XXXXX, 40x, xxxxxx xxxxxxxx xxxxxxxxx xxxxxxx, xxxxx xxxx xxxxxxx xxxx xxxxxx xxxxxx x xxxxx xxxxx.\n\n",
+        "replace": ""
+      },
+      "expected": {
+        "changed": {
+          "at": 5032,
+          "removed": "Action\" id=\"233d5611-2d64-4c9c-8c13-ac74be300e32\">\n      <Text>Xxx xxxxxxxx XXXXX, 40x, </Text>\n      <Text TagNumber=\"296\">xxxxxx xxxxxxxx</Text>\n      <Text> xxxxxxxxx xxxxxxx, xxxxx xxxx </Text>\n      <Text TagNumber=\"98\">xxxxxxx xxxx</Text>\n      <Text> xxxxxx xxxxxx x </Text>\n      <Text TagNumber=\"10\">xxxxx xxxxx</Text>\n      <Text>.</Text>\n    </Paragraph>\n    <Paragraph Type=\"",
+          "inserted": ""
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "857,1251",
+          "2070,2078",
+          "10488,10529",
+          "18100,18106",
+          "19436,19549",
+          "25623,25623"
+        ]
+      }
+    },
+    {
+      "name": "note-ranges-a-notes-words-deleted",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "through": "fountain",
+      "edit": {
+        "find": "X xxxxx xxxxxxx. Xxxx:\n\nXXXXX\nXxxxxxx.\n",
+        "replace": "X xxxxx xxxxxxx. Xxxx:\n"
+      },
+      "expected": {
+        "changed": {
+          "at": 16525,
+          "removed": "Type=\"Character\" id=\"fe63c36e-c90c-4908-b91a-73fd405e6b80\">\n      <Text>XXXXX</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\" id=\"d85c98b7-f888-4fa0-ac49-e6ff5eed1c59\">\n      <Text>Xxxxxxx.</Text>\n    </Paragraph>\n    <Paragraph ",
+          "inserted": ""
+        },
+        "scriptNoteRanges": [
+          "174,194",
+          "174,194",
+          "174,194",
+          "261,268",
+          "261,268",
+          "970,1364",
+          "2177,2177",
+          "10586,10627",
+          "18198,18204",
+          "19534,19647",
+          "25721,25721"
+        ]
+      }
+    },
+    {
+      "name": "note-ranges-edges-and-inside",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text>One two.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Three four.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Five six.</Text></Paragraph>\n</Content><ScriptNotes><ScriptNote Id=\"1\" Range=\"0,3\"><Paragraph><Text>One</Text></Paragraph></ScriptNote><ScriptNote Id=\"2\" Range=\"9,14\"><Paragraph><Text>Three</Text></Paragraph></ScriptNote><ScriptNote Id=\"3\" Range=\"19,15\"><Paragraph><Text>four, written end first</Text></Paragraph></ScriptNote><ScriptNote Id=\"4\" Range=\"30,30\"><Paragraph><Text>at the end</Text></Paragraph></ScriptNote><ScriptNote Id=\"5\" Range=\"99,120\"><Paragraph><Text>already past the end</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>",
+      "through": "fountain",
+      "edit": {
+        "find": "One two.\n\nThree four.",
+        "replace": "One and two.\n\nThrxee four."
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text>One and two.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Thrxee four.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Five six.</Text></Paragraph>\n</Content><ScriptNotes><ScriptNote Id=\"1\" Range=\"0,3\"><Paragraph><Text>One</Text></Paragraph></ScriptNote><ScriptNote Id=\"2\" Range=\"13,19\"><Paragraph><Text>Three</Text></Paragraph></ScriptNote><ScriptNote Id=\"3\" Range=\"24,20\"><Paragraph><Text>four, written end first</Text></Paragraph></ScriptNote><ScriptNote Id=\"4\" Range=\"35,35\"><Paragraph><Text>at the end</Text></Paragraph></ScriptNote><ScriptNote Id=\"5\" Range=\"99,120\"><Paragraph><Text>already past the end</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>"
+      }
+    },
+    {
+      "name": "note-ranges-words-all-deleted",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text>One two.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Three four.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Five six.</Text></Paragraph>\n</Content><ScriptNotes><ScriptNote Id=\"1\" Range=\"0,3\"><Paragraph><Text>One</Text></Paragraph></ScriptNote><ScriptNote Id=\"2\" Range=\"9,14\"><Paragraph><Text>Three</Text></Paragraph></ScriptNote><ScriptNote Id=\"3\" Range=\"19,15\"><Paragraph><Text>four, written end first</Text></Paragraph></ScriptNote><ScriptNote Id=\"4\" Range=\"30,30\"><Paragraph><Text>at the end</Text></Paragraph></ScriptNote><ScriptNote Id=\"5\" Range=\"99,120\"><Paragraph><Text>already past the end</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>",
+      "through": "fountain",
+      "edit": {
+        "find": "Three four.\n\n",
+        "replace": ""
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text>One two.</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Five six.</Text></Paragraph>\n</Content><ScriptNotes><ScriptNote Id=\"1\" Range=\"0,3\"><Paragraph><Text>One</Text></Paragraph></ScriptNote><ScriptNote Id=\"2\" Range=\"9,9\"><Paragraph><Text>Three</Text></Paragraph></ScriptNote><ScriptNote Id=\"3\" Range=\"9,9\"><Paragraph><Text>four, written end first</Text></Paragraph></ScriptNote><ScriptNote Id=\"4\" Range=\"18,18\"><Paragraph><Text>at the end</Text></Paragraph></ScriptNote><ScriptNote Id=\"5\" Range=\"99,120\"><Paragraph><Text>already past the end</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>"
       }
     },
     {

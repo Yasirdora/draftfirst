@@ -24,7 +24,8 @@ import type {
 
 /* ---- diagnostics and limits -------------------------------------------- */
 
-export type FdxDiagnosticSeverity = 'warning' | 'error';
+/** `info` reports what a save did on the writer's behalf; it is never a warning. */
+export type FdxDiagnosticSeverity = 'info' | 'warning' | 'error';
 
 export interface FdxDiagnostic {
 	code: string;
@@ -174,7 +175,7 @@ class DiagnosticCollector {
 }
 
 function messagesOf(diagnostics: FdxDiagnostic[]): string[] {
-	return diagnostics.map((diagnostic) => diagnostic.message);
+	return diagnostics.filter((diagnostic) => diagnostic.severity !== 'info').map((diagnostic) => diagnostic.message);
 }
 
 /* ---- entities ----------------------------------------------------------- */
@@ -1211,6 +1212,37 @@ function anchorOf(
 	return start && end ? { start, end } : undefined;
 }
 
+/** Where a ScriptNote's Range value sits in the source, and what it says. */
+interface ScriptNoteRangeValue {
+	valueStart: number;
+	valueEnd: number;
+	range: { start: number; end: number };
+	/** Written end first. Kept that way when the Range is rewritten. */
+	reversed: boolean;
+}
+
+/** The Range value of the <ScriptNote> tag opening at `tagStart` — the last
+    one, as the tag's attributes read — or null when it has none readable. */
+function rangeValueIn(source: string, tagStart: number): ScriptNoteRangeValue | null {
+	const tagEnd = tagEndOf(source, tagStart + 1);
+	const tag = source.slice(tagStart, tagEnd === -1 ? source.length : tagEnd);
+	let found: RegExpExecArray | null = null;
+	const pattern = /\srange\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+	for (let match = pattern.exec(tag); match !== null; match = pattern.exec(tag)) found = match;
+	if (found === null) return null;
+	const value = found[1] ?? found[2] ?? '';
+	const range = rangeOf(decodeXmlEntities(value));
+	if (!range) return null;
+	const pair = /^\s*(\d+)\s*,\s*(\d+)\s*$/.exec(decodeXmlEntities(value));
+	const valueEnd = tagStart + found.index + found[0].length - 1;
+	return {
+		valueStart: valueEnd - value.length,
+		valueEnd,
+		range,
+		reversed: pair !== null && Number(pair[1]) > Number(pair[2])
+	};
+}
+
 /** A Range attribute, `start,end` in digits. A reversed pair is the same span. */
 function rangeOf(value: string): { start: number; end: number } | undefined {
 	const match = /^\s*(\d+)\s*,\s*(\d+)\s*$/.exec(value);
@@ -1269,7 +1301,8 @@ function scriptNotesOf(
 	source: string,
 	layout: ParagraphLayout[],
 	limits: FdxLimits,
-	diagnostics: DiagnosticCollector
+	diagnostics: DiagnosticCollector,
+	rangeValues?: (ScriptNoteRangeValue | null)[]
 ): FdxScriptNote[] {
 	const text = scriptTextOf(layout);
 	const notes: FdxScriptNote[] = [];
@@ -1293,7 +1326,7 @@ function scriptNotesOf(
 	scanXml(
 		source,
 		{
-			start(tag): boolean {
+			start(tag, offset): boolean {
 				const parent = open[open.length - 1];
 				open.push(tag.name);
 				const opensNote = tag.name === 'scriptnote' && parent === 'scriptnotes' && !note;
@@ -1308,6 +1341,7 @@ function scriptNotesOf(
 				}
 				if (opensNote) {
 					note = { attributes: tag.attributes, depth: open.length, paragraphs: [] };
+					rangeValues?.push(rangeValueIn(source, offset));
 				} else if (opensParagraph) {
 					paragraph = { text: '', depth: open.length };
 				} else if (paragraph && tag.name === 'text' && open.length === paragraph.depth + 1) {
@@ -2292,7 +2326,11 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 
 	// The paragraphs of the script's own <Content>, in order, with where they
 	// sit. `parseFdx` has already decided which those are.
-	const spans = bodySpansOf(source, options);
+	const { spans, paragraphs: topLevel } = bodySpansOf(source, options);
+	const topLevelAt = new Map(topLevel.map((paragraph, index) => [paragraph.start, index]));
+	/* Where each ScriptNote's Range value sits, so a save can keep it on its words. */
+	const rangeValues: (ScriptNoteRangeValue | null)[] = [];
+	scriptNotesOf(source, [], importLimits(options), new DiagnosticCollector(1), rangeValues);
 	const first = spans.length > 0 ? (spans[0].block?.start ?? spans[0].start) : -1;
 	const last = spans.length > 0 ? (spans[spans.length - 1].block?.end ?? spans[spans.length - 1].end) : -1;
 	/* Only paragraphs the import turned into elements can be matched to one.
@@ -2464,6 +2502,13 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 			}
 
 			const out: string[] = [];
+			/* Which original paragraph each paragraph written came from, in
+			   order, so each ScriptNote's Range can follow its words. */
+			const written: WrittenParagraph[] = [];
+			const writtenFrom = (start: number, kind: WrittenParagraph['kind']): void => {
+				written.push({ origin: topLevelAt.get(start) ?? null, kind });
+			};
+			const dissolvedWritten = new Set<DualDialogueBlock>();
 			// A new paragraph is laid out like the one it follows, so an insert
 			// does not announce itself as the one differently-indented line in
 			// the file.
@@ -2472,6 +2517,7 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 				if (out.length > 0) out.push(span.lead === '' ? lead : span.lead);
 				if (span.lead !== '') lead = span.lead;
 				out.push(source.slice(span.start, span.end));
+				writtenFrom(span.start, 'same');
 			};
 			const keptBytes = (index: number, origin: OriginParagraph): string =>
 				verbatim.get(index) === origin
@@ -2493,6 +2539,7 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 					if (out.length > 0) out.push(block.lead === '' ? lead : block.lead);
 					if (block.lead !== '') lead = block.lead;
 					out.push(block.head);
+					writtenFrom(block.start, 'same');
 					let lineLead = block.lines[1]?.lead ?? block.lead;
 					for (let line = index; line <= pair.end; line++) {
 						const origin = paired[line];
@@ -2513,17 +2560,71 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 					if (out.length > 0) out.push(ownLead === '' ? lead : ownLead);
 					if (ownLead !== '') lead = ownLead;
 					out.push(keptBytes(index, origin));
+					if (origin.block) {
+						// A dissolved dual dialogue: its place is its first line.
+						if (dissolvedWritten.has(origin.block)) written.push({ origin: null, kind: 'same' });
+						else writtenFrom(origin.block.start, 'first-line');
+						dissolvedWritten.add(origin.block);
+					} else {
+						writtenFrom(origin.start, verbatim.get(index) === origin ? 'same' : 'text');
+					}
 					continue;
 				}
 				if (out.length > 0) out.push(lead === '' ? '\n' : lead);
 				out.push(freshBytes(elements[index]));
+				written.push({ origin: null, kind: 'same' });
 			}
 			for (const span of waiting) restore(span);
 
+			/* Each ScriptNote stays on its words. Final Draft counts a Range
+			   over the script as it now stands, so a Range written for the
+			   old text points at other words after any edit that moves them —
+			   measured, one word typed near the start moved ten of eleven
+			   notes. Only the Range values that move are rewritten. */
+			let prefix = source.slice(0, first);
+			let suffix = source.slice(last);
+			const body = out.join('');
+			if (rangeValues.some((value) => value !== null)) {
+				const after = paragraphsOf(prefix + body + suffix, importLimits(options), new DiagnosticCollector(1)).body;
+				if (after.length !== written.length) {
+					diagnostics.add({
+						code: 'FDX_REWRITE_SCRIPT_NOTE_RANGES_KEPT',
+						severity: 'warning',
+						message: 'The saved script could not be matched paragraph for paragraph, so script note Ranges were left as they were.'
+					});
+				} else {
+					const { replacements, deleted } = movedScriptNoteRanges(topLevel, written, after, rangeValues);
+					const apply = (text: string, base: number, limit: number): string => {
+						let result = text;
+						for (const replacement of [...replacements].reverse()) {
+							if (replacement.start < base || replacement.end > limit) continue;
+							result = result.slice(0, replacement.start - base) + replacement.value + result.slice(replacement.end - base);
+						}
+						return result;
+					};
+					prefix = apply(prefix, 0, first);
+					suffix = apply(suffix, last, source.length);
+					if (replacements.length > 0) {
+						diagnostics.add({
+							code: 'FDX_REWRITE_SCRIPT_NOTE_RANGES_MOVED',
+							severity: 'info',
+							message: `${replacements.length} script note Range(s) were moved to stay on their words.`,
+							count: replacements.length
+						});
+					}
+					if (deleted > 0) {
+						diagnostics.add({
+							code: 'FDX_REWRITE_SCRIPT_NOTE_WORDS_DELETED',
+							severity: 'warning',
+							message: `${deleted} script note(s) lost all their words and were closed to zero length where the words stood.`,
+							count: deleted
+						});
+					}
+				}
+			}
+
 			return {
-				xml: ensureNamespaceDeclared(
-					source.slice(0, first) + out.join('') + source.slice(last)
-				),
+				xml: ensureNamespaceDeclared(prefix + body + suffix),
 				warnings: messagesOf(diagnostics.result()),
 				diagnostics: diagnostics.result()
 			};
@@ -2539,7 +2640,7 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
  * shared with the Swift engine, and widening it to carry byte offsets would
  * make every fixture carry them too.
  */
-function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph[] {
+function bodySpansOf(source: string, options: FdxImportOptions): { spans: OriginParagraph[]; paragraphs: MutableFdxParagraph[] } {
 	const diagnostics = new DiagnosticCollector(1);
 	const limits = importLimits(options);
 	const parsed = paragraphsOf(source, limits, diagnostics);
@@ -2589,7 +2690,149 @@ function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph
 			spans.push(span);
 		});
 	}
-	return spans;
+	return { spans, paragraphs: parsed.body as MutableFdxParagraph[] };
+}
+
+/* ---- ScriptNote Ranges through a save ------------------------------------ */
+
+/** A paragraph of a written script, as a Range counts it, and what it came
+    from: the original top-level paragraph, and how its units relate — its
+    own bytes, text that changed, or the first line of a dissolved dual
+    dialogue. `null` for a paragraph the writer added. */
+interface WrittenParagraph {
+	origin: number | null;
+	kind: 'same' | 'text' | 'first-line';
+}
+
+/** A paragraph's units as a Range counts them: its text, with two for each
+    embedded block where it sits (-1, which no text unit equals). */
+function rangeUnitsOf(paragraph: FdxParagraph): Int32Array {
+	const units = new Int32Array(paragraph.text.length + BLOCK_UNITS * paragraph.blocks.length);
+	let at = 0;
+	let block = 0;
+	for (let unit = 0; unit <= paragraph.text.length; unit++) {
+		while (block < paragraph.blocks.length && paragraph.blocks[block] === unit) {
+			for (let k = 0; k < BLOCK_UNITS; k++) units[at++] = -1;
+			block += 1;
+		}
+		if (unit < paragraph.text.length) units[at++] = paragraph.text.charCodeAt(unit);
+	}
+	return units;
+}
+
+/** For each old unit, the new unit it is — or -1: the common prefix and suffix,
+    and a longest common subsequence between them when small enough. */
+function unitCorrespondence(before: Int32Array, after: Int32Array): Int32Array {
+	const pairs = new Int32Array(before.length).fill(-1);
+	let head = 0;
+	while (head < before.length && head < after.length && before[head] === after[head]) {
+		pairs[head] = head;
+		head += 1;
+	}
+	let tail = 0;
+	while (tail < before.length - head && tail < after.length - head && before[before.length - 1 - tail] === after[after.length - 1 - tail]) {
+		pairs[before.length - 1 - tail] = after.length - 1 - tail;
+		tail += 1;
+	}
+	const middle = alignedUnits(before.subarray(head, before.length - tail), after.subarray(head, after.length - tail));
+	middle?.forEach((n, r) => {
+		if (n >= 0) pairs[head + r] = head + n;
+	});
+	return pairs;
+}
+
+/**
+ * The Range values a save must rewrite so each note stays on its words, and
+ * how many notes lost all of them.
+ *
+ * Each end of a Range stays with its character: a start before the first
+ * character of the note that survives, an end after the last. Text typed
+ * inside a note joins it; text typed at its edges does not. A note whose
+ * words are all gone closes to zero length where they stood. A Range already
+ * past the script's end when the file was read keeps its bytes, as does every
+ * Range that does not move.
+ */
+function movedScriptNoteRanges(
+	before: FdxParagraph[],
+	written: WrittenParagraph[],
+	after: FdxParagraph[],
+	values: (ScriptNoteRangeValue | null)[]
+): { replacements: { start: number; end: number; value: string }[]; deleted: number } {
+	const layoutOf = (paragraphs: FdxParagraph[]) => {
+		const starts: number[] = [];
+		const lengths: number[] = [];
+		let cursor = 0;
+		for (const paragraph of paragraphs) {
+			starts.push(cursor);
+			const length = paragraph.text.length + BLOCK_UNITS * paragraph.blocks.length;
+			lengths.push(length);
+			cursor += length + 1;
+		}
+		return { starts, lengths, end: cursor - 1 };
+	};
+	const old = layoutOf(before);
+	const now = layoutOf(after);
+	const writtenAt = new Map<number, number>();
+	written.forEach((paragraph, at) => {
+		if (paragraph.origin !== null && !writtenAt.has(paragraph.origin)) writtenAt.set(paragraph.origin, at);
+	});
+	const correspondences = new Map<number, Int32Array>();
+
+	const boundary = (position: number, side: 'start' | 'end'): number => {
+		let low = 0;
+		let high = before.length - 1;
+		while (low < high) {
+			const middle = (low + high + 1) >> 1;
+			if (old.starts[middle] <= position) low = middle;
+			else high = middle - 1;
+		}
+		const at = writtenAt.get(low);
+		if (at === undefined) {
+			// Gone: where it stood — the start of what follows the last paragraph kept before it.
+			let previous = -1;
+			written.forEach((paragraph, index) => {
+				if (paragraph.origin !== null && paragraph.origin < low) previous = index;
+			});
+			return previous === -1 ? 0 : Math.min(now.starts[previous] + now.lengths[previous] + 1, now.end);
+		}
+		const offset = position - old.starts[low];
+		const { kind } = written[at];
+		if (kind === 'first-line') return now.starts[at];
+		if (kind === 'same') return now.starts[at] + Math.min(offset, now.lengths[at]);
+		let pairs = correspondences.get(low);
+		if (!pairs) {
+			pairs = unitCorrespondence(rangeUnitsOf(before[low]), rangeUnitsOf(after[at]));
+			correspondences.set(low, pairs);
+		}
+		if (side === 'start') {
+			for (let unit = offset; unit < pairs.length; unit++) if (pairs[unit] >= 0) return now.starts[at] + pairs[unit];
+			return now.starts[at] + now.lengths[at];
+		}
+		for (let unit = Math.min(offset, pairs.length) - 1; unit >= 0; unit--) if (pairs[unit] >= 0) return now.starts[at] + pairs[unit] + 1;
+		return now.starts[at];
+	};
+
+	const replacements: { start: number; end: number; value: string }[] = [];
+	let deleted = 0;
+	if (before.length === 0 || after.length === 0) return { replacements, deleted };
+	for (const value of values) {
+		if (value === null || value.range.end > old.end) continue;
+		const { start, end } = value.range;
+		let movedStart = boundary(start, 'start');
+		let movedEnd = start === end ? movedStart : boundary(end, 'end');
+		if (start < end && movedEnd <= movedStart) {
+			movedStart = Math.min(movedStart, movedEnd);
+			movedEnd = movedStart;
+			deleted += 1;
+		}
+		if (movedStart === start && movedEnd === end) continue;
+		replacements.push({
+			start: value.valueStart,
+			end: value.valueEnd,
+			value: value.reversed ? `${movedEnd},${movedStart}` : `${movedStart},${movedEnd}`
+		});
+	}
+	return { replacements, deleted };
 }
 
 /** The kinds that belong to a speech after its cue. */

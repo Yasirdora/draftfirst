@@ -172,7 +172,7 @@ struct FdxEndOfActRoundTripTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.rewriteCases.count == 47)
+        #expect(Self.corpus.rewriteCases.count == 53)
     }
 
     @Test("rewrite", arguments: Self.corpus.rewriteCases)
@@ -199,10 +199,15 @@ struct FdxEndOfActRoundTripTests {
         #expect(case_.expected.xml != nil || case_.expected.identical != nil || case_.expected.changed != nil,
                 "\(case_.name): nothing expected")
         if let changed = case_.expected.changed {
-            let file = Array(source.utf16)
+            let ranges = case_.expected.scriptNoteRanges
+            if let ranges {
+                #expect(ScriptNoteRanges.of(saved) == ranges, "\(case_.name): ScriptNote Ranges differ from the TypeScript engine")
+            }
+            let file = Array((ranges == nil ? source : ScriptNoteRanges.emptied(source)).utf16)
+            let written = Array((ranges == nil ? saved : ScriptNoteRanges.emptied(saved)).utf16)
             let end = changed.at + changed.removed.utf16.count
             #expect(Array(file[changed.at..<end]) == Array(changed.removed.utf16), "\(case_.name): removed")
-            #expect(Array(saved.utf16) == Array(file[..<changed.at]) + Array(changed.inserted.utf16) + Array(file[end...]),
+            #expect(written == Array(file[..<changed.at]) + Array(changed.inserted.utf16) + Array(file[end...]),
                     "\(case_.name): the save differs from the TypeScript engine")
         }
         if let identical = case_.expected.identical {
@@ -249,8 +254,9 @@ struct FdxEndOfActRoundTripTests {
         var script = document.script
         let marker = "EDITED \(index)"
         script.elements[index].text = marker
-        let original = Array(Self.sample.utf8)
-        let saved = Array(document.rewrite(script).utf8)
+        // Range values set aside: a save moves the Ranges whose words moved (IL-0033).
+        let original = Array(ScriptNoteRanges.emptied(Self.sample).utf8)
+        let saved = Array(ScriptNoteRanges.emptied(document.rewrite(script)).utf8)
 
         let shorter = min(original.count, saved.count)
         var prefix = 0
@@ -272,6 +278,25 @@ struct FdxEndOfActRoundTripTests {
 
 /// The file as the app's editor first holds it: carried through Fountain,
 /// casing applied the way `ScreenplayFile.open` applies it, and read back.
+/// A file's ScriptNote Range values, in note order, and the file with each one
+/// emptied — so a change to the script is read apart from the Ranges a save
+/// moves to keep every note on its words (IL-0033).
+enum ScriptNoteRanges {
+    private static let pattern = try! NSRegularExpression(pattern: #"(<ScriptNote\b[^>]*?\sRange=")([^"]*)(")"#)
+
+    static func of(_ xml: String) -> [String] {
+        let text = xml as NSString
+        return pattern.matches(in: xml, range: NSRange(location: 0, length: text.length))
+            .map { text.substring(with: $0.range(at: 2)) }
+    }
+
+    static func emptied(_ xml: String) -> String {
+        pattern.stringByReplacingMatches(
+            in: xml, range: NSRange(location: 0, length: (xml as NSString).length), withTemplate: "$1$3"
+        )
+    }
+}
+
 enum FountainReading {
     /// The file as the app's editor first holds it: its Fountain source…
     static func source(of xml: String) -> String {
@@ -390,8 +415,9 @@ struct FdxFinalDraftWrittenTests {
     /// boundary between two of the script's paragraphs, which Final Draft
     /// indents four spaces (TypeScript `confinedToOneParagraph`).
     private static func confinedToOneParagraph(_ before: String, _ after: String, marker: String) -> Bool {
-        let original = Array(before.utf16)
-        let saved = Array(after.utf16)
+        // Range values set aside: a save moves the Ranges whose words moved (IL-0033).
+        let original = Array(ScriptNoteRanges.emptied(before).utf16)
+        let saved = Array(ScriptNoteRanges.emptied(after).utf16)
         let shorter = min(original.count, saved.count)
         var prefix = 0
         while prefix < shorter, original[prefix] == saved[prefix] { prefix += 1 }
@@ -496,7 +522,9 @@ struct FdxFinalDraftWrittenTests {
                   zip(edited.elements, reading.elements).filter({ !$0.text.utf16.elementsEqual($1.text.utf16) }).count == 1,
                   zip(edited.elements, reading.elements).allSatisfy({ $0.type == $1.type }) else { continue }
 
-            let saved = Array(Fdx.open(xml).rewrite(edited, unedited: reading).utf16)
+            // Range values set aside, which their notes' words are proven by; a Range value holds no run.
+            let saved = Array(ScriptNoteRanges.emptied(Fdx.open(xml).rewrite(edited, unedited: reading)).utf16)
+            let file = Array(ScriptNoteRanges.emptied(xml).utf16)
             var prefix = 0
             while prefix < min(file.count, saved.count), file[prefix] == saved[prefix] { prefix += 1 }
             var suffix = 0

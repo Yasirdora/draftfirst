@@ -197,6 +197,14 @@ final class FdxSaveBackTests: XCTestCase {
             .appendingPathComponent("eDraftEngine/Fixtures/\(name)"))
     }
 
+    /// A file with every ScriptNote Range value emptied. A save rewrites the
+    /// Range of each note whose words moved (IL-0033); a comparison of the
+    /// script sets those values aside, and the notes' words are proven on
+    /// their own (ImportedNotesTests).
+    private static func withoutNoteRanges(_ xml: String) -> String {
+        xml.replacingOccurrences(of: #"(<ScriptNote\b[^>]*?\sRange=")[^"]*(")"#, with: "$1$2", options: .regularExpression)
+    }
+
     private static func tags(_ data: Data) -> Int {
         String(decoding: data, as: UTF8.self).components(separatedBy: "TagNumber=\"").count - 1
     }
@@ -244,8 +252,8 @@ final class FdxSaveBackTests: XCTestCase {
             as: .finalDraftScreenplay, origin: file.origin
         )
         XCTAssertEqual(
-            String(decoding: written, as: UTF8.self),
-            original.replacingOccurrences(of: "<Text>\(line)</Text>", with: "<Text>Xxxxxxxx, xxxxx xxxxxxxx xxx xx, EDITED.</Text>"),
+            Self.withoutNoteRanges(String(decoding: written, as: UTF8.self)),
+            Self.withoutNoteRanges(original).replacingOccurrences(of: "<Text>\(line)</Text>", with: "<Text>Xxxxxxxx, xxxxx xxxxxxxx xxx xx, EDITED.</Text>"),
             "the save changed more than the edited line"
         )
         XCTAssertEqual(Self.tags(written), Self.tags(data))
@@ -292,7 +300,7 @@ final class FdxSaveBackTests: XCTestCase {
                 file.source.replacingOccurrences(of: edit.find, with: edit.replace),
                 as: .finalDraftScreenplay, origin: file.origin
             )
-            XCTAssertEqual(String(decoding: written, as: UTF8.self), Self.file(data, with: edit.before, as: edit.after),
+            XCTAssertEqual(Self.withoutNoteRanges(String(decoding: written, as: UTF8.self)), Self.withoutNoteRanges(Self.file(data, with: edit.before, as: edit.after)),
                            "\(edit.name): the save changed more than the writer's characters")
         }
     }
@@ -317,7 +325,7 @@ final class FdxSaveBackTests: XCTestCase {
             Data(Self.file(data, with: "<Text Style=\"Italic\">(beat)</Text>", as: "<Text Style=\"Italic\">(beat, xxxxx)</Text>").utf8),
             with: "31a77a253272\">\n      <Text>Xxxx </Text>", as: "31a77a253272\">\n      <Text>Xyxx </Text>"
         )
-        XCTAssertEqual(String(decoding: written, as: UTF8.self), expected)
+        XCTAssertEqual(Self.withoutNoteRanges(String(decoding: written, as: UTF8.self)), Self.withoutNoteRanges(expected))
         XCTAssertEqual(Self.tags(written), Self.tags(data))
     }
 

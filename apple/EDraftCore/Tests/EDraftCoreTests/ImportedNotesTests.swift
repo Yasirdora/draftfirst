@@ -115,6 +115,37 @@ final class ImportedNotesTests: XCTestCase {
         XCTAssertEqual(try line(10).id, document.last?.id)
     }
 
+    /// A line edited in the editor, saved and opened again: every note is on
+    /// the line it was on. Before, the file's Ranges were saved as they were
+    /// and counted a script that was no longer there — one word typed near the
+    /// start moved ten of eleven notes.
+    func testAfterAnEditAndASaveEveryNoteIsOnItsLine() throws {
+        let data = try Data(contentsOf: URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // EDraftCoreTests/
+            .deletingLastPathComponent()   // Tests/
+            .deletingLastPathComponent()   // EDraftCore/
+            .deletingLastPathComponent()   // apple/
+            .appendingPathComponent("eDraftEngine/Fixtures/finaldraft-sample02.fdx"))
+        func lines(of editor: EditorState) -> [String?] {
+            let document = ScriptAsides.merge(page: editor.screenplay.elements, asides: editor.asides)
+            return editor.importedNotes.map { note in
+                note.anchor.flatMap { id in document.first { $0.id == id }?.text }
+            }
+        }
+        let (editor, _, origin) = try opened(data)
+        let before = lines(of: editor)
+        XCTAssertEqual(before.compactMap { $0 }.count, 11)
+        var published: String?
+        editor.onSourceChange = { published = $0 }
+        let line = try XCTUnwrap(editor.screenplay.elements.first { $0.text.hasPrefix("Xxx xxxxxxxx XXXXX, 40x,") })
+        editor.replaceElementText(id: line.id, text: line.text.replacingOccurrences(of: "40x,", with: "40x, xxxx xxxxx,"))
+        editor.flushPendingWork()
+
+        let saved = try ScreenplayFile.encode(try XCTUnwrap(published), as: .finalDraftScreenplay, origin: origin)
+        let (reopened, _, _) = try opened(saved)
+        XCTAssertEqual(lines(of: reopened), before, "a note is on another line after the save")
+    }
+
     func testANoteKeepsItsTitleCategoryAndDate() throws {
         let (editor, _, _) = try opened(try feature())
         let thread = try XCTUnwrap(editor.importedNotes.first { $0.title == "Re: Re: Xxxx Xxx" })
@@ -237,7 +268,16 @@ final class ImportedNotesTests: XCTestCase {
         let written = String(decoding: try ScreenplayFile.encode(
             edited, as: .finalDraftScreenplay, origin: origin
         ), as: UTF8.self)
-        XCTAssertEqual(scriptNotesBlock(written), scriptNotesBlock(origin))
+        // Every note and every byte of it, but the Ranges that follow their
+        // words: the writer's own note and the edit moved the script (IL-0033).
+        let emptied = { (xml: String) in
+            xml.replacingOccurrences(of: #"(<ScriptNote\b[^>]*?\sRange=")[^"]*(")"#, with: "$1$2", options: .regularExpression)
+        }
+        XCTAssertEqual(scriptNotesBlock(emptied(written)), scriptNotesBlock(emptied(origin)))
+        XCTAssertEqual(
+            written.components(separatedBy: "<ScriptNote ").count, origin.components(separatedBy: "<ScriptNote ").count,
+            "a note was written into the file's ScriptNotes"
+        )
         XCTAssertTrue(written.contains("A note of my own, revised."))
     }
 

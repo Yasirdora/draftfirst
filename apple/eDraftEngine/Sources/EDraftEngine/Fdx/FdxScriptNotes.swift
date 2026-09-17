@@ -252,9 +252,78 @@ extension Fdx {
     /// The scan state for `scriptNotes(in:)`, held by reference so the
     /// tokeniser's handlers can mutate it — the port of the closure captures
     /// in TypeScript `scriptNotesOf`.
+    /// Where a ScriptNote's Range value sits in the source, in UTF-16 units,
+    /// and what it says (TypeScript `ScriptNoteRangeValue`).
+    struct ScriptNoteRangeValue: Sendable {
+        let valueStart: Int
+        let valueEnd: Int
+        let range: ScriptNote.Range
+        /// Written end first. Kept that way when the Range is rewritten.
+        let reversed: Bool
+    }
+
+    private static let rangeAttribute = try! NSRegularExpression(
+        pattern: #"\srange\s*=\s*(?:"([^"]*)"|'([^']*)')"#, options: [.caseInsensitive]
+    )
+
+    /// The Range value of the <ScriptNote> tag opening at `tagStart` — the
+    /// last one, as the tag's attributes read — or nil when it has none
+    /// readable (TypeScript `rangeValueIn`).
+    static func rangeValue(in units: [UInt16], tagStart: Int) -> ScriptNoteRangeValue? {
+        var tagEnd = units.count
+        var quote: UInt16 = 0
+        var index = tagStart + 1
+        while index < units.count {
+            let unit = units[index]
+            if quote != 0 {
+                if unit == quote { quote = 0 }
+            } else if unit == 34 || unit == 39 {   // " and '
+                quote = unit
+            } else if unit == 62 {                 // >
+                tagEnd = index
+                break
+            }
+            index += 1
+        }
+        let tag = String(decoding: units[tagStart..<tagEnd], as: UTF16.self) as NSString
+        guard let found = rangeAttribute.matches(in: tag as String, range: NSRange(location: 0, length: tag.length)).last
+        else { return nil }
+        let group = found.range(at: 1).location != NSNotFound ? found.range(at: 1) : found.range(at: 2)
+        let decoded = Fdx.decodeXmlEntities(tag.substring(with: group))
+        guard let range = scriptNoteRange(decoded) else { return nil }
+        let numbers = decoded.split(separator: ",", omittingEmptySubsequences: false).map { Int(String($0).jsTrimmed) ?? 0 }
+        return ScriptNoteRangeValue(
+            valueStart: tagStart + group.location,
+            valueEnd: tagStart + group.location + group.length,
+            range: range,
+            reversed: numbers.count == 2 && numbers[0] > numbers[1]
+        )
+    }
+
+    /// Where each ScriptNote's Range value sits, in note order — the notes
+    /// `scriptNotes(in:)` reads, by the same rules.
+    static func scriptNoteRangeValues(in source: String, limits: Limits) -> [ScriptNoteRangeValue?] {
+        let collector = ScriptNoteCollector(limits: limits, text: ScriptText([]))
+        collector.units = Array(source.utf16)
+        FdxXmlScanner.scan(
+            source,
+            handlers: FdxXmlScanner.Handlers(
+                start: { tag, offset in collector.start(tag, offset: offset) },
+                end: { name, _ in collector.end(name) },
+                text: { value, cdata in collector.text(value, cdata: cdata) }
+            ),
+            diagnostics: DiagnosticCollector(limit: 1)
+        )
+        collector.finishNote()
+        return collector.rangeValues
+    }
+
     private final class ScriptNoteCollector {
         let limits: Limits
         let text: ScriptText
+        /// The source, when Range value locations are collected.
+        var units: [UInt16]?
+        var rangeValues: [ScriptNoteRangeValue?] = []
 
         var notes: [ScriptNote] = []
         var open: [String] = []
@@ -281,7 +350,7 @@ extension Fdx {
             run = nil
         }
 
-        func start(_ tag: FdxXmlScanner.Tag) -> Bool {
+        func start(_ tag: FdxXmlScanner.Tag, offset: Int = 0) -> Bool {
             let parent = open.last
             open.append(tag.name)
             let opensNote = tag.name == "scriptnote" && parent == "scriptnotes" && note == nil
@@ -295,6 +364,7 @@ extension Fdx {
             }
             if opensNote {
                 note = (attributes: tag.attributes, depth: open.count, paragraphs: [])
+                if let units { rangeValues.append(Fdx.rangeValue(in: units, tagStart: offset)) }
             } else if opensParagraph {
                 paragraph = (text: "", depth: open.count)
             } else if let paragraph, tag.name == "text", open.count == paragraph.depth + 1 {

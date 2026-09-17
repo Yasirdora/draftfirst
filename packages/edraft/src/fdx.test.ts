@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	decodeXmlEntities,
 	encodeXmlEntities,
+	type FdxScriptNote,
 	openFdx,
 	parseFdx,
 	writeFdx,
@@ -14,6 +15,11 @@ import { parseFountain } from './parse.js';
 import { serialiseFountain } from './serialise.js';
 import { SAMPLE_FOUNTAIN } from '../test/fixtures/sample.js';
 import type { ElementType, Screenplay } from './types.js';
+
+/** A file with every ScriptNote Range value emptied. A save rewrites the Range
+    of each note whose words moved (IL-0033); a comparison of the script sets
+    those values aside, and the notes' words are proven on their own. */
+const withoutNoteRanges = (xml: string) => xml.replace(/(<ScriptNote\b[^>]*?\sRange=")[^"]*(")/g, '$1$2');
 
 const FOREIGN_FDX = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <FinalDraft DocumentType="Script" Version="3">
@@ -932,7 +938,7 @@ describe('FDX · ScriptNotes', () => {
 		expect(block(saved)).toBe(block(SAMPLE));
 	});
 
-	it('editing an annotated line keeps the ScriptNotes block byte for byte', () => {
+	it('editing an annotated line keeps every byte of the ScriptNotes block but the Ranges that follow their words', () => {
 		const document = openFdx(SAMPLE);
 		const script: Screenplay = {
 			...document.script,
@@ -942,7 +948,7 @@ describe('FDX · ScriptNotes', () => {
 		};
 		const saved = document.rewrite(script).xml;
 		expect(saved).toContain('XXXXXX (V.O.)');
-		expect(block(saved)).toBe(block(SAMPLE));
+		expect(withoutNoteRanges(block(saved))).toBe(withoutNoteRanges(block(SAMPLE)));
 	});
 
 	it('counts every paragraph break, the absorbed End of Act included', () => {
@@ -1072,23 +1078,24 @@ ${card}
 		(index) => {
 			const document = openFdx(SAMPLE);
 			const marker = `EDITED ${index}`;
-			const saved = document.rewrite({
+			const original = withoutNoteRanges(SAMPLE);
+			const saved = withoutNoteRanges(document.rewrite({
 				...document.script,
 				elements: document.script.elements.map((element, at) =>
 					at === index ? { ...element, text: marker } : element
 				)
-			}).xml;
-			const shorter = Math.min(SAMPLE.length, saved.length);
+			}).xml);
+			const shorter = Math.min(original.length, saved.length);
 			let prefix = 0;
-			while (prefix < shorter && SAMPLE[prefix] === saved[prefix]) prefix++;
+			while (prefix < shorter && original[prefix] === saved[prefix]) prefix++;
 			let suffix = 0;
 			while (
 				suffix < shorter - prefix &&
-				SAMPLE[SAMPLE.length - 1 - suffix] === saved[saved.length - 1 - suffix]
+				original[original.length - 1 - suffix] === saved[saved.length - 1 - suffix]
 			) {
 				suffix++;
 			}
-			expect(SAMPLE.slice(prefix, SAMPLE.length - suffix)).not.toContain('Paragraph');
+			expect(original.slice(prefix, original.length - suffix)).not.toContain('Paragraph');
 			expect(saved.slice(prefix, saved.length - suffix)).not.toContain('Paragraph');
 			expect(
 				saved.slice(Math.max(0, prefix - marker.length), saved.length - suffix + marker.length)
@@ -1184,7 +1191,9 @@ describe('openFdx · files Final Draft wrote', () => {
 	 * Fountain's `#2#` too — an edit that cannot be placed — so that paragraph
 	 * is still rewritten whole, scene data and all.)
 	 */
-	const confinedToOneParagraph = (before: string, after: string, marker: string) => {
+	const confinedToOneParagraph = (file: string, saved: string, marker: string) => {
+		const before = withoutNoteRanges(file);
+		const after = withoutNoteRanges(saved);
 		const shorter = Math.min(before.length, after.length);
 		let prefix = 0;
 		while (prefix < shorter && before[prefix] === after[prefix]) prefix++;
@@ -1281,6 +1290,109 @@ describe('openFdx · files Final Draft wrote', () => {
 	   the way the app makes it — to the Fountain source, read back with its
 	   emphasis — and each expected file is the original with only the writer's
 	   characters changed. */
+	/* IL-0033: a save keeps every ScriptNote on its words. Final Draft counts a
+	   Range over the script as it stands; copied unchanged, one word typed near
+	   the start moved ten of the eleven notes in sample02 off their words. */
+	describe('ScriptNote Ranges through a save', () => {
+		/** The words a note covers, as the import reads them. */
+		const covered = (script: Screenplay, anchor: FdxScriptNote['anchor']) => {
+			if (!anchor) return null;
+			const { start, end } = anchor;
+			const texts = script.elements.slice(start.element, end.element + 1).map((element) => element.text);
+			if (texts.length === 1) return texts[0].slice(start.offset, end.offset);
+			texts[0] = texts[0].slice(start.offset);
+			texts[texts.length - 1] = texts[texts.length - 1].slice(0, end.offset);
+			return texts.join('\n');
+		};
+		const notesBlock = (xml: string) => xml.slice(xml.indexOf('<ScriptNotes>'), xml.indexOf('</ScriptNotes>'));
+		const typed = (at: number) => (elements: Screenplay['elements']) =>
+			elements.map((element, index) => (index === at ? { ...element, text: element.text.replace(' ', ' QZQZ ') } : element));
+
+		it.each(FILES)('after any edit to %s, every note the edit did not touch covers the same words', (name) => {
+			const xml = fixture(name);
+			const before = parseFdx(xml);
+			const reading = fountainReading(xml);
+			const noted = new Set(
+				before.scriptNotes.flatMap(({ anchor }) =>
+					anchor ? Array.from({ length: anchor.end.element - anchor.start.element + 1 }, (_, k) => anchor.start.element + k) : []
+				)
+			);
+			// Lines the reading holds at the import's own index, with no note on them.
+			const free = reading.elements.flatMap((element, index) =>
+				element.text === before.script.elements[index]?.text && element.text.includes(' ') && !noted.has(index) && element.type === 'action' ? [index] : []
+			);
+			const spread = Array.from({ length: 6 }, (_, k) => free[Math.floor(((k + 1) * free.length) / 8)]);
+			const dual = reading.elements.findIndex((element) => element.dual);
+			const edits: [string, (elements: Screenplay['elements']) => Screenplay['elements']][] = [
+				...spread.map((at): [string, (elements: Screenplay['elements']) => Screenplay['elements']] => [`a word typed in line ${at}`, typed(at)]),
+				...spread.slice(0, 3).map((at): [string, (elements: Screenplay['elements']) => Screenplay['elements']] => [
+					`a word deleted in line ${at}`,
+					(elements) => elements.map((element, index) => (index === at ? { ...element, text: element.text.replace(/ \S+/, '') } : element))
+				]),
+				['a line added', (elements) => [...elements.slice(0, free[1]), { type: 'action', text: 'A new line.' }, ...elements.slice(free[1])]],
+				['a line deleted', (elements) => [...elements.slice(0, free[1]), ...elements.slice(free[1] + 1)]],
+				['a dual dialogue line edited', (elements) => elements.map((element, index) => (index === dual + 1 ? { ...element, text: `Q${element.text}` } : element))],
+				['a dual dialogue dissolved', (elements) => elements.map((element, index) => (index === dual ? { type: element.type, text: element.text } : element))]
+			];
+			expect(edits.length).toBeGreaterThanOrEqual(12);
+			for (const [label, change] of edits) {
+				const saved = openFdx(xml).rewrite({ ...reading, elements: change(reading.elements) }, { unedited: reading });
+				const after = parseFdx(saved.xml);
+				const off = before.scriptNotes.filter((note, index) => covered(before.script, note.anchor) !== covered(after.script, after.scriptNotes[index].anchor));
+				expect(off.map((note) => note.id), label).toEqual([]);
+				expect(withoutNoteRanges(notesBlock(saved.xml)), label).toBe(withoutNoteRanges(notesBlock(xml)));
+				expect(
+					saved.diagnostics.filter((diagnostic) => !['FDX_REWRITE_SCRIPT_NOTE_RANGES_MOVED', 'FDX_REWRITE_DUAL_DIALOGUE_DISSOLVED'].includes(diagnostic.code)),
+					label
+				).toEqual([]);
+			}
+		});
+
+		it('an edit inside a note’s words stays inside the note', () => {
+			const xml = fixture('finaldraft-sample02.fdx');
+			const reading = fountainReading(xml);
+			const saved = openFdx(xml).rewrite(
+				{ ...reading, elements: reading.elements.map((element, index) => (index === 310 ? { ...element, text: element.text.replace(' ', ' INSIDE ') } : element)) },
+				{ unedited: reading }
+			);
+			const after = parseFdx(saved.xml);
+			const note = after.scriptNotes.find((candidate) => candidate.id === '109');
+			expect(covered(after.script, note?.anchor)).toBe(after.script.elements[310].text);
+			expect(after.script.elements[310].text).toContain('INSIDE');
+		});
+
+		it('a note whose words are all deleted closes to zero length where they stood, and says so', () => {
+			const xml = fixture('finaldraft-sample02.fdx');
+			const reading = fountainReading(xml);
+			// Note 108 covers the line of dialogue at 53; its cue is 52.
+			expect(covered(parseFdx(xml).script, parseFdx(xml).scriptNotes.find((note) => note.id === '108')?.anchor)).toBe(reading.elements[53].text);
+			const saved = openFdx(xml).rewrite({ ...reading, elements: [...reading.elements.slice(0, 52), ...reading.elements.slice(54)] }, { unedited: reading });
+			const note = parseFdx(saved.xml).scriptNotes.find((candidate) => candidate.id === '108');
+			expect(note?.range).toEqual({ start: 2177, end: 2177 });
+			expect(note?.anchor).toEqual({ start: { element: 52, offset: 0 }, end: { element: 52, offset: 0 } });
+			expect(saved.diagnostics.map((diagnostic) => diagnostic.code)).toContain('FDX_REWRITE_SCRIPT_NOTE_WORDS_DELETED');
+			expect(saved.warnings.some((warning) => warning.includes('lost all their words'))).toBe(true);
+			expect(saved.warnings.some((warning) => warning.includes('were moved'))).toBe(false);
+		});
+
+		it('keeps a note’s edges: typed at an edge stays out, typed inside joins, written end first stays so, stale stays stale', () => {
+			const lab = (lines: string[], ranges: string[]) =>
+				`<FinalDraft><Content>\n${lines.map((line) => `<Paragraph Type="Action"><Text>${line}</Text></Paragraph>`).join('\n')}\n</Content><ScriptNotes>${ranges
+					.map((range, index) => `<ScriptNote Id="${index + 1}" Range="${range}"><Paragraph><Text>n</Text></Paragraph></ScriptNote>`)
+					.join('')}</ScriptNotes></FinalDraft>`;
+			// Paragraphs start at 0, 9 and 21; the script ends at 30.
+			const xml = lab(['One two.', 'Three four.', 'Five six.'], ['0,3', '9,14', '19,15', '30,30', '99,120']);
+			const document = openFdx(xml);
+			const edited = (texts: string[]) => ({ ...document.script, elements: texts.map((text) => ({ type: 'action' as const, text })) });
+			expect(document.rewrite(edited(['One and two.', 'Thrxee four.', 'Five six.'])).xml).toBe(
+				lab(['One and two.', 'Thrxee four.', 'Five six.'], ['0,3', '13,19', '24,20', '35,35', '99,120'])
+			);
+			const gone = document.rewrite(edited(['One two.', 'Five six.']));
+			expect(gone.xml).toBe(lab(['One two.', 'Five six.'], ['0,3', '9,9', '9,9', '18,18', '99,120']));
+			expect(gone.diagnostics.find((diagnostic) => diagnostic.code === 'FDX_REWRITE_SCRIPT_NOTE_WORDS_DELETED')?.count).toBe(2);
+		});
+	});
+
 	/* IL-0032: Final Draft keeps dual dialogue as a paragraph with no text of
 	   its own holding a <DualDialogue>, its paragraphs the two speeches. Read
 	   as metadata, all 48 lines in these two files were invisible. */
@@ -1360,15 +1472,18 @@ describe('openFdx · files Final Draft wrote', () => {
 
 		it('deleting the whole pair removes its paragraph and nothing else', () => {
 			const { xml, saved, block } = firstBlockSaved(PAIR, '\n');
-			expect(saved.diagnostics).toEqual([]);
-			expect(saved.xml).toBe(xml.slice(0, block.start) + xml.slice(block.end));
+			expect(saved.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['FDX_REWRITE_SCRIPT_NOTE_RANGES_MOVED']);
+			expect(withoutNoteRanges(saved.xml)).toBe(withoutNoteRanges(xml.slice(0, block.start) + xml.slice(block.end)));
 		});
 
 		it('a pair the writer un-duals is dissolved in place — each line keeping its own bytes — and reported', () => {
 			const { xml, saved, block } = firstBlockSaved(PAIR, PAIR.replace(' ^', ''));
-			expect(saved.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['FDX_REWRITE_DUAL_DIALOGUE_DISSOLVED']);
-			expect(saved.xml).toBe(
-				xml.slice(0, block.start) + block.lines.map((line) => `\n    ${line.bytes}`).join('') + xml.slice(block.end)
+			expect(saved.diagnostics.map((diagnostic) => diagnostic.code)).toEqual([
+				'FDX_REWRITE_DUAL_DIALOGUE_DISSOLVED',
+				'FDX_REWRITE_SCRIPT_NOTE_RANGES_MOVED'
+			]);
+			expect(withoutNoteRanges(saved.xml)).toBe(
+				withoutNoteRanges(xml.slice(0, block.start) + block.lines.map((line) => `\n    ${line.bytes}`).join('') + xml.slice(block.end))
 			);
 		});
 
@@ -1485,8 +1600,8 @@ describe('openFdx · files Final Draft wrote', () => {
 		] as const)('%s', (_, name, [find, replace], [before, after]) => {
 			const xml = fixture(name);
 			const saved = savedAfter(xml, find, replace);
-			expect(saved.diagnostics).toEqual([]);
-			expect(saved.xml).toBe(fileWith(xml, before, after));
+			expect(saved.diagnostics.filter((diagnostic) => diagnostic.code !== 'FDX_REWRITE_SCRIPT_NOTE_RANGES_MOVED')).toEqual([]);
+			expect(withoutNoteRanges(saved.xml)).toBe(withoutNoteRanges(fileWith(xml, before, after)));
 		});
 
 		it.each(FILES)('an edit anywhere in %s changes bytes only inside the runs it falls in', (name) => {
@@ -1507,15 +1622,18 @@ describe('openFdx · files Final Draft wrote', () => {
 				if (edited.elements.length !== reading.elements.length || changed.length !== 1) continue;
 				if (edited.elements.some((element, index) => element.type !== reading.elements[index].type)) continue;
 
-				const saved = openFdx(xml).rewrite(edited, { unedited: reading });
+				const written = openFdx(xml).rewrite(edited, { unedited: reading });
+				// Range values set aside, which their notes' words are proven by; a Range value holds no run.
+				const saved = { ...written, xml: withoutNoteRanges(written.xml) };
+				const file = withoutNoteRanges(xml);
 				let prefix = 0;
-				while (prefix < xml.length && xml[prefix] === saved.xml[prefix]) prefix++;
+				while (prefix < file.length && file[prefix] === saved.xml[prefix]) prefix++;
 				let suffix = 0;
-				while (suffix < xml.length - prefix && xml[xml.length - 1 - suffix] === saved.xml[saved.xml.length - 1 - suffix]) suffix++;
+				while (suffix < file.length - prefix && file[file.length - 1 - suffix] === saved.xml[saved.xml.length - 1 - suffix]) suffix++;
 				const from = prefix;
-				const to = Math.max(xml.length - suffix, prefix + 1);
+				const to = Math.max(file.length - suffix, prefix + 1);
 				const touched = runs.filter((run) => run.start < to && run.end > from);
-				expect(saved.diagnostics).toEqual([]);
+				expect(saved.diagnostics.filter((diagnostic) => diagnostic.code !== 'FDX_REWRITE_SCRIPT_NOTE_RANGES_MOVED')).toEqual([]);
 				expect(touched.length).toBeGreaterThanOrEqual(1);
 				expect(touched.length).toBeLessThanOrEqual(2);
 				if (touched.length === 2) expect(touched[1].start).toBe(touched[0].end);

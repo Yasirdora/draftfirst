@@ -1,0 +1,141 @@
+schemaVersion: 1
+id: IL-0033
+status: verified
+utterance: Range maintenance first, then the rebase immediately after. The rebased file's Ranges are authentic; I don't want a single eDraft save touching them before the lock that keeps them on their words. Draft Range maintenance now.
+goal: "A save keeps every Final Draft ScriptNote on its words: each Range value whose words moved is rewritten to where they now are, counted as Final Draft counts, and no other byte of <ScriptNotes> changes — in both engines, proven on the Final Draft-written fixtures through the app's path."
+interpretation: |
+  The Range-maintenance lock the human queued (decision 1=B: rewrite only the
+  Range values of ScriptNotes whose words moved), ahead of the rebase onto
+  ~/Documents/sample02.fdx, whose Ranges are authentic and must not meet an
+  eDraft save that drifts them.
+
+  MEASURED at 1101db9, through the app's path (Fountain reading + unedited
+  gate), save then reopen, comparing the words each note covers:
+
+    finaldraft-sample02.fdx, 11 notes
+      a word typed in the third line   10 notes off their words
+      a line added near the start      10 off
+      a line deleted near the start    10 off, 1 with no anchor
+    finaldraft-sample01.fdx, 12 notes: the same, 11 off
+
+  The save copies <ScriptNotes> byte for byte, so every Range after an edit
+  counts positions in a script that is no longer there. (The note left on its
+  words in each case is the one at the very end, zero-length.)
+
+  THE RULES, both engines, preserving save only:
+
+    1. Positions are counted as Final Draft counts them (IL-0031): UTF-16
+       units over the saved script's top-level paragraphs, one per
+       paragraph break, End of Act included, two for each embedded block.
+    2. Each end of a Range stays with its character. A Range whose words the
+       writer did not touch is rewritten to where those words now are. A
+       Range whose words the writer edited keeps its start before its first
+       surviving character and its end after its last: text typed inside the
+       note joins it, text typed at its edges does not.
+    3. A Range whose words were all deleted collapses to zero length at the
+       place the words stood, and is reported by name:
+       FDX_REWRITE_SCRIPT_NOTE_WORDS_DELETED. (Decided by the human: (a).)
+    4. Where a dual dialogue is dissolved, a Range on the block's two units
+       moves to the start of its first line.
+    5. A Range already stale when the file was opened (starting past the
+       script) keeps its bytes; so does every Range that does not move. A
+       reversed pair keeps its order.
+    6. Only Range attribute values change. Ids, authors, dates, colours,
+       bodies, and every byte of <ScriptNotes> outside a moved Range value
+       stay as they are. TypeScript reports how many Ranges moved
+       (FDX_REWRITE_SCRIPT_NOTE_RANGES_MOVED, informational).
+
+  HOW: the save records which original paragraph each top-level paragraph
+  it writes came from (verbatim, merged, rewritten, restored, a dual
+  dialogue's frame, or new), reads the saved script's layout with the
+  IL-0031 counter, and maps each Range end through that record: unchanged
+  offsets for paragraphs written as their bytes, character alignment within
+  paragraphs whose text changed.
+
+  Out of scope: DateModified is not touched; notes written by eDraft into
+  <ScriptNotes> (the later lock); the fresh export (no ScriptNotes).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: through the app's path on both Final Draft-written fixtures, after any edit and a save, every note whose words the writer did not touch covers exactly the same words when the saved file is read again; each such proof fails on today's save
+  - kind: custom
+    text: only Range attribute values in <ScriptNotes> change, and only for Ranges whose words moved; every other byte of <ScriptNotes>, and every byte of the script the save already writes, is unchanged
+  - kind: custom
+    text: a save with no edit still returns both fixtures byte for byte
+  - kind: custom
+    text: every existing corpus expectation is unchanged; both ports produce identical saved files, Range values included, for every corpus case
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/style.ts
+  - packages/edraft/src/normalize.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/*.fdx
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/XmlScanner.swift
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Paginate/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - docs/**
+  - "*.xcodeproj/**"
+  - "**/DerivedData/**"
+change: A preserving save rewrites the Range of each Final Draft ScriptNote whose words moved, so it stays on its words, counted as Final Draft counts — in both engines.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxScriptNotesTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxPreservingRoundTripTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/ImportedNotesTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift
+  symbols: []
+  maxFiles: 12
+  maxLines: 2200
+accept:
+  - "Sweep, both Final Draft-written fixtures, through the app's path, ≥12 edits each — words typed and deleted, lines added and deleted, a dual dialogue line edited and a pair dissolved, an edit inside a note's words: after save and reopen every note the edit did not touch covers the same words; a note edited inside covers its edited words; <ScriptNotes> differs from the original only in Range values. Both engines. Each fails on today's save (1 of 11 notes kept after one typed word)."
+  - "Rule 3: a note whose words were all deleted collapses to zero length where they stood and is reported FDX_REWRITE_SCRIPT_NOTE_WORDS_DELETED — pinned by a synthetic case and on a fixture."
+  - "No edit: both fixtures byte-identical."
+  - "Through the app: after an edit in the editor, the saved file reopened places its imported notes on the same lines."
+  - "Corpus: new save cases whose expected output pins the script change and every Range value; all existing expectations unchanged; ports identical."
+  - "Suites green: 700 TypeScript, 188 Swift engine, 338 EDraftCore, plus the new proofs."
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on the words "range", "file" and "now" and proposed page-scroll, edit-planner and benchmark files.
+    source: system
+    confirmed: false
+  - text: "Decided by the human earlier: rewrite only the Range values of ScriptNotes whose words moved (1=B). Queued: Range maintenance, then the rebase onto sample02.fdx immediately after."
+    source: user
+    confirmed: true
+  - text: "Decided by the human at approval, rule 3 (a): a note whose words were all deleted collapses to zero length where the words stood, reported by name."
+    source: user
+    confirmed: true
+  - text: "Budget widened by the human during implementation: FdxSaveBackTests.swift (12 files), for three one-line amendments. Its IL-0027/IL-0028 tests pin exact saved bytes after edits that change text length, and those saves now also move Range values; each comparison sets Range values aside, as the in-budget tests do."
+    source: user
+    confirmed: true
+  - text: "Not prototyped before drafting: the damage is measured; the mapping is designed from the save's own pairing and IL-0031's counter. The proofs above decide it."
+    source: system
+    confirmed: false
+  - text: "maxLines 2,200: engine ~350 lines per port, tests ~500, corpus ~500 (save cases pinning Range values), FixtureStore for the new expected field and the Swift corpus runner that checks it (FdxPreservingRoundTripTests), exporter ~80."
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T16:56:10.720Z
+createdBy: Yasirdora
