@@ -1,5 +1,6 @@
 import AppKit
 import EDraftCore
+import SwiftUI
 import XCTest
 @testable import EDraftMacSurface
 
@@ -185,5 +186,149 @@ final class ScriptSurfaceNotesTests: XCTestCase {
             ),
             "the wash outlived the note"
         )
+    }
+}
+
+/// Notes from a Final Draft file, on the page.
+///
+/// Marked and washed like the writer's own, coloured by whoever the file says
+/// wrote them, and read in the card without an editor: eDraft never writes one.
+@MainActor
+final class ScriptSurfaceImportedNotesTests: XCTestCase {
+
+    /// A four-line scene. Paragraph starts, as a ScriptNote Range counts them:
+    /// heading 0, action 15, cue 26, dialogue 31; the script ends at 43.
+    private func opened(notes: [String]) throws -> (EditorState, ScriptSurface) {
+        let fdx = """
+        <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+        <FinalDraft DocumentType="Script" Version="6">
+        <Content>
+        <Paragraph Type="Scene Heading"><Text>INT. LAB - DAY</Text></Paragraph>
+        <Paragraph Type="Action"><Text>She waits.</Text></Paragraph>
+        <Paragraph Type="Character"><Text>MARA</Text></Paragraph>
+        <Paragraph Type="Dialogue"><Text>You're late.</Text></Paragraph>
+        </Content>
+        <ScriptNotes>\(notes.joined())</ScriptNotes>
+        </FinalDraft>
+        """
+        let file = try ScreenplayFile.open(Data(fdx.utf8), as: .finalDraftScreenplay)
+        let editor = EditorState(source: file.source)
+        editor.attachImportedNotes(from: file.origin)
+        let surface = ScriptSurface(measure: 500)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 500, height: 400)
+        surface.bind(to: editor)
+        surface.renderIfNeeded(editor)
+        return (editor, surface)
+    }
+
+    private func note(_ range: String, by author: String?, _ text: String) -> String {
+        let writer = author.map { " WriterName=\"\($0)\"" } ?? ""
+        return "<ScriptNote Range=\"\(range)\"\(writer)><Paragraph><Text>\(text)</Text></Paragraph></ScriptNote>"
+    }
+
+    private func line(_ editor: EditorState, _ text: String) throws -> UUID {
+        try XCTUnwrap(editor.screenplay.elements.first { $0.text == text }?.id)
+    }
+
+    func testEachLineAFinalDraftNoteIsAboutGetsOneMark() throws {
+        let (editor, surface) = try opened(notes: [
+            note("15,25", by: "Writer A", "Why is she waiting?"),
+            note("31,43", by: "Writer B", "Softer."),
+            note("31,43", by: "Writer A", "Or louder."),
+            note("0,14", by: nil, "Which lab?")
+        ])
+        XCTAssertEqual(editor.importedNotes.count, 4)
+        XCTAssertEqual(surface.canvas.noteMarkerFrames.count, 3, "one mark per noted line")
+    }
+
+    func testAMarkTakesItsAuthorsColourOrStaysNeutralWhenAuthorsMix() throws {
+        let (editor, surface) = try opened(notes: [
+            note("15,25", by: "Writer A", "Why is she waiting?"),
+            note("31,43", by: "Writer B", "Softer."),
+            note("31,43", by: "Writer A", "Or louder."),
+            note("0,14", by: nil, "Which lab?")
+        ])
+        let slots = NoteAttribution.slots(for: editor.noteRoster)
+        let byNote = Dictionary(uniqueKeysWithValues: editor.importedNotes.map { ($0.text, $0.id) })
+        func mark(_ text: String) throws -> NoteMarker {
+            try XCTUnwrap(surface.canvas.noteMarker(for: try XCTUnwrap(byNote[text])) as? NoteMarker)
+        }
+
+        XCTAssertEqual(try mark("Why is she waiting?").authorSlot, slots["Writer A"])
+        XCTAssertNotNil(slots["Writer A"])
+        XCTAssertNil(try mark("Softer.").authorSlot, "one mark cannot say two people's names")
+        XCTAssertNil(try mark("Which lab?").authorSlot, "a note nobody signed stays yellow")
+        XCTAssertNotEqual(slots["Writer A"], slots["Writer B"])
+    }
+
+    func testTheLineAFinalDraftNoteIsAboutIsWashed() throws {
+        let (editor, surface) = try opened(notes: [note("15,25", by: "Writer A", "Why is she waiting?")])
+        let layoutManager = try XCTUnwrap(surface.textView.layoutManager)
+        let ranges = ScreenplayEditPlanner.ranges(for: editor.screenplay.elements)
+        let action = try XCTUnwrap(ranges.first { $0.id == (try? line(editor, "She waits.")) })
+        let heading = try XCTUnwrap(ranges.first { $0.id == (try? line(editor, "INT. LAB - DAY")) })
+
+        XCTAssertNotNil(layoutManager.temporaryAttribute(
+            .backgroundColor, atCharacterIndex: action.range.location, effectiveRange: nil
+        ))
+        XCTAssertNil(layoutManager.temporaryAttribute(
+            .backgroundColor, atCharacterIndex: heading.range.location, effectiveRange: nil
+        ))
+    }
+
+    func testANoteWhoseLineWasNotFoundGetsNoMark() throws {
+        let (editor, surface) = try opened(notes: [note("900,910", by: "Writer A", "Somewhere else.")])
+        XCTAssertEqual(editor.importedNotes.count, 1)
+        XCTAssertNil(editor.importedNotes.first?.anchor)
+        XCTAssertTrue(surface.canvas.noteMarkerFrames.isEmpty, "a lost note was pinned to a line it is not about")
+    }
+
+    func testTheWritersOwnNoteSharesTheLineWithFinalDrafts() throws {
+        let (editor, surface) = try opened(notes: [note("15,25", by: "Writer A", "Why is she waiting?")])
+        editor.addNote("Because he is late.", to: try line(editor, "She waits."))
+        surface.renderIfNeeded(editor)
+        XCTAssertEqual(surface.canvas.noteMarkerFrames.count, 1, "two notes on one line are one mark")
+    }
+
+    // MARK: - The card
+
+    private func editableTextViews(in view: NSView) -> [NSTextView] {
+        let own = (view as? NSTextView).map { $0.isEditable ? [$0] : [] } ?? []
+        return own + view.subviews.flatMap(editableTextViews)
+    }
+
+    private func hosted(_ card: NoteCard) -> NSView {
+        let host = NSHostingView(rootView: card)
+        host.frame = NSRect(x: 0, y: 0, width: 280, height: 400)
+        host.layoutSubtreeIfNeeded()
+        return host
+    }
+
+    func testTheCardReadsAFinalDraftNoteWithoutAnEditor() {
+        let imported = ImportedNote(author: "Writer A", title: "Re: Gold Key", text: "Let's try it.", anchor: UUID())
+        let readOnly = hosted(NoteCard(
+            notes: [], imported: [imported], focused: nil,
+            onEdit: { _, _ in }, onDone: {}, onDelete: { _ in }, onAdd: {}
+        ))
+        XCTAssertTrue(editableTextViews(in: readOnly).isEmpty, "a Final Draft note was offered for editing")
+
+        // The control: the writer's own note on the same card is editable.
+        let own = ScriptAside(element: ScriptElement(type: .note, text: "Mine."), anchor: imported.anchor)
+        let mixed = hosted(NoteCard(
+            notes: [own], imported: [imported], focused: nil,
+            onEdit: { _, _ in }, onDone: {}, onDelete: { _ in }, onAdd: {}
+        ))
+        XCTAssertEqual(editableTextViews(in: mixed).count, 1)
+    }
+
+    func testTheCardSaysWhoWroteItWhereAndWhen() {
+        var parts = DateComponents()
+        parts.year = 2020; parts.month = 12; parts.day = 13
+        let created = Calendar.current.date(from: parts)
+        let note = ImportedNote(author: "Writer A", created: created, text: "Love this.", anchor: nil)
+        let caption = NoteCard.caption(note)
+        XCTAssertTrue(caption.hasPrefix("Writer A · Final Draft · "))
+        XCTAssertTrue(caption.contains("2020"))
+        XCTAssertEqual(NoteCard.caption(ImportedNote(text: "Unsigned.", anchor: nil)), "Unsigned · Final Draft")
     }
 }

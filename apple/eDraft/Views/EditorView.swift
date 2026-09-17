@@ -33,10 +33,14 @@ struct EditorView: View {
     init(document: Binding<EDraftDocument>, fileURL: URL? = nil, startsAtEnd: Bool = false) {
         _document = document
         self.fileURL = fileURL
-        _editor = State(initialValue: EditorState(
+        let editor = EditorState(
             source: document.wrappedValue.source,
             startsAtEnd: startsAtEnd
-        ))
+        )
+        // Final Draft's own notes, read from the file this document was
+        // opened from — shown in the Notes tab, never written back.
+        editor.attachImportedNotes(from: document.wrappedValue.origin)
+        _editor = State(initialValue: editor)
     }
 
     var body: some View {
@@ -145,6 +149,7 @@ struct EditorView: View {
             // that is what lastKnownSource is for.
             guard newSource != editor.lastKnownSource else { return }
             editor.applyExternalSource(newSource)
+            editor.attachImportedNotes(from: document.origin)
         }
         .onChange(of: scenePhase) { _, phase in
             // Backgrounding mid-keystroke must not strand the debounced

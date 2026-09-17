@@ -25,6 +25,14 @@ public final class EditorState {
     /// The notes among them.
     public var notes: [ScriptAside] { asides.filter { $0.kind == .note } }
 
+    /// The notes a Final Draft file carried, when the document was opened from
+    /// one — see `ImportedNote`.
+    ///
+    /// Apart from `asides` on purpose: asides are the document and save into
+    /// it, and these are a reading of the file that must never be written a
+    /// second time. Nothing here edits them.
+    public private(set) var importedNotes: [ImportedNote] = []
+
     /// The name this writer signs notes with, and whether they sign at all.
     ///
     /// App-level state, like the assistance mode above it: read once at open
@@ -37,8 +45,33 @@ public final class EditorState {
     /// Derived, never stored — the notes themselves are the record. Walked on
     /// demand rather than cached beside `scenes` and `cast`: those two are
     /// read on every keystroke, and this only while notes are being looked at.
+    /// Every writer a Final Draft file names is in it too, so one person is
+    /// one colour whichever app their note was left in.
     public var noteRoster: Set<String> {
-        NoteAttribution.roster(of: notes.map(\.text), signature: noteSignature)
+        ImportedNotes.roster(
+            NoteAttribution.roster(of: notes.map(\.text), signature: noteSignature),
+            adding: importedNotes
+        )
+    }
+
+    /// Reads the notes of the Final Draft file this document was opened from.
+    ///
+    /// Called by the document once the editor holds that file's script — at
+    /// open, and again after Revert — because a note is placed on a line by
+    /// where the file's own reading puts it, and that only holds while the
+    /// lines are the ones the file was read into. `nil` is a document that
+    /// did not come from Final Draft, and carries none.
+    public func attachImportedNotes(from origin: String?) {
+        guard let origin else {
+            importedNotes = []
+            return
+        }
+        let file = Fdx.parse(origin)
+        importedNotes = ImportedNotes.resolve(
+            file.scriptNotes,
+            imported: file.script.elements,
+            document: ScriptAsides.merge(page: screenplay.elements, asides: asides)
+        )
     }
 
     /// The writer's structure among them: acts, sequences and beats, each

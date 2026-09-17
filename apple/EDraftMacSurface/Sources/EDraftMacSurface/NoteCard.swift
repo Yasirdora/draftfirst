@@ -11,11 +11,15 @@ import SwiftUI
 /// only one at a time.
 ///
 /// Pages' comment card, minus the half that makes a comment a conversation.
-/// No Reply, no author, no date: none of Fountain, Final Draft or the `.draft`
-/// has anywhere to put them, and a field with nowhere honest to be stored is
-/// one that disappears the first time the file is sent to someone.
+/// No Reply, and on the writer's own notes no author field and no date: a
+/// Fountain `[[note]]` has nowhere to put them, and a field with nowhere
+/// honest to be stored is one that disappears the first time the file is sent
+/// to someone. A note that came in a Final Draft file does carry them, so it
+/// shows them — and is read, not edited: eDraft never writes one back.
 struct NoteCard: View {
     let notes: [ScriptAside]
+    /// The line's notes from Final Draft, after the writer's own.
+    var imported: [ImportedNote] = []
     /// Whose each note is, as a colour slot — the same slots the margin marks
     /// use, so the card explains the colour the writer just clicked.
     var authorSlots: [UUID: Int] = [:]
@@ -55,6 +59,10 @@ struct NoteCard: View {
                     ForEach(Array(notes.enumerated()), id: \.element.id) { index, note in
                         if index > 0 { Divider().padding(.vertical, 8) }
                         row(note)
+                    }
+                    ForEach(Array(imported.enumerated()), id: \.element.id) { index, note in
+                        if notes.count + index > 0 { Divider().padding(.vertical, 8) }
+                        importedRow(note)
                     }
                 }
             }
@@ -120,6 +128,45 @@ struct NoteCard: View {
 
     /// How tall one note may stand before it scrolls inside its own box.
     private static let tallestNote: CGFloat = 120
+
+    /// A note from Final Draft: who left it, its title, its words — and no
+    /// editor and no trash, because nothing here writes it. Selectable, so a
+    /// line of it can still be copied into a note of the writer's own.
+    private func importedRow(_ note: ImportedNote) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Circle()
+                .fill(Color(nsColor: .screenplayNoteTint(slot: authorSlots[note.id])))
+                .frame(width: 6, height: 6)
+                .padding(.top, 5)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(Self.caption(note))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if let title = note.title {
+                    Text(title)
+                        .font(.body.weight(.semibold))
+                        .lineLimit(2)
+                }
+                Text(note.text)
+                    .font(.body)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .help("From Final Draft. Edit it there; eDraft keeps it as it came.")
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "Writer A · Final Draft · 13 Dec 2020": whose, from where, when.
+    static func caption(_ note: ImportedNote) -> String {
+        var parts = [note.author ?? "Unsigned", "Final Draft"]
+        if let created = note.created {
+            parts.append(created.formatted(.dateTime.day().month(.abbreviated).year()))
+        }
+        return parts.joined(separator: " · ")
+    }
 
     /// Add on the left, finish on the right — the two directions this card
     /// goes, and never the destructive one, which belongs to a single note

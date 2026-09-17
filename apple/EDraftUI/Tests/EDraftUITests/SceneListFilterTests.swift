@@ -227,6 +227,115 @@ final class NoteAuthorRowTests: XCTestCase {
     }
 }
 
+/// Notes from a Final Draft file, in the same list.
+///
+/// They sit among the writer's own by the page, they are who the file says
+/// wrote them, and one person is one colour whichever app they wrote in.
+@MainActor
+final class ImportedNoteRowTests: XCTestCase {
+
+    private let kitchen = UUID()
+    private let kettle = UUID()
+    private let alley = UUID()
+    private let rain = UUID()
+
+    private func elements() -> [ScriptElement] {
+        [
+            ScriptElement(id: kitchen, type: .scene, text: "INT. KITCHEN - DAY"),
+            ScriptElement(id: kettle, type: .action, text: "She puts the kettle on."),
+            ScriptElement(id: alley, type: .scene, text: "EXT. ALLEY - NIGHT"),
+            ScriptElement(id: rain, type: .action, text: "Rain, and no one under it.")
+        ]
+    }
+
+    private func scenes() -> [SceneRow] {
+        [
+            SceneRow(id: kitchen, number: 1, page: 1, sceneNumber: nil,
+                     title: "INT. KITCHEN - DAY", elementIndex: 0),
+            SceneRow(id: alley, number: 2, page: 3, sceneNumber: nil,
+                     title: "EXT. ALLEY - NIGHT", elementIndex: 2)
+        ]
+    }
+
+    private func own(_ text: String, on anchor: UUID?) -> ScriptAside {
+        ScriptAside(element: ScriptElement(type: .note, text: text), anchor: anchor)
+    }
+
+    private func rows(own notes: [ScriptAside], imported: [ImportedNote]) -> [NoteRow] {
+        let roster = ImportedNotes.roster(
+            NoteAttribution.roster(of: notes.map(\.text)), adding: imported
+        )
+        return NoteRows.rows(
+            notes: notes, elements: elements(), scenes: scenes(),
+            roster: roster, imported: imported
+        )
+    }
+
+    func testImportedNotesJoinTheListInPageOrderAfterTheWritersOwnOnALine() {
+        let made = rows(
+            own: [own("mine, on the rain", on: rain), own("mine, on the kettle", on: kettle)],
+            imported: [
+                ImportedNote(author: "Writer A", text: "theirs, on the rain", anchor: rain),
+                ImportedNote(author: "Writer B", text: "theirs, on the kettle", anchor: kettle)
+            ]
+        )
+        XCTAssertEqual(made.map(\.text), [
+            "mine, on the kettle", "theirs, on the kettle", "mine, on the rain", "theirs, on the rain"
+        ])
+        XCTAssertEqual(made.map(\.isImported), [false, true, false, true])
+        XCTAssertEqual(made.map(\.scene), [
+            "INT. KITCHEN - DAY", "INT. KITCHEN - DAY", "EXT. ALLEY - NIGHT", "EXT. ALLEY - NIGHT"
+        ])
+    }
+
+    func testTheWriterTheFileNamesIsTheAuthorFromOneNote() {
+        let made = rows(own: [], imported: [ImportedNote(author: "Writer A", text: "Love this.", anchor: kettle)])
+        XCTAssertEqual(made.first?.author, "Writer A")
+        XCTAssertNotNil(made.first?.slot)
+        XCTAssertEqual(made.first?.text, "Love this.", "a WriterName is not a prefix to lift off")
+    }
+
+    func testTwoWritersTakeTwoColoursAndTheFilterFindsEach() {
+        let made = rows(own: [], imported: [
+            ImportedNote(author: "Writer A", text: "a", anchor: kettle),
+            ImportedNote(author: "Writer B", text: "b", anchor: rain)
+        ])
+        XCTAssertNotEqual(made[0].slot, made[1].slot)
+        XCTAssertEqual(NoteListFilter.included(made, query: "", author: "Writer B").map(\.text), ["b"])
+    }
+
+    func testOnePersonIsOneColourInEitherApp() {
+        let made = rows(
+            own: [own("dir: louder", on: kettle), own("dir: softer", on: rain)],
+            imported: [ImportedNote(author: "Dir", text: "Faster.", anchor: rain)]
+        )
+        XCTAssertEqual(Set(made.map(\.author)), ["Dir"])
+        XCTAssertEqual(Set(made.compactMap(\.slot)).count, 1)
+    }
+
+    func testANoteNobodySignedKeepsTheYellow() {
+        let made = rows(own: [], imported: [ImportedNote(text: "Unsigned.", anchor: kettle)])
+        XCTAssertNil(made.first?.author)
+        XCTAssertNil(made.first?.slot)
+    }
+
+    func testATitleLeadsTheWords() {
+        let made = rows(own: [], imported: [
+            ImportedNote(author: "Writer B", title: "Re: Gold Key", text: "Will they be confused?", anchor: kettle)
+        ])
+        XCTAssertEqual(made.first?.display, "Re: Gold Key — Will they be confused?")
+    }
+
+    func testANoteWhoseLineWasNotFoundSaysSoAndSortsLast() {
+        let made = rows(
+            own: [own("mine", on: kettle)],
+            imported: [ImportedNote(author: "Writer A", text: "lost", anchor: nil)]
+        )
+        XCTAssertEqual(made.map(\.text), ["mine", "lost"])
+        XCTAssertEqual(made.last?.place, "Line not found in this draft")
+    }
+}
+
 /// Narrowing by where a scene plays.
 ///
 /// The classification is `SceneSetting`'s and tested there; this covers the

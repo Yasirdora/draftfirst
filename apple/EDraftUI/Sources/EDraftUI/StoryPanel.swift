@@ -143,11 +143,16 @@ public struct NoteRow: Identifiable, Equatable, Sendable {
     public let scene: String?
     /// Where that scene opens, at the paper size currently set.
     public let page: Int?
+    /// A note that came in a Final Draft file — read, never written — and the
+    /// title it carried there, when it had one.
+    public let isImported: Bool
+    public let title: String?
 
     public init(
         id: UUID, text: String, anchor: UUID?,
         author: String? = nil, slot: Int? = nil,
-        sceneID: UUID?, scene: String?, page: Int?
+        sceneID: UUID?, scene: String?, page: Int?,
+        isImported: Bool = false, title: String? = nil
     ) {
         self.id = id
         self.text = text
@@ -157,22 +162,31 @@ public struct NoteRow: Identifiable, Equatable, Sendable {
         self.sceneID = sceneID
         self.scene = scene
         self.page = page
+        self.isImported = isImported
+        self.title = title
     }
 
     /// Where the row says the note was left.
     ///
     /// A note always has a place, even when it has no scene — written before
     /// the first heading, or past the last line. Saying which is what tells a
-    /// reader why one row in the list does not go anywhere.
+    /// reader why one row in the list does not go anywhere. A note from Final
+    /// Draft with no line was not written past the end: its line could not be
+    /// found in this draft, and saying so is the honest version.
     public var place: String {
         if let scene { return scene }
-        return anchor == nil ? "After the last line" : "Before the first scene"
+        if anchor == nil { return isImported ? "Line not found in this draft" : "After the last line" }
+        return "Before the first scene"
     }
 
     /// An untitled note is still a note. It reads as one rather than as a
     /// blank row, because a writer who pressed the shortcut and walked away
-    /// needs to find their way back to the line they left open.
-    public var display: String { text.isEmpty ? "Empty note" : text }
+    /// needs to find their way back to the line they left open. A title from
+    /// Final Draft leads, the way it heads the note there.
+    public var display: String {
+        guard let title, !title.isEmpty else { return text.isEmpty ? "Empty note" : text }
+        return text.isEmpty ? title : "\(title) — \(text)"
+    }
 }
 
 /// The notes list: every note in the order the page sets them, each tagged
@@ -188,14 +202,40 @@ public enum NoteRows {
     /// order. Two notes left on one line keep the order the line holds them
     /// in, which is the order the note card shows — `sorted(by:)` is not
     /// stable, so that tie is broken explicitly rather than left to it.
+    ///
+    /// Notes from a Final Draft file join the list in the same page order,
+    /// after the writer's own on a shared line. Their author is the file's
+    /// WriterName, so there is no prefix to take off their words.
     public static func rows(
         notes: [ScriptAside], elements: [ScriptElement], scenes: [SceneRow],
-        roster: Set<String> = []
+        roster: Set<String> = [], imported: [ImportedNote] = []
     ) -> [NoteRow] {
         var position: [UUID: Int] = [:]
         position.reserveCapacity(elements.count)
         for (index, element) in elements.enumerated() { position[element.id] = index }
         let slots = NoteAttribution.slots(for: roster)
+
+        let fromFile = imported.enumerated().map { ordinal, note in
+            let index = note.anchor.flatMap { position[$0] }
+            let scene = index.flatMap { at in scenes.last { $0.elementIndex <= at } }
+            let author = ImportedNotes.author(of: note, in: roster)
+            return (
+                order: index ?? Int.max,
+                tie: notes.count + ordinal,
+                row: NoteRow(
+                    id: note.id,
+                    text: note.text,
+                    anchor: note.anchor,
+                    author: author,
+                    slot: author.flatMap { slots[$0] },
+                    sceneID: scene?.id,
+                    scene: scene?.title,
+                    page: scene?.page,
+                    isImported: true,
+                    title: note.title
+                )
+            )
+        }
 
         let placed = notes.enumerated().map { ordinal, note in
             let index = note.anchor.flatMap { position[$0] }
@@ -219,7 +259,7 @@ public enum NoteRows {
                 )
             )
         }
-        return placed.sorted { ($0.order, $0.tie) < ($1.order, $1.tie) }.map(\.row)
+        return (placed + fromFile).sorted { ($0.order, $0.tie) < ($1.order, $1.tie) }.map(\.row)
     }
 }
 
@@ -804,7 +844,8 @@ public struct StoryList: View {
             notes: editor.notes,
             elements: editor.screenplay.elements,
             scenes: editor.scenes,
-            roster: editor.noteRoster
+            roster: editor.noteRoster,
+            imported: editor.importedNotes
         )
     }
 

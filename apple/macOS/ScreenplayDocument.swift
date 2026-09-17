@@ -64,6 +64,9 @@ final class ScreenplayDocument: NSDocument {
                 // Revert To: the window stays, the text under it changes.
                 editor.applyExternalSource(source)
             }
+            // Final Draft's own notes, read from the file and placed on the
+            // lines just loaded — never written back. See `ImportedNote`.
+            editor.attachImportedNotes(from: origin)
         }
     }
 

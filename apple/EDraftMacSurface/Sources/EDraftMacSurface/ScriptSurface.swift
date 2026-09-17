@@ -1589,6 +1589,18 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         }
     }
 
+    /// Every note the page marks, with the line it belongs to: the writer's
+    /// own, then the ones a Final Draft file carried.
+    ///
+    /// A note of the writer's with no line trails the script, which is where
+    /// it was left. An imported note with no line is one whose line could not
+    /// be found in this draft; putting it beside the last line would say it
+    /// is about that line, so it is left to the Navigator, which says why.
+    private func notedLines(_ editor: EditorState) -> [(id: UUID, anchor: UUID?)] {
+        editor.notes.map { ($0.id, $0.anchor) }
+            + editor.importedNotes.compactMap { note in note.anchor.map { (note.id, $0) } }
+    }
+
     /// Tints the lines that have notes on them, so the mark in the margin
     /// says *which* line it is about.
     ///
@@ -1601,7 +1613,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         guard let layoutManager = textView.layoutManager else { return }
         let whole = NSRange(location: 0, length: (textView.string as NSString).length)
         layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: whole)
-        guard let editor, !editor.notes.isEmpty else { return }
+        guard let editor else { return }
+        let lines = notedLines(editor)
+        guard !lines.isEmpty else { return }
 
         let byElement = Dictionary(ranges.map { ($0.id, $0.range) }) { first, _ in first }
         // Resolved for the page's own appearance, the way the ink is: a light
@@ -1613,7 +1627,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             open = NSColor.screenplayOpenNoteWash.usingColorSpace(.sRGB) ?? open
         }
 
-        for note in editor.notes {
+        for note in lines {
             guard let anchor = note.anchor, let range = byElement[anchor], range.length > 0,
                   NSMaxRange(range) <= whole.length else { continue }
             // The wash yields to the mark: a highlight is content in the
@@ -1672,6 +1686,13 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                   let slot = slots[author.name] else { continue }
             found[note.id] = slot
         }
+        // A note from Final Draft is whoever the file says wrote it; the
+        // colour Final Draft gave it says what kind of note it is, not who.
+        for note in editor.importedNotes {
+            guard let author = ImportedNotes.author(of: note, in: roster),
+                  let slot = slots[author] else { continue }
+            found[note.id] = slot
+        }
         return found
     }
 
@@ -1687,7 +1708,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // carries one mark and its card holds everything left on it.
         var order: [Int] = []
         var byLine: [Int: (top: CGFloat, height: CGFloat, ids: [UUID])] = [:]
-        for note in editor.notes {
+        for note in notedLines(editor) {
             // A note anchored to nothing trails the script, and belongs
             // beside its last line — which is where the writer left it.
             let range = note.anchor.flatMap { byElement[$0] } ?? ranges.last?.range
@@ -1731,8 +1752,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         guard let editor, let note = editor.addNote(to: anchor) else { return }
         renderIfNeeded(editor)
         // Everything on that line, so a second note joins the first in one
-        // card rather than replacing it.
-        let line = editor.notes.filter { $0.anchor == note.anchor }.map(\.id)
+        // card rather than replacing it — and joins any Final Draft left there.
+        let line = notedLines(editor).filter { $0.anchor == note.anchor }.map(\.id)
         // The new one takes the caret, whether it is this line's first note
         // or its fourth.
         openNotes(line.isEmpty ? [note.id] : line, focusing: note.id)
@@ -1767,6 +1788,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         popover.contentViewController = NSHostingController(
             rootView: NoteCard(
                 notes: editor.notes.filter { ids.contains($0.id) },
+                imported: editor.importedNotes.filter { ids.contains($0.id) },
                 authorSlots: noteAuthorSlots(),
                 focused: focused,
                 onEdit: { [weak self] id, text in self?.openNoteDrafts[id] = text },
@@ -1786,7 +1808,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                     guard let self, let editor = self.editor else { return }
                     // The same line the card belongs to, whatever the caret
                     // is doing elsewhere.
-                    let line = editor.notes.first { $0.id == anchor }?.anchor
+                    let line = self.notedLines(editor).first { $0.id == anchor }?.anchor
                     guard let added = editor.addNote(to: line) else { return }
                     // The caret goes into the note just made — not back to
                     // the first one, which the writer has already written.
@@ -1822,7 +1844,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         guard let editor else { return }
         notePopover?.performClose(nil)
         renderIfNeeded(editor)
-        let alive = ids.filter { id in editor.notes.contains { $0.id == id } }
+        let alive = ids.filter { id in notedLines(editor).contains { $0.id == id } }
         guard !alive.isEmpty else { return }
         openNotes(alive, focusing: focused)
     }

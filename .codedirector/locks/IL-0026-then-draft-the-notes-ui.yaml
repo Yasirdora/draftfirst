@@ -1,0 +1,156 @@
+schemaVersion: 1
+id: IL-0026
+status: verified
+utterance: Then draft the notes UI lock.
+goal: "A Final Draft file's ScriptNotes appear in eDraft beside the writer's own notes: in the Navigator's Notes tab, and on the Mac as the margin mark, the line wash and the note card. Each shows its author from WriterName, coloured by that author with the same roster and palette the writer's own notes use; the file's per-note colour is ignored. They are read-only — nothing eDraft does writes them — so the file's bytes, ScriptNotes included, round-trip exactly as they do today."
+interpretation: |
+  The UI half of Lock B, on top of IL-0024 (the engine reads ScriptNotes) and
+  IL-0025 (the save keeps what it cannot show). Settled by the human in Lock
+  B: display colour comes from the author, overriding the file's per-note
+  colour at display level only, never rewriting the file; authorship is the
+  file's WriterName; no login system. Measured 2026-09-17 at 9221c0e.
+
+  WHERE THE NOTES COME FROM. Both apps already keep the file they opened: the
+  Mac's ScreenplayDocument (apple/macOS) and iOS's EDraftDocument hold
+  `origin` beside the Fountain `source`. EditorState is built from the source
+  alone. So the document hands the origin to the editor once, at open:
+  `EditorState.attachImportedNotes(from: origin)` reads
+  `Fdx.parse(origin).scriptNotes` and resolves each note to a line. On Revert
+  it is called again after `applyExternalSource`. A Fountain document never
+  calls it and behaves exactly as today.
+
+  ANCHORING, MEASURED. A ScriptNote's anchor is an index into the imported
+  elements; the editor's lines are Fountain elements with fresh UUIDs. On
+  sample0-2.fdx through the real EditorState: the editor's document order
+  (page merged with asides) has 768 elements, like the import, and all 768
+  agree by index on canonical-cased text; all 11 anchors land on printed
+  lines, 8 distinct (three notes share the shot, two a dialogue line). So a
+  note resolves ONCE, at open, to the UUID of the element at its index —
+  and only when that element's text matches the imported one's. When it does
+  not (a file Fountain could not carry line for line), the note is kept and
+  shown unanchored; its line is never guessed. An anchor on a non-printing
+  element moves to the next printed line, as a ScriptAside does. Holding
+  UUIDs afterwards means edits above a note cannot move it (the parked stale
+  Range is a file problem; in eDraft the note stays on its line).
+
+  THE MODEL. A new EDraftCore value, `ImportedNote`: id (minted per session),
+  author, title, category, created, text, anchor. Kept in
+  `EditorState.importedNotes`, apart from `asides`: the save serialises
+  asides into Fountain, so an imported note can never reach the source, the
+  file, or an export. updateNote/deleteNote/finishNote touch asides only.
+
+  COLOUR. `EditorState.noteRoster` becomes the union of today's prefix roster
+  and the imported authors. A WriterName is attributed outright — the
+  two-note rule exists to stop a one-off `TODO:` being taken for a person, and
+  a WriterName is a person by the file's own word. Names merge
+  case-insensitively, so "Joe Jarvis" writing `[[Joe Jarvis: …]]` in eDraft and
+  WriterName="Joe Jarvis" from Final Draft are one person with one colour.
+  Slots, palette and the yellow for unattributed notes are IL-0016's,
+  unchanged.
+
+  NAVIGATOR (shared, EDraftUI). `NoteRows.rows` gains the imported notes, in
+  page order among the writer's own; author chip and slot from the
+  WriterName; the author filter lists imported authors; a title, when the
+  file has one ("Re: Gold Key"), leads the row's text. Jumping to a row
+  works as it does today.
+
+  MAC PAGE (EDraftMacSurface). Margin marks, the line wash and the note card
+  include imported notes; a line's mark keeps IL-0016's rule (one author →
+  their colour, mixed → neutral). In the card an imported note is read-only:
+  its words as text, not an editor; no trash button; a quiet caption naming
+  the author, and the title and date when present. Add still adds the
+  writer's own note to that line.
+
+  iOS gets the shared Notes tab (EditorView calls attach); the UIKit page has
+  no note marks today and gains none here.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: "imported notes are read-only: nothing in eDraft writes, edits or deletes one, and they never enter `asides`, the Fountain source or any export — a no-edit save of sample0-2.fdx with its notes attached is byte-identical, and editing the script and the writer's own notes leaves the <ScriptNotes> block byte-identical"
+  - kind: custom
+    text: display colour comes only from the author, through the shared roster and palette; the file's Color attribute is never read for display
+  - kind: custom
+    text: authorship comes only from WriterName; a note without one is unattributed and keeps today's yellow — nothing is inferred
+  - kind: custom
+    text: a note's line is resolved once at open, by index, and only when the texts agree; otherwise the note is shown unanchored — a line is never guessed
+  - kind: custom
+    text: the writer's own notes behave exactly as after IL-0016 — prefix recognition, the two-note rule, signing, editing, deleting, colours — and a document with no imported notes looks and saves exactly as today
+  - kind: custom
+    text: no engine change, and ScriptAsides, ScreenplayModels, ScreenplayFile, NoteAttribution, NoteMarker and PageCanvasView are untouched
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - "*.xcodeproj/**"
+  - package.json
+  - package-lock.json
+  - packages/**
+  - src/**
+  - docs/**
+  - apple/eDraftEngine/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/EDraftCore/ScriptAsides.swift
+  - apple/EDraftCore/Sources/EDraftCore/ScreenplayModels.swift
+  - apple/EDraftCore/Sources/EDraftCore/ScreenplayFile.swift
+  - apple/EDraftCore/Sources/EDraftCore/NoteAuthor.swift
+  - apple/EDraftUI/Sources/EDraftUI/ScreenplayDocument.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/NoteMarker.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+  - apple/EDraftUIKitSurface/**
+change: Surface a Final Draft file's ScriptNotes, read-only and coloured by WriterName, in the Notes tab on both platforms and in the Mac page's margin marks, line wash and note card.
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftUI && swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -destination "platform=macOS" -quiet build && xcodebuild -project apple/eDraft.xcodeproj -scheme eDraft -destination "generic/platform=iOS Simulator" -quiet build
+verifyTimeoutMs: 2400000
+budget:
+  files:
+    - apple/EDraftCore/Sources/EDraftCore/ImportedNotes.*
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/ImportedNotesTests.*
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+    - apple/EDraftUI/Tests/EDraftUITests/SceneListFilterTests.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/NoteCard.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/ScriptSurfaceNotesTests.swift
+    - apple/macOS/ScreenplayDocument.swift
+    - apple/eDraft/Views/EditorView.swift
+  symbols: []
+  maxFiles: 10
+  maxLines: 1100
+accept:
+  - "Opening sample0-2.fdx attaches 11 imported notes: Writer A on 8, Writer B on 3; each resolves to the line measured above (the shot holds three, a dialogue line two), and the Notes tab lists them in page order among any notes of the writer's own."
+  - "Writer A and Writer B take two different palette colours; a `[[Writer A: …]]` note written in eDraft takes Writer A's colour; a note from the file without WriterName stays yellow; the file's Color attribute changes nothing on screen."
+  - When the element at a note's index does not match the imported text, the note appears unanchored instead of on a wrong line.
+  - On the Mac, each noted line carries one mark, tinted by its author, or neutral when authors mix; the card shows an imported note read-only — no text editor, no trash — with its author, and title and date when present.
+  - "With imported notes attached: a no-edit save of sample0-2.fdx through ScreenplayFile is byte-identical; after editing the script and adding, editing and deleting the writer's own notes, the <ScriptNotes> block is byte-identical and the Fountain source contains none of the imported notes' words."
+  - A Fountain document shows and saves exactly as before; every existing EDraftCore (320), EDraftUI and EDraftMacSurface test stays green, and both apps build.
+  - "Seen in the running Mac app (launched by path) with sample0-2.fdx: the marks, the card and the Notes tab — a screenshot, not a claim."
+assumptions:
+  - text: Budget replaced by hand. The auto-draft anchored on NoteListFilterTests.notes ('notes') and proposed engine test files and ScriptAsides/ScreenplayModels — the two model files this design keeps imported notes out of.
+    source: system
+    confirmed: false
+  - text: Decided by the human — imported notes are read-only in eDraft. Editing one would mean rewriting ScriptNote bytes, which Lock B forbids, or copying it into a [[note]] the writer owns — which Final Draft would then show twice.
+    source: user
+    confirmed: true
+  - text: "Decided by the human — iOS is in scope: the shared Notes tab shows imported notes on iPhone (EditorView attaches them). The UIKit page gains no marks."
+    source: user
+    confirmed: true
+  - text: Scope approved by the human as drafted.
+    source: user
+    confirmed: true
+  - text: "Out of scope: stale Range (parked by the human); writing or replying to ScriptNotes; note marks on the iOS page, which has none today."
+    source: system
+    confirmed: false
+  - text: New files are budgeted as basename globs (ImportedNotes.*, ImportedNotesTests.*) — the cdir gap recorded in IL-0023.
+    source: system
+    confirmed: false
+  - text: "maxLines 1100 estimates ~880: model and resolver ~120, EditorState ~50, core tests ~220, StoryPanel ~80, UI tests ~100, ScriptSurface ~80, NoteCard ~80, Mac tests ~130, the two app files ~20."
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T04:40:43.690Z
+createdBy: Yasirdora
