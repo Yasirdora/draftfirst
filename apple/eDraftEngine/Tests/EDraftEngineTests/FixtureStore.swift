@@ -245,11 +245,26 @@ enum FdxCorpus {    struct Root: Decodable {
         /// The ScriptNotes section — apart, so every import case keeps its
         /// expected output exactly.
         var scriptNoteCases: [ScriptNotesCase] = []
+        /// The preserving save — the file, the screenplay it is handed, and
+        /// the bytes it must write.
+        var rewriteCases: [RewriteCase] = []
 
         enum CodingKeys: String, CodingKey {
             case importCases = "import"
             case exportCases = "export"
             case scriptNoteCases = "scriptNotes"
+            case rewriteCases = "rewrite"
+        }
+    }
+
+    struct RewriteCase: Decodable {
+        let name: String
+        let source: String
+        let screenplay: Screenplay
+        let expected: Expected
+
+        struct Expected: Decodable {
+            let xml: String
         }
     }
 

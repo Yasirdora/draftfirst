@@ -1308,6 +1308,12 @@ interface OriginParagraph {
 	    preserving save — a run changed without a character moving still
 	    rewrites the paragraph. */
 	runs: StyleRun[];
+	/**
+	 * Whether the import absorbed this paragraph — an End of Act — so that no
+	 * element will ever stand for it. The rewrite writes these back itself
+	 * and never lets the alignment see them; see `openFdx`.
+	 */
+	absorbed: boolean;
 }
 
 /**
@@ -1479,6 +1485,11 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 	const spans = bodySpansOf(source, options);
 	const first = spans.length > 0 ? spans[0].start : -1;
 	const last = spans.length > 0 ? spans[spans.length - 1].end : -1;
+	/* Only paragraphs the import turned into elements can be matched to one.
+	   An absorbed End of Act left in the alignment was deleted by every save,
+	   and — typed General when it has no Alignment — was paired with the
+	   writer's next edit and given their text. */
+	const aligned = spans.filter((span) => !span.absorbed);
 
 	return {
 		...imported,
@@ -1490,15 +1501,41 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 			const diagnostics = new DiagnosticCollector(
 				positiveInteger(options.maxWarnings, DEFAULT_FDX_LIMITS.maxWarnings)
 			);
-			const paired = alignParagraphs(spans, script.elements);
+			const paired = alignParagraphs(aligned, script.elements);
+
+			/* Each absorbed paragraph goes back, verbatim, in front of the first
+			   paragraph after it that this save keeps — anchored to what
+			   follows, so lines added at the end of an act still land before
+			   its End of Act — and after the last element when nothing after
+			   it survives. Never dropped: eDraft does not show an End of Act,
+			   so no writer can have meant to delete one. Keyed by where each
+			   paragraph starts, which is unique. */
+			const kept = new Set(paired.flatMap((origin) => (origin ? [origin.start] : [])));
+			const absorbedBefore = new Map<number, OriginParagraph[]>();
+			let waiting: OriginParagraph[] = [];
+			for (const span of spans) {
+				if (span.absorbed) {
+					waiting.push(span);
+				} else if (waiting.length > 0 && kept.has(span.start)) {
+					absorbedBefore.set(span.start, waiting);
+					waiting = [];
+				}
+			}
+
 			const out: string[] = [];
 			// A new paragraph is laid out like the one it follows, so an insert
 			// does not announce itself as the one differently-indented line in
 			// the file.
 			let lead = '';
+			const restore = (span: OriginParagraph): void => {
+				if (out.length > 0) out.push(span.lead === '' ? lead : span.lead);
+				if (span.lead !== '') lead = span.lead;
+				out.push(source.slice(span.start, span.end));
+			};
 			for (const [index, element] of script.elements.entries()) {
 				const origin = paired[index];
 				if (origin) {
+					for (const span of absorbedBefore.get(origin.start) ?? []) restore(span);
 					if (out.length > 0) out.push(origin.lead === '' ? lead : origin.lead);
 					if (origin.lead !== '') lead = origin.lead;
 					out.push(rewriteParagraph(source, origin, element, diagnostics, index));
@@ -1512,6 +1549,7 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 				const body = fresh.xml.match(/<Paragraph[\s\S]*<\/Paragraph>/);
 				if (body) out.push(body[0]);
 			}
+			for (const span of waiting) restore(span);
 
 			return {
 				xml: ensureNamespaceDeclared(
@@ -1544,11 +1582,10 @@ function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph
 			textEnd: number;
 		};
 		const fdxType = attributeOf(paragraph, 'type').trim().toLowerCase();
-		/* End of Act falls to 'general' here on purpose: the import absorbed
-		   it (RFC-ACT-BREAK D3), so no model element ever matches this origin
-		   paragraph, and an unmatched origin is preserved verbatim. The two
-		   readers must keep disagreeing — if this one ever absorbed too, the
-		   span's bytes would have no owner. */
+		/* End of Act is kept as a span, marked absorbed, by the same rule the
+		   import absorbs it with (RFC-ACT-BREAK D3). No element ever stands
+		   for it, so the rewrite owns its bytes: dropping the span here would
+		   lose them, and leaving it unmarked let the alignment delete it. */
 		const type = refineGeneral(fdxElementKind(fdxType)?.type ?? 'general', paragraph);
 		const lead = previousEnd === -1 ? '' : source.slice(previousEnd, held.start);
 		previousEnd = held.end;
@@ -1560,7 +1597,8 @@ function bodySpansOf(source: string, options: FdxImportOptions): OriginParagraph
 			textStart: held.textStart,
 			textEnd: held.textEnd,
 			lead,
-			runs: paragraph.runs
+			runs: paragraph.runs,
+			absorbed: fdxType === 'end of act'
 		};
 	});
 }

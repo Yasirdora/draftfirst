@@ -5811,5 +5811,222 @@
         ]
       }
     }
+  ],
+  "rewrite": [
+    {
+      "name": "end-of-act-no-edit",
+      "source": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "actbreak",
+            "text": "ACT ONE"
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          },
+          {
+            "type": "actbreak",
+            "text": "ACT TWO"
+          },
+          {
+            "type": "action",
+            "text": "Buzz."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "end-of-act-bare-no-edit",
+      "source": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "actbreak",
+            "text": "ACT ONE"
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          },
+          {
+            "type": "actbreak",
+            "text": "ACT TWO"
+          },
+          {
+            "type": "action",
+            "text": "Buzz."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "end-of-act-bare-edit-after-card",
+      "source": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "actbreak",
+            "text": "ACT ONE"
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          },
+          {
+            "type": "actbreak",
+            "text": "ACT TWO"
+          },
+          {
+            "type": "action",
+            "text": "Buzz, buzz."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz, buzz.</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "end-of-act-lines-added-at-end-of-act",
+      "source": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "actbreak",
+            "text": "ACT ONE"
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          },
+          {
+            "type": "action",
+            "text": "A new last line."
+          },
+          {
+            "type": "actbreak",
+            "text": "ACT TWO"
+          },
+          {
+            "type": "action",
+            "text": "Buzz."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Type=\"Action\"><Text>A new last line.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "end-of-act-act-break-deleted",
+      "source": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "actbreak",
+            "text": "ACT ONE"
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          },
+          {
+            "type": "action",
+            "text": "Buzz."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "end-of-act-everything-after-deleted",
+      "source": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "actbreak",
+            "text": "ACT ONE"
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "end-of-act-script-emptied",
+      "source": "<FinalDraft><Content>\n  <Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a1\"><Text>Hum.</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n  <Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz.</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": []
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n  <Paragraph Type=\"End of Act\"><Text>END OF ACT TWO</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "end-of-act-first-in-body",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"End of Act\"><Text>END OF TEASER</Text></Paragraph>\n<Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "Cold open."
+          },
+          {
+            "type": "actbreak",
+            "text": "ACT ONE"
+          },
+          {
+            "type": "action",
+            "text": "Hum."
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text>Cold open.</Text></Paragraph><Paragraph Type=\"End of Act\"><Text>END OF TEASER</Text></Paragraph>\n<Paragraph Type=\"New Act\"><Text>ACT ONE</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    },
+    {
+      "name": "end-of-act-two-in-a-row",
+      "source": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n<Paragraph Type=\"End of Act\"><Text>END OF TEASER</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n<Paragraph Type=\"New Act\"><Text>ACT TWO</Text></Paragraph>\n</Content></FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "Hum."
+          },
+          {
+            "type": "actbreak",
+            "text": "ACT TWO: THE TURN"
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft><Content>\n<Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph>\n<Paragraph Type=\"End of Act\"><Text>END OF TEASER</Text></Paragraph>\n<Paragraph Alignment=\"Center\" Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>\n<Paragraph Type=\"New Act\"><Text>ACT TWO: THE TURN</Text></Paragraph>\n</Content></FinalDraft>"
+      }
+    }
   ]
 }

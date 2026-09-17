@@ -31,7 +31,7 @@ import {
 	synthesiseEmphasis,
 	toggleStyle
 } from '../packages/edraft/dist/style.js';
-import { parseFdx, writeFdxWithDiagnostics } from '../packages/edraft/dist/fdx.js';
+import { openFdx, parseFdx, writeFdxWithDiagnostics } from '../packages/edraft/dist/fdx.js';
 import { estimateRuntime, paginate, printedLineCount } from '../packages/edraft/dist/layout.js';
 import {
 	ghostSuffix,
@@ -1155,6 +1155,66 @@ addScriptNotes(
    itself is pinned elsewhere; this case pins the notes. */
 addScriptNotes('sample0-2', { file: 'sample0-2.fdx' }, {}, { withScript: false });
 
-writeFixture('fdx.json', { import: fdxImport, export: fdxExport, scriptNotes: fdxScriptNotes });
+/* The preserving save: a file edited, not rebuilt. Each case is the file,
+   the screenplay the save is handed, and the bytes it must write. Pinned
+   around End of Act, which the import absorbs, so no element stands for it:
+   left to the alignment it was deleted by every save and — typed General
+   without an Alignment — given the writer's next edit. The save now keeps
+   each card verbatim in front of the next paragraph it keeps, or after the
+   last element when none is left. */
+const fdxRewrite = [];
+function addRewrite(name, source, edit = (elements) => elements) {
+	const document = openFdx(source);
+	const screenplay = { ...document.script, elements: edit(document.script.elements) };
+	fdxRewrite.push({ name, source, screenplay, expected: { xml: document.rewrite(screenplay).xml } });
+}
+/* Two acts, each closed by a card; `card` is the card's attributes before Type. */
+const twoActs = (card) => `<FinalDraft><Content>
+  <Paragraph Type="New Act"><Text>ACT ONE</Text></Paragraph>
+  <Paragraph Type="Action" id="a1"><Text>Hum.</Text></Paragraph>
+  <Paragraph${card} Type="End of Act"><Text>END OF ACT ONE</Text></Paragraph>
+  <Paragraph Type="New Act"><Text>ACT TWO</Text></Paragraph>
+  <Paragraph Type="Action" id="a2"><Text>Buzz.</Text></Paragraph>
+  <Paragraph${card} Type="End of Act"><Text>END OF ACT TWO</Text></Paragraph>
+</Content></FinalDraft>`;
+const centred = twoActs(' Alignment="Center"');
+const bare = twoActs('');
+const retext = (from, to) => (elements) =>
+	elements.map((element) => (element.text === from ? { ...element, text: to } : element));
+
+addRewrite('end-of-act-no-edit', centred);
+addRewrite('end-of-act-bare-no-edit', bare);
+/* The measured hijack: the edit lands in its own Action paragraph. */
+addRewrite('end-of-act-bare-edit-after-card', bare, retext('Buzz.', 'Buzz, buzz.'));
+/* Lines added at the end of act one land before END OF ACT ONE. */
+addRewrite('end-of-act-lines-added-at-end-of-act', centred, (elements) => [
+	...elements.slice(0, 2),
+	{ type: 'action', text: 'A new last line.' },
+	...elements.slice(2)
+]);
+/* The act break a card closes is deleted: the card is kept. */
+addRewrite('end-of-act-act-break-deleted', centred, (elements) =>
+	elements.filter((element) => element.text !== 'ACT TWO')
+);
+/* Nothing after the cards survives: both go after the last element. */
+addRewrite('end-of-act-everything-after-deleted', centred, (elements) => elements.slice(0, 2));
+addRewrite('end-of-act-script-emptied', bare, () => []);
+addRewrite(
+	'end-of-act-first-in-body',
+	`<FinalDraft><Content>\n<Paragraph Type="End of Act"><Text>END OF TEASER</Text></Paragraph>\n<Paragraph Type="New Act"><Text>ACT ONE</Text></Paragraph>\n<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>\n</Content></FinalDraft>`,
+	(elements) => [{ type: 'action', text: 'Cold open.' }, ...elements]
+);
+addRewrite(
+	'end-of-act-two-in-a-row',
+	`<FinalDraft><Content>\n<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>\n<Paragraph Type="End of Act"><Text>END OF TEASER</Text></Paragraph>\n<Paragraph Alignment="Center" Type="End of Act"><Text>END OF ACT ONE</Text></Paragraph>\n<Paragraph Type="New Act"><Text>ACT TWO</Text></Paragraph>\n</Content></FinalDraft>`,
+	retext('ACT TWO', 'ACT TWO: THE TURN')
+);
+
+writeFixture('fdx.json', {
+	import: fdxImport,
+	export: fdxExport,
+	scriptNotes: fdxScriptNotes,
+	rewrite: fdxRewrite
+});
 
 console.log('✓ conformance corpus written to apple/eDraftEngine/Fixtures/');

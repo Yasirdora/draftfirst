@@ -9,9 +9,11 @@ import {
 	writeFdx,
 	writeFdxWithDiagnostics
 } from './fdx.js';
+import { canonicalCasing } from './normalize.js';
 import { parseFountain } from './parse.js';
+import { serialiseFountain } from './serialise.js';
 import { SAMPLE_FOUNTAIN } from '../test/fixtures/sample.js';
-import type { Screenplay } from './types.js';
+import type { ElementType, Screenplay } from './types.js';
 
 const FOREIGN_FDX = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <FinalDraft DocumentType="Script" Version="3">
@@ -921,4 +923,119 @@ describe('FDX · ScriptNotes', () => {
 		expect(limited.scriptNotes).toHaveLength(1);
 		expect(limited.diagnostics.map((d) => d.code)).toEqual(['FDX_SCRIPT_NOTES_LIMIT_REACHED']);
 	});
+});
+
+/**
+ * End of Act through a save.
+ *
+ * The import absorbs End of Act (RFC-ACT-BREAK D3), so no element stands for
+ * it. Left to the alignment, every save deleted the card — and a card with no
+ * Alignment, typed General, was paired with the writer's next edit and given
+ * their text. The save now keeps each card verbatim in front of the next
+ * paragraph it keeps, or after the last element when none is left.
+ */
+describe('openFdx · End of Act', () => {
+	/* A real feature, anonymised, with one End of Act card near its end. */
+	const SAMPLE = readFileSync(
+		new URL('../../../apple/eDraftEngine/Fixtures/sample0-2.fdx', import.meta.url),
+		'utf8'
+	);
+	const twoActs = (card: string) => `<FinalDraft><Content>
+<Paragraph Type="New Act"><Text>ACT ONE</Text></Paragraph>
+<Paragraph Type="Action" id="a1"><Text>Hum.</Text></Paragraph>
+${card}
+<Paragraph Type="New Act"><Text>ACT TWO</Text></Paragraph>
+<Paragraph Type="Action" id="a2"><Text>Buzz.</Text></Paragraph>
+</Content></FinalDraft>`;
+	const CARD = '<Paragraph Alignment="Center" Type="End of Act"><Text>END OF ACT ONE</Text></Paragraph>';
+	const BARE = '<Paragraph Type="End of Act"><Text>END OF ACT ONE</Text></Paragraph>';
+
+	it('a save with no edit returns the feature byte for byte, its End of Act included', () => {
+		expect(SAMPLE).toContain('Type="End of Act" id=');
+		const document = openFdx(SAMPLE);
+		expect(document.rewrite(document.script).xml).toBe(SAMPLE);
+	});
+
+	it('so does the app’s own path: into Fountain and back, with no edit', () => {
+		/* ScreenplayFile.open shouts the kinds a screenplay shouts and hands the
+		   editor Fountain; ScreenplayFile.encode parses it with runs and saves. */
+		const imported = parseFdx(SAMPLE).script;
+		const source = serialiseFountain({
+			...imported,
+			elements: imported.elements.map((element) => ({
+				...element,
+				text: canonicalCasing(element.type as ElementType, element.text)
+			}))
+		});
+		expect(openFdx(SAMPLE).rewrite(parseFountain(source, { emphasis: 'runs' })).xml).toBe(SAMPLE);
+	});
+
+	it('a card with no Alignment never takes the writer’s edit', () => {
+		const document = openFdx(twoActs(BARE));
+		const saved = document.rewrite({
+			...document.script,
+			elements: document.script.elements.map((element) =>
+				element.text === 'Buzz.' ? { ...element, text: 'Buzz, buzz.' } : element
+			)
+		}).xml;
+		expect(saved).toContain(BARE);
+		expect(saved).toContain('<Paragraph Type="Action" id="a2"><Text>Buzz, buzz.</Text></Paragraph>');
+		expect(saved).not.toContain('Type="End of Act"><Text>Buzz');
+	});
+
+	it('lines added at the end of an act land before its card', () => {
+		const document = openFdx(twoActs(CARD));
+		const elements = document.script.elements;
+		const saved = document.rewrite({
+			...document.script,
+			elements: [...elements.slice(0, 2), { type: 'action', text: 'A new last line.' }, ...elements.slice(2)]
+		}).xml;
+		expect(saved.indexOf('A new last line.')).toBeLessThan(saved.indexOf(CARD));
+		expect(saved.indexOf(CARD)).toBeLessThan(saved.indexOf('ACT TWO'));
+	});
+
+	it('keeps the card when the act break it closes is deleted', () => {
+		const document = openFdx(twoActs(CARD));
+		const withoutActTwo = {
+			...document.script,
+			elements: document.script.elements.filter((element) => element.text !== 'ACT TWO')
+		};
+		const saved = document.rewrite(withoutActTwo).xml;
+		expect(saved).toContain(CARD);
+		expect(saved.indexOf(CARD)).toBeLessThan(saved.indexOf('Buzz.'));
+
+		const nothingAfter = document.rewrite({ ...document.script, elements: document.script.elements.slice(0, 2) }).xml;
+		expect(nothingAfter.indexOf('Hum.')).toBeLessThan(nothingAfter.indexOf(CARD));
+	});
+
+	/* Every byte outside the edited paragraph matches the original — for lines
+	   across the feature, and for both paragraphs beside its card. */
+	it.each([0, 6, 9, 17, 298, 536, 764, 765, 766, 767])(
+		'an edit to element %i changes bytes only inside that paragraph',
+		(index) => {
+			const document = openFdx(SAMPLE);
+			const marker = `EDITED ${index}`;
+			const saved = document.rewrite({
+				...document.script,
+				elements: document.script.elements.map((element, at) =>
+					at === index ? { ...element, text: marker } : element
+				)
+			}).xml;
+			const shorter = Math.min(SAMPLE.length, saved.length);
+			let prefix = 0;
+			while (prefix < shorter && SAMPLE[prefix] === saved[prefix]) prefix++;
+			let suffix = 0;
+			while (
+				suffix < shorter - prefix &&
+				SAMPLE[SAMPLE.length - 1 - suffix] === saved[saved.length - 1 - suffix]
+			) {
+				suffix++;
+			}
+			expect(SAMPLE.slice(prefix, SAMPLE.length - suffix)).not.toContain('Paragraph');
+			expect(saved.slice(prefix, saved.length - suffix)).not.toContain('Paragraph');
+			expect(
+				saved.slice(Math.max(0, prefix - marker.length), saved.length - suffix + marker.length)
+			).toContain(marker);
+		}
+	);
 });

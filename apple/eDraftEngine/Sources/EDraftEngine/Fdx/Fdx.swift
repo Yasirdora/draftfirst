@@ -713,11 +713,11 @@ public enum Fdx {
     /// import reaches, so a rewrite cannot disagree with it.
     private static func elementKind(of paragraph: CollectedParagraph) -> ElementKind {
         let key = (paragraph.attribute("type") ?? "").jsTrimmed.lowercased()
-        /* End of Act falls to .general here on purpose: the import absorbed
-           it (RFC-ACT-BREAK D3), so no model element ever matches this span,
-           and an unmatched span is preserved verbatim. The two readers must
-           keep disagreeing — if this one ever absorbed too, the span's bytes
-           would have no owner. */
+        /* End of Act falls to .general here and is kept as a span, marked
+           absorbed by `open` with the rule the import absorbs it with
+           (RFC-ACT-BREAK D3). No element ever stands for it, so the rewrite
+           owns its bytes: dropping the span would lose them, and leaving it
+           unmarked let the alignment delete it. */
         return refineGeneral(fdxElementKind(key)?.type ?? .general, paragraph)
     }
 
@@ -754,12 +754,43 @@ public enum Fdx {
                 return Fdx.writeXml(script)
             }
 
-            let paired = Fdx.align(spans, to: script.elements)
+            /* Only paragraphs the import turned into elements can be matched to
+               one. An absorbed End of Act left in the alignment was deleted by
+               every save, and — typed General when it has no Alignment — was
+               paired with the writer's next edit and given their text. */
+            let paired = Fdx.align(spans.filter { !$0.absorbed }, to: script.elements)
+
+            /* Each absorbed paragraph goes back, verbatim, in front of the
+               first paragraph after it that this save keeps — anchored to what
+               follows, so lines added at the end of an act still land before
+               its End of Act — and after the last element when nothing after
+               it survives. Never dropped: eDraft does not show an End of Act,
+               so no writer can have meant to delete one. Keyed by where each
+               paragraph starts, which is unique. */
+            let kept = Set(paired.compactMap { $0?.start })
+            var absorbedBefore: [Int: [Span]] = [:]
+            var waiting: [Span] = []
+            for span in spans {
+                if span.absorbed {
+                    waiting.append(span)
+                } else if !waiting.isEmpty, kept.contains(span.start) {
+                    absorbedBefore[span.start] = waiting
+                    waiting = []
+                }
+            }
+
             var out: [UInt16] = Array(units[0..<first.start])
             var lead: [UInt16] = []
             var wrote = false
+            func restore(_ span: Span) {
+                if wrote { out += span.lead.isEmpty ? lead : span.lead }
+                if !span.lead.isEmpty { lead = span.lead }
+                out += units[span.start..<span.end]
+                wrote = true
+            }
             for (index, element) in script.elements.enumerated() {
                 if let origin = paired[index] {
+                    absorbedBefore[origin.start]?.forEach(restore)
                     if wrote { out += origin.lead.isEmpty ? lead : origin.lead }
                     if !origin.lead.isEmpty { lead = origin.lead }
                     out += Fdx.rewritten(origin, as: element, in: units)
@@ -770,6 +801,7 @@ public enum Fdx {
                 }
                 wrote = true
             }
+            waiting.forEach(restore)
             out += Array(units[last.end...])
             return Fdx.ensureNamespaceDeclared(
                 String(utf16CodeUnits: out, count: out.count)
@@ -823,6 +855,10 @@ public enum Fdx {
         /// preserving save — a run changed without a character moving still
         /// rewrites the paragraph.
         let runs: [StyleRun]
+        /// Whether the import absorbed this paragraph — an End of Act — so
+        /// that no element will ever stand for it. The rewrite writes these
+        /// back itself and never lets the alignment see them.
+        let absorbed: Bool
     }
 
     /// Opens a Final Draft file and keeps it, so it can be written back whole.
@@ -853,7 +889,8 @@ public enum Fdx {
                 textStart: paragraph.textStart,
                 textEnd: paragraph.textEnd,
                 lead: lead,
-                runs: paragraph.runs
+                runs: paragraph.runs,
+                absorbed: (paragraph.attribute("type") ?? "").jsTrimmed.lowercased() == "end of act"
             ))
         }
 

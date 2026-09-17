@@ -97,9 +97,20 @@ writer's text, not ours.
 ### FDX in
 
 `New Act` maps to `actbreak`, card text kept. `End of Act` maps to **nothing**
-— absorbed, because it carries no fact the model lacks (D3). The preserving
-rewrite is untouched: a file we import and never edit keeps its bytes,
-`End of Act` paragraphs included; only a fresh export generates them.
+— absorbed, because it carries no fact the model lacks (D3). Only a fresh
+export generates them.
+
+The preserving rewrite keeps the ones a file already has. *Corrected
+2026-09-17 (IL-0025):* this section first said the rewrite was untouched and
+kept them anyway. It did not. Nothing tested it, and measured, every save,
+even with no edit, deleted every card; a card with no `Alignment` was paired
+with the writer's next edit and given their words. An absorbed paragraph now
+stays out of the alignment and is written back verbatim in front of the next
+paragraph the save keeps, or after the last element when none is left. It is
+never dropped: eDraft does not show an End of Act, so no writer can have meant
+to delete one. Pinned in both engines by the `rewrite` cases in `fdx.json`,
+and by a save with no edit returning `sample0-2.fdx` byte for byte, through
+EDraftCore's own open-and-save path too.
 
 Both changes land in the TS engine and the Swift port in the same pass,
 pinned to the same commit — the port is a port, not a fork.

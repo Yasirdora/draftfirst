@@ -138,3 +138,104 @@ struct FdxPreservingRoundTripTests {
         #expect(xml.contains("A fresh start."))
     }
 }
+
+/// End of Act through a save.
+///
+/// The import absorbs End of Act (RFC-ACT-BREAK D3), so no element stands for
+/// it. Left to the alignment, every save deleted the card — and a card with
+/// no Alignment, typed General, was paired with the writer's next edit and
+/// given their text. The save now keeps each card verbatim in front of the
+/// next paragraph it keeps, or after the last element when none is left.
+@Suite("FDX preserving round trip · End of Act")
+struct FdxEndOfActRoundTripTests {
+
+    private static let corpus: FdxCorpus.Root = {
+        do { return try FixtureStore.load("fdx.json") }
+        catch {
+            Issue.record("Failed to load fdx.json: \(error)")
+            return FdxCorpus.Root(importCases: [], exportCases: [])
+        }
+    }()
+
+    /// A real feature, anonymised, with one End of Act card near its end.
+    private static let sample: String = {
+        do {
+            return try String(
+                contentsOf: FixtureStore.directory.appendingPathComponent("sample0-2.fdx"),
+                encoding: .utf8
+            )
+        } catch {
+            Issue.record("Failed to load sample0-2.fdx: \(error)")
+            return ""
+        }
+    }()
+
+    @Test("corpus loads non-empty")
+    func corpusLoads() {
+        #expect(Self.corpus.rewriteCases.count == 9)
+    }
+
+    @Test("rewrite", arguments: Self.corpus.rewriteCases)
+    func rewrite(_ case_: FdxCorpus.RewriteCase) {
+        #expect(Fdx.open(case_.source).rewrite(case_.screenplay) == case_.expected.xml,
+                "\(case_.name): the save differs from the TypeScript engine")
+    }
+
+    @Test("A save with no edit returns the feature byte for byte, its End of Act included")
+    func featureNoOpIsIdentical() {
+        let document = Fdx.open(Self.sample)
+        #expect(Self.sample.contains("Type=\"End of Act\" id="))
+        #expect(document.rewrite(document.script) == Self.sample)
+    }
+
+    @Test("A card with no Alignment never takes the writer's edit")
+    func bareCardKeepsItsBytes() throws {
+        let card = "<Paragraph Type=\"End of Act\"><Text>END OF ACT ONE</Text></Paragraph>"
+        let xml = """
+        <FinalDraft><Content>
+        <Paragraph Type="New Act"><Text>ACT ONE</Text></Paragraph>
+        \(card)
+        <Paragraph Type="New Act"><Text>ACT TWO</Text></Paragraph>
+        <Paragraph Type="Action" id="a2"><Text>Buzz.</Text></Paragraph>
+        </Content></FinalDraft>
+        """
+        let document = Fdx.open(xml)
+        var script = document.script
+        let index = try #require(script.elements.firstIndex { $0.text == "Buzz." })
+        script.elements[index].text = "Buzz, buzz."
+        let saved = document.rewrite(script)
+
+        #expect(saved.contains(card))
+        #expect(saved.contains("<Paragraph Type=\"Action\" id=\"a2\"><Text>Buzz, buzz.</Text></Paragraph>"))
+        #expect(!saved.contains("Type=\"End of Act\"><Text>Buzz"))
+    }
+
+    /// Every byte outside the edited paragraph matches the original — for
+    /// lines across the feature, and for both paragraphs beside its card.
+    @Test("An edit changes bytes only inside the paragraph that was edited",
+          arguments: [0, 6, 9, 17, 298, 536, 764, 765, 766, 767])
+    func editIsConfined(_ index: Int) {
+        let document = Fdx.open(Self.sample)
+        var script = document.script
+        let marker = "EDITED \(index)"
+        script.elements[index].text = marker
+        let original = Array(Self.sample.utf8)
+        let saved = Array(document.rewrite(script).utf8)
+
+        let shorter = min(original.count, saved.count)
+        var prefix = 0
+        while prefix < shorter, original[prefix] == saved[prefix] { prefix += 1 }
+        var suffix = 0
+        while suffix < shorter - prefix,
+              original[original.count - 1 - suffix] == saved[saved.count - 1 - suffix] {
+            suffix += 1
+        }
+        let removed = String(decoding: original[prefix..<(original.count - suffix)], as: UTF8.self)
+        let added = String(decoding: saved[prefix..<(saved.count - suffix)], as: UTF8.self)
+        #expect(!removed.contains("Paragraph") && !added.contains("Paragraph"),
+                "element \(index): the save changed bytes outside the edited paragraph")
+        let window = saved[max(0, prefix - marker.utf8.count)..<min(saved.count, saved.count - suffix + marker.utf8.count)]
+        #expect(String(decoding: window, as: UTF8.self).contains(marker),
+                "element \(index): the change is not where the edit is")
+    }
+}

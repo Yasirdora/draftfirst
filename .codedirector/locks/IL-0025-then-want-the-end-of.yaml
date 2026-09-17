@@ -1,0 +1,166 @@
+schemaVersion: 1
+id: IL-0025
+status: verified
+utterance: Then I want the End of Act deletion fixed next — silent data loss on save jumps the queue ahead of the notes UI. Draft it as its own lock with the same round-trip rigor. The notes surfacing lock comes after that.
+goal: Saving a Final Draft file never loses or corrupts an End of Act card. A save with no edit returns the file byte for byte — through both engines and through the app's own open-and-save path — and an edit changes bytes only inside the paragraph the writer edited. An absorbed End of Act is never paired with a script element, so it can never take a writer's text, and it is kept in its place.
+interpretation: |
+  Measured 2026-09-17 at 10ba913, in both ports, before any design.
+
+  TWO FAILURES, ONE CAUSE. The import absorbs End of Act (RFC-ACT-BREAK D3),
+  so no script element stands for it. The preserving save only writes origin
+  paragraphs that pair with an element; everything between the first and last
+  body paragraph is otherwise replaced. So:
+
+    1. DELETION. Any save, with no edit, drops every End of Act card.
+       sample0-2.fdx loses its one card (261 chars) through Fdx.open/openFdx,
+       and identically through the app's real path (ScreenplayFile.open →
+       Fountain → ScreenplayFile.encode). Nothing else is lost on that path —
+       the 11 elements Fountain retypes (shot, general) are already recovered.
+    2. CORRUPTION. The absorbed span is typed `general` when the card has no
+       Alignment attribute, and `general` is in FOUNTAIN_FLATTENS, so the
+       edit-in-place pass pairs it with the writer's next edited paragraph.
+       Measured: editing "Buzz." to "Buzz, buzz." after a bare card writes
+       <Paragraph Type="End of Act"><Text>Buzz, buzz.</Text></Paragraph> —
+       the writer's line becomes an act ending in Final Draft, the real Action
+       paragraph and its attributes are gone, and so is the card.
+
+  RFC-ACT-BREAK §3 records the opposite ("a file we import and never edit
+  keeps its bytes, End of Act paragraphs included"). It was never tested:
+  every no-op identity test in both ports uses a file without an End of Act.
+
+  THE FIX. The save gives absorbed paragraphs an owner instead of leaving them
+  to the alignment:
+
+    - The origin spans mark a paragraph the import absorbed. The two readers
+      keep deciding "absorbed" from the same rule (Type is End of Act).
+    - Alignment — the longest-common-subsequence and the edit-in-place pass —
+      sees only spans the import turned into elements. An absorbed span can no
+      longer be matched, paired, retyped or given text.
+    - The rewrite writes each absorbed span verbatim, with the whitespace that
+      preceded it, immediately before the first paragraph after it in the file
+      that the save still keeps. With none left after it, it goes after the
+      last element. Several in a row keep their file order.
+
+  Anchoring to what FOLLOWS is what keeps an act's shape: lines a writer adds
+  at the end of act one land before END OF ACT ONE, because they are inserted
+  before ACT TWO and the card travels with ACT TWO.
+
+  No-op identity follows by construction: every span is emitted once, in
+  order, with its own lead.
+
+  NOT CHANGED. The import (parseFdx / Fdx.parse), the ScriptNotes reader and
+  the fresh export (writeFdx / Fdx.write) have no changed lines, so every
+  existing fdx.json case keeps its expected output. End of Act stays absorbed
+  and invisible in eDraft; the model and Fountain gain nothing.
+
+  RIGOR, mirroring IL-0024:
+    - both ports, no-op byte identity on the committed sample0-2.fdx, and the
+      same through EDraftCore's ScreenplayFile open → encode (the app's path);
+    - an edit sweep over the fixture — including the card's neighbours — where
+      every byte outside the edited paragraph must match the original;
+    - a new `rewrite` section in fdx.json pinning Swift's save output to
+      TypeScript's byte for byte on act-shaped scripts: no-op with centred and
+      bare cards, the hijack edit, lines added at the end of an act, the act
+      break after a card deleted, everything after a card deleted, a card
+      first in the body, two cards in a row;
+    - RFC-ACT-BREAK §3 corrected to state the mechanism and the test that
+      now holds it.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the import is unchanged — parseFdx/Fdx.parse, the ScriptNotes reader and writeFdx/Fdx.write have no changed lines, and every existing fdx.json import, export and scriptNotes case keeps its expected output exactly
+  - kind: custom
+    text: End of Act stays absorbed on import (RFC-ACT-BREAK D3); Screenplay, the Fountain parser/serialiser and everything eDraft shows are unchanged
+  - kind: custom
+    text: a save with no edit returns sample0-2.fdx byte for byte — through openFdx, Fdx.open, and EDraftCore's ScreenplayFile.open → encode
+  - kind: custom
+    text: an edit changes bytes only inside the paragraph that was edited — proven by a sweep over the fixture in both ports, including the paragraphs beside the End of Act card
+  - kind: custom
+    text: an absorbed paragraph is never paired with a script element — it never receives a writer's text, never changes type, and is never deleted by a save
+  - kind: custom
+    text: the committed fixture apple/eDraftEngine/Fixtures/sample0-2.fdx is not modified
+  - kind: custom
+    text: both ports produce identical rewrite output for every rewrite corpus case
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/normalize.ts
+  - packages/edraft/src/acts.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/sample0-2.fdx
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+change: "The preserving FDX save owns absorbed End of Act paragraphs: they are kept out of alignment and written back verbatim before the next paragraph the save keeps, in both engines — pinned by no-op identity through the app's path, an edit sweep, and a rewrite conformance corpus."
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1200000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxPreservingRoundTripTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift
+    - docs/RFC-ACT-BREAK.md
+  symbols: []
+  maxFiles: 10
+  maxLines: 1200
+accept:
+  - "A save with no edit returns sample0-2.fdx byte for byte in both ports and through ScreenplayFile.open → encode (today: 261 chars short)."
+  - "The measured hijack is gone: with a card that has no Alignment, editing \"Buzz.\" to \"Buzz, buzz.\" rewrites only that Action paragraph; the card's bytes are unchanged."
+  - Lines added at the end of an act land before that act's End of Act card.
+  - Deleting the act break that follows a card keeps the card, written before the next paragraph the save keeps; with nothing kept after it, after the last element.
+  - "Edit sweep: for elements across the fixture, including those beside the End of Act card, every byte outside the edited paragraph matches the original, in both ports."
+  - The rewrite section of fdx.json is reproduced byte for byte by Swift.
+  - "Existing suites stay green: 632 TypeScript package tests, 170 Swift engine tests, and every EDraftCore test, 0 failures."
+assumptions:
+  - text: Budget replaced by hand. The auto-draft anchored on RevisionDiff.same, IncrementalPaginationTests.deletion, RevisionsTests.deletion, NavigatorOutlineTests.act and NoteListFilterTests.notes — matches on 'same', 'deletion', 'act' and 'notes' — and proposed Revisions and UI test files unrelated to the save.
+    source: system
+    confirmed: false
+  - text: "Decided by the human — when the act break a card closes is deleted in eDraft, the card is KEPT (written before the next paragraph the save keeps), never dropped: a writer can't intend to delete what eDraft never shows them, and ScriptAsides.merge sets the precedent. The accepted cost: a stale card can remain in Final Draft for the writer to remove there."
+    source: user
+    confirmed: true
+  - text: Scope approved by the human as drafted.
+    source: user
+    confirmed: true
+  - text: "Out of scope, noted: an act break INSERTED in eDraft into a preserved file gets no generated End of Act (only a fresh export generates them). That is a missing card, not lost data."
+    source: system
+    confirmed: false
+  - text: "Out of scope, still parked by the human: ScriptNote Ranges are not shifted by a save."
+    source: user
+    confirmed: true
+  - text: docs/RFC-ACT-BREAK.md is in budget only to correct §3's false claim that the preserving rewrite already keeps End of Act paragraphs.
+    source: system
+    confirmed: false
+  - text: "EDraftCore is test-only here: FdxSaveBackTests gains the fixture through the app's real open → encode path. EDraftCore sources are denied."
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T04:08:21.660Z
+createdBy: Yasirdora
