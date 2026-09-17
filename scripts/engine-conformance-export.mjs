@@ -1155,6 +1155,26 @@ addScriptNotes(
    paragraph keeps its length and every Range lands where it did. The script
    itself is pinned elsewhere; this case pins the notes. */
 addScriptNotes('sample0-2', { file: 'sample0-2.fdx' }, {}, { withScript: false });
+/* Files Final Draft itself wrote, anonymised, their notes' Ranges measured on
+   exactly these paragraphs: every note lands on whole words, or is empty. */
+addScriptNotes('finaldraft-sample02', { file: 'finaldraft-sample02.fdx' }, {}, { withScript: false });
+addScriptNotes('finaldraft-sample01', { file: 'finaldraft-sample01.fdx' }, {}, { withScript: false });
+/* A block Final Draft embeds in a paragraph counts two units where it sits,
+   its own paragraphs' text nothing. Paragraphs start at 0, 5 (a dual dialogue:
+   units 5-6), 8 ("Omitted", then its omitted scene: units 15-16) and 18; the
+   script ends at 21. */
+addScriptNotes('script-notes-embedded-blocks', {
+	source: `<FinalDraft><Content><Paragraph Type="Action"><Text>Hum.</Text></Paragraph><Paragraph Type="General"><DualDialogue><Paragraph Type="Character"><Text>MARA</Text></Paragraph><Paragraph Type="Dialogue"><Text>Yes.</Text></Paragraph><Paragraph Type="Character"><Text>JON</Text></Paragraph><Paragraph Type="Dialogue"><Text>No.</Text></Paragraph></DualDialogue></Paragraph><Paragraph Type="Scene Heading"><Text>Omitted</Text><OmittedScene><Paragraph Type="Scene Heading"><Text>EXT. YARD - DAY</Text></Paragraph></OmittedScene></Paragraph><Paragraph Type="Action"><Text>Go.</Text></Paragraph></Content><ScriptNotes>${[
+		['1', '0,4', 'the line before'],
+		['2', '5,7', 'on the dual dialogue and its break'],
+		['3', '8,15', 'the text before an omitted scene'],
+		['4', '15,16', 'on the omitted scene'],
+		['5', '17,18', 'from the break after it to the next line'],
+		['6', '18,21', 'the line after both blocks']
+	]
+		.map(([id, range, text]) => `<ScriptNote Id="${id}" Range="${range}"><Paragraph><Text>${text}</Text></Paragraph></ScriptNote>`)
+		.join('')}</ScriptNotes></FinalDraft>`
+});
 
 /* The preserving save: a file edited, not rebuilt. Each case is the file,
    the screenplay the save is handed, and the bytes it must write. Pinned

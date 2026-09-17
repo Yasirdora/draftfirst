@@ -332,6 +332,10 @@ public enum Fdx {
         var textEnd: Int = -1
         /// The runs the paragraph's direct-child <Text> elements declared.
         var runs: [StyleRun] = []
+        /// Where each block Final Draft embeds in the paragraph — a
+        /// <DualDialogue>, an <OmittedScene> — sits among its text, as a
+        /// UTF-16 offset into `text` (TypeScript `FdxParagraph.blocks`).
+        var blocks: [Int] = []
 
         func attribute(_ name: String) -> String? {
             attributes.last { $0.name == name }?.value
@@ -439,6 +443,11 @@ public enum Fdx {
                 contents.append(parent == "finaldraft" || parent == "titlepage")
             }
 
+            /* A block Final Draft embeds in the paragraph is still skipped as
+               metadata, but its place is kept: a ScriptNote Range counts it. */
+            if metadataDepth == 0, Fdx.embeddedBlocks.contains(tag.name), let place = current?.text.utf16.count {
+                current?.blocks.append(place)
+            }
             // Inside a paragraph, anything that is not its own <Text> is
             // metadata — including nested paragraphs. Skipped whole.
             if current != nil,
@@ -643,7 +652,8 @@ public enum Fdx {
                these. Absorbed without a warning: a diagnostic the reader cannot
                act on only teaches them to ignore the list. */
             layout.append(ParagraphLayout(
-                length: paragraph.text.utf16.count,
+                length: paragraph.text.utf16.count + Fdx.blockUnits * paragraph.blocks.count,
+                blocks: paragraph.blocks,
                 element: key == "end of act" ? nil : elements.count
             ))
             if key == "end of act" { continue }

@@ -831,24 +831,74 @@ describe('FDX · ScriptNotes', () => {
 		expect(sample.diagnostics).toEqual([]);
 	});
 
-	it('anchors each Range on the text it was measured on', () => {
-		const elements = sample.script.elements;
-		/* exactly one whole character cue */
-		expect(note('110')?.anchor).toEqual({
-			start: { element: 536, offset: 0 },
-			end: { element: 536, offset: 6 }
+	/* The Ranges in sample0-2.fdx were measured before an eDraft save moved
+	   its text; the files Final Draft wrote are where a Range can be held to
+	   the words it was written on. */
+	const finalDraftWritten = (name: string) =>
+		parseFdx(readFileSync(new URL(`../../../apple/eDraftEngine/Fixtures/${name}`, import.meta.url), 'utf8'));
+
+	it.each([
+		['finaldraft-sample02.fdx', 11, 10],
+		['finaldraft-sample01.fdx', 12, 11]
+	] as const)('every note in %s lands on whole words, or is empty', (name, notes, onWords) => {
+		const { script, scriptNotes } = finalDraftWritten(name);
+		const letter = (character: string | undefined) => character !== undefined && /[\p{L}\p{N}]/u.test(character);
+		const midWord = (at: { element: number; offset: number }) => {
+			const text = script.elements[at.element].text;
+			return letter(text[at.offset - 1]) && letter(text[at.offset]);
+		};
+		expect(scriptNotes).toHaveLength(notes);
+		const anchors = scriptNotes.map((scriptNote) => scriptNote.anchor);
+		expect(anchors.filter((anchor) => anchor === undefined)).toEqual([]);
+		expect(scriptNotes.filter(({ anchor }) => anchor && (midWord(anchor.start) || midWord(anchor.end))).map((n) => n.id)).toEqual([]);
+		const empty = anchors.filter((anchor) => anchor && anchor.start.element === anchor.end.element && anchor.start.offset === anchor.end.offset);
+		expect(empty).toHaveLength(notes - onWords);
+	});
+
+	it('anchors each Range on the words Final Draft measured it on, two units for each embedded block before it', () => {
+		const { script, scriptNotes } = finalDraftWritten('finaldraft-sample02.fdx');
+		const elements = script.elements;
+		const at = (id: string) => scriptNotes.find((candidate) => candidate.id === id)?.anchor;
+		/* before any block: the shot it is about, whole */
+		expect(at('107')).toEqual({ start: { element: 6, offset: 0 }, end: { element: 6, offset: 20 } });
+		expect([elements[6].type, elements[6].text.length]).toEqual(['shot', 20]);
+		/* after five dual dialogues: exactly one action line */
+		expect(at('109')).toEqual({ start: { element: 295, offset: 0 }, end: { element: 295, offset: 41 } });
+		expect([elements[295].type, elements[295].text.length]).toEqual(['action', 41]);
+		/* exactly one line of dialogue */
+		expect(at('110')).toEqual({ start: { element: 533, offset: 0 }, end: { element: 533, offset: 6 } });
+		expect([elements[533].type, elements[533].text.length]).toEqual(['dialogue', 6]);
+		/* after the omitted scene too: from a cue to the start of the next line */
+		expect(at('111')).toEqual({ start: { element: 578, offset: 0 }, end: { element: 580, offset: 0 } });
+		/* zero-length, at the end of the script's last line */
+		expect(at('112')).toEqual({ start: { element: 761, offset: 13 }, end: { element: 761, offset: 13 } });
+		expect(elements).toHaveLength(762);
+	});
+
+	it('counts a block embedded in a paragraph as two units where it sits, its own text nothing', () => {
+		const ranges = ['0,4', '5,7', '8,15', '15,16', '17,18', '18,21'];
+		const xml = `<FinalDraft><Content><Paragraph Type="Action"><Text>Hum.</Text></Paragraph><Paragraph Type="General"><DualDialogue><Paragraph Type="Character"><Text>MARA</Text></Paragraph><Paragraph Type="Dialogue"><Text>Yes.</Text></Paragraph><Paragraph Type="Character"><Text>JON</Text></Paragraph><Paragraph Type="Dialogue"><Text>No.</Text></Paragraph></DualDialogue></Paragraph><Paragraph Type="Scene Heading"><Text>Omitted</Text><OmittedScene><Paragraph Type="Scene Heading"><Text>EXT. YARD - DAY</Text></Paragraph></OmittedScene></Paragraph><Paragraph Type="Action"><Text>Go.</Text></Paragraph></Content><ScriptNotes>${ranges
+			.map((range) => `<ScriptNote Range="${range}"><Paragraph><Text>n</Text></Paragraph></ScriptNote>`)
+			.join('')}</ScriptNotes></FinalDraft>`;
+		const { script, scriptNotes } = parseFdx(xml);
+		expect(script.elements.map((element) => [element.type, element.text])).toEqual([
+			['action', 'Hum.'],
+			['general', ''],
+			['scene', 'Omitted'],
+			['action', 'Go.']
+		]);
+		const span = (element: number, start: number, endElement: number, end: number) => ({
+			start: { element, offset: start },
+			end: { element: endElement, offset: end }
 		});
-		expect(elements[536].type).toBe('character');
-		expect(elements[536].text.length).toBe(6);
-		/* the shot it is about, from its first character */
-		expect(note('107')?.anchor?.start).toEqual({ element: 6, offset: 0 });
-		expect(elements[6].type).toBe('shot');
-		/* zero-length, inside the absorbed End of Act: the next element */
-		expect(note('112')?.range).toEqual({ start: 25736, end: 25736 });
-		expect(note('112')?.anchor?.start).toEqual({ element: 766, offset: 0 });
-		/* across elements */
-		expect(note('137')?.anchor?.start.element).toBe(17);
-		expect(note('137')?.anchor?.end.element).toBe(27);
+		expect(scriptNotes.map((scriptNote) => scriptNote.anchor)).toEqual([
+			span(0, 0, 0, 4), // the line before
+			span(1, 0, 1, 0), // the dual dialogue's two units and its break: its place
+			span(2, 0, 2, 7), // "Omitted"
+			span(2, 7, 2, 7), // the omitted scene's two units: its place, after the text
+			span(2, 7, 3, 0), // the break after it, to the next line
+			span(3, 0, 3, 3) // the line after both — past the script's end, counted as zero
+		]);
 	});
 
 	it('keeps a body’s paragraphs, blank ones included', () => {

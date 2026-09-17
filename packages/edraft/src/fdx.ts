@@ -559,6 +559,9 @@ interface FdxParagraph {
 	text: string;
 	paragraphIndex: number;
 	runs: StyleRun[];
+	/** Where each block Final Draft embeds in the paragraph — a <DualDialogue>,
+	    an <OmittedScene> — sits among its text, as an offset into `text`. */
+	blocks: number[];
 }
 
 interface ParsedParagraphs {
@@ -713,6 +716,11 @@ function paragraphsOf(
 					contents.push(parent === 'finaldraft' || parent === 'titlepage');
 				}
 
+				/* A block Final Draft embeds in the paragraph is still skipped as
+				   metadata, but its place is kept: a ScriptNote Range counts it. */
+				if (current && metadataDepth === 0 && EMBEDDED_BLOCKS.has(tag.name)) {
+					current.blocks.push(current.text.length);
+				}
 				// Inside a paragraph, anything that is not its own <Text> is
 				// metadata — including nested paragraphs. Skipped whole.
 				if (current && (metadataDepth > 0 || (tag.name !== 'text' && tag.name !== 'content'))) {
@@ -745,7 +753,8 @@ function paragraphsOf(
 						end: offset,
 						textStart: -1,
 						textEnd: -1,
-						runs: []
+						runs: [],
+						blocks: []
 					};
 					paragraphCount++;
 				}
@@ -921,7 +930,11 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 			   an act ends where the next one begins, and the export regenerates
 			   these. Absorbed without a warning: a diagnostic the reader cannot
 			   act on only teaches them to ignore the list. */
-			layout.push({ length: paragraph.text.length, element: key === 'end of act' ? -1 : elements.length });
+			layout.push({
+				length: paragraph.text.length + BLOCK_UNITS * paragraph.blocks.length,
+				blocks: paragraph.blocks,
+				element: key === 'end of act' ? -1 : elements.length
+			});
 			if (key === 'end of act') continue;
 			const kind = fdxElementKind(key);
 			if (!kind && fdxType !== '') {
@@ -1032,11 +1045,38 @@ function refineGeneral(type: AnyElementType, paragraph: FdxParagraph): AnyElemen
 
 /* ---- script notes ------------------------------------------------------- */
 
-/** One body paragraph as a ScriptNote Range counts it: its text length, and
+/**
+ * The blocks Final Draft embeds inside a script paragraph, and what each
+ * counts in a ScriptNote Range: two units, wherever it sits, its own
+ * paragraphs' text nothing.
+ *
+ * Measured on files Final Draft wrote. Counted as zero, every position after
+ * a block landed two units late for each block before it: in each of two
+ * files, two notes began mid-word and one fell past the script's end. Counted
+ * as two, every note lands on whole words or is empty.
+ */
+const EMBEDDED_BLOCKS: ReadonlySet<string> = new Set(['dualdialogue', 'omittedscene']);
+const BLOCK_UNITS = 2;
+
+/** One body paragraph as a ScriptNote Range counts it: its text length plus
+    two units for each embedded block, where those blocks sit in its text, and
     the element it became — -1 when the import absorbed it. */
 interface ParagraphLayout {
 	length: number;
+	blocks: number[];
 	element: number;
+}
+
+/** A unit of a paragraph as a Range counts it, as an offset into its text:
+    the units of an embedded block are the place it sits. */
+function textOffsetIn(paragraph: ParagraphLayout, unit: number): number {
+	let passed = 0;
+	for (const at of paragraph.blocks) {
+		if (unit < at + passed) break;
+		if (unit < at + passed + BLOCK_UNITS) return at;
+		passed += BLOCK_UNITS;
+	}
+	return Math.min(unit - passed, paragraph.length - BLOCK_UNITS * paragraph.blocks.length);
 }
 
 /** The script's text as a ScriptNote Range counts it. */
@@ -1081,14 +1121,14 @@ function positionIn(text: ScriptText, position: number): FdxScriptNotePosition |
 		else high = middle - 1;
 	}
 	if (layout[low].element !== -1) {
-		return { element: layout[low].element, offset: position - starts[low] };
+		return { element: layout[low].element, offset: textOffsetIn(layout[low], position - starts[low]) };
 	}
 	for (let next = low + 1; next < layout.length; next++) {
 		if (layout[next].element !== -1) return { element: layout[next].element, offset: 0 };
 	}
 	for (let previous = low - 1; previous >= 0; previous--) {
 		if (layout[previous].element !== -1) {
-			return { element: layout[previous].element, offset: layout[previous].length };
+			return { element: layout[previous].element, offset: textOffsetIn(layout[previous], layout[previous].length) };
 		}
 	}
 	return undefined;

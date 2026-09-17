@@ -1,0 +1,119 @@
+schemaVersion: 1
+id: IL-0031
+status: verified
+utterance: Then proceed to the counting fix.
+goal: "A ScriptNote's anchor lands where Final Draft's Range points: each block Final Draft embeds in a script paragraph (DualDialogue, OmittedScene) counts two units, so on both Final Draft-written fixtures every note is anchored and none lands mid-word — in both engines, proven failing on today's counting."
+interpretation: |
+  The counting fix the human queued after IL-0028 ("Range rule: embedded
+  blocks +2, pinned by Final Draft-written files"), ahead of dual-dialogue
+  visibility and Range maintenance. A reading fix only: which element and
+  offset a note's Range lands on. No Range value is written.
+
+  The rule, measured 2026-09-17 on Final Draft's own saves: a Range counts
+  UTF-16 units over the script's top-level paragraphs, one per paragraph
+  break, End of Act included — and each block Final Draft embeds inside a
+  paragraph, <DualDialogue> or <OmittedScene>, counts two units, its own
+  paragraphs' text nothing. IL-0024's reader counts those blocks as zero, so
+  every position after one lands two units late per block before it.
+
+  Prototyped at fc81475 and measured on the anonymised Final Draft-written
+  fixtures (anonymisation keeps every letter's place, so word boundaries are
+  the originals'):
+
+    finaldraft-sample01.fdx (6 dual dialogues), 12 notes
+      today: 9 on whole words, 2 mid-word, 1 with no anchor (falls past the
+             script's end)
+      fixed: 11 on whole words, 1 zero-length, none mid-word, all anchored
+    finaldraft-sample02.fdx (6 dual dialogues, 1 omitted scene), 11 notes
+      today: 8 on whole words, 2 mid-word, 1 with no anchor
+      fixed: 10 on whole words, 1 zero-length, none mid-word, all anchored
+
+  THE CHANGE, both engines: the paragraph collector records where each such
+  block sits among its paragraph's text (it stays skipped as metadata); the
+  Range layout adds two units per block at that place; a position that falls
+  on a block's units maps to the text offset where the block sits. In every
+  measured file the blocks sit after the paragraph's text (the omitted
+  scene's "Omitted") or in a paragraph with none (dual dialogue), so offsets
+  inside text are unaffected there.
+
+  sample0-2.fdx is the eDraft-saved copy whose Ranges drifted; its pinned
+  anchors (the IL-0024 corpus case and the tests on notes 107/110/112/137)
+  move by two units per block before them. The anchor proofs move to the
+  Final Draft-written fixtures, where "lands on the words it was written on"
+  can be checked.
+
+  Out of scope, next in the queue: dual-dialogue speech becoming visible (its
+  own lock), Range maintenance, role, writing eDraft notes into ScriptNotes.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: on both Final Draft-written fixtures every ScriptNote is anchored and none lands mid-word, in both engines; each such proof fails on today's counting
+  - kind: custom
+    text: the imported screenplay (every element, run and diagnostic), the preserving save and the export are unchanged — only scriptNotes anchors move; no Range value and no byte of any file is written
+  - kind: custom
+    text: every existing fdx.json case keeps its expected output except the sample0-2 ScriptNotes case, whose anchor changes are listed and reviewed
+  - kind: custom
+    text: both ports produce identical ScriptNotes readings for every corpus case, the Final Draft-written fixtures included
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/style.ts
+  - packages/edraft/src/normalize.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/*.fdx
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/XmlScanner.swift
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - docs/**
+  - "*.xcodeproj/**"
+  - "**/DerivedData/**"
+change: A ScriptNote Range counts each DualDialogue or OmittedScene block Final Draft embeds in a script paragraph as two units, where it sits — in both engines, proven on the Final Draft-written fixtures.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxScriptNotesTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/ImportedNotesTests.swift
+  symbols: []
+  maxFiles: 9
+  maxLines: 1400
+accept:
+  - "finaldraft-sample01.fdx: 12 of 12 notes anchored, 11 on whole words and 1 zero-length, none mid-word; finaldraft-sample02.fdx: 11 of 11 anchored, 10 on whole words and 1 zero-length, none mid-word. Both engines, and through the app's imported notes. Each proof fails on today's counting."
+  - A synthetic corpus case pins the unit rule itself — a dual dialogue and an omitted scene with text before it, a Range on each side of each and one on a block's own units — identical in both ports.
+  - Both Final Draft-written fixtures become ScriptNotes corpus cases.
+  - "No other corpus expectation changes except sample0-2's anchors; suites green: 687 TypeScript, 183 Swift engine, 335 EDraftCore, plus the new proofs."
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft came back low-confidence, anchored on "then" inside test names, and proposed EditorState and three unrelated EDraftCore tests.
+    source: system
+    confirmed: false
+  - text: "Queued by the human: the counting fix follows IL-0028, pinned by Final Draft-written files; dual-dialogue visibility is its own lock, immediately after."
+    source: user
+    confirmed: true
+  - text: "Measured structure, not a guess at others: only DualDialogue and OmittedScene are counted — the two block kinds present in the files the rule was measured on. A block before a paragraph's text is counted where it sits; no measured file has one."
+    source: system
+    confirmed: false
+  - text: "maxLines 1,400: engine ~80 lines per port, tests ~250, exporter ~50, corpus ~850 (the two fixtures' 23 notes pinned as data, and sample0-2's moved anchors)."
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T14:30:30.262Z
+createdBy: Yasirdora

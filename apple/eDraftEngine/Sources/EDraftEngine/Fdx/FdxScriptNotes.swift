@@ -99,12 +99,38 @@ extension Fdx {
 
     // MARK: - Where a Range lands
 
+    /// The blocks Final Draft embeds inside a script paragraph, and what each
+    /// counts in a ScriptNote Range: two units, wherever it sits, its own
+    /// paragraphs' text nothing (TypeScript `EMBEDDED_BLOCKS`, `BLOCK_UNITS`).
+    ///
+    /// Measured on files Final Draft wrote. Counted as zero, every position
+    /// after a block landed two units late for each block before it: in each
+    /// of two files, two notes began mid-word and one fell past the script's
+    /// end. Counted as two, every note lands on whole words or is empty.
+    static let embeddedBlocks: Set<String> = ["dualdialogue", "omittedscene"]
+    static let blockUnits = 2
+
     /// One body paragraph as a ScriptNote Range counts it: its text length in
-    /// UTF-16 units, and the element it became — `nil` when the import
+    /// UTF-16 units plus two for each embedded block, where those blocks sit
+    /// in its text, and the element it became — `nil` when the import
     /// absorbed it (TypeScript `ParagraphLayout`).
     struct ParagraphLayout {
         let length: Int
+        let blocks: [Int]
         let element: Int?
+
+        /// A unit of the paragraph as a Range counts it, as an offset into
+        /// its text: the units of an embedded block are the place it sits
+        /// (TypeScript `textOffsetIn`).
+        func textOffset(_ unit: Int) -> Int {
+            var passed = 0
+            for at in blocks {
+                if unit < at + passed { break }
+                if unit < at + passed + Fdx.blockUnits { return at }
+                passed += Fdx.blockUnits
+            }
+            return min(unit - passed, length - Fdx.blockUnits * blocks.count)
+        }
     }
 
     /// The script's text as a ScriptNote Range counts it (TypeScript
@@ -151,14 +177,14 @@ extension Fdx {
                 if starts[middle] <= position { low = middle } else { high = middle - 1 }
             }
             if let element = layout[low].element {
-                return .init(element: element, offset: position - starts[low])
+                return .init(element: element, offset: layout[low].textOffset(position - starts[low]))
             }
             for next in layout[(low + 1)...] {
                 if let element = next.element { return .init(element: element, offset: 0) }
             }
             for previous in layout[..<low].reversed() {
                 if let element = previous.element {
-                    return .init(element: element, offset: previous.length)
+                    return .init(element: element, offset: previous.textOffset(previous.length))
                 }
             }
             return nil

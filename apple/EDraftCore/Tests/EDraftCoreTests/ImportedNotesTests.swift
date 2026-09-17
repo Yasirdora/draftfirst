@@ -81,6 +81,40 @@ final class ImportedNotesTests: XCTestCase {
         }
     }
 
+    /// A file Final Draft itself wrote, whose notes' Ranges were measured on
+    /// exactly its paragraphs — past six dual dialogues and an omitted scene,
+    /// each of which a Range counts as two units. Counted as none, the notes
+    /// after them sat on the lines below the ones they are about, and the last
+    /// fell past the end of the script and had no line at all.
+    func testNotesPastDualDialogueAndAnOmittedSceneLandOnTheirOwnLines() throws {
+        let data = try Data(contentsOf: URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // EDraftCoreTests/
+            .deletingLastPathComponent()   // Tests/
+            .deletingLastPathComponent()   // EDraftCore/
+            .deletingLastPathComponent()   // apple/
+            .appendingPathComponent("eDraftEngine/Fixtures/finaldraft-sample02.fdx"))
+        let (editor, _, _) = try opened(data)
+        let document = ScriptAsides.merge(page: editor.screenplay.elements, asides: editor.asides)
+        let notes = editor.importedNotes
+        XCTAssertEqual(notes.count, 11)
+        XCTAssertEqual(notes.compactMap(\.anchor).count, 11, "a note has no line")
+
+        func line(_ note: Int) throws -> ScriptElement {
+            let id = try XCTUnwrap(notes[note].anchor, "note \(note) has no line")
+            return try XCTUnwrap(document.first { $0.id == id })
+        }
+        // One whole action line, after five dual dialogues.
+        XCTAssertEqual(try line(7).type, .action)
+        XCTAssertEqual(try line(7).text.utf16.count, 41)
+        // One whole line of dialogue.
+        XCTAssertEqual(try line(8).type, .dialogue)
+        XCTAssertEqual(try line(8).text.utf16.count, 6)
+        // A cue, after the omitted scene too.
+        XCTAssertEqual(try line(9).type, .character)
+        // The script's last line.
+        XCTAssertEqual(try line(10).id, document.last?.id)
+    }
+
     func testANoteKeepsItsTitleCategoryAndDate() throws {
         let (editor, _, _) = try opened(try feature())
         let thread = try XCTUnwrap(editor.importedNotes.first { $0.title == "Re: Re: Xxxx Xxx" })

@@ -5730,11 +5730,11 @@
             "anchor": {
               "start": {
                 "element": 298,
-                "offset": 58
+                "offset": 48
               },
               "end": {
                 "element": 299,
-                "offset": 32
+                "offset": 22
               }
             },
             "text": "X xxxx xxxx - xxx xxxxxxxxx xxx xxxxxxxxxxxx xxxxxxxx."
@@ -5752,11 +5752,277 @@
             },
             "anchor": {
               "start": {
-                "element": 536,
+                "element": 535,
+                "offset": 14
+              },
+              "end": {
+                "element": 535,
+                "offset": 20
+              }
+            },
+            "text": "XXX xxxx xx xxxxxx xx xxxxxxxxx. X xxxx xx."
+          },
+          {
+            "id": "111",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201213T221215",
+            "modified": "20201213T221340",
+            "range": {
+              "start": 19549,
+              "end": 19662
+            },
+            "anchor": {
+              "start": {
+                "element": 580,
+                "offset": 58
+              },
+              "end": {
+                "element": 583,
+                "offset": 81
+              }
+            },
+            "text": "Xxx'x xxx xxxx xx xxxxx xx xxx xxxxxx. \nXxxx xxxxxx xx xxxx xx x xxxxxxxx."
+          },
+          {
+            "id": "112",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201213T221455",
+            "modified": "20201213T221547",
+            "range": {
+              "start": 25736,
+              "end": 25736
+            },
+            "anchor": {
+              "start": {
+                "element": 765,
+                "offset": 2
+              },
+              "end": {
+                "element": 765,
+                "offset": 2
+              }
+            },
+            "text": "Xxxx xx xxxxx. X xxxx xx.\n\nX xxxx xx xxxxx xxxx xxxx xx xxx xxxxxxxxxxx xxxxx xxxxx xxxx x xxx xxxxxx.  \n\nXxx'x xxxx xxx xxxxxxxx XXX xxx xxx. Xxx'x xxxx xxx xxxxxxxx xxxxx xxx xxxx xxx xxxx - xxx xx'x xxx xxxx xxxxxx.  Xxxx xxx xxx/xxx xxx.  \n\nXxx'x xxxx xxx xxx xxxxxx xxxxxxx - xxx xxx xxx xxx xx xxxx xxx.  Xx xxxx xx xxxx xx'x x xxxxxxx.  \n\nXxxx xxxxxx xxxxx xxxx x xxxxxx xx xxx xxx xxx x xxxx xx xxxx xxxxxx xxxxxxxx xx xxxx xx xx xxx xx xxxx xx xxxxx xxxxxxxxx xx xx x xxxx xxxxx xxx xxx xxxx xxxx. Xxxx'x xxxx x xxxxx xxxxxx x xxxxx."
+          }
+        ]
+      }
+    },
+    {
+      "name": "finaldraft-sample02",
+      "sourceFile": "finaldraft-sample02.fdx",
+      "options": {},
+      "expected": {
+        "diagnostics": [],
+        "scriptNotes": [
+          {
+            "id": "107",
+            "author": "Writer A",
+            "title": "Xxxx Xxx",
+            "category": "Producer",
+            "color": "#6363A7A7EFEF",
+            "created": "20201213T214959",
+            "modified": "20201213T220106",
+            "range": {
+              "start": 174,
+              "end": 194
+            },
+            "anchor": {
+              "start": {
+                "element": 6,
                 "offset": 0
               },
               "end": {
-                "element": 536,
+                "element": 6,
+                "offset": 20
+              }
+            },
+            "text": "I xxxxx xx xxxx xx xxx xxx XXX xxxx xx xxxxxxxxx xxxx xxxxxx/xxxx xxxxxx xx xxx xxxx xx xxx xxxxxx."
+          },
+          {
+            "id": "113",
+            "author": "Writer B",
+            "title": "Re: Xxxx Xxx",
+            "category": "Writer",
+            "color": "#FEEACC8166BA",
+            "created": "20201213T221815",
+            "modified": "20201213T222852",
+            "range": {
+              "start": 174,
+              "end": 194
+            },
+            "anchor": {
+              "start": {
+                "element": 6,
+                "offset": 0
+              },
+              "end": {
+                "element": 6,
+                "offset": 20
+              }
+            },
+            "text": "Xx xx xxxx xxx xxx xxxx, xxxx xxx xxxxxxxx xx xxxxxxxx - xxxxx xx'x xxx xxxxxxxx xxxxxxxx xx x xxxxx? (Xxxxxx'x xxx xxxxxxx xx xx xxxx Xxxxx, xx xxxxxxxx xxxx xxxx.)"
+          },
+          {
+            "id": "143",
+            "author": "Writer A",
+            "title": "Re: Re: Xxxx Xxx",
+            "category": "Producer",
+            "created": "20201214T005118",
+            "modified": "20201214T005236",
+            "range": {
+              "start": 174,
+              "end": 194
+            },
+            "anchor": {
+              "start": {
+                "element": 6,
+                "offset": 0
+              },
+              "end": {
+                "element": 6,
+                "offset": 20
+              }
+            },
+            "text": "Xxx'x xxx xx. Xx xxx xxxxxx xxx xx xxxx."
+          },
+          {
+            "id": "119",
+            "author": "Writer B",
+            "title": "Xxxxxxxx",
+            "category": "Writer",
+            "color": "#9A9AAEAEDBDB",
+            "created": "20201213T222957",
+            "modified": "20201213T223015",
+            "range": {
+              "start": 261,
+              "end": 268
+            },
+            "anchor": {
+              "start": {
+                "element": 9,
+                "offset": 12
+              },
+              "end": {
+                "element": 9,
+                "offset": 19
+              }
+            },
+            "text": "Xx xx xxxx xxx xxx xxxxx, xx xxx'x xxxx xxx xxxx \"xxxx\" xx Xxxxxx'x xxx-xxx."
+          },
+          {
+            "id": "152",
+            "author": "Writer A",
+            "category": "Producer",
+            "created": "20201214T005259",
+            "modified": "20201214T005307",
+            "range": {
+              "start": 261,
+              "end": 268
+            },
+            "anchor": {
+              "start": {
+                "element": 9,
+                "offset": 12
+              },
+              "end": {
+                "element": 9,
+                "offset": 19
+              }
+            },
+            "text": "Xxxxx."
+          },
+          {
+            "id": "137",
+            "author": "Writer B",
+            "title": "Xx xx xxx xxxx xxxxx, xxxx'x xxx xxxxx",
+            "category": "Alt Scenes",
+            "color": "#EFEFA4A46262",
+            "created": "20201213T224046",
+            "modified": "20201213T224151",
+            "range": {
+              "start": 970,
+              "end": 1364
+            },
+            "anchor": {
+              "start": {
+                "element": 18,
+                "offset": 0
+              },
+              "end": {
+                "element": 25,
+                "offset": 54
+              }
+            },
+            "text": "CUT TO:\nXXXXXXX - NIGHT (FLASHBACK)\nXXXXX XXXXX xxxx xxxxxx Xxxxxx, xxx'x xxxx xxxxxxx. Xxxx'xx xxxxxxx x xxxxxx xx Xxxxx'x xxxxxxx. Xxxx xx xxxxx xxxxxxx.\nXXXX XXXX\nXxxxx x xxxx, xx'xx xxxx xxx xx xxxx xxxx xxx!\nXxx XXXXXX XXXX xxxxx x xxxx XXXXXXX xxxx x xxxxxxx xxx -- XXXX! Xxx XXXXX XXXX XXXXX xxx xxx --\nBACK TO:\nXXXX - PRESENT TIME"
+          },
+          {
+            "id": "108",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201213T220318",
+            "modified": "20201213T220416",
+            "range": {
+              "start": 2183,
+              "end": 2191
+            },
+            "anchor": {
+              "start": {
+                "element": 53,
+                "offset": 0
+              },
+              "end": {
+                "element": 53,
+                "offset": 8
+              }
+            },
+            "text": "Xxxx xxxx."
+          },
+          {
+            "id": "109",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#7A7A8181FFFF",
+            "created": "20201213T220740",
+            "modified": "20201213T220820",
+            "range": {
+              "start": 10601,
+              "end": 10642
+            },
+            "anchor": {
+              "start": {
+                "element": 295,
+                "offset": 0
+              },
+              "end": {
+                "element": 295,
+                "offset": 41
+              }
+            },
+            "text": "I xxxx xxxx - xxx xxxxxxxxx xxx xxxxxxxxxxxx xxxxxxxx."
+          },
+          {
+            "id": "110",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201213T221012",
+            "modified": "20201213T221038",
+            "range": {
+              "start": 18213,
+              "end": 18219
+            },
+            "anchor": {
+              "start": {
+                "element": 533,
+                "offset": 0
+              },
+              "end": {
+                "element": 533,
                 "offset": 6
               }
             },
@@ -5775,15 +6041,15 @@
             },
             "anchor": {
               "start": {
-                "element": 581,
-                "offset": 8
+                "element": 578,
+                "offset": 0
               },
               "end": {
-                "element": 583,
-                "offset": 93
+                "element": 580,
+                "offset": 0
               }
             },
-            "text": "Xxx'x xxx xxxx xx xxxxx xx xxx xxxxxx. \nXxxx xxxxxx xx xxxx xx x xxxxxxxx."
+            "text": "Xxx'x xxx xxxx xx xxxxx xx xxx xxxxxx. \nSame xxxxxx xx xxxx xx x xxxxxxxx."
           },
           {
             "id": "112",
@@ -5798,17 +6064,446 @@
             },
             "anchor": {
               "start": {
-                "element": 766,
+                "element": 761,
+                "offset": 13
+              },
+              "end": {
+                "element": 761,
+                "offset": 13
+              }
+            },
+            "text": "Xxxx xx xxxxx. X xxxx xx.\n\nI xxxx xx xxxxx xxxx xxxx xx xxx xxxxxxxxxxx xxxxx xxxxx xxxx x xxx xxxxxx.  \n\nXxx'x xxxx xxx xxxxxxxx XXX xxx xxx. Xxx'x xxxx xxx xxxxxxxx xxxxx xxx xxxx xxx xxxx - xxx xx'x xxx xxxx xxxxxx.  Xxxx xxx xxx/xxx xxx.  \n\nXxx'x xxxx xxx xxx xxxxxx xxxxxxx - xxx xxx xxx xxx xx xxxx xxx.  Xx xxxx xx xxxx xx'x x xxxxxxx.  \n\nXxxx xxxxxx xxxxx xxxx x xxxxxx xx xxx xxx xxx x xxxx xx xxxx xxxxxx xxxxxxxx xx xxxx xx xx xxx xx xxxx xx xxxxx xxxxxxxxx xx xx x xxxx xxxxx xxx xxx xxxx xxxx. Xxxx'x xxxx x xxxxx xxxxxx x xxxxx."
+          }
+        ]
+      }
+    },
+    {
+      "name": "finaldraft-sample01",
+      "sourceFile": "finaldraft-sample01.fdx",
+      "options": {},
+      "expected": {
+        "diagnostics": [],
+        "scriptNotes": [
+          {
+            "id": "505",
+            "author": "Writer A",
+            "title": "Xxxx Xxx",
+            "category": "Producer",
+            "color": "#6363A7A7EFEF",
+            "created": "20201201T003451",
+            "modified": "20201201T005725",
+            "range": {
+              "start": 513,
+              "end": 533
+            },
+            "anchor": {
+              "start": {
+                "element": 6,
                 "offset": 0
               },
               "end": {
-                "element": 766,
+                "element": 6,
+                "offset": 20
+              }
+            },
+            "text": "I xxxxx xx xxxx xx xxx xxx XXX xxxx xx xxxxxxxxx xxxx xxxxxx/xxxx xxxxxx xx xxx xxxxxx'x xxxx."
+          },
+          {
+            "id": "507",
+            "author": "Writer B",
+            "title": "Re: Xxxx Xxx",
+            "category": "Writer",
+            "color": "#FEEACC8166BA",
+            "created": "20201201T010355",
+            "modified": "20201201T010427",
+            "range": {
+              "start": 513,
+              "end": 533
+            },
+            "anchor": {
+              "start": {
+                "element": 6,
+                "offset": 0
+              },
+              "end": {
+                "element": 6,
+                "offset": 20
+              }
+            },
+            "text": "Xx xx xxxx xxx xxx xxxx, xxxx xxx xxxxxxxx xx xxxxxxxx - xxxxx xx'x xxx xxxxxxxx xxxxxxxx xx x xxxxx? (Xxxxxx'x xxx xxxxxxx xx xx xxxx Xxxxx, xx xxxxxxxx xxxx xxxx.)"
+          },
+          {
+            "id": "509",
+            "author": "Writer A",
+            "title": "Re: Re: Xxxx Xxx",
+            "category": "Producer",
+            "created": "20201202T002738",
+            "modified": "20201202T002838",
+            "range": {
+              "start": 513,
+              "end": 533
+            },
+            "anchor": {
+              "start": {
+                "element": 6,
+                "offset": 0
+              },
+              "end": {
+                "element": 6,
+                "offset": 20
+              }
+            },
+            "text": "Xxx'x xxx xx.  Xx xxx xxxxxx xxx xx xxxx."
+          },
+          {
+            "id": "511",
+            "author": "Writer B",
+            "title": "Xxxxxxxx",
+            "category": "Writer",
+            "color": "#9A9AAEAEDBDB",
+            "created": "20201201T010554",
+            "modified": "20230330T212742",
+            "range": {
+              "start": 600,
+              "end": 607
+            },
+            "anchor": {
+              "start": {
+                "element": 9,
+                "offset": 12
+              },
+              "end": {
+                "element": 9,
+                "offset": 19
+              }
+            },
+            "text": "Xx xx xxxx xxx xxx xxxxx, xx xxx'x xxxx xxx xxxx \"xxxx\" xx Xxxxxx'x xxx-xxx."
+          },
+          {
+            "id": "513",
+            "author": "Writer A",
+            "category": "Producer",
+            "created": "20201202T003402",
+            "modified": "20201202T003412",
+            "range": {
+              "start": 600,
+              "end": 607
+            },
+            "anchor": {
+              "start": {
+                "element": 9,
+                "offset": 12
+              },
+              "end": {
+                "element": 9,
+                "offset": 19
+              }
+            },
+            "text": "Xxxxx."
+          },
+          {
+            "id": "515",
+            "author": "Writer B",
+            "title": "Xxxxxxxx XXXXX",
+            "category": "On Character",
+            "color": "#E2E29898DDDD",
+            "created": "20201216T043449",
+            "modified": "20230330T212725",
+            "range": {
+              "start": 661,
+              "end": 672
+            },
+            "anchor": {
+              "start": {
+                "element": 11,
+                "offset": 0
+              },
+              "end": {
+                "element": 11,
+                "offset": 11
+              }
+            },
+            "text": "Xxxxx xx xxxxxxxxx\nXxxxxxxxxxx xxxxx xxxxxxxxxx\nXxxxxxx xxxxxxxx\nXxxx xxxxx\nXxx xxxxx xxxxxxxxx\n"
+          },
+          {
+            "id": "517",
+            "author": "Writer B",
+            "title": "Xx xx xxx xxxx xxxxx, xxxx’x xxx xxxxx",
+            "category": "Alt Scenes",
+            "color": "#EFEFA4A46262",
+            "created": "20201201T012607",
+            "modified": "20230330T212336",
+            "range": {
+              "start": 1303,
+              "end": 1982
+            },
+            "anchor": {
+              "start": {
+                "element": 18,
+                "offset": 0
+              },
+              "end": {
+                "element": 30,
+                "offset": 27
+              }
+            },
+            "text": "CUT TO:\nXxxxx xxxxxxxx Xxxxxx\nFlashback: Xxxxxx xxxxxxxx'x xxx xxxxx xxxxxxxx xxx, xxx xxxx xxxxxxxx xx xxxx xxx.\nXXXXXXX - NIGHT (FLASHBACK)\nXxx xx xxxxx' xxxxxxx xxxxx\nXXXXX XXXXX xxxx xxxxxx Xxxxxx, xxx'x xxxx xxxxxxx. Xxxx'xx xxxxxxx x xxxxxx xx Xxxxx'x xxxxxxx. Xxxx xx xxxxx xxxxxxx.\nXXXX XXXX\nXxxxx x xxxx, xx'xx xxxx xxx xx xxxx xxxx xxx!\nXxx XXXXXX XXXX xxxxx x xxxx XXXXXXX xxxx x xxxxxxx xxx -- XXXX! Xxx XXXXX XXXX XXXXX xxx xxx --\nBACK TO:\nXxxxxx's xxxxxx to xxxx xxx\nXxxxxx xxxxx xxxxx xxxxx xxx xxxxx, xxx xxxxxxx xx xxxxx xxx xxx. Xxxxx'x xxxxxx: \"Xxx xxxxxxx xxxxx xxxxxx xx xxxxx x xxxxxxxxxxx xxxxxx xxx xxxxxxx.\"\nXXXX XXXXXXX - PRESENT TIME"
+          },
+          {
+            "id": "538",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201214T073246",
+            "modified": "20201214T073303",
+            "range": {
+              "start": 2824,
+              "end": 2832
+            },
+            "anchor": {
+              "start": {
+                "element": 59,
+                "offset": 0
+              },
+              "end": {
+                "element": 59,
+                "offset": 8
+              }
+            },
+            "text": "Xxxx xxxx."
+          },
+          {
+            "id": "548",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201201T004834",
+            "modified": "20201201T005953",
+            "range": {
+              "start": 12359,
+              "end": 12400
+            },
+            "anchor": {
+              "start": {
+                "element": 302,
+                "offset": 0
+              },
+              "end": {
+                "element": 302,
+                "offset": 41
+              }
+            },
+            "text": "I xxxx xxxx - xxx xxxxxxxxx xxx xxxxxxxxxxxx xxxxxxxx."
+          },
+          {
+            "id": "550",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201201T005018",
+            "modified": "20201201T005150",
+            "range": {
+              "start": 21524,
+              "end": 21530
+            },
+            "anchor": {
+              "start": {
+                "element": 567,
+                "offset": 0
+              },
+              "end": {
+                "element": 567,
+                "offset": 6
+              }
+            },
+            "text": "XXX xxxx xx xxxxxx xx xxxxxxxxx. X xxxx xx."
+          },
+          {
+            "id": "552",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201201T005849",
+            "modified": "20201201T005927",
+            "range": {
+              "start": 24629,
+              "end": 24728
+            },
+            "anchor": {
+              "start": {
+                "element": 631,
+                "offset": 0
+              },
+              "end": {
+                "element": 631,
+                "offset": 99
+              }
+            },
+            "text": "Xxx'x xxx xxxx xx xxxxx xx xxx xxxxxx.  Xxxx xxxxxx xx xxxx xx x xxxxxxxx."
+          },
+          {
+            "id": "554",
+            "author": "Writer A",
+            "category": "Producer",
+            "color": "#66CF66BBFFA1",
+            "created": "20201201T005640",
+            "modified": "20201201T005700",
+            "range": {
+              "start": 31820,
+              "end": 31820
+            },
+            "anchor": {
+              "start": {
+                "element": 823,
+                "offset": 13
+              },
+              "end": {
+                "element": 823,
+                "offset": 13
+              }
+            },
+            "text": "Xxxx xx xxxxx.  X xxxx xx.  \n\nI xxxx xx xxxxx xxxx xxxx xx xxx xxxxxxxxxxx xxxxx xxxxx xxxx x xxx xxxxxx.  \n\nXxx'x xxxx xxx xxxxxxxx XXX xxx xxx.  Xxx'x xxxx xxx xxxxxxxx xxxxx xxx xxxx xxx xxxx - xxx xx'x xxx xxxx xxxxxx.  Xxxx xxx xxx/xxx xxx.  \n\nXxx'x xxxx xxx xxx xxxxxx xxxxxxx - xxx xxx xxx xxx xx xxxx xxx.  Xx xxxx xx xxxx xx'x x xxxxxxx.  \n\nXxxx xxxxxx xxxxx xxxx x xxxxxx xx xxx xxx xxx x xxxx xx xxxx xxxxxx xxxxxxxx xx xxxx xx xx xxx xx xxxx xx xxxxx xxxxxxxxx xx xx x xxxx xxxxx xxx xxx xxxx xxxx. Xxxx'x xxxx x xxxxx xxxxxx x xxxxx."
+          }
+        ]
+      }
+    },
+    {
+      "name": "script-notes-embedded-blocks",
+      "source": "<FinalDraft><Content><Paragraph Type=\"Action\"><Text>Hum.</Text></Paragraph><Paragraph Type=\"General\"><DualDialogue><Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>Yes.</Text></Paragraph><Paragraph Type=\"Character\"><Text>JON</Text></Paragraph><Paragraph Type=\"Dialogue\"><Text>No.</Text></Paragraph></DualDialogue></Paragraph><Paragraph Type=\"Scene Heading\"><Text>Omitted</Text><OmittedScene><Paragraph Type=\"Scene Heading\"><Text>EXT. YARD - DAY</Text></Paragraph></OmittedScene></Paragraph><Paragraph Type=\"Action\"><Text>Go.</Text></Paragraph></Content><ScriptNotes><ScriptNote Id=\"1\" Range=\"0,4\"><Paragraph><Text>the line before</Text></Paragraph></ScriptNote><ScriptNote Id=\"2\" Range=\"5,7\"><Paragraph><Text>on the dual dialogue and its break</Text></Paragraph></ScriptNote><ScriptNote Id=\"3\" Range=\"8,15\"><Paragraph><Text>the text before an omitted scene</Text></Paragraph></ScriptNote><ScriptNote Id=\"4\" Range=\"15,16\"><Paragraph><Text>on the omitted scene</Text></Paragraph></ScriptNote><ScriptNote Id=\"5\" Range=\"17,18\"><Paragraph><Text>from the break after it to the next line</Text></Paragraph></ScriptNote><ScriptNote Id=\"6\" Range=\"18,21\"><Paragraph><Text>the line after both blocks</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>",
+      "options": {},
+      "expected": {
+        "diagnostics": [],
+        "scriptNotes": [
+          {
+            "id": "1",
+            "range": {
+              "start": 0,
+              "end": 4
+            },
+            "anchor": {
+              "start": {
+                "element": 0,
+                "offset": 0
+              },
+              "end": {
+                "element": 0,
+                "offset": 4
+              }
+            },
+            "text": "the line before"
+          },
+          {
+            "id": "2",
+            "range": {
+              "start": 5,
+              "end": 7
+            },
+            "anchor": {
+              "start": {
+                "element": 1,
+                "offset": 0
+              },
+              "end": {
+                "element": 1,
                 "offset": 0
               }
             },
-            "text": "Xxxx xx xxxxx. X xxxx xx.\n\nX xxxx xx xxxxx xxxx xxxx xx xxx xxxxxxxxxxx xxxxx xxxxx xxxx x xxx xxxxxx.  \n\nXxx'x xxxx xxx xxxxxxxx XXX xxx xxx. Xxx'x xxxx xxx xxxxxxxx xxxxx xxx xxxx xxx xxxx - xxx xx'x xxx xxxx xxxxxx.  Xxxx xxx xxx/xxx xxx.  \n\nXxx'x xxxx xxx xxx xxxxxx xxxxxxx - xxx xxx xxx xxx xx xxxx xxx.  Xx xxxx xx xxxx xx'x x xxxxxxx.  \n\nXxxx xxxxxx xxxxx xxxx x xxxxxx xx xxx xxx xxx x xxxx xx xxxx xxxxxx xxxxxxxx xx xxxx xx xx xxx xx xxxx xx xxxxx xxxxxxxxx xx xx x xxxx xxxxx xxx xxx xxxx xxxx. Xxxx'x xxxx x xxxxx xxxxxx x xxxxx."
+            "text": "on the dual dialogue and its break"
+          },
+          {
+            "id": "3",
+            "range": {
+              "start": 8,
+              "end": 15
+            },
+            "anchor": {
+              "start": {
+                "element": 2,
+                "offset": 0
+              },
+              "end": {
+                "element": 2,
+                "offset": 7
+              }
+            },
+            "text": "the text before an omitted scene"
+          },
+          {
+            "id": "4",
+            "range": {
+              "start": 15,
+              "end": 16
+            },
+            "anchor": {
+              "start": {
+                "element": 2,
+                "offset": 7
+              },
+              "end": {
+                "element": 2,
+                "offset": 7
+              }
+            },
+            "text": "on the omitted scene"
+          },
+          {
+            "id": "5",
+            "range": {
+              "start": 17,
+              "end": 18
+            },
+            "anchor": {
+              "start": {
+                "element": 2,
+                "offset": 7
+              },
+              "end": {
+                "element": 3,
+                "offset": 0
+              }
+            },
+            "text": "from the break after it to the next line"
+          },
+          {
+            "id": "6",
+            "range": {
+              "start": 18,
+              "end": 21
+            },
+            "anchor": {
+              "start": {
+                "element": 3,
+                "offset": 0
+              },
+              "end": {
+                "element": 3,
+                "offset": 3
+              }
+            },
+            "text": "the line after both blocks"
           }
-        ]
+        ],
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "action",
+              "text": "Hum."
+            },
+            {
+              "type": "general",
+              "text": ""
+            },
+            {
+              "type": "scene",
+              "text": "Omitted"
+            },
+            {
+              "type": "action",
+              "text": "Go."
+            }
+          ]
+        }
       }
     }
   ],
