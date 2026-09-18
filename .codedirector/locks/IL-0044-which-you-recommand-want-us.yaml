@@ -1,0 +1,181 @@
+schemaVersion: 1
+id: IL-0044
+status: failed
+utterance: which you recommand, I want us to be the market leader and it should be something the best, robust and reliable file format, it should be so good that render fdx obsolete becoming a new standard — let's go with .draft, try to research I already have omnipdf https://github.com/omnipdf/omnipdf look at it we might even be able to create roundtrip pdf files so not only supporting .fdx but also pdf files that can be re imported with all the data — proceed with professionalism
+goal: "docs/RFC-DRAFT-FORMAT.md exists: the specification of the .draft format — a ZIP container (ISO/IEC 21320-1 profile) of JSON parts with stable ids, word anchors, integrity and recovery rules, versioning and must-preserve extension rules, legacy migration, conversions to FDX, Fountain and PDF, and the .draft PDF that carries its own .draft and brings reviewers' PDF comments back as notes on their words — every claim marked measured, sourced or judgement, the acceptance bars against .fdx stated as tests, and the build sequence as locks. Design only; no code changes."
+interpretation: |
+  One new document, docs/RFC-DRAFT-FORMAT.md, in the form of
+  RFC-NOTES-SYSTEM: decisions first, every claim marked measured (run here,
+  numbers quoted), sourced (linked), inference, or unproven. Two small
+  corrections elsewhere, named below. Design only: no code, no test, no
+  fixture.
+
+  DECIDED BY THE HUMAN (2026-09-18):
+    D1. The name is .draft.
+    D2. Fountain is an export, not the native file. The native file is chosen
+        for being the best, most robust and future-proof format, not for
+        staying Fountain.
+    D3. The ambition is a new industry standard: an open specification with
+        eDraft as its reference implementation (the engine is MIT).
+    D4. PDF is in scope: a PDF eDraft writes carries the whole .draft, so it
+        re-imports with all the data (omnipdf's "living PDF" idea).
+
+  MEASURED FOR THIS RFC (scratchpad only; counts, never content):
+    - Today's .draft is plain Fountain text (ScreenplayFile.encode). The
+      apps hold a document as Fountain text in memory (EDraftDocument.source;
+      EditorState republishes Fountain after edits).
+    - A highlight does not survive a .draft save: 1 highlight run before,
+      0 after save and reopen; bold survives (TypeScript engine).
+      IOS-PLAN.md §7 and RFC-HIGHLIGHTER §5 assumed a JSON .draft that was
+      never built.
+    - Selecting words and choosing Add Note puts the note on the line; the
+      selection is ignored (ScriptSurface.addNote to nil).
+    - Size: FDX is 12.1x its Fountain on the 3 fixtures (9.5-14.1x). On 10
+      real Final Draft files on this Mac (4 anonymised copies skipped),
+      JSON + a Fountain rendition, deflated, is 16.3x smaller than the FDX in
+      total (3.1-31.9x); JSON alone uncompressed is 6.7x smaller.
+    - Parse, fixtures: FDX 8.6-10.4 ms, JSON 0.12-0.24 ms, Fountain
+      1.1-1.7 ms.
+    - Legacy: 22 .draft files on this Mac, 0 with an inline note, 1 of them
+      XML rather than Fountain. The app is unreleased.
+    - Beat (source read): a JSON block in a trailing Fountain boneyard;
+      review ranges are bare offsets; the only outside-edit check is text
+      length, which warns and does not re-anchor.
+    - PDF probe (PDFKit, the framework under Preview): an embedded file with
+      AFRelationship /Source survives an annotate-and-save byte for byte;
+      a reviewer's thread (highlight, reply by /IRT, /State Completed,
+      author, date) survives; PDFKit returns the exact words under a
+      highlight; eDraft's /Keywords Fountain carrier survives. omnipdf's
+      reader finds its own attachment only in files its own writer produced
+      (not after any other app saves, not in files other tools write).
+    - The web PDF exporter is WinAnsi-only and prints dual dialogue
+      sequentially; omnipdf embeds TrueType with ToUnicode and lays dual
+      dialogue side by side.
+
+  RESEARCH CITED (sources linked in the RFC): Fade In (.fadein, zipped Open
+  Screenplay Format XML); Highland (.highland, zipped TextBundle: Fountain +
+  JSON); Sketch (SQLite to zip+JSON in v43, for openness); iWork (packages to
+  a single file in 2014); Apple's iCloud guide (packages sync changed parts);
+  SQLite and the Library of Congress recommended storage formats; the LoC's
+  seven sustainability factors; ISO/IEC 21320-1 (stored/deflate only, no
+  encryption, UTF-8 names); RFC 7493 I-JSON; RFC 8785 JCS; RFC 6839 +zip;
+  W3C Web Annotation selectors; Automerge's binary format; LibreOffice hybrid
+  PDF; Courier Prime under the SIL OFL.
+
+  THE SPECIFICATION the RFC writes:
+    - Container: an ISO/IEC 21320-1 profile. `mimetype` first and stored;
+      fixed entry order; UTF-8 names; no encryption, no spanning; path rules;
+      deterministic bytes (same content, same file).
+    - Parts: manifest.json (format version, minReader, writer, part list with
+      SHA-256, the draft fingerprint by JCS); script.json (elements with
+      stable ids, text, style runs, highlights, scene numbers, dual dialogue,
+      title page); notes.json (threads: anchor, messages, status events);
+      script.fountain (a rendition, never authoritative); origin/ (the file
+      a document came from: source.fdx, source.fountain); vendor extension
+      namespaces.
+    - Anchors: element id + UTF-16 offsets + the words with context (the W3C
+      quote/position pattern). Re-anchoring is by the words; a note whose
+      words are gone is flagged, never moved (RFC-NOTES-SYSTEM D10's spirit).
+    - Integrity and recovery: per-entry CRC-32 and per-part SHA-256; a
+      recovery ladder (script.json, then the Fountain rendition, then the
+      local headers of a truncated file); damaged parts kept byte for byte;
+      atomic saves.
+    - Versioning and extension: I-JSON; unknown parts and fields preserved;
+      minReader refusal instead of damage; conformance classes (reader,
+      editor, writer).
+    - Security: limits on entries, sizes, ratio, depth; no paths out of the
+      archive; nothing executable.
+    - Legacy: detect by first bytes, not extension; old text .draft read
+      forever; opening never changes a file; the first save after an edit
+      upgrades it and keeps the original in origin/.
+    - Conversions: FDX (splice when origin/source.fdx exists, else native;
+      notes as RFC-NOTES-SYSTEM D8), Fountain (inline notes, declared
+      losses), PDF.
+    - The .draft PDF: the .draft as an associated file (AFRelationship
+      /Source, PDF/A-3 with an embedded Courier Prime), a page map, the
+      /Keywords Fountain carrier kept as a fallback, eDraft's paginator
+      authoritative (omnipdf writes, it does not paginate), reviewers'
+      comments imported as notes on their words (Highlight, Underline,
+      StrikeOut, Squiggly, Text, FreeText; /IRT replies; /State), readers per
+      platform (Core Graphics on Apple; an xref reader in TypeScript to be
+      built). Unproven, with their checks: Acrobat, iPad Markup, corporate
+      mail filters.
+    - Media type application/vnd.edraft.draft+zip; UTType
+      xyz.edraft.screenplay kept, its conformance changed.
+    - Acceptance bars against .fdx, as tests for the build locks.
+    - Stages as locks: engine read/write (both ports); apps hold the model;
+      notes on selected words; threads and resolve; the .draft PDF; the
+      published standard (schema, validator, conformance suite, IANA).
+    - Open decisions named: compression (stored vs a shared deterministic
+      deflate), @omnipdf/core as a dependency vs a port, origin retention,
+      the PDF attachment's shape, publication venue and timing.
+
+  TWO CORRECTIONS OUTSIDE THE NEW FILE:
+    - docs/RFC-NOTES-SYSTEM.md: stage 2's "carrier reopened" now points to
+      RFC-DRAFT-FORMAT for .draft; §2.1 and stage 1's "IL-0039" become
+      IL-0041 (the re-run that built it), committed in fbd7eb9.
+    - docs/VISION.md: "Fountain is the file" becomes the human's decision
+      D2 — .draft is the file; Fountain is its open text export.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the only files changed are the new docs/RFC-DRAFT-FORMAT.md, docs/RFC-NOTES-SYSTEM.md (stage 2's carrier note and the two IL-0039 mentions only) and docs/VISION.md (the "Fountain is the file" sentence only) — no source, test, fixture, lock, other document or project file
+  - kind: custom
+    text: every fidelity keep from IL-0024 to IL-0033 and every RFC-NOTES-SYSTEM decision D1-D10 stands; FDX notes stay titled [eDraft] (D8)
+  - kind: custom
+    text: no login, account or identity service appears; a note's author is never derived from the system
+  - kind: custom
+    text: every claim is marked measured, sourced, inference or unproven; nothing from the human's own scripts or names is quoted — counts only
+  - kind: custom
+    text: every existing .draft file stays readable forever, and nothing in the design rewrites a file the writer only opened
+deny:
+  - package.json
+  - package-lock.json
+  - packages/**
+  - apple/**
+  - src/**
+  - scripts/**
+  - README.md
+  - docs/RFC-HIGHLIGHTER.md
+  - docs/IOS-PLAN.md
+  - docs/evaluation-draft-format-plan.md
+  - docs/SHARED-ARCHITECTURE.md
+  - docs/HANDOFF.md
+  - docs/APPLE-PLATFORM-GUIDE.md
+change: Write docs/RFC-DRAFT-FORMAT.md — the .draft format specification, the .draft PDF, and the build stages as locks — and correct two stale lines in RFC-NOTES-SYSTEM and VISION. Design only.
+verifyCommand: test -f docs/RFC-DRAFT-FORMAT.md && grep -q "^## " docs/RFC-DRAFT-FORMAT.md && grep -q "21320-1" docs/RFC-DRAFT-FORMAT.md && grep -q "manifest.json" docs/RFC-DRAFT-FORMAT.md && grep -q "AFRelationship" docs/RFC-DRAFT-FORMAT.md && grep -q "IL-0024" docs/RFC-DRAFT-FORMAT.md && grep -q "RFC-DRAFT-FORMAT" docs/RFC-NOTES-SYSTEM.md && ! grep -q "IL-0039" docs/RFC-NOTES-SYSTEM.md && ! grep -q "Fountain is the file" docs/VISION.md
+verifyTimeoutMs: 60000
+budget:
+  files:
+    - docs/RFC-DRAFT-FORMAT.md
+    - docs/RFC-NOTES-SYSTEM.md
+    - docs/VISION.md
+  symbols: []
+  maxFiles: 3
+  maxLines: 1400
+accept:
+  - The RFC specifies the container profile, every part and its schema, stable ids and word anchors with the re-anchoring rule, the integrity and recovery ladder, determinism, versioning with must-preserve and minReader, security limits, legacy detection and upgrade, and the conversions to FDX, Fountain and PDF.
+  - "The .draft PDF section: the associated-file carrier, the page map, comments imported as notes on their words with replies and state, a reader per platform, the /Keywords fallback, eDraft's paginator as the authority and omnipdf's role — the scratchpad probe recorded as measured, and Acrobat, iPad Markup and mail filters named as unproven, each with the check that settles it."
+  - The measured baseline is recorded with its numbers — sizes, parse times, the highlight loss, the legacy count, Beat's trailer, the PDF probe — counts only.
+  - The acceptance bars against .fdx are stated as tests the build locks must pass.
+  - The stages are locks, each with scope and proofs; the open decisions are named with a recommendation each.
+  - RFC-NOTES-SYSTEM's stage 2 points to RFC-DRAFT-FORMAT, and its two IL-0039 mentions read IL-0041; VISION.md no longer says Fountain is the file.
+  - Every outside source is linked.
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on "render", "file", "fdx" and "roundtrip" as whole symbol names and proposed six source files.
+    source: system
+    confirmed: false
+  - text: "D1-D4 are the human's decisions from this conversation (2026-09-18): .draft; Fountain as an export; an open standard; PDF round trip in scope."
+    source: user
+    confirmed: true
+  - text: The VISION.md sentence is changed because D2 contradicts it; striking that change leaves the RFC unchanged.
+    source: system
+    confirmed: false
+  - text: The verify command checks structure only. Whether the design is right is the human's judgement.
+    source: system
+    confirmed: false
+  - text: "maxLines 1,400: RFC-NOTES-SYSTEM is 689 lines for one feature; this specifies a container, five parts, recovery, migration, three conversions, the PDF and seven stages."
+    source: system
+    confirmed: false
+createdAt: 2026-09-18T19:47:16.076Z
+createdBy: Yasirdora

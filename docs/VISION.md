@@ -49,8 +49,9 @@ as if it were a demo until the colours arrive would be the other way
 round.
 
 **Not a Markdown editor.** A charter for that product sat at this path
-and has been deleted. Fountain is the file; the engine's job is a
-screenplay, not a dialect of markup.
+and has been deleted. The `.draft` is the file
+([RFC-DRAFT-FORMAT.md](RFC-DRAFT-FORMAT.md)); Fountain is its open text
+export. The engine's job is a screenplay, not a dialect of markup.
 
 **Not a service.** The engine has no network, no telemetry, no
 file-system access (`packages/edraft/README.md`). A file leaves the

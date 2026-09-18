@@ -98,7 +98,7 @@ Measured 2026-09-18 for this RFC, through the engine:
 - **A native note saves into FDX as a script paragraph,**
   `<Paragraph Type="Note"><Text>Dir: too slow</Text></Paragraph>`, never into
   `<ScriptNotes>`. Final Draft shows it as a line of the script, not as a note.
-  A ScriptNote since IL-0039 (§11, stage 1).
+  A ScriptNote since IL-0041 (§11, stage 1).
 - **A note whose text ends in `]` breaks the next parse.** `[[… see [scene
   4]]]` closes at the first `]]`: the note loses its last character and a
   stray `]` becomes an action line of the script. A header-only note
@@ -550,7 +550,9 @@ committed.
 - **Final Draft check:** eDraft's notes open in Final Draft as notes, with
   their authors; the header and every note survive a Final Draft save; eDraft
   reads them back as its own.
-- **Built in IL-0039 (2026-09-18), cut to the FDX notes and the name:**
+- **Built in IL-0041 (2026-09-18, a clean re-run of the first attempt), cut
+  to the FDX notes and the name; committed in `fbd7eb9` with IL-0042 and
+  IL-0043:**
   - A note written in eDraft is one ScriptNote: header, message, the writer's
     name, a Range over its line's paragraph. No attribute Final Draft does not
     define. `writeFdx` writes notes the same way.
@@ -575,8 +577,12 @@ committed.
 
 - **Carrier reopened (IL-0042).** Stages 2 and 3 were designed on the header
   line (`thread`, `reply-to`, `from`, `status`), which is no longer written
-  into Final Draft notes. They need a new carrier before they are built; the
-  `.draft` design pass decides it.
+  into Final Draft notes. They need a new carrier before they are built.
+  **Decided for `.draft` by [RFC-DRAFT-FORMAT.md](RFC-DRAFT-FORMAT.md)
+  (§5.4, §12.1):** a thread is an anchor, its messages and a status history
+  in `notes.json`. In FDX, later messages are further `[eDraft]` notes on the
+  root's Range — decided in that RFC's S4, with a Final Draft check. The
+  header fields below are superseded there.
 - **Builds:** replies in the header (`thread`, `reply-to`, `from`), in FDX as
   "Re:" notes on the root's Range and in Fountain as lines of the thread's
   `[[ ]]`. Replying to a Final Draft note. Legacy "Re:" chains shown as
