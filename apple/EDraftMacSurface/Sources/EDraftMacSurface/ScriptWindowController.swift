@@ -355,6 +355,13 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
     @objc public func showTitlePage(_ sender: Any?) { state.showingTitlePage = true }
     @objc public func toggleFocus(_ sender: Any?) { state.isFocused.toggle() }
 
+    /// File → Show in Finder: the document's file, selected in its folder.
+    /// An untitled script has no file to show, and the item greys out.
+    @objc public func showInFinder(_ sender: Any?) {
+        guard let url = (document as? NSDocument)?.fileURL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
     /// The library first, then this window goes — so the writer is never
     /// looking at nothing.
     @objc public func goBack(_ sender: Any?) {
@@ -426,6 +433,8 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
                 && !(editor.currentSuggestionSuffix ?? "").isEmpty
         case #selector(addNote(_:)):
             return editor.onAddNote != nil
+        case #selector(showInFinder(_:)):
+            return (document as? NSDocument)?.fileURL != nil
         case #selector(zoomIn(_:)):
             return PageZoom.isAvailable(.zoomIn, at: editor.zoom)
         case #selector(zoomOut(_:)):

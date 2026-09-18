@@ -18,6 +18,11 @@ import SwiftUI
 /// which is the toolbar Pages has — `SplitWindowController` records the
 /// measurement. Everything a document app should do for free — Save, Duplicate,
 /// Rename, Versions, Open Recent, tabs — comes with the same decision.
+/// The one iCloud documents container both platforms share — what puts the
+/// eDraft folder in iCloud Drive on every device. Declared in
+/// `macOS/eDraft.entitlements` and matched by the phone.
+let iCloudContainerID = "iCloud.xyz.edraft"
+
 @main
 @MainActor
 enum EDraftMacApp {
@@ -47,6 +52,23 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidatio
         return false
     }
 
+    /// Tahoe inserts its own Open Recent into a document app's File menu,
+    /// but fills it only for nib-built menus — built in code, it opens with
+    /// nothing but Clear Menu, next to the working one MainMenu makes. The
+    /// system's copy goes; Close All and Share, also inserted, are kept.
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard let file = NSApp.mainMenu?.item(withTitle: "File")?.submenu else { return }
+        for item in file.items where item.title == "Open Recent"
+            && !(item.submenu?.delegate is RecentDocumentsMenu) {
+            file.removeItem(item)
+        }
+        // The container lookup can take seconds the first time; ask it now,
+        // off the main thread, so the first save panel never waits on it.
+        DispatchQueue.global().async {
+            _ = FileManager.default.url(forUbiquityContainerIdentifier: iCloudContainerID)
+        }
+    }
+
     /// Reopening from the Dock with nothing on screen means the same thing as
     /// launching: show the window that says what this is.
     func applicationShouldHandleReopen(
@@ -69,6 +91,13 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidatio
         controller.showWindow(nil)
     }
 
+    /// eDraft → Settings… (⌘,). One window for the app, answered with or
+    /// without a document open.
+    @objc func showSettings(_ sender: Any?) {
+        SettingsWindowController.shared.showWindow(nil)
+    }
+
+    /// The recents menu's items reach here, each carrying its file.
     @objc func openRecent(_ sender: NSMenuItem) {
         guard let url = sender.representedObject as? URL else { return }
         NSDocumentController.shared.openDocument(withContentsOf: url, display: true) { _, _, _ in }

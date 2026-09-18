@@ -25,9 +25,25 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
-	<string></string>
+	<string>Copyright © 2026 eDraft. All rights reserved.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- The eDraft folder in iCloud Drive. Public document scope makes the
+	     folder visible to the writer in Finder and Files; the name is what
+	     its icon carries. The phone declares the same container, so one
+	     folder holds every script on every device. -->
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.xyz.edraft</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerName</key>
+			<string>eDraft</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
 	<!-- The same three kinds the phone opens, and in the same order of claim:
 	     our own format is ours to own, a plain-text screenplay is one we can
 	     open without owning, and a Final Draft file opens in place so a

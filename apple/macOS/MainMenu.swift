@@ -43,6 +43,9 @@ enum MainMenu {
         let menu = NSMenu(title: "eDraft")
         menu.addItem(item("About eDraft", #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
         menu.addItem(.separator())
+        // Between About and Services, on ⌘, — where the platform keeps it.
+        menu.addItem(item("Settings…", #selector(MacAppDelegate.showSettings(_:)), ","))
+        menu.addItem(.separator())
         let services = NSMenu(title: "Services")
         menu.addItem(submenu("Services", services))
         NSApp.servicesMenu = services
@@ -66,6 +69,7 @@ enum MainMenu {
         menu.addItem(item("Duplicate", #selector(NSDocument.duplicate(_:)), "s", [.command, .shift]))
         menu.addItem(item("Rename…", #selector(NSDocument.rename(_:))))
         menu.addItem(item("Move To…", #selector(NSDocument.move(_:))))
+        menu.addItem(item("Show in Finder", #selector(ScriptWindowController.showInFinder(_:))))
         let revert = NSMenu(title: "Revert To")
         revert.addItem(item("Browse All Versions…", #selector(NSDocument.browseVersions(_:))))
         revert.addItem(item("Last Saved", #selector(NSDocument.revertToSaved(_:))))
@@ -186,11 +190,15 @@ enum MainMenu {
 
 /// File → Open Recent, read from the document controller each time it opens.
 ///
-/// AppKit fills this menu itself only when it comes from a nib. Built in code,
-/// it is asked instead — and `NSDocumentController` has kept the list
-/// correctly for thirty years, so there is no reason to keep a second one.
+/// Tahoe inserts its own Open Recent into a document app's File menu, but
+/// fills it only for nib-built menus — built in code, it opens with nothing
+/// but Clear Menu, next to a working one. So this one is asked instead, the
+/// system's copy is removed at launch (see `MacAppDelegate`), and
+/// `NSDocumentController` has kept the list correctly for thirty years, so
+/// there is no reason to keep a second one.
 final class RecentDocumentsMenu: NSObject, NSMenuDelegate {
-    private static let shared = RecentDocumentsMenu()
+    static let shared = RecentDocumentsMenu()
+    private override init() { super.init() }
 
     static func make() -> NSMenu {
         let menu = NSMenu(title: "Open Recent")

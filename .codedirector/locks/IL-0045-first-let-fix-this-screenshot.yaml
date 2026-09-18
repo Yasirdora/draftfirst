@@ -1,0 +1,78 @@
+schemaVersion: 1
+id: IL-0045
+status: failed
+utterance: "first let's fix this [screenshot: Xcode, macOS target, Signing: \"Automatic signing failed — Xcode failed to provision this target … Entitlement com.apple.developer.ubiquity-containers not found and could not be included in profile. This likely is not a valid entitlement and should be removed from your entitlements file.\"]"
+goal: The macOS target's entitlements name iCloud Documents' container with Apple's real key, com.apple.developer.ubiquity-container-identifiers, instead of the invalid com.apple.developer.ubiquity-containers, so automatic signing can provision the target; nothing else in the file or the project changes.
+interpretation: |
+  One key renamed in one file. No other change.
+
+  MEASURED:
+    - apple/macOS/eDraft.entitlements (untracked; written 22:15 today by the
+      other session's iCloud work) is the macOS target's CODE_SIGN_ENTITLEMENTS
+      in both configurations (project.pbxproj).
+    - It holds com.apple.developer.ubiquity-containers = [iCloud.xyz.edraft].
+      That key is not an Apple entitlement. Apple's key for an iCloud
+      Documents container is com.apple.developer.ubiquity-container-identifiers
+      — the third of the three keys Xcode's iCloud capability writes, beside
+      com.apple.developer.icloud-services = [CloudDocuments] and
+      com.apple.developer.icloud-container-identifiers = [iCloud.xyz.edraft],
+      both already present and correct.
+    - apple/macOS/Info.plist declares NSUbiquitousContainers for the same
+      iCloud.xyz.edraft container, so the renamed key agrees with it.
+
+  THE CHANGE: the key's name, from com.apple.developer.ubiquity-containers to
+  com.apple.developer.ubiquity-container-identifiers. Its value,
+  [iCloud.xyz.edraft], and every other key are unchanged: iCloud services,
+  container identifiers, icloud-extended-share-access (an empty array, not
+  flagged by Xcode, left as the other session wrote it), the App Sandbox,
+  user-selected read-write files, and print.
+
+  NOT DONE HERE: registering the iCloud.xyz.edraft container with the Apple
+  developer account. If Xcode's Try Again then reports the container missing,
+  the human adds it under Signing & Capabilities → iCloud → Containers (an
+  account change, the human's to make).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the only change is the one key name in apple/macOS/eDraft.entitlements; its value and every other key, value and line are byte-identical
+deny:
+  - package.json
+  - package-lock.json
+  - packages/**
+  - src/**
+  - scripts/**
+  - docs/**
+  - apple/eDraft.xcodeproj/**
+  - apple/macOS/Info.plist
+  - apple/macOS/*.swift
+  - apple/eDraft/**
+  - apple/eDraftEngine/**
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+change: Rename the invalid entitlement com.apple.developer.ubiquity-containers to com.apple.developer.ubiquity-container-identifiers in the macOS entitlements. One key; nothing else.
+verifyCommand: plutil -lint apple/macOS/eDraft.entitlements && /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.ubiquity-container-identifiers:0' apple/macOS/eDraft.entitlements | grep -qx iCloud.xyz.edraft && ! /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.ubiquity-containers' apple/macOS/eDraft.entitlements >/dev/null 2>&1 && /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.icloud-container-identifiers:0' apple/macOS/eDraft.entitlements | grep -qx iCloud.xyz.edraft && /usr/libexec/PlistBuddy -c 'Print :com.apple.developer.icloud-services:0' apple/macOS/eDraft.entitlements | grep -qx CloudDocuments && /usr/libexec/PlistBuddy -c 'Print :com.apple.security.app-sandbox' apple/macOS/eDraft.entitlements | grep -qx true
+verifyTimeoutMs: 60000
+budget:
+  files:
+    - apple/macOS/eDraft.entitlements
+  symbols: []
+  maxFiles: 1
+  maxLines: 4
+accept:
+  - The file holds com.apple.developer.ubiquity-container-identifiers = [iCloud.xyz.edraft] and no com.apple.developer.ubiquity-containers; plutil lints it.
+  - "Every other key and value is unchanged: the diff is the one key line."
+  - "Human check: Xcode's Signing & Capabilities for the macOS target, Try Again, shows no entitlement error."
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on "file" and "included" as whole symbol names and proposed six unrelated Swift files.
+    source: system
+    confirmed: false
+  - text: The file is the other session's uncommitted work; the human asked for this fix directly.
+    source: user
+    confirmed: true
+  - text: The verify command reads the file with PlistBuddy (plutil -extract splits the dotted entitlement names and cannot see them); it fails on today's file and passes on the fixed copy, both run in the scratchpad. It proves the key, the value and the neighbouring iCloud and sandbox keys. Whether Apple's provisioning accepts it is the human's check in Xcode.
+    source: system
+    confirmed: false
+createdAt: 2026-09-18T20:54:33.182Z
+createdBy: Yasirdora

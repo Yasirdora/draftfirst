@@ -42,6 +42,19 @@ final class ScreenplayDocument: NSDocument {
     /// does never losing an hour of work to a crash.
     override nonisolated class var autosavesInPlace: Bool { true }
 
+    /// A new script is born in the iCloud eDraft folder — the same folder
+    /// the phone writes to, so a screenplay started here is already on every
+    /// device. Only a first save is steered: Save As on a file that has a
+    /// home stays next to that file, and when iCloud is not reachable the
+    /// system's choice stands.
+    override func prepareSavePanel(_ savePanel: NSSavePanel) -> Bool {
+        if fileURL == nil,
+           let container = FileManager.default.url(forUbiquityContainerIdentifier: iCloudContainerID) {
+            savePanel.directoryURL = container.appendingPathComponent("Documents")
+        }
+        return super.prepareSavePanel(savePanel)
+    }
+
     override func makeWindowControllers() {
         let controller = ScriptWindowController(editor: editor)
         controller.onBack = { [weak controller] in

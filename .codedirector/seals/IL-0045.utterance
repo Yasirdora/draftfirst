@@ -1,0 +1,1 @@
+first let's fix this [screenshot: Xcode, macOS target, Signing: "Automatic signing failed — Xcode failed to provision this target … Entitlement com.apple.developer.ubiquity-containers not found and could not be included in profile. This likely is not a valid entitlement and should be removed from your entitlements file."]
