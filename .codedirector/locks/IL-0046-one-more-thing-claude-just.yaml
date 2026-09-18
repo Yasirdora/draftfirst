@@ -1,0 +1,129 @@
+schemaVersion: 1
+id: IL-0046
+status: failed
+utterance: "one more thing claude, just like adobe scan I want eDraft having a folder also connected and sync — [chose: Its own Location, like Adobe Scan; Me, after it commits] — no we are not using anything private — we use apple's icloud — [chose: Location is the one home; Yes, design first]"
+goal: "docs/RFC-EDRAFT-LOCATION.md exists: the design of an eDraft Location in Files (iPhone, iPad) and the Finder sidebar (Mac) — a replicated File Provider extension in each app, synced through the user's own iCloud with CKSyncEngine, no eDraft server and no account — covering the data model, sync and conflicts (never silent loss), the one-time enable on iOS, account and quota states, how the apps open and save there, what replaces the iCloud Drive folder, the unknowns with the probes that settle them, and the build as locks. Design only; no code changes."
+interpretation: |
+  One new document, docs/RFC-EDRAFT-LOCATION.md, in the form of
+  RFC-DRAFT-FORMAT: decisions first, every claim marked measured, sourced,
+  inference, judgement or unproven. Design only: no code, no project file, no
+  entitlement, no Info.plist.
+
+  DECIDED BY THE HUMAN (2026-09-18):
+    D1. eDraft gets its own Location, listed like Adobe Scan — in Files on
+        iPhone and iPad, in the Finder sidebar on the Mac.
+    D2. It syncs through Apple's iCloud. Nothing private in the sense of
+        hidden or undocumented: public, documented Apple APIs only, and
+        scripts are ordinary files the writer can see.
+    D3. The Location is the one home for scripts. The other session's eDraft
+        folder inside iCloud Drive (NSUbiquitousContainers, saves into the
+        ubiquity container) stops; its entitlement and icon work stay.
+    D4. Design first; I build it, after the other session commits.
+
+  MEASURED AND SOURCED FOR THIS RFC:
+    - The project today: three targets (the iOS app, its tests, the Mac
+      app), no extension; deployment targets iOS 26 and macOS 26. The iOS
+      Info.plist has UIFileSharingEnabled and LSSupportsOpeningDocumentsInPlace
+      (On My iPhone › eDraft exists). The Mac target's entitlements carry
+      iCloud Documents for iCloud.xyz.edraft (fixed in IL-0045); the iOS
+      target has no entitlements file. The other session's uncommitted
+      EDraftMacApp.swift and ScreenplayDocument.swift resolve the ubiquity
+      container and save there.
+    - Apple (sourced): a Location in Files and the Finder sidebar is a File
+      Provider domain; NSFileProviderReplicatedExtension is available from
+      iOS 16 and macOS 11; Apple's sample: "A new domain is in a disabled
+      state by default … find the domain in the list of locations, and then
+      tap to enable it"; the sample shares state between app and extension
+      through an App Group; changes are signalled with signalEnumerator, and
+      PushKit has a fileProvider push type.
+    - Apple (sourced): CKSyncEngine (iOS 17, macOS 14) pushes and pulls a
+      CloudKit database on the app's behalf, needs the CloudKit and Remote
+      notifications entitlements, leaves persisting its state to the app, and
+      "Don't use CKSyncEngine to sync your app's public database". CloudKit
+      calls each person's own storage the private database; a record's data
+      is limited to 1 MB and assets do not count against it.
+
+  THE DESIGN the RFC writes:
+    - The shape: one File Provider domain, "eDraft", added by each app at
+      first launch; a replicated extension in each app; one CloudKit
+      container, iCloud.xyz.edraft, its private database only; one custom
+      zone; an App Group shared by app and extension.
+    - The data model: a record per item (file or folder) — name, parent,
+      kind, content as a CKAsset, a content hash, versions — and how Files'
+      operations (create, rename, move, modify, delete, trash) map to it.
+    - Sync: where CKSyncEngine runs, what wakes it (the unknown, with its
+      probe), change anchors, the working set, eviction and download on
+      demand.
+    - Conflicts: never silent loss — the losing version is kept beside the
+      winner as a named copy; deletes against edits keep the edit.
+    - States: signed out of iCloud, iCloud full, offline, iCloud Drive
+      turned off for eDraft, the domain disabled on iOS — each with what the
+      writer sees.
+    - The apps: open and save default to the Location; the one-time enable
+      hint on iOS; On My iPhone stays for local files; the iCloud Drive
+      folder is not shipped (D3).
+    - Privacy: the private database only, never the public one; no eDraft
+      server, no account, no name from the system (RFC-NOTES-SYSTEM D6).
+    - The .draft format (RFC-DRAFT-FORMAT) is one file, so a script is one
+      record; no part of a document syncs separately.
+    - Testing: unit tests of the sync logic against a fake CloudKit; two
+      devices, airplane mode, deliberate conflicts, account sign-out; the
+      human's checks in Files and Finder.
+    - The build as locks, the unknowns with probes, the open decisions each
+      with a recommendation.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the only file changed is the new docs/RFC-EDRAFT-LOCATION.md — no source, test, fixture, entitlement, Info.plist, project file, lock or other document
+  - kind: custom
+    text: public, documented Apple APIs only; CloudKit's private database only, never the public one; no eDraft server, no account, no name derived from the system
+  - kind: custom
+    text: every claim is marked measured, sourced, inference, judgement or unproven; sources are linked; nothing from the human's scripts is quoted
+  - kind: custom
+    text: no design in the RFC can lose a writer's words silently — every conflict, delete and failure path says where the words went
+deny:
+  - package.json
+  - package-lock.json
+  - packages/**
+  - apple/**
+  - src/**
+  - scripts/**
+  - README.md
+  - docs/IOS-PLAN.md
+  - docs/MACOS-PLAN.md
+  - docs/RFC-NOTES-SYSTEM.md
+  - docs/VISION.md
+  - docs/HANDOFF.md
+  - docs/APPLE-PLATFORM-GUIDE.md
+change: Write docs/RFC-EDRAFT-LOCATION.md — the eDraft Location in Files and Finder, synced through the user's own iCloud with CKSyncEngine — and its build as locks. Design only.
+verifyCommand: test -f docs/RFC-EDRAFT-LOCATION.md && grep -q "^## " docs/RFC-EDRAFT-LOCATION.md && grep -q "NSFileProviderReplicatedExtension" docs/RFC-EDRAFT-LOCATION.md && grep -q "CKSyncEngine" docs/RFC-EDRAFT-LOCATION.md && grep -qi "conflict" docs/RFC-EDRAFT-LOCATION.md && grep -qi "private database" docs/RFC-EDRAFT-LOCATION.md
+verifyTimeoutMs: 60000
+budget:
+  files:
+    - docs/RFC-EDRAFT-LOCATION.md
+  symbols: []
+  maxFiles: 1
+  maxLines: 800
+accept:
+  - The RFC specifies the shape (domain, extensions, container, zone, App Group), the data model and each Files operation's mapping, sync and its wake-up path, conflicts with no silent loss, and every account, quota and network state with what the writer sees.
+  - "The apps' part: open and save default to the Location, the one-time enable on iOS, On My iPhone kept, the iCloud Drive folder not shipped."
+  - Every Apple claim is sourced and linked; the unknowns are named with the probe that settles each; open decisions carry a recommendation.
+  - The build is a sequence of locks, each with scope, proofs, and the human's checks on two devices.
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on "scan" and "own" as whole symbol names and proposed six unrelated Swift files.
+    source: system
+    confirmed: false
+  - text: D1-D4 are the human's decisions from this conversation (2026-09-18).
+    source: user
+    confirmed: true
+  - text: The RFC records where IOS-PLAN.md §7 (DocumentGroup + iCloud Drive) and the other session's iCloud Drive folder are superseded, and does not edit them.
+    source: system
+    confirmed: false
+  - text: The verify command checks structure only. Whether the design is right is the human's judgement.
+    source: system
+    confirmed: false
+  - text: "maxLines 800: RFC-DRAFT-FORMAT specifies a whole format in ~970 lines; this specifies one feature with its sync, states and tests."
+    source: system
+    confirmed: false
+createdAt: 2026-09-18T21:12:53.676Z
+createdBy: Yasirdora
