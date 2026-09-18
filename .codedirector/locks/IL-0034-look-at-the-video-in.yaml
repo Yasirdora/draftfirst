@@ -1,0 +1,45 @@
+schemaVersion: 1
+id: IL-0034
+status: failed
+utterance: look at the video in desktop folder see how can we make our 3 tabs like this, glass effect macOS 27 exactly like the video. is it possible
+goal: "Probe only, no production change. Add a throwaway probe under apple/EDraftUI/Tests/EDraftUITests/ that measures two unverified claims about NSGlassEffectView on macOS 27: (1) whether NSGlassEffectView.effectIsInteractive (new in macOS 27.0) renders the specular/chromatic press response seen in the reference video, and (2) whether a sibling NSTextField placed BELOW the glass chip in z-order is actually refracted by it, or whether NSGlassEffectView only refracts the window backdrop. Report measured numbers (per-channel divergence across the chip's leading edge over a label) so the MacScopeBar change can be made on evidence. StoryPanel.swift must not change in this lock."
+interpretation: Add one throwaway probe file to the existing EDraftUITests target that builds an offscreen-but-rendered NSWindow containing a groove, three labels and an NSGlassEffectView chip, captures the window, and samples pixels to answer two yes/no questions with numbers — does effectIsInteractive change the rendering, and does a label placed below the chip in z-order get refracted. No production source is touched.
+keep:
+  - kind: no-new-dependency
+deny:
+  - apple/EDraftUI/Sources/**
+  - apple/EDraftMacSurface/Sources/**
+  - apple/macOS/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - docs/**
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: Add a single throwaway glass-measurement probe to EDraftUITests; change no production code.
+budget:
+  files:
+    - apple/EDraftUI/Tests/EDraftUITests/TmpGlassProbe.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 300
+accept:
+  - The probe reports, as printed numbers, whether effectIsInteractive alters the chip's rendering.
+  - The probe reports, as printed numbers, whether a label below the chip in z-order is refracted.
+  - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift is unchanged.
+assumptions:
+  - text: The auto-proposed budget (RecentDocumentsMenu.make, MainMenu.swift and friends) was wrong — it anchored on the word "make" in the utterance. Budget replaced by hand with the single probe file.
+    source: system
+    confirmed: false
+  - text: Probe lives in the already-tracked EDraftUITests folder rather than a new directory, because cdir 0.4.5 reads untracked folders as violations.
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T19:39:20.312Z
+createdBy: Yasirdora

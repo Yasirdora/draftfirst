@@ -1,0 +1,41 @@
+schemaVersion: 1
+id: IL-0035
+status: verified
+utterance: look at the video in desktop folder see how can we make our 3 tabs like this, glass effect macOS 27 exactly like the video. is it possible
+goal: Unbreak the build. IL-0034's probe file apple/EDraftUI/Tests/EDraftUITests/TmpGlassProbe.swift does not compile — it calls CGWindowListCreateImage, which was obsoleted in macOS 15.0 and is hard-unavailable in the macOS 27 SDK — so swift test fails for the entire EDraftUI package. Delete that one file and leave the working tree exactly as it was before IL-0034. No production source changes.
+interpretation: Delete the single uncompilable throwaway probe file added by IL-0034, restoring the EDraftUI test target to a state that builds. Nothing else is touched.
+keep:
+  - kind: no-new-dependency
+deny:
+  - apple/EDraftUI/Sources/**
+  - apple/EDraftMacSurface/Sources/**
+  - apple/macOS/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - docs/**
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: Delete the uncompilable IL-0034 probe file so the EDraftUI test target builds again.
+budget:
+  files:
+    - apple/EDraftUI/Tests/EDraftUITests/TmpGlassProbe.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 250
+accept:
+  - apple/EDraftUI/Tests/EDraftUITests/TmpGlassProbe.swift no longer exists.
+  - The EDraftUI test target compiles again.
+assumptions:
+  - text: The auto-proposed budget anchored on the word "make" in the utterance and was wrong again; budget replaced by hand with the single probe file.
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T20:20:00.000Z
+createdBy: Yasirdora

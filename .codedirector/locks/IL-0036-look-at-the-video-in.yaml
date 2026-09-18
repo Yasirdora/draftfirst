@@ -1,0 +1,46 @@
+schemaVersion: 1
+id: IL-0036
+status: verified
+utterance: look at the video in desktop folder see how can we make our 3 tabs like this, glass effect macOS 27 exactly like the video. is it possible
+goal: "Rewrite the glass probe on ScreenCaptureKit, since CGWindowListCreateImage is obsoleted in macOS 15 and unavailable in the macOS 27 SDK. Add apple/EDraftUI/Tests/EDraftUITests/TmpGlassProbe.swift: an async XCTest that builds an on-screen window holding a groove, three labels and an NSGlassEffectView chip, captures it with SCScreenshotManager, and measures the label region across six variants to answer (1) does NSGlassEffectView.effectIsInteractive, new in macOS 27.0, change the chip's rendering, and (2) is a sibling label placed BELOW the chip in z-order refracted by it, or does the glass only bend the window backdrop. It must compile now and must skip with a clear message, never with fabricated numbers, when Screen Recording permission is absent. No production source or docs change."
+interpretation: Replace the deleted CGWindowListCreateImage probe with a ScreenCaptureKit one in the same throwaway location. It must compile against the macOS 27 SDK today, and at runtime either print real measurements or skip loudly when Screen Recording is not granted.
+keep:
+  - kind: no-new-dependency
+deny:
+  - apple/EDraftUI/Sources/**
+  - apple/EDraftMacSurface/Sources/**
+  - apple/macOS/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - docs/**
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: Add a ScreenCaptureKit-based throwaway glass probe to EDraftUITests; change no production code and no docs.
+budget:
+  files:
+    - apple/EDraftUI/Tests/EDraftUITests/TmpGlassProbe.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 320
+accept:
+  - The EDraftUI test target compiles with the probe present.
+  - Without Screen Recording permission the probe skips with an explicit message and prints no measurements.
+  - With permission it prints per-variant meanLuma, maxChroma and mean-absolute-difference against the uncovered-label baseline.
+  - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift is unchanged.
+assumptions:
+  - text: The auto-proposed budget anchored on the word "make" in the utterance and was wrong a third time; budget replaced by hand with the single probe file.
+    source: system
+    confirmed: false
+  - text: Screen Recording must be granted to /Applications/Claude.app, which is the app at the head of this session's process chain. Granting it is the human's action, not the agent's.
+    source: system
+    confirmed: false
+createdAt: 2026-09-17T20:25:00.000Z
+createdBy: Yasirdora
