@@ -4222,5 +4222,66 @@
         }
       ]
     }
+  },
+  {
+    "name": "note-brackets",
+    "source": "INT. KITCHEN - NIGHT\n\n[[Dana (Director): see [scene 4]]]\n\n[[[eDraft thread:t4k9qz status:open]]]\n\n[[Sam (Writer): see [scene 4] ]]\n\n[[x]]]]\n\n[[]]]\n\n[[see [[4] ] later]]\n\n[[a] ] ]b]]\n\nMara waits [[see [4]]] by the door.\n\n[[Dana (Director): one\nSam (Writer): see [4]]]\n\n[[a [bracket] inside]]\n\nThe kettle screams.\n",
+    "expected": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT. KITCHEN - NIGHT"
+        },
+        {
+          "type": "note",
+          "text": "Dana (Director): see [scene 4]"
+        },
+        {
+          "type": "note",
+          "text": "[eDraft thread:t4k9qz status:open]"
+        },
+        {
+          "type": "note",
+          "text": "Sam (Writer): see [scene 4]"
+        },
+        {
+          "type": "note",
+          "text": "x]]"
+        },
+        {
+          "type": "note",
+          "text": "]"
+        },
+        {
+          "type": "note",
+          "text": "see [[4]] later"
+        },
+        {
+          "type": "note",
+          "text": "a]]]b"
+        },
+        {
+          "type": "note",
+          "text": "see [4]"
+        },
+        {
+          "type": "action",
+          "text": "Mara waits  by the door."
+        },
+        {
+          "type": "note",
+          "text": "Dana (Director): one\nSam (Writer): see [4]"
+        },
+        {
+          "type": "note",
+          "text": "a [bracket] inside"
+        },
+        {
+          "type": "action",
+          "text": "The kettle screams."
+        }
+      ]
+    }
   }
 ]

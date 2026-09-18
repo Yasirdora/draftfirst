@@ -63,6 +63,17 @@ function escapeForcedTransition(text: string): string {
 	return text.endsWith('<') ? `${text.slice(0, -1)}\\<` : text;
 }
 
+/**
+ * A note's text, spelled so its only `]]` is the close: a space between every
+ * two adjacent `]`, and one before the close when the text ends in `]`. The
+ * reader trims that space and reads `] ]` back as `]]`. Text with neither is
+ * written as it is.
+ */
+function noteBody(body: string): string {
+	const spaced = body.replace(/\](?=\])/g, '] ');
+	return spaced.endsWith(']') ? `${spaced} ` : spaced;
+}
+
 /** Render one element as its Fountain source line. */
 export function elementToFountain(el: ScreenplayElement): string {
 	/* Classification reads el.text — marker-free content — so markers can
@@ -121,7 +132,7 @@ export function elementToFountain(el: ScreenplayElement): string {
 			return risky ? `!${text}` : text;
 		}
 		case 'note':
-			return `[[${body}]]`;
+			return `[[${noteBody(body)}]]`;
 		case 'section': {
 			const depth = Math.max(1, el.depth ?? 1);
 			return `${'#'.repeat(depth)} ${body}`;

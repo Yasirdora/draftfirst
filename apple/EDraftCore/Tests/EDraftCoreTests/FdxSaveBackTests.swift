@@ -94,6 +94,64 @@ final class FdxSaveBackTests: XCTestCase {
         XCTAssertFalse(xml.contains("Type=\"General\""), "the note was printed as General")
     }
 
+    // MARK: - A Note that ends in ] (IL-0038)
+
+    /// `open` carries an .fdx through Fountain, so a Note ending in `]` went
+    /// to the editor as `]]]` and came back cut short, with a stray `]` Action
+    /// paragraph that the next save — edited or not — wrote into the file.
+    private static func withNote(_ note: String) -> String {
+        """
+        <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+        <FinalDraft DocumentType="Script" Template="No" Version="5">
+          <Content>
+            <Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>
+            <Paragraph Type="Note"><Text>\(note)</Text></Paragraph>
+            <Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>
+          </Content>
+        </FinalDraft>
+        """
+    }
+
+    private static let bracketNotes = [
+        "Dana: see [scene 4]", "see [[4]] later", "[eDraft thread:t4k9qz status:open]"
+    ]
+
+    /// Opened, published by the editor, and saved with no edit: the same file.
+    func testANoteEndingInABracketSavesWithoutEditingToTheIdenticalFile() throws {
+        for note in Self.bracketNotes {
+            let original = Self.withNote(note)
+            let file = try ScreenplayFile.open(Data(original.utf8), as: .finalDraftScreenplay)
+            let editor = EditorState(source: file.source)
+            var published: String?
+            editor.onSourceChange = { published = $0 }
+            editor.flushPendingWork()
+            let written = try ScreenplayFile.encode(
+                published ?? file.source, as: .finalDraftScreenplay, origin: file.origin
+            )
+            XCTAssertEqual(String(data: written, encoding: .utf8), original, "\(note)")
+        }
+    }
+
+    /// An edit elsewhere changes its own line and leaves the note alone, with
+    /// no paragraph added.
+    func testAnEditBesideANoteEndingInABracketLeavesTheNoteAlone() throws {
+        for note in Self.bracketNotes {
+            let original = Self.withNote(note)
+            let file = try ScreenplayFile.open(Data(original.utf8), as: .finalDraftScreenplay)
+            let edited = file.source.replacingOccurrences(
+                of: "The kettle screams.", with: "The kettle screams again."
+            )
+            let written = try ScreenplayFile.encode(
+                edited, as: .finalDraftScreenplay, origin: file.origin
+            )
+            XCTAssertEqual(
+                String(data: written, encoding: .utf8),
+                original.replacingOccurrences(of: "The kettle screams.", with: "The kettle screams again."),
+                "\(note)"
+            )
+        }
+    }
+
     // MARK: - End of Act
 
     /// A real feature, anonymised — the engine's own fixture — with one End of

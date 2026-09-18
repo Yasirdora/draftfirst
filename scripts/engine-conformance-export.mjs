@@ -434,6 +434,43 @@ for (const { name, source } of SCRIPTS) {
 	});
 }
 
+/* Notes that end in `]` or hold `]]` (IL-0038), in the spelling the writer
+   used before the fix, the one it uses now, and by hand. Parse and serialise
+   only: a note never reaches a page. */
+{
+	const name = 'note-brackets';
+	const source = [
+		'INT. KITCHEN - NIGHT',
+		'',
+		'[[Dana (Director): see [scene 4]]]',
+		'',
+		'[[[eDraft thread:t4k9qz status:open]]]',
+		'',
+		'[[Sam (Writer): see [scene 4] ]]',
+		'',
+		'[[x]]]]',
+		'',
+		'[[]]]',
+		'',
+		'[[see [[4] ] later]]',
+		'',
+		'[[a] ] ]b]]',
+		'',
+		'Mara waits [[see [4]]] by the door.',
+		'',
+		'[[Dana (Director): one',
+		'Sam (Writer): see [4]]]',
+		'',
+		'[[a [bracket] inside]]',
+		'',
+		'The kettle screams.',
+		''
+	].join('\n');
+	const screenplay = parseFountain(source);
+	parseFixture.push({ name, source, expected: screenplay });
+	serialiseFixture.push({ name, screenplay, expected: serialiseFountain(screenplay) });
+}
+
 /* Styled pagination must be identical to the plain twin — the paginator
    measures content, and Courier's fixed advance means style never changes
    geometry. The expected values are computed from the PLAIN twin so the

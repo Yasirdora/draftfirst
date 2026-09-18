@@ -161,6 +161,15 @@ function hasNoteCloseBeforeParagraphBreak(
 }
 
 /**
+ * A note's text as the writer wrote it: `] ]` is the serialiser's spelling of
+ * `]]`, which inside a note would close it. Lossy by choice, one way: a note
+ * whose own text holds `] ]` comes back as `]]` (RFC-NOTES-SYSTEM §13).
+ */
+function noteText(raw: string): string {
+	return raw.replace(/\] (?=\])/g, ']').trim();
+}
+
+/**
  * Split into lines, extracting [[ notes ]] (which may span lines).
  * Standalone notes become their own note lines; inline notes are lifted out
  * of the surrounding text.
@@ -179,10 +188,16 @@ function logicalLines(raw: string): LogicalLine[] {
 		for (let i = 0; i < line.length; i++) {
 			if (inNote) {
 				if (line[i] === ']' && line[i + 1] === ']') {
-					notes.push(noteBuf.trim());
+					/* A run of `]` closes the note at its end; the ones before
+					   the last two are its text. The writer before IL-0038 put
+					   `]]]` on disk for a note ending in `]`, and only that. */
+					let end = i + 2;
+					while (line[end] === ']') end++;
+					noteBuf += line.slice(i, end - 2);
+					notes.push(noteText(noteBuf));
 					noteBuf = '';
 					inNote = false;
-					i++;
+					i = end - 1;
 				} else {
 					noteBuf += line[i];
 				}

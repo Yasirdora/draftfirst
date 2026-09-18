@@ -148,6 +148,15 @@ public enum Fountain {
         var notes: [String]
     }
 
+    /// A note's text as the writer wrote it: `] ]` is the serialiser's
+    /// spelling of `]]`, which inside a note would close it. Lossy by choice,
+    /// one way: a note whose own text holds `] ]` comes back as `]]`
+    /// (RFC-NOTES-SYSTEM §13).
+    private static func noteText(_ raw: String) -> String {
+        raw.replacingOccurrences(of: "\\] (?=\\])", with: "]", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Split into lines, extracting `[[ notes ]]` (which may span lines).
     /// Standalone notes become their own note lines; inline notes are lifted
     /// out of the surrounding text.
@@ -177,10 +186,17 @@ public enum Fountain {
                 let next = line.index(after: i)
                 if inNote {
                     if char == "]", next < line.endIndex, line[next] == "]" {
-                        notes.append(noteBuf.trimmingCharacters(in: .whitespacesAndNewlines))
+                        /* A run of `]` closes the note at its end; the ones
+                           before the last two are its text. The writer before
+                           IL-0038 put `]]]` on disk for a note ending in `]`,
+                           and only that. */
+                        var end = line.index(after: next)
+                        while end < line.endIndex, line[end] == "]" { end = line.index(after: end) }
+                        noteBuf += line[i..<line.index(end, offsetBy: -2)]
+                        notes.append(noteText(noteBuf))
                         noteBuf = ""
                         inNote = false
-                        i = line.index(after: next)
+                        i = end
                     } else {
                         noteBuf.append(char)
                         i = next

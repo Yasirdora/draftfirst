@@ -98,7 +98,8 @@ Measured 2026-09-18 for this RFC, through the engine:
   4]]]` closes at the first `]]`: the note loses its last character and a
   stray `]` becomes an action line of the script. A header-only note
   `[[[eDraft …]]]` does the same. This is a live bug in today's notes, not
-  only a hazard for the new ones; §4.4 gives the writing rule that prevents it.
+  only a hazard for the new ones. Fixed by IL-0038, which built §4.4's rules
+  for every note.
 
 ### 2.2 Final Draft's notes — measured
 
@@ -272,14 +273,16 @@ Sam Okafor (Writer): She's frozen — that's the beat.]]
 The kettle screams. Mara doesn't move.
 ```
 
-- **Writing rule — a note never ends in `]`** (§2.1, measured): when the last
-  line would end in `]`, the writer appends a space before `]]`, and the reader
-  trims it. A thread always has at least one message line, so a header never
-  ends a note. The same rule fixes today's live bug for plain notes; it belongs
-  in stage 1.
-- **A message line containing `]]`** would close the note early; the writer
-  replaces `]]` inside a message with `] ]`, and the reader restores it only on
-  a message line.
+- **Writer strict — a written note's only `]]` is its close** (§2.1, measured;
+  built in IL-0038 for every note, ahead of stage 1). The writer puts a space
+  between every two adjacent `]` inside a note, so `]]` is written `] ]`, and
+  a space before the close when the text ends in `]`. A build from before
+  IL-0038, and any reader that closes at the first `]]`, reads the note whole.
+- **Reader liberal — a run of `]` closes a note at its end;** the `]`s before
+  the last two are text. The `]]]` the old writer left on disk for a note
+  ending in `]` therefore reads exactly. The reader trims the space before the
+  close, and reads `] ]` back as `]]` on every line of a note, header
+  included — lossy one way, by choice (§13).
 - **Legacy notes stay valid.** `[[Dir: too slow]]` is a thread of one open
   message by `Dir`, anchored to the paragraph it precedes. Replying to it gives
   it a header; nothing converts a note the writer did not touch.
@@ -628,3 +631,16 @@ purpose.
   exists.
 - **The header seen raw** in other Fountain apps. It reads as metadata in
   Final Draft (fact 8); other tools are not checked.
+- **`] ]` inside a note comes back as `]]` — a chosen asymmetry, not a
+  discovered one** (IL-0038). The writer spells `]]` as `] ]` and the reader
+  reads it back, so a note whose own text holds `] ]` returns as `]]`. A
+  lossless spelling needs an escape for the escape, raw in every other
+  Fountain tool. When this was chosen, 0 of 131 notes in 83 files held `] ]`.
+- **A note the old writer already cut stays cut.** A file reopened and saved
+  by a build before IL-0038 holds the note without its last `]`, followed by
+  a paragraph that is only `]` (in FDX, an Action `]` after a Note). The
+  pattern can be detected but not proven, because a writer could type exactly
+  that: a note with more `[` than `]`, directly followed by a paragraph of only
+  `]`. Recorded as permanent, since none was found in 83 files. If one
+  appears, its repair is a lock of its own: an engine detector that reports,
+  and a writer's click that repairs. Never automatic.

@@ -1709,3 +1709,52 @@ describe('openFdx · files Final Draft wrote', () => {
 		});
 	});
 });
+
+describe('openFdx · a Note paragraph that ends in ] (IL-0038)', () => {
+	/* ScreenplayFile.open carries an .fdx through Fountain, so a Note ending in
+	   `]` went to the editor as `]]]` and came back cut short, with a stray `]`
+	   Action paragraph that the next save — edited or not — wrote into the
+	   Final Draft file. */
+	const file = (note: string) => `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>
+    <Paragraph Type="Note"><Text>${note}</Text></Paragraph>
+    <Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>
+  </Content>
+</FinalDraft>`;
+	/** The app's path: shouted into Fountain, read back with runs. */
+	const reading = (xml: string): Screenplay => {
+		const imported = parseFdx(xml).script;
+		return parseFountain(
+			serialiseFountain({
+				...imported,
+				elements: imported.elements.map((element) => ({
+					...element,
+					text: canonicalCasing(element.type as ElementType, element.text)
+				}))
+			}),
+			{ emphasis: 'runs' }
+		);
+	};
+	const NOTES = ['Dana: see [scene 4]', 'see [[4]] later', '[eDraft thread:t4k9qz status:open]'];
+
+	it.each(NOTES)('a save with no edit returns the file byte for byte: %s', (note) => {
+		const xml = file(note);
+		const unedited = reading(xml);
+		expect(openFdx(xml).rewrite(unedited, { unedited }).xml).toBe(xml);
+	});
+
+	it.each(NOTES)('an edit elsewhere leaves the note alone and adds no paragraph: %s', (note) => {
+		const xml = file(note);
+		const unedited = reading(xml);
+		const edited = {
+			...unedited,
+			elements: unedited.elements.map((element) =>
+				element.text === 'The kettle screams.' ? { ...element, text: 'The kettle screams again.' } : element
+			)
+		};
+		const saved = openFdx(xml).rewrite(edited, { unedited }).xml;
+		expect(saved).toBe(xml.replace('The kettle screams.', 'The kettle screams again.'));
+	});
+});

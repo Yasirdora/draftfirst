@@ -1,0 +1,169 @@
+schemaVersion: 1
+id: IL-0038
+status: verified
+utterance: "start the `]` corruption fix as its own lock — it jumps the queue. Data corruption in today's notes outranks the rebase and everything else. The suggested task text stands as drafted, with the usual shape: both engines, byte-identical behaviour, conformance corpus regenerated. Tests that fail before the fix, in both engines, including `[[Dana: see [scene 4]]]` and the header-only `[[[eDraft …]]]` case. Full suites as verify: npm run test:package, swift test --package-path apple/eDraftEngine, swift test --package-path apple/EDraftCore. Every existing corpus expectation unchanged except cases that pinned the corruption — name those cases in the Change Report. Check the fixtures and sample files for notes already carrying the corrupted form, and report what you find (counts only, no content). The `] ]` escape is lossy in one direction… a note whose genuine text contains `] ]` returns as `]]`… Add one line to §13 (or a comment at the reader) making it a chosen asymmetry, not a discovered one. Parser-side tolerance must get a real answer… reader liberal, writer strict. Specifically evaluate treating `]]]` as content-`]` + close in the parser (it can only arise from text ending in `]`), alongside the §4.4 writing rules. Whichever you choose, state what happens to already-corrupted files: can the reader detect the stray-`]`-action-line pattern adjacent to a truncated note and offer a repair, or is the damage recorded as permanent? That answer belongs in the lock's design pass."
+goal: A Fountain note whose text ends in `]`, or contains `]]`, survives save and reopen whole in both engines — reader liberal (a run of `]` closes a note at its end, so every file eDraft already wrote reads right), writer strict (a space before the closing `]]`, and `]]` inside a note written as `] ]`) — proven by tests that fail before the fix in both engines and a regenerated conformance corpus in which every existing expectation is unchanged.
+interpretation: |
+  The `]` corruption fix, ahead of the rebase and everything else (the
+  human's order). One lock, both engines.
+
+  MEASURED at 3c030e3, both shapes of the bug:
+
+    The writer writes "[[" + text + "]]". A note whose text ends in `]`
+    goes to disk as `]]]`, and the reader closes at the first `]]`:
+      [[Dana: see [scene 4]]]               -> note "Dana: see [scene 4" + action "]"
+      [[[eDraft thread:t4k9qz status:open]]] -> note "[eDraft … status:open" + action "]"
+      text "x]]"                             -> note "x" + action "]]"
+      text "see [[4]] later" (]] inside)     -> note "see [[4" + action " later]]"
+      inline, multi-line: the same, the stray text lands in the script.
+
+    FDX is on the same path. ScreenplayFile.open carries an .fdx through
+    Fountain, so a <Paragraph Type="Note"> ending in `]` is truncated on
+    open, and a save — even with no edit — writes the truncated note and a
+    new printed Action paragraph `]` into the Final Draft file (measured
+    through openFdx().rewrite with the unedited reading).
+
+  THE READER — liberal:
+
+    R1. Inside a note, a run of k ≥ 2 `]` closes the note at the run's end;
+        the first k − 2 are the note's text. `]]]` is `]` + close, `]]]]`
+        is `]]` + close. EVALUATED: eDraft's writer only ever put a run of
+        three or more on disk from text ending in `]`, so every such file it
+        already wrote reads right, exactly, with nothing guessed. The one
+        hand-typed reading this changes — `[[beat]]]` meant as a note plus a
+        literal `]` — today prints a stray `]` into the script; after R1 the
+        `]` stays inside a note, which never prints. Found in 0 of 83 files.
+    R2. Inside a note's text, `] ]` reads as `]]` (every `]`, space, `]`).
+        CHOSEN ASYMMETRY: a note whose genuine text contains `] ]` returns
+        as `]]`. A lossless escape would need an escape for the escape,
+        visible raw in every other Fountain tool, for text that 0 of 131
+        notes in 83 files contain. Recorded at the reader and in RFC §13.
+
+  THE WRITER — strict:
+
+    W1. Inside a note, a space goes between every two adjacent `]`, so
+        `]]` is written `] ]` and `]]]` is written `] ] ]`.
+    W2. When the written text ends in `]`, a space goes before the closing
+        `]]`; the reader trims it, as it already trims every note.
+        Result: the only `]]` in a written note is its close, so a build
+        from before this fix, and any reader that closes at the first `]]`,
+        reads it whole. A note with neither is written byte for byte as
+        today.
+
+  ALREADY-CORRUPTED FILES — the design answer:
+
+    (1) Written but not yet reopened and saved (`]]]` on disk): the bytes
+        were never wrong. R1 reads them exactly on the next open; no offer
+        is needed and nothing is guessed.
+    (2) Reopened and saved by an affected build: the note lost its `]`, and
+        a paragraph of only `]` follows it (in FDX, an Action `]` after a
+        Note). The pattern is detectable, a note with more `[` than `]`
+        directly followed by a paragraph that is only `]`, but not provable:
+        a writer can type exactly that. RECORDED AS PERMANENT in RFC §13,
+        with the pattern written down. No repair is built. The scan found 0,
+        and a repair means an offer, which is interface. If one ever turns up,
+        the repair is its own lock: an engine detector that reports, and a
+        writer's click that repairs. Never automatic.
+
+  SCAN, counts only, no content, before this lock: 83 files, 131 notes —
+  repo fixtures (3 .fdx) and all 15 corpus files; ~/Documents scripts in
+  every folder (17) and the Final Draft probe folder (3); eDraft's iCloud
+  folder (12 .draft); Final Draft's iCloud documents and Backup (28);
+  Arc Studio backups (5 .fountain). Notes ending in `]` on disk: 0.
+  Notes with `]]` inside: 0. Notes containing `] ]`: 0. Paragraphs of
+  only `]`: 0; after a truncated note: 0.
+
+  Cases in the existing corpus that pinned the corruption: none expected —
+  no corpus file contains `]]]`. The regeneration proves it or names them.
+
+  RFC edits: §4.4 states R1, R2, W1, W2 as built here, and fixes the stale
+  "belongs in stage 1"; §2.1 points at this lock; §13 records the chosen
+  asymmetry and the permanent case (2) with its pattern.
+
+  Out of scope: headers, threads, anything in stage 1; FDX engine code
+  (the FDX fix is the Fountain fix, proven by tests only); any repair UI.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: every existing corpus expectation is unchanged — the 9 parse and 9 serialise cases, and every other fixture file byte-identical after regeneration — except cases that pinned the corruption, named in the Change Report; both ports produce identical results for every case, new ones included
+  - kind: custom
+    text: a note whose text neither ends in `]` nor contains `]]` is written byte for byte as today, and every Fountain file without a run of three `]` or a `] ]` inside a note reads exactly as today
+  - kind: custom
+    text: the only `]]` in a note the writer writes is its close, so builds from before this fix read it whole
+  - kind: custom
+    text: an .fdx whose Note paragraph ends in `]` saves with no edit to the identical file through the app's path, and an edit elsewhere leaves that paragraph's bytes alone, in both engines
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/fdx.ts
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/style.ts
+  - packages/edraft/src/normalize.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/*.fdx
+  - apple/eDraftEngine/Fixtures/fdx.json
+  - apple/eDraftEngine/Fixtures/paginate.json
+  - apple/eDraftEngine/Fixtures/predict.json
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Paginate/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - "*.xcodeproj/**"
+  - "**/DerivedData/**"
+change: A Fountain note whose text ends in `]` or contains `]]` survives save and reopen whole in both engines. The reader treats a run of `]` as text plus close; the writer never writes a `]]` before the close.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/parse.ts
+    - packages/edraft/src/serialise.ts
+    - packages/edraft/src/parse.test.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/parse.json
+    - apple/eDraftEngine/Fixtures/serialise.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Fountain/Parse.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fountain/Serialise.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FountainConformanceTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift
+    - docs/RFC-NOTES-SYSTEM.md
+  symbols: []
+  maxFiles: 13
+  maxLines: 1100
+accept:
+  - "`[[Dana: see [scene 4]]]` reads as one note, `Dana: see [scene 4]`, and nothing else, in both engines; fails today (note `…[scene 4` + action `]`)."
+  - Header-only `[[[eDraft thread:t4k9qz status:open]]]` reads as one note, the whole header, in both engines; fails today.
+  - "Save and reopen returns the same note text for: text ending in `]`, in `]]`, text that is only `]`, `]]` and `]]]` inside, a multi-line note whose last line ends in `]`, and an inline note ending in `]`. Both engines; each fails today."
+  - "Writer: the only `]]` in each written note is its close; a note without `]` at its end or `]]` inside is written as today."
+  - "The chosen asymmetry pinned by name: a note typed `a] ]b` returns as `a]]b`."
+  - "FDX through the app's path: a Note paragraph ending in `]` saves with no edit to the identical file, and an edit elsewhere leaves it alone. TypeScript (fdx.test.ts) and Swift (FdxSaveBackTests). Fails today (a printed `]` Action paragraph is written)."
+  - "Corpus: a new note-brackets case in parse.json and serialise.json, identical in both ports; the existing 9 + 9 unchanged, every other fixture byte-identical; corruption-pinning cases named (expected: none)."
+  - "Suites green: npm run test:package, swift test --package-path apple/eDraftEngine, swift test --package-path apple/EDraftCore, plus the new proofs."
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on the words "report", "text", "line" and "action", proposed scan, paste and title-page files, and denied the TypeScript tests this lock needs.
+    source: system
+    confirmed: false
+  - text: "Queued by the human ahead of the rebase and everything else. Shape as the human set it: both engines, byte-identical behaviour, corpus regenerated, tests that fail before the fix in both engines including the two named cases, full suites as verify, corruption-pinning corpus cases named, a count-only scan of fixtures and sample files."
+    source: user
+    confirmed: true
+  - text: "Found in the design pass and proposed here as tests only: the FDX path (ScreenplayFile.open carries .fdx through Fountain) writes a printed `]` paragraph into a Final Draft file on any save. The Fountain fix is the FDX fix; fdx.test.ts and FdxSaveBackTests.swift prove it. No FDX engine code changes."
+    source: system
+    confirmed: false
+  - text: "Design answer on already-corrupted files: `]]]` on disk is read exactly by R1; a file re-saved by an affected build is recorded as permanent in RFC §13 with its detection pattern, and no repair is built (0 found in 83 files)."
+    source: system
+    confirmed: false
+  - text: "maxLines 1,100: parser and writer ~25 lines per file per port (~100), TypeScript tests ~120, Swift tests ~110 (FountainConformanceTests' corpus count moves from 9 to 10), FDX path tests ~60, exporter ~40, corpus ~350 (one note-brackets case in two files), RFC ~25, changelog ~3."
+    source: system
+    confirmed: false
+createdAt: 2026-09-18T05:56:35.051Z
+createdBy: Yasirdora

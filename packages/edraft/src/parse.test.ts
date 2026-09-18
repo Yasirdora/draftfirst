@@ -419,6 +419,76 @@ describe('round-trip · parse → serialise → parse', () => {
 	});
 });
 
+describe('notes that end in ] or hold ]] (IL-0038)', () => {
+	/* The writer used to write "[[" + text + "]]": a note ending in `]` went to
+	   disk as `]]]`, the reader closed at the first `]]`, and the next open
+	   cut the note short and printed a stray `]` into the script. */
+	const around = (note: string) => `INT. KITCHEN - NIGHT\n\n${note}\n\nThe kettle screams.\n`;
+	const scene = (text: string): Screenplay => ({
+		titlePage: [],
+		elements: [
+			{ type: 'scene', text: 'INT. KITCHEN - NIGHT' },
+			{ type: 'note', text },
+			{ type: 'action', text: 'The kettle screams.' }
+		]
+	});
+	const written = (text: string) => serialiseFountain({ titlePage: [], elements: [{ type: 'note', text }] });
+
+	it('reads a note the old writer ended in `]]]` whole, and prints nothing', () => {
+		expect(parseFountain(around('[[Dana: see [scene 4]]]')).elements).toEqual(scene('Dana: see [scene 4]').elements);
+	});
+
+	it('reads a header-only note whole', () => {
+		expect(parseFountain(around('[[[eDraft thread:t4k9qz status:open]]]')).elements).toEqual(
+			scene('[eDraft thread:t4k9qz status:open]').elements
+		);
+	});
+
+	it('closes a note at the end of a run of `]`: the rest are its text', () => {
+		expect(parseFountain(around('[[x]]]]')).elements).toEqual(scene('x]]').elements);
+	});
+
+	it('reads an inline note ending in `]` whole, leaving the line without a stray `]`', () => {
+		const s = parseFountain('Mara waits [[see [4]]] by the door.\n');
+		expect(s.elements.map((e) => [e.type, e.text])).toEqual([
+			['note', 'see [4]'],
+			['action', 'Mara waits  by the door.']
+		]);
+	});
+
+	it.each([
+		['ending in ]', 'Dana: see [scene 4]'],
+		['a header alone', '[eDraft thread:t4k9qz status:open]'],
+		['ending in ]]', 'x]]'],
+		['only ]', ']'],
+		[']] inside', 'see [[4]] later'],
+		[']]] inside', 'a]]]b'],
+		['over two lines, the last ending in ]', 'Dana (Director): one\nSam (Writer): see [4]']
+	])('a note %s survives save and reopen', (_, text) => {
+		expect(parseFountain(serialiseFountain(scene(text))).elements).toEqual(scene(text).elements);
+	});
+
+	it.each(['Dana: see [scene 4]', '[eDraft thread:t4k9qz status:open]', 'x]]', ']', 'see [[4]] later', 'a]]]b'])(
+		'the only `]]` the writer writes in a note is its close, so an older reader reads it whole: %s',
+		(text) => {
+			const note = written(text);
+			expect(note.startsWith('[[')).toBe(true);
+			expect(note.indexOf(']]', 2)).toBe(note.length - 2);
+		}
+	);
+
+	it('writes a note with no `]` at its end and no `]]` inside exactly as before', () => {
+		for (const text of ['rewrite this beat', 'a [bracket] inside', 'Dir: [beat]. Then go.']) {
+			expect(written(text)).toBe(`[[${text}]]`);
+		}
+	});
+
+	it('the chosen asymmetry (RFC §13): a note typed `a] ]b` returns as `a]]b`', () => {
+		expect(written('a] ]b')).toBe('[[a] ]b]]');
+		expect(parseFountain(around(written('a] ]b'))).elements).toEqual(scene('a]]b').elements);
+	});
+});
+
 describe('act breaks at the Fountain boundary (RFC-ACT-BREAK §3)', () => {
 	it('serialises an act break as the centred card', () => {
 		expect(

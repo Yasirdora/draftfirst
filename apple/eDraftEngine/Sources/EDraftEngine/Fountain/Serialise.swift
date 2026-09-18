@@ -24,6 +24,15 @@ extension Fountain {
         text.hasSuffix("<") ? String(text.dropLast()) + "\\<" : text
     }
 
+    /// A note's text, spelled so its only `]]` is the close: a space between
+    /// every two adjacent `]`, and one before the close when the text ends in
+    /// `]`. The reader trims that space and reads `] ]` back as `]]`. Text
+    /// with neither is written as it is.
+    private static func noteBody(_ body: String) -> String {
+        let spaced = body.replacingOccurrences(of: "\\](?=\\])", with: "] ", options: .regularExpression)
+        return spaced.hasSuffix("]") ? spaced + " " : spaced
+    }
+
     /// Render one element as its Fountain source line
     /// (TypeScript `elementToFountain`).
     public static func elementToFountain(_ element: ScreenplayElement) -> String {
@@ -97,7 +106,7 @@ extension Fountain {
             return risky ? "!" + text : text
 
         case .note:
-            return "[[\(body)]]"
+            return "[[\(noteBody(body))]]"
 
         case .section:
             let depth = max(1, element.depth ?? 1)
