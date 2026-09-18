@@ -471,6 +471,38 @@ for (const { name, source } of SCRIPTS) {
 	serialiseFixture.push({ name, screenplay, expected: serialiseFountain(screenplay) });
 }
 
+/* Notes inside a dialogue block (IL-0040), in the inline spelling the
+   serialiser now writes: a note on the line after it, never a paragraph of
+   its own between a cue and its speech. Parse and serialise only. */
+{
+	const name = 'asides-in-dialogue';
+	const source = [
+		'INT. KITCHEN - NIGHT',
+		'',
+		'BOB',
+		'Hello. [[n1]] [[n2]]',
+		'',
+		'ANN',
+		'(beat) [[n3]]',
+		'Hi.',
+		'Line two [[see [scene 4] ]]',
+		'',
+		'CARL',
+		'Hi.',
+		'',
+		'DANA ^',
+		'Ho. [[n4]]',
+		'',
+		'[[after the block]]',
+		'',
+		'The kettle screams.',
+		''
+	].join('\n');
+	const screenplay = parseFountain(source);
+	parseFixture.push({ name, source, expected: screenplay });
+	serialiseFixture.push({ name, screenplay, expected: serialiseFountain(screenplay) });
+}
+
 /* Styled pagination must be identical to the plain twin — the paginator
    measures content, and Courier's fixed advance means style never changes
    geometry. The expected values are computed from the PLAIN twin so the

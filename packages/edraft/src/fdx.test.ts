@@ -1758,3 +1758,49 @@ describe('openFdx · a Note paragraph that ends in ] (IL-0038)', () => {
 		expect(saved).toBe(xml.replace('The kettle screams.', 'The kettle screams again.'));
 	});
 });
+
+describe('openFdx · a note added inside a dialogue block (IL-0040)', () => {
+	/* The editor puts a note in front of the line it is about, and hands the
+	   save its Fountain. A note on a speech line broke the block in that
+	   Fountain, and the save wrote the cue and the speech back as Action. */
+	const xml = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>
+    <Paragraph Type="Character"><Text>BOB</Text></Paragraph>
+    <Paragraph Type="Parenthetical"><Text>(beat)</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>Hello.</Text></Paragraph>
+    <Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>
+  </Content>
+</FinalDraft>`;
+	/** The app's path: shouted into Fountain, read back with runs. */
+	const throughFountain = (script: Screenplay): Screenplay =>
+		parseFountain(
+			serialiseFountain({
+				...script,
+				elements: script.elements.map((element) => ({
+					...element,
+					text: canonicalCasing(element.type as ElementType, element.text)
+				}))
+			}),
+			{ emphasis: 'runs' }
+		);
+
+	it.each(['Dialogue', 'Parenthetical'])('a note left on the %s line keeps every line of the block as it was', (kind) => {
+		const unedited = throughFountain(parseFdx(xml).script);
+		const at = unedited.elements.findIndex((element) => element.type === kind.toLowerCase());
+		const withNote: Screenplay = {
+			...unedited,
+			elements: [...unedited.elements.slice(0, at), { type: 'note', text: 'Too flat?' }, ...unedited.elements.slice(at)]
+		};
+		const saved = openFdx(xml).rewrite(throughFountain(withNote), { unedited }).xml;
+		for (const line of [
+			'<Paragraph Type="Character"><Text>BOB</Text></Paragraph>',
+			'<Paragraph Type="Parenthetical"><Text>(beat)</Text></Paragraph>',
+			'<Paragraph Type="Dialogue"><Text>Hello.</Text></Paragraph>'
+		]) {
+			expect(saved).toContain(line);
+		}
+		expect(saved).not.toMatch(/Type="Action"><Text>(BOB|\(beat\)|Hello\.)</);
+	});
+});

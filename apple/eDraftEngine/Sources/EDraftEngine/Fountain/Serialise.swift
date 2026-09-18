@@ -24,6 +24,78 @@ extension Fountain {
         text.hasSuffix("<") ? String(text.dropLast()) + "\\<" : text
     }
 
+    /// What the editor keeps beside the page rather than on it.
+    private static func isAside(_ kind: ElementKind) -> Bool {
+        kind == .note || kind == .section || kind == .synopsis
+    }
+
+    private struct AsidePlacement {
+        /// Notes written at the end of the first line of the element at the key.
+        var inline: [Int: [Int]] = [:]
+        /// Asides written in front of the block whose first line is at the key.
+        var hoisted: [Int: [Int]] = [:]
+        /// Every aside written somewhere other than its own place.
+        var moved: Set<Int> = []
+    }
+
+    /// Where each aside inside a dialogue block is written (IL-0040;
+    /// TypeScript `placeAsides`).
+    ///
+    /// The editor puts a note in front of the line it is about. Written as its
+    /// own paragraph between two lines of one block — a cue and its speech, or
+    /// a parenthetical — it ended the block, and the next open read the cue and
+    /// the speech as Action. So a run of asides between a line of a block and a
+    /// parenthetical or speech line after it is written where Fountain can
+    /// carry it (one in front of a dual second speaker's cue already survived,
+    /// and is written as before):
+    ///
+    /// - one-line notes, inline at the end of the first line after them, where
+    ///   the reader lifts them out and puts them back in front of that line;
+    /// - anything else — a note of several lines, a section, a synopsis, or a
+    ///   line after them that is empty — in front of the block, in order,
+    ///   since Fountain has no way to write them inside it.
+    private static func placeAsides(_ elements: [ScreenplayElement]) -> AsidePlacement {
+        var placement = AsidePlacement()
+        var blockStart: Int? = nil
+        var last: ScreenplayElement? = nil
+        var index = 0
+        while index < elements.count {
+            let element = elements[index]
+            if !isAside(element.type) {
+                let continues = last.map { $0.type.isDialogueFlow } == true
+                    && element.type.isDialogueFlow
+                    && (element.type != .character || element.dual == true)
+                if !element.type.isDialogueFlow {
+                    blockStart = nil
+                } else if !continues {
+                    blockStart = index
+                }
+                last = element
+                index += 1
+                continue
+            }
+            var end = index
+            while end < elements.count && isAside(elements[end].type) { end += 1 }
+            if let start = blockStart, end < elements.count,
+               elements[end].type == .parenthetical || elements[end].type == .dialogue {
+                let run = Array(index..<end)
+                let oneLineNotes = run.allSatisfy {
+                    elements[$0].type == .note && !elements[$0].text.contains("\n")
+                }
+                let firstLine = elementToFountain(elements[end])
+                    .split(separator: "\n", omittingEmptySubsequences: false).first.map(String.init) ?? ""
+                if oneLineNotes && !firstLine.trimmingCharacters(in: .whitespaces).isEmpty {
+                    placement.inline[end, default: []] += run
+                } else {
+                    placement.hoisted[start, default: []] += run
+                }
+                placement.moved.formUnion(run)
+            }
+            index = end
+        }
+        return placement
+    }
+
     /// A note's text, spelled so its only `]]` is the close: a space between
     /// every two adjacent `]`, and one before the close when the text ends in
     /// `]`. The reader trims that space and reads `] ]` back as `]]`. Text
@@ -148,8 +220,10 @@ extension Fountain {
             out.push("")
         }
 
+        let elements = script.elements
+        let asides = placeAsides(elements)
         var prev: ElementKind? = nil
-        for element in script.elements {
+        func emit(_ element: ScreenplayElement, _ line: String) {
             /*
              * Glue only WITHIN one speech block (cue → parenthetical →
              * dialogue). A new character cue must always be blank-line
@@ -163,8 +237,21 @@ extension Fountain {
             if !glued && !out.isEmpty && out.last != "" {
                 out.push("")
             }
-            out.push(elementToFountain(element))
+            out.push(line)
             prev = element.type
+        }
+        for (index, element) in elements.enumerated() where !asides.moved.contains(index) {
+            for k in asides.hoisted[index] ?? [] { emit(elements[k], elementToFountain(elements[k])) }
+            var line = elementToFountain(element)
+            if let notes = asides.inline[index] {
+                let inline = notes.map { " " + elementToFountain(elements[$0]) }.joined()
+                if let lineEnd = line.firstIndex(of: "\n") {
+                    line.insert(contentsOf: inline, at: lineEnd)
+                } else {
+                    line += inline
+                }
+            }
+            emit(element, line)
         }
 
         var result = out.joined(separator: "\n")

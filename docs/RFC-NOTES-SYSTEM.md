@@ -91,6 +91,10 @@ Measured 2026-09-18 for this RFC, through the engine:
   the paragraph becomes `She waits  by the door.` — a double space where the
   note was. Typed inside dialogue, the note lands between the cue and the
   speech. A note's position inside a line cannot be carried by where it sits.
+  And there it ended the block: the next open read the cue and the speech as
+  Action, and an FDX save wrote them into the file that way. Fixed by
+  IL-0040. A one-line note inside a block is written inline on the line after
+  it; anything else is written in front of the block's cue.
 - **A native note saves into FDX as a script paragraph,**
   `<Paragraph Type="Note"><Text>Dir: too slow</Text></Paragraph>`, never into
   `<ScriptNotes>`. Final Draft shows it as a line of the script, not as a note.
@@ -636,6 +640,13 @@ purpose.
   reads it back, so a note whose own text holds `] ]` returns as `]]`. A
   lossless spelling needs an escape for the escape, raw in every other
   Fountain tool. When this was chosen, 0 of 131 notes in 83 files held `] ]`.
+- **A dialogue block a note already broke stays broken** (IL-0040). A file
+  saved by a build before IL-0040 with a note inside a dialogue block holds
+  `CUE`, the note and `Speech` as three paragraphs: in Fountain,
+  blank-separated; in FDX, the cue and the speech as Action. That reads the
+  same way as an action line in capitals followed by a note, so the reader
+  cannot tell them apart. Recorded as permanent. A scan of 74 files found it
+  only in sample02 and its copies, which are repaired by hand.
 - **A note the old writer already cut stays cut.** A file reopened and saved
   by a build before IL-0038 holds the note without its last `]`, followed by
   a paragraph that is only `]` (in FDX, an Action `]` after a Note). The

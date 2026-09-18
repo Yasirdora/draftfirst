@@ -4283,5 +4283,87 @@
         }
       ]
     }
+  },
+  {
+    "name": "asides-in-dialogue",
+    "source": "INT. KITCHEN - NIGHT\n\nBOB\nHello. [[n1]] [[n2]]\n\nANN\n(beat) [[n3]]\nHi.\nLine two [[see [scene 4] ]]\n\nCARL\nHi.\n\nDANA ^\nHo. [[n4]]\n\n[[after the block]]\n\nThe kettle screams.\n",
+    "expected": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT. KITCHEN - NIGHT"
+        },
+        {
+          "type": "character",
+          "text": "BOB"
+        },
+        {
+          "type": "note",
+          "text": "n1"
+        },
+        {
+          "type": "note",
+          "text": "n2"
+        },
+        {
+          "type": "dialogue",
+          "text": "Hello."
+        },
+        {
+          "type": "character",
+          "text": "ANN"
+        },
+        {
+          "type": "note",
+          "text": "n3"
+        },
+        {
+          "type": "parenthetical",
+          "text": "(beat)"
+        },
+        {
+          "type": "dialogue",
+          "text": "Hi."
+        },
+        {
+          "type": "note",
+          "text": "see [scene 4]"
+        },
+        {
+          "type": "dialogue",
+          "text": "Line two"
+        },
+        {
+          "type": "character",
+          "text": "CARL"
+        },
+        {
+          "type": "dialogue",
+          "text": "Hi."
+        },
+        {
+          "type": "character",
+          "text": "DANA",
+          "dual": true
+        },
+        {
+          "type": "note",
+          "text": "n4"
+        },
+        {
+          "type": "dialogue",
+          "text": "Ho."
+        },
+        {
+          "type": "note",
+          "text": "after the block"
+        },
+        {
+          "type": "action",
+          "text": "The kettle screams."
+        }
+      ]
+    }
   }
 ]

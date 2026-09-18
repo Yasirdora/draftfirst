@@ -2,10 +2,11 @@ import Foundation
 import Testing
 import EDraftEngine
 
-/// Conformance of `Fountain.parse` against `Fixtures/parse.json`: ten
+/// Conformance of `Fountain.parse` against `Fixtures/parse.json`: eleven
 /// scripts (sample, edge headings, edge dialogue, structural, title page,
-/// empty, whitespace chaos, torture, 871-element feature, note brackets)
-/// parsed by the TypeScript engine, compared element-for-element.
+/// empty, whitespace chaos, torture, 871-element feature, note brackets,
+/// asides in dialogue) parsed by the TypeScript engine, compared
+/// element-for-element.
 @Suite("Fountain parse conformance")
 struct FountainParseConformanceTests {
 
@@ -19,7 +20,7 @@ struct FountainParseConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.count == 10)
+        #expect(Self.corpus.count == 11)
     }
 
     @Test("parse", arguments: Self.corpus)
@@ -44,7 +45,7 @@ struct FountainSerialiseConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.count == 10)
+        #expect(Self.corpus.count == 11)
     }
 
     @Test("serialise", arguments: Self.corpus)
@@ -149,5 +150,105 @@ struct FountainNoteBracketTests {
         #expect(Self.written("a] ]b") == "[[a] ]b]]")
         let reopened = try Fountain.parse(Self.around(Self.written("a] ]b")))
         #expect(reopened.elements == Self.scene("a]]b").elements)
+    }
+}
+
+/// Asides inside a dialogue block (IL-0040). The editor puts a note in front
+/// of the line it is about; inside a dialogue block it was written as its own
+/// paragraph between blank lines, which ended the block, and the next open
+/// read the cue and the speech as Action. Mirrors the TypeScript engine's
+/// parse.test.ts.
+@Suite("Fountain asides inside a dialogue block")
+struct FountainDialogueAsideTests {
+
+    private static func reopened(_ elements: [ScreenplayElement]) throws -> [ScreenplayElement] {
+        let heading = ScreenplayElement(type: .scene, text: "INT. KITCHEN - NIGHT")
+        let written = Fountain.serialise(Screenplay(elements: [heading] + elements))
+        return Array(try Fountain.parse(written, emphasis: .runs).elements.dropFirst())
+    }
+
+    private static func cue(_ text: String, dual: Bool = false) -> ScreenplayElement {
+        dual ? ScreenplayElement(type: .character, text: text, dual: true)
+            : ScreenplayElement(type: .character, text: text)
+    }
+    private static func speech(_ text: String) -> ScreenplayElement { ScreenplayElement(type: .dialogue, text: text) }
+    private static func paren(_ text: String) -> ScreenplayElement { ScreenplayElement(type: .parenthetical, text: text) }
+    private static func note(_ text: String) -> ScreenplayElement { ScreenplayElement(type: .note, text: text) }
+
+    static let oneLineCases: [(String, [ScreenplayElement])] = [
+        ("between the cue and the speech", [cue("BOB"), note("n1"), speech("Hello.")]),
+        ("two of them there", [cue("BOB"), note("n1"), note("n2"), speech("Hello.")]),
+        ("before a parenthetical", [cue("BOB"), note("n1"), paren("(beat)"), speech("Hello.")]),
+        ("after a parenthetical", [cue("BOB"), paren("(beat)"), note("n1"), speech("Hello.")]),
+        ("in the middle of a speech", [cue("BOB"), speech("Hello."), note("n1"), paren("(beat)"), speech("Again.")]),
+        ("between two lines of one speech", [cue("BOB"), speech("Line one"), note("n1"), speech("Line two")]),
+        ("inside a dual second speech", [cue("BOB"), speech("Hi."), cue("ANN", dual: true), note("n1"), speech("Ho.")]),
+        ("ending in ] (IL-0038)", [cue("BOB"), note("see [scene 4]"), speech("Hello.")])
+    ]
+
+    @Test("a one-line note stays exactly where it was", arguments: oneLineCases.indices)
+    func oneLineNote(_ index: Int) throws {
+        let (label, elements) = Self.oneLineCases[index]
+        #expect(try Self.reopened(elements) == elements, "\(label)")
+    }
+
+    @Test("a note before an emphasised speech keeps the emphasis")
+    func emphasis() throws {
+        let elements = [
+            Self.cue("BOB"),
+            Self.note("n1"),
+            ScreenplayElement(
+                type: .dialogue, text: "Hello there.",
+                runs: [StyleRun(start: 0, end: 5, styles: [.bold])]
+            )
+        ]
+        #expect(try Self.reopened(elements) == elements)
+    }
+
+    static let movedCases: [(String, ScreenplayElement)] = [
+        ("a note of two lines", ScreenplayElement(type: .note, text: "first\nsecond")),
+        ("a synopsis", ScreenplayElement(type: .synopsis, text: "The kettle wins.")),
+        ("a section", ScreenplayElement(type: .section, text: "Beat", depth: 3))
+    ]
+
+    @Test("an aside that cannot go inline moves in front of the cue, and the block survives",
+          arguments: movedCases.indices)
+    func movedInFront(_ index: Int) throws {
+        let (label, aside) = Self.movedCases[index]
+        let reopened = try Self.reopened([Self.cue("BOB"), Self.paren("(beat)"), aside, Self.speech("Hello.")])
+        #expect(reopened == [aside, Self.cue("BOB"), Self.paren("(beat)"), Self.speech("Hello.")], "\(label)")
+    }
+
+    @Test("a run holding anything that cannot go inline moves whole, in order")
+    func runMovesWhole() throws {
+        let synopsis = ScreenplayElement(type: .synopsis, text: "The kettle wins.")
+        let reopened = try Self.reopened([Self.cue("BOB"), Self.note("n1"), synopsis, Self.note("n2"), Self.speech("Hello.")])
+        #expect(reopened == [Self.note("n1"), synopsis, Self.note("n2"), Self.cue("BOB"), Self.speech("Hello.")])
+    }
+
+    @Test("writes a one-line note inside a block inline on the line after it")
+    func writtenInline() {
+        let written = Fountain.serialise(Screenplay(elements: [
+            Self.cue("BOB"), Self.note("n1"), Self.note("n2"), Self.speech("Hello.")
+        ]))
+        #expect(written == "BOB\nHello. [[n1]] [[n2]]")
+    }
+
+    @Test("writes a note before a dual second speaker as before, and the pair survives")
+    func dualCueAsBefore() throws {
+        let elements = [Self.cue("BOB"), Self.speech("Hi."), Self.note("n1"), Self.cue("ANN", dual: true), Self.speech("Ho.")]
+        #expect(Fountain.serialise(Screenplay(elements: elements)) == "BOB\nHi.\n\n[[n1]]\n\nANN ^\nHo.")
+        #expect(try Self.reopened(elements) == elements)
+    }
+
+    @Test("writes an aside outside a dialogue block exactly as before")
+    func outsideAsBefore() throws {
+        let elements = [
+            Self.note("before the cue"), Self.cue("BOB"), Self.speech("Hello."),
+            Self.note("after the block"), ScreenplayElement(type: .action, text: "The kettle screams.")
+        ]
+        #expect(Fountain.serialise(Screenplay(elements: elements))
+            == "[[before the cue]]\n\nBOB\nHello.\n\n[[after the block]]\n\nThe kettle screams.")
+        #expect(try Self.reopened(elements) == elements)
     }
 }

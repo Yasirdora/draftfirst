@@ -44,6 +44,34 @@ final class EditorNotesTests: XCTestCase {
         XCTAssertTrue(saved?.contains("[[Same lab as scene 4?]]") == true, "the note was not saved")
     }
 
+    /// A note left on a speech line sits in front of it, inside the dialogue
+    /// block. Written as its own paragraph there, it ended the block, and the
+    /// next open read the cue and the speech as Action (IL-0040).
+    func testANoteOnASpeechLineLeavesTheCueAndTheSpeechAsTheyWere() throws {
+        for kind in [ScreenplayKind.dialogue, .parenthetical] {
+            let editor = editor("INT. LAB - DAY\n\nMARA\n(quietly)\nIt's the same lab.\n\nShe waits.")
+            let line = try XCTUnwrap(editor.screenplay.elements.first { $0.type == kind })
+            var published: String?
+            editor.onSourceChange = { published = $0 }
+
+            XCTAssertNotNil(editor.addNote("Same lab as scene 4?", to: line.id))
+            editor.flushPendingWork()
+
+            let reopened = EditorState(source: try XCTUnwrap(published))
+            XCTAssertEqual(
+                reopened.screenplay.elements.map(\.type),
+                [.scene, .character, .parenthetical, .dialogue, .action],
+                "a note on the \(kind) line broke the block"
+            )
+            XCTAssertEqual(reopened.notes.map(\.text), ["Same lab as scene 4?"])
+            XCTAssertEqual(
+                reopened.notes.first?.anchor,
+                reopened.screenplay.elements.first { $0.type == kind }?.id,
+                "the note left its line"
+            )
+        }
+    }
+
     func testAddingANoteAnchorsItToTheCaretsElement() {
         let editor = editor("INT. LAB - DAY\n\nShe waits.")
         let action = editor.screenplay.elements[1]

@@ -34,6 +34,71 @@ const FLOW: ReadonlySet<AnyElementType> = new Set([
 	'dialogue'
 ]);
 
+/** What the editor keeps beside the page rather than on it. */
+const ASIDE: ReadonlySet<AnyElementType> = new Set(['note', 'section', 'synopsis']);
+
+interface AsidePlacement {
+	/** Notes written at the end of the first line of the element at the key. */
+	inline: Map<number, number[]>;
+	/** Asides written in front of the block whose first line is at the key. */
+	hoisted: Map<number, number[]>;
+	/** Every aside written somewhere other than its own place. */
+	moved: Set<number>;
+}
+
+/**
+ * Where each aside inside a dialogue block is written (IL-0040).
+ *
+ * The editor puts a note in front of the line it is about. Written as its own
+ * paragraph between two lines of one block — a cue and its speech, or a
+ * parenthetical — it ended the block, and the next open read the cue and the
+ * speech as Action. So a run of asides between a line of a block and a
+ * parenthetical or speech line after it is written where Fountain can carry
+ * it (one in front of a dual second speaker's cue already survived, and is
+ * written as before):
+ *
+ * - one-line notes, inline at the end of the first line after them, where
+ *   the reader lifts them out and puts them back in front of that line;
+ * - anything else — a note of several lines, a section, a synopsis, or a
+ *   line after them that is empty — in front of the block, in order, since
+ *   Fountain has no way to write them inside it.
+ */
+function placeAsides(elements: readonly ScreenplayElement[]): AsidePlacement {
+	const placement: AsidePlacement = { inline: new Map(), hoisted: new Map(), moved: new Set() };
+	let blockStart: number | null = null;
+	let last: ScreenplayElement | null = null;
+	for (let index = 0; index < elements.length; index++) {
+		const element = elements[index];
+		if (!ASIDE.has(element.type)) {
+			const continues =
+				last !== null &&
+				FLOW.has(last.type) &&
+				FLOW.has(element.type) &&
+				(element.type !== 'character' || element.dual === true);
+			if (!FLOW.has(element.type)) blockStart = null;
+			else if (!continues) blockStart = index;
+			last = element;
+			continue;
+		}
+		let end = index;
+		while (end < elements.length && ASIDE.has(elements[end].type)) end++;
+		const next = elements[end];
+		const inside =
+			blockStart !== null && next !== undefined && (next.type === 'parenthetical' || next.type === 'dialogue');
+		if (inside) {
+			const run = Array.from({ length: end - index }, (_, k) => index + k);
+			const oneLineNotes = run.every((k) => elements[k].type === 'note' && !elements[k].text.includes('\n'));
+			const firstLine = elementToFountain(next).split('\n')[0];
+			const target = oneLineNotes && firstLine.trim() !== '' ? placement.inline : placement.hoisted;
+			const key = target === placement.inline ? end : (blockStart as number);
+			target.set(key, [...(target.get(key) ?? []), ...run]);
+			for (const k of run) placement.moved.add(k);
+		}
+		index = end - 1;
+	}
+	return placement;
+}
+
 function hasLower(text: string): boolean {
 	return /[a-z]/.test(text);
 }
@@ -171,8 +236,10 @@ export function serialiseFountain(script: Screenplay): string {
 		out.push('');
 	}
 
+	const elements = script.elements;
+	const asides = placeAsides(elements);
 	let prev: AnyElementType | null = null;
-	for (const el of script.elements) {
+	const emit = (el: ScreenplayElement, line: string): void => {
 		/*
 		 * Glue only WITHIN one speech block (cue → parenthetical → dialogue).
 		 * A new character cue must always be blank-line separated: glued to the
@@ -184,9 +251,21 @@ export function serialiseFountain(script: Screenplay): string {
 			prev !== null &&
 			FLOW.has(prev);
 		if (!glued && out.length > 0 && out[out.length - 1] !== '') out.push('');
-		out.push(elementToFountain(el));
+		out.push(line);
 		prev = el.type;
-	}
+	};
+	elements.forEach((el, index) => {
+		if (asides.moved.has(index)) return;
+		for (const k of asides.hoisted.get(index) ?? []) emit(elements[k], elementToFountain(elements[k]));
+		let line = elementToFountain(el);
+		const notes = asides.inline.get(index);
+		if (notes) {
+			const lineEnd = line.indexOf('\n');
+			const inline = notes.map((k) => ` ${elementToFountain(elements[k])}`).join('');
+			line = lineEnd < 0 ? line + inline : line.slice(0, lineEnd) + inline + line.slice(lineEnd);
+		}
+		emit(el, line);
+	});
 
 	return out.join('\n').replace(/\n+$/, '\n');
 }

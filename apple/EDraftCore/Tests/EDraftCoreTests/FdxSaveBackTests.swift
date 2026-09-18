@@ -152,6 +152,49 @@ final class FdxSaveBackTests: XCTestCase {
         }
     }
 
+    // MARK: - A note inside a dialogue block (IL-0040)
+
+    /// A note left on a speech line of a Final Draft file, and saved: every
+    /// line of the block keeps its paragraph, Type and bytes. The editor's
+    /// Fountain used to end the block at the note, so the save wrote the cue
+    /// and the speech back as Action.
+    func testANoteOnASpeechLineKeepsTheBlocksParagraphs() throws {
+        let original = """
+        <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+        <FinalDraft DocumentType="Script" Template="No" Version="5">
+          <Content>
+            <Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>
+            <Paragraph Type="Character"><Text>BOB</Text></Paragraph>
+            <Paragraph Type="Parenthetical"><Text>(beat)</Text></Paragraph>
+            <Paragraph Type="Dialogue"><Text>Hello.</Text></Paragraph>
+            <Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>
+          </Content>
+        </FinalDraft>
+        """
+        for kind in [ScreenplayKind.dialogue, .parenthetical] {
+            let file = try ScreenplayFile.open(Data(original.utf8), as: .finalDraftScreenplay)
+            let editor = EditorState(source: file.source)
+            let line = try XCTUnwrap(editor.screenplay.elements.first { $0.type == kind })
+            var published: String?
+            editor.onSourceChange = { published = $0 }
+            XCTAssertNotNil(editor.addNote("Too flat?", to: line.id))
+            editor.flushPendingWork()
+
+            let written = try ScreenplayFile.encode(
+                try XCTUnwrap(published), as: .finalDraftScreenplay, origin: file.origin
+            )
+            let xml = try XCTUnwrap(String(data: written, encoding: .utf8))
+            for paragraph in [
+                "<Paragraph Type=\"Character\"><Text>BOB</Text></Paragraph>",
+                "<Paragraph Type=\"Parenthetical\"><Text>(beat)</Text></Paragraph>",
+                "<Paragraph Type=\"Dialogue\"><Text>Hello.</Text></Paragraph>"
+            ] {
+                XCTAssertTrue(xml.contains(paragraph), "note on the \(kind) line: lost \(paragraph)")
+            }
+            XCTAssertFalse(xml.contains("Type=\"Action\"><Text>BOB"), "the cue became Action")
+        }
+    }
+
     // MARK: - End of Act
 
     /// A real feature, anonymised — the engine's own fixture — with one End of

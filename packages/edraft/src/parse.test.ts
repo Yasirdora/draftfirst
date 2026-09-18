@@ -9,7 +9,7 @@ import {
 import { serialiseFountain } from './serialise.js';
 import { deriveTitlePage, titlePageValues } from './titlepage.js';
 import { SAMPLE_FOUNTAIN, SAMPLE_TITLE_KEYS } from '../test/fixtures/sample.js';
-import type { Screenplay } from './types.js';
+import type { Screenplay, ScreenplayElement } from './types.js';
 
 const types = (s: Screenplay) => s.elements.map((e) => e.type);
 
@@ -486,6 +486,92 @@ describe('notes that end in ] or hold ]] (IL-0038)', () => {
 	it('the chosen asymmetry (RFC §13): a note typed `a] ]b` returns as `a]]b`', () => {
 		expect(written('a] ]b')).toBe('[[a] ]b]]');
 		expect(parseFountain(around(written('a] ]b'))).elements).toEqual(scene('a]]b').elements);
+	});
+});
+
+describe('asides inside a dialogue block (IL-0040)', () => {
+	/* The editor puts a note in front of the line it is about. Inside a
+	   dialogue block, the serialiser wrote it as its own paragraph between
+	   blank lines, which ended the block: on the next open the cue and the
+	   speech read as Action. */
+	const HEADING: ScreenplayElement = { type: 'scene', text: 'INT. KITCHEN - NIGHT' };
+	const reopened = (elements: ScreenplayElement[]) =>
+		parseFountain(serialiseFountain({ titlePage: [], elements: [HEADING, ...elements] }), { emphasis: 'runs' }).elements.slice(1);
+	const cue = (text: string, dual?: boolean): ScreenplayElement => (dual ? { type: 'character', text, dual } : { type: 'character', text });
+	const speech = (text: string): ScreenplayElement => ({ type: 'dialogue', text });
+	const paren = (text: string): ScreenplayElement => ({ type: 'parenthetical', text });
+	const note = (text: string): ScreenplayElement => ({ type: 'note', text });
+
+	it.each<[string, ScreenplayElement[]]>([
+		['between the cue and the speech', [cue('BOB'), note('n1'), speech('Hello.')]],
+		['two of them there', [cue('BOB'), note('n1'), note('n2'), speech('Hello.')]],
+		['before a parenthetical', [cue('BOB'), note('n1'), paren('(beat)'), speech('Hello.')]],
+		['after a parenthetical', [cue('BOB'), paren('(beat)'), note('n1'), speech('Hello.')]],
+		['in the middle of a speech', [cue('BOB'), speech('Hello.'), note('n1'), paren('(beat)'), speech('Again.')]],
+		['between two lines of one speech', [cue('BOB'), speech('Line one'), note('n1'), speech('Line two')]],
+		['inside a dual second speech', [cue('BOB'), speech('Hi.'), cue('ANN', true), note('n1'), speech('Ho.')]],
+		['ending in ] (IL-0038)', [cue('BOB'), note('see [scene 4]'), speech('Hello.')]]
+	])('a one-line note %s stays exactly where it was', (_, elements) => {
+		expect(reopened(elements)).toEqual(elements);
+	});
+
+	it('a note before an emphasised speech keeps the emphasis', () => {
+		const elements: ScreenplayElement[] = [
+			cue('BOB'),
+			note('n1'),
+			{ type: 'dialogue', text: 'Hello there.', runs: [{ start: 0, end: 5, styles: ['Bold'] }] }
+		];
+		expect(reopened(elements)).toEqual(elements);
+	});
+
+	it.each<[string, ScreenplayElement]>([
+		['a note of two lines', note('first\nsecond')],
+		['a synopsis', { type: 'synopsis', text: 'The kettle wins.' }],
+		['a section', { type: 'section', text: 'Beat', depth: 3 }]
+	])('%s inside a block moves in front of the cue, and the block survives', (_, aside) => {
+		expect(reopened([cue('BOB'), paren('(beat)'), aside, speech('Hello.')])).toEqual([
+			aside,
+			cue('BOB'),
+			paren('(beat)'),
+			speech('Hello.')
+		]);
+	});
+
+	it('a run holding anything that cannot go inline moves whole, in order', () => {
+		const synopsis: ScreenplayElement = { type: 'synopsis', text: 'The kettle wins.' };
+		expect(reopened([cue('BOB'), note('n1'), synopsis, note('n2'), speech('Hello.')])).toEqual([
+			note('n1'),
+			synopsis,
+			note('n2'),
+			cue('BOB'),
+			speech('Hello.')
+		]);
+	});
+
+	it('writes a one-line note inside a block inline on the line after it', () => {
+		expect(serialiseFountain({ titlePage: [], elements: [cue('BOB'), note('n1'), note('n2'), speech('Hello.')] })).toBe(
+			'BOB\nHello. [[n1]] [[n2]]'
+		);
+	});
+
+	it('writes a note before a dual second speaker as before, and the pair survives', () => {
+		const elements = [cue('BOB'), speech('Hi.'), note('n1'), cue('ANN', true), speech('Ho.')];
+		expect(serialiseFountain({ titlePage: [], elements })).toBe('BOB\nHi.\n\n[[n1]]\n\nANN ^\nHo.');
+		expect(reopened(elements)).toEqual(elements);
+	});
+
+	it('writes an aside outside a dialogue block exactly as before', () => {
+		const elements: ScreenplayElement[] = [
+			note('before the cue'),
+			cue('BOB'),
+			speech('Hello.'),
+			note('after the block'),
+			{ type: 'action', text: 'The kettle screams.' }
+		];
+		expect(serialiseFountain({ titlePage: [], elements })).toBe(
+			'[[before the cue]]\n\nBOB\nHello.\n\n[[after the block]]\n\nThe kettle screams.'
+		);
+		expect(reopened(elements)).toEqual(elements);
 	});
 });
 

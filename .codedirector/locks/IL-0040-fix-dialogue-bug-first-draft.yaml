@@ -1,0 +1,146 @@
+schemaVersion: 1
+id: IL-0040
+status: verified
+utterance: Fix dialogue bug first — draft the note-in-dialogue fix as its own lock, land it, then run IL-0039 as drafted with decisions 1 to 4 as proposed.
+goal: "A note, section or synopsis the writer leaves inside a dialogue block — between a cue and its speech, around a parenthetical, before a dual second speaker — no longer breaks the block: on save and reopen the cue stays a cue and the speech stays speech, in both engines, through the editor and through an FDX save; single-line notes stay exactly where they were, and every existing corpus expectation is unchanged."
+interpretation: |
+  The note-in-dialogue corruption, ahead of IL-0039 (the human's order).
+  The serialiser only, in both engines. The parser is unchanged.
+
+  MEASURED at ab67d4d. The editor puts a note in front of the line it is
+  about. When that line is inside a dialogue block, the serialiser writes
+  the note as its own paragraph between blank lines, which ends the block.
+  On reopen the cue and the speech read as Action. 10 of 11 placements
+  inside a block break; an aside after the block, or in front of a dual
+  second speaker's cue, survives:
+    cue, NOTE, speech               -> action, note, action
+    cue, NOTE, NOTE, speech         -> action, note, note, action
+    cue, NOTE, paren, speech        -> action, note, action, action
+    cue, paren, NOTE, speech        -> ..., note, action
+    cue, speech, NOTE, paren, speech -> ..., note, action, action
+    cue, NOTE, speech with emphasis -> action, note, action
+    (cue, speech, NOTE, dual cue survives. Corrected during the run: the
+     first probe marked the second speech dual too, which the parser never
+     does, so it misreported this case as broken.)
+    dual cue, NOTE, its speech      -> action "ANN ^", note, action
+    cue, SYNOPSIS, speech / cue, SECTION, speech -> the same break
+  An FDX save writes the damage into the file as Type="Action" paragraphs.
+  sample02.fdx has three such pairs: one from an eDraft save before 07:15
+  today, two from this morning's test.
+
+  THE RULE, serialiser, both engines. A dialogue block is a cue with its
+  parentheticals and speech lines; a dual second speaker continues it. For a
+  run of asides with a block line before it and a line of the same block
+  after it:
+    1. If every aside in the run is a one-line note, and the element after
+       it is a parenthetical or a speech line, the run is written inline at
+       the end of that element's first line: `Hello. [[n1]] [[n2]]`,
+       `(beat) [[n1]]`. Reopened, the same elements come back in the same
+       order (measured, every case). A run in front of a dual second
+       speaker's cue is written as before.
+       IL-0038's spelling applies inside the brackets.
+    2. Otherwise — a note of more than one line, a section or a synopsis,
+       none of which Fountain can carry inside a block — the whole run is
+       written in front of the block's cue, in order. The block survives, no
+       word is lost, and those asides move from their line to the cue's line
+       of the same block. Measured: a multi-line note written inline either
+       still breaks the block or comes back after the speech.
+    3. Also rule 2: when the element after the run has an empty first line.
+    4. Everything else is written as today: an aside before a cue, after a
+       block, or outside dialogue.
+
+  ALREADY BROKEN FILES: `CUE` / blank / `[[note]]` / blank / `Speech` reads
+  the same way an action line in capitals followed by a note reads, so the
+  reader cannot tell them apart. Recorded as permanent in RFC §13, with the
+  pattern. sample02's three pairs are repaired by hand in IL-0039's
+  validation, as the human decided.
+
+  SCAN, count-only, same file set as IL-0038 (fixtures, corpus, ~/Documents,
+  eDraft's iCloud folder, Final Draft's documents and Backup, Arc Studio):
+  broken pairs are found only in sample02 and its copies — the current file
+  (2 by the scan's pattern; 3 by the paragraph types), the 08:18 reference
+  (1), and Final Draft's six sample02 backups from today. None in any
+  fixture or corpus case. No corpus case has an aside inside a dialogue
+  block, so no existing expectation should change.
+
+  Out of scope: the parser; IL-0039's ScriptNotes; the editor's placement of
+  notes (unchanged — the serialiser now carries it).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: every existing corpus expectation is unchanged — the parse and serialise cases, and fdx.json, paginate.json, predict.json and every other fixture byte-identical after regeneration; both ports produce identical results for every case, new ones included
+  - kind: custom
+    text: a script with no aside inside a dialogue block is written byte for byte as today, and the parser reads every file exactly as today
+  - kind: custom
+    text: every Final Draft-written fixture still saves with no edit to the identical file through the app's path
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/fdx.ts
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/style.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/*.fdx
+  - apple/eDraftEngine/Fixtures/fdx.json
+  - apple/eDraftEngine/Fixtures/paginate.json
+  - apple/eDraftEngine/Fixtures/predict.json
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/Parse.swift
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Paginate/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - "*.xcodeproj/**"
+  - "**/DerivedData/**"
+change: A note, section or synopsis inside a dialogue block no longer turns the cue and the speech into Action. One-line notes are written inline and stay exactly where they were; other asides move to the front of their block.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/serialise.ts
+    - packages/edraft/src/parse.test.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/parse.json
+    - apple/eDraftEngine/Fixtures/serialise.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Fountain/Serialise.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FountainConformanceTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/EditorNotesTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift
+    - docs/RFC-NOTES-SYSTEM.md
+  symbols: []
+  maxFiles: 12
+  maxLines: 1200
+accept:
+  - Each measured placement — cue/note/speech, two notes, around a parenthetical, mid-speech, between two lines of a speech, emphasis, inside a dual second speech — saves and reopens to the same elements in the same order. Both engines; each fails today. A note in front of a dual second speaker's cue is written as before (a keep).
+  - "A note of two lines, a section and a synopsis inside a block: the block survives, the words are all there, and the asides sit in front of the block's cue. Named as rule 2. Both engines; each fails today."
+  - "Through the editor (EDraftCore): a note added to a speech line leaves the published source reading a cue and its speech. Fails today."
+  - "Through an FDX save (TypeScript and EDraftCore): a note added on a speech line of a Final Draft file keeps the cue's and the speech's paragraph Types and bytes. Fails today — the sample02 damage."
+  - "Corpus: a new asides-in-dialogue case in parse.json and serialise.json, identical in both ports; every existing case unchanged; fdx.json, paginate.json, predict.json and the rest byte-identical."
+  - "RFC: §2.1's measured note (\"lands between the cue and the speech\") records the break and this fix; §13 records already-broken files as permanent, with the pattern."
+  - "Suites green: npm run test:package, swift test --package-path apple/eDraftEngine, swift test --package-path apple/EDraftCore."
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on "note", "own" and "run", and proposed UI tests, a conformance-freshness script and EDraftCore sources this fix does not need.
+    source: system
+    confirmed: false
+  - text: "Ordered by the human: this lock lands before IL-0039, which runs after it as drafted, with decisions 1 to 4 as proposed."
+    source: user
+    confirmed: true
+  - text: "Confirmed by the human: sections, synopses and multi-line notes are fixed in the same pass (the same function, the same break, measured), by moving them to the front of their block rather than leaving the block broken."
+    source: user
+    confirmed: true
+  - text: "maxLines 1,200: serialiser ~60 lines per port, TypeScript tests ~180, Swift tests ~170 (FountainConformanceTests' corpus count moves from 10 to 11), EDraftCore editor and FDX tests ~140, exporter ~50, corpus ~450 (one case in two files), RFC ~20, changelog ~2."
+    source: system
+    confirmed: false
+createdAt: 2026-09-18T09:58:17.984Z
+createdBy: Yasirdora
