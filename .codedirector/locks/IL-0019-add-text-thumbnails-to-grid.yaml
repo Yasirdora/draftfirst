@@ -1,0 +1,37 @@
+schemaVersion: 1
+id: IL-0019
+status: verified
+utterance: Add text thumbnails to grid mode page cards so the grid shows actual script content instead of blank pages
+goal: Grid mode renders a scaled-down snapshot of each page's text onto its card
+interpretation: Add a renderGridThumbnails method to PageCanvasView that uses the layout manager to draw each page's text into a bitmap and assigns it to the page view's layer.contents. Call it from ScriptSurface.layOut() after canvas.layoutPages() when arrangement is grid.
+keep:
+  - kind: no-new-dependency
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: Add grid thumbnail rendering to PageCanvasView and call it from ScriptSurface.layOut()
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+  symbols: []
+  maxFiles: 2
+  maxLines: 120
+accept: []
+assumptions:
+  - text: "Budget proposed automatically from anchors: repairContext, script, paragraphText, titlePageParagraphs, DiagnosticCollector.add (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-15T21:56:46.369Z
+createdBy: Yasirdora

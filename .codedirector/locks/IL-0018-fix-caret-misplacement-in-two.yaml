@@ -1,0 +1,36 @@
+schemaVersion: 1
+id: IL-0018
+status: verified
+utterance: Fix caret misplacement in two-page spread mode by applying SpreadFold in caretContentLine
+goal: caretContentLine applies spreadFold so the viewport follows the caret's actual on-screen position in two-page mode
+interpretation: In caretContentLine(), after computing the bounding rect, apply canvas.spreadFold.spreadRect(fromVertical:) before converting to canvas Y — same pattern the reveal method uses
+keep:
+  - kind: no-new-dependency
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: Apply spreadFold transformation in caretContentLine() in ScriptSurface.swift
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 20
+accept: []
+assumptions:
+  - text: "Budget proposed automatically from anchors: titlePageParagraphs, modelRunFromAttributes, titlePageLinesOf, LINES_PER_PAGE, PAGE_WIDTH_CHARS (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-15T20:22:20.457Z
+createdBy: Yasirdora

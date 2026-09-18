@@ -1,0 +1,1 @@
+Fix caret misplacement in two-page spread mode by applying SpreadFold in caretContentLine
