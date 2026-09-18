@@ -39,7 +39,7 @@ struct FdxScriptNotesTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.scriptNoteCases.count == 10)
+        #expect(Self.corpus.scriptNoteCases.count == 12)
     }
 
     @Test("reading", arguments: Self.corpus.scriptNoteCases)
@@ -275,5 +275,77 @@ struct FdxScriptNotesTests {
                 == lab(["One and two.", "Thrxee four.", "Five six."], ["0,3", "13,19", "24,20", "35,35", "99,120"]))
         #expect(document.rewrite(edited(["One two.", "Five six."]))
                 == lab(["One two.", "Five six."], ["0,3", "9,9", "9,9", "18,18", "99,120"]))
+    }
+}
+
+/// Which notes are eDraft's: a ScriptNote titled `[eDraft]`
+/// (RFC-NOTES-SYSTEM §4.3, IL-0043). Mirrors the TypeScript engine's
+/// fdx.test.ts.
+@Suite("FDX notes eDraft wrote")
+struct FdxOwnedNoteTests {
+
+    private static func file(_ title: String, writerName: String = "Sam Okafor", type: String = "Director") -> String {
+        """
+        <FinalDraft><Content>
+        <Paragraph Type="Action"><Text>Hum.</Text></Paragraph>
+        </Content><ScriptNotes><ScriptNote Id="1" Name="\(title)" Range="0,4" Type="\(type)" WriterName="\(writerName)"><Paragraph><Text>Words.</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>
+        """
+    }
+
+    static let owned: [(String, String, String)] = [
+        ("Sam Okafor", "Director", "Sam Okafor (Director): Words."),
+        ("Sam Okafor", "", "Sam Okafor: Words."),
+        ("", "", "Words."),
+        // After an edit in Final Draft: the title kept, the author re-stamped.
+        ("x", "Director", "x (Director): Words.")
+    ]
+
+    @Test("a note titled [eDraft] comes back as the writer's own", arguments: owned.indices)
+    func ownedNote(_ index: Int) {
+        let (writerName, type, text) = Self.owned[index]
+        let read = Fdx.parse(Self.file("[eDraft]", writerName: writerName, type: type))
+        #expect(read.scriptNotes.isEmpty)
+        #expect(read.script.elements == [
+            ScreenplayElement(type: .note, text: text),
+            ScreenplayElement(type: .action, text: "Hum.")
+        ])
+    }
+
+    static let theirs: [(String, String)] = [
+        ("Tighter?", "Sam Okafor"),
+        ("", "Sam Okafor"),
+        ("", "[eDraft] Sam Okafor"),
+        ("eDraft", "Sam Okafor")
+    ]
+
+    @Test("a note stays Final Draft's when retitled, untitled, marked the IL-0042 way, or titled without brackets",
+          arguments: theirs.indices)
+    func finalDraftsNote(_ index: Int) {
+        let (title, writerName) = Self.theirs[index]
+        let read = Fdx.parse(Self.file(title, writerName: writerName))
+        #expect(read.scriptNotes.count == 1)
+        #expect(read.script.elements == [ScreenplayElement(type: .action, text: "Hum.")])
+    }
+
+    @Test("a whole new file writes a note as a ScriptNote, never a line of the script")
+    func wholeFile() {
+        let script = Screenplay(elements: [
+            ScreenplayElement(type: .action, text: "Visible."),
+            ScreenplayElement(type: .note, text: "Check this against the schedule.")
+        ])
+        let result = Fdx.write(script, options: Fdx.ExportOptions(notes: NoteWritingSpec.pinned.writing()))
+        #expect(!result.xml.contains("Type=\"Note\""))
+        #expect(!result.xml.contains("[eDraft thread"))
+        #expect(result.xml.contains(
+            ##"<ScriptNote Color="#000000000000" DateModified="20260918T120000" DateTime="20260918T120000" Id="1" Name="[eDraft]" Range="0,8" RefId="00000000-0000-4000-8000-000000000001" Type="Director" WriterID="00000000-0000-4000-8000-000000000001" WriterName="Dana Reyes">"##
+        ))
+        #expect(result.xml.contains(#">Check this against the schedule.</Text>"#))
+        #expect(result.diagnostics.isEmpty)
+        // Read back, it is the writer's own note, signed. A note after the last
+        // line is anchored to the last paragraph, so it comes back in front of it.
+        #expect(Fdx.parse(result.xml).script.elements == [
+            ScreenplayElement(type: .note, text: "Dana Reyes (Director): Check this against the schedule."),
+            ScreenplayElement(type: .action, text: "Visible.")
+        ])
     }
 }

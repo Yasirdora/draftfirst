@@ -268,17 +268,28 @@ final class ImportedNotesTests: XCTestCase {
         let written = String(decoding: try ScreenplayFile.encode(
             edited, as: .finalDraftScreenplay, origin: origin
         ), as: UTF8.self)
-        // Every note and every byte of it, but the Ranges that follow their
-        // words: the writer's own note and the edit moved the script (IL-0033).
+        // The writer's own note is one Final Draft ScriptNote of its own now
+        // (IL-0039) — never a line of the script — and the file's notes are
+        // every one there, every byte of each, but the Ranges that follow
+        // their words: the edit moved the script (IL-0033).
         let emptied = { (xml: String) in
             xml.replacingOccurrences(of: #"(<ScriptNote\b[^>]*?\sRange=")[^"]*(")"#, with: "$1$2", options: .regularExpression)
         }
-        XCTAssertEqual(scriptNotesBlock(emptied(written)), scriptNotesBlock(emptied(origin)))
         XCTAssertEqual(
-            written.components(separatedBy: "<ScriptNote ").count, origin.components(separatedBy: "<ScriptNote ").count,
-            "a note was written into the file's ScriptNotes"
+            written.components(separatedBy: "<ScriptNote ").count, origin.components(separatedBy: "<ScriptNote ").count + 1,
+            "the writer's note is not one ScriptNote of its own"
         )
-        XCTAssertTrue(written.contains("A note of my own, revised."))
+        let own = try XCTUnwrap(written.range(
+            of: #"\n *<ScriptNote [^>]*>(?:(?!</ScriptNote>)[\s\S])*A note of my own, revised\.(?:(?!</ScriptNote>)[\s\S])*</ScriptNote>"#,
+            options: .regularExpression
+        ), "the writer's note is not in the file's ScriptNotes")
+        var theirs = written
+        theirs.removeSubrange(own)
+        XCTAssertEqual(scriptNotesBlock(emptied(theirs)), scriptNotesBlock(emptied(origin)))
+        XCTAssertFalse(
+            written.replacingOccurrences(of: String(written[own]), with: "").contains("A note of my own"),
+            "the writer's note is in the script as well"
+        )
     }
 
     // MARK: - Not from Final Draft

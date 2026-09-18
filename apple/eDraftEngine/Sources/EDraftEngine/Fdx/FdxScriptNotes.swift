@@ -301,21 +301,46 @@ extension Fdx {
     }
 
     /// Where each ScriptNote's Range value sits, in note order — the notes
-    /// `scriptNotes(in:)` reads, by the same rules.
-    static func scriptNoteRangeValues(in source: String, limits: Limits) -> [ScriptNoteRangeValue?] {
+    /// `scriptNotes(in:)` reads, by the same rules — and where the notes and
+    /// their container sit, and which are eDraft's.
+    static func scriptNoteRangeValues(
+        in source: String, limits: Limits
+    ) -> (values: [ScriptNoteRangeValue?], places: ScriptNotesPlaces) {
         let collector = ScriptNoteCollector(limits: limits, text: ScriptText([]))
         collector.units = Array(source.utf16)
+        collector.places = ScriptNotesPlaces()
         FdxXmlScanner.scan(
             source,
             handlers: FdxXmlScanner.Handlers(
                 start: { tag, offset in collector.start(tag, offset: offset) },
-                end: { name, _ in collector.end(name) },
+                end: { name, offset in collector.end(name, offset: offset) },
                 text: { value, cdata in collector.text(value, cdata: cdata) }
             ),
             diagnostics: DiagnosticCollector(limit: 1)
         )
-        collector.finishNote()
-        return collector.rangeValues
+        collector.finishNote(closing: nil)
+        return (collector.rangeValues, collector.places ?? ScriptNotesPlaces())
+    }
+
+    /// Where the file's <ScriptNotes> sit, so a save can take one out or add
+    /// one (TypeScript `ScriptNotesPlaces`).
+    struct ScriptNotesPlaces: Sendable {
+        /// A <ScriptNote>: from the line break in front of it (when only its
+        /// indent is between) to the end of its closing tag.
+        struct Note: Sendable {
+            let start: Int
+            let end: Int
+            let id: Int?
+            let owned: OwnedNote?
+        }
+        var notes: [Note] = []
+        /// The <ScriptNotes> container: where it opens, and where its closing
+        /// tag starts — nil when it closes itself.
+        var container: (open: Int, close: Int?, selfClosing: Bool)?
+        /// Just past the top-level </Characters>, where Final Draft keeps them.
+        var afterCharacters: Int?
+        /// Where </FinalDraft> starts.
+        var rootClose: Int?
     }
 
     private final class ScriptNoteCollector {
@@ -324,10 +349,12 @@ extension Fdx {
         /// The source, when Range value locations are collected.
         var units: [UInt16]?
         var rangeValues: [ScriptNoteRangeValue?] = []
+        /// Where each note sits, when a save needs to know.
+        var places: ScriptNotesPlaces?
 
         var notes: [ScriptNote] = []
         var open: [String] = []
-        var note: (attributes: [(name: String, value: String)], depth: Int, paragraphs: [String])?
+        var note: (attributes: [(name: String, value: String)], depth: Int, paragraphs: [String], start: Int)?
         var paragraph: (text: String, depth: Int)?
         var run: (uppercases: Bool, depth: Int)?
         var paragraphCount = 0
@@ -339,12 +366,40 @@ extension Fdx {
             self.text = text
         }
 
-        func finishNote() {
+        func finishNote(closing: Int?) {
             guard var finished = note else { return }
             if let paragraph { finished.paragraphs.append(paragraph.text) }
             notes.append(Fdx.scriptNote(
                 attributes: finished.attributes, paragraphs: finished.paragraphs, text: text
             ))
+            if places != nil {
+                let source = units ?? []
+                var end = source.count
+                if let closing {
+                    var at = closing
+                    while at < source.count && source[at] != 62 { at += 1 }   // >
+                    end = at < source.count ? at + 1 : source.count
+                }
+                var lineStart = finished.start - 1
+                while lineStart >= 0 && source[lineStart] != 10 { lineStart -= 1 }   // \n
+                let indentOnly = lineStart >= 0
+                    && source[(lineStart + 1)..<finished.start].allSatisfy { $0 == 32 || $0 == 9 }
+                let idText = Array(FdxXmlScanner.jsTrimmed(ArraySlice(
+                    (finished.attributes.last { $0.name == "id" }?.value ?? "").utf16
+                )))
+                let digits = !idText.isEmpty && idText.allSatisfy { $0 >= 48 && $0 <= 57 }
+                places?.notes.append(ScriptNotesPlaces.Note(
+                    start: indentOnly ? lineStart : finished.start,
+                    end: end,
+                    id: digits ? Int(String(decoding: idText, as: UTF16.self)) : nil,
+                    owned: Fdx.ownedNote(
+                        title: finished.attributes.last { $0.name == "name" }?.value,
+                        writerName: finished.attributes.last { $0.name == "writername" }?.value,
+                        type: finished.attributes.last { $0.name == "type" }?.value,
+                        paragraphs: finished.paragraphs
+                    )
+                ))
+            }
             note = nil
             paragraph = nil
             run = nil
@@ -354,6 +409,9 @@ extension Fdx {
             let parent = open.last
             open.append(tag.name)
             let opensNote = tag.name == "scriptnote" && parent == "scriptnotes" && note == nil
+            if places != nil, open.count == 2, tag.name == "scriptnotes", places?.container == nil {
+                places?.container = (open: offset, close: nil, selfClosing: tag.selfClosing)
+            }
             let opensParagraph = note.map { tag.name == "paragraph" && open.count == $0.depth + 1 } ?? false
             if opensNote || opensParagraph {
                 if paragraphCount >= limits.maxParagraphs {
@@ -363,7 +421,7 @@ extension Fdx {
                 paragraphCount += 1
             }
             if opensNote {
-                note = (attributes: tag.attributes, depth: open.count, paragraphs: [])
+                note = (attributes: tag.attributes, depth: open.count, paragraphs: [], start: offset)
                 if let units { rangeValues.append(Fdx.rangeValue(in: units, tagStart: offset)) }
             } else if opensParagraph {
                 paragraph = (text: "", depth: open.count)
@@ -378,15 +436,26 @@ extension Fdx {
             return true
         }
 
-        func end(_ name: String) -> Bool {
+        func end(_ name: String, offset: Int = 0) -> Bool {
             if let run, name == "text", open.count == run.depth {
                 self.run = nil
             } else if note != nil, let paragraph, name == "paragraph", open.count == paragraph.depth {
                 note?.paragraphs.append(paragraph.text)
                 self.paragraph = nil
             } else if let note, name == "scriptnote", open.count == note.depth {
-                finishNote()
+                finishNote(closing: offset)
             }
+            if places != nil, open.count == 2, open[1] == name {
+                if name == "scriptnotes", let container = places?.container, !container.selfClosing, container.close == nil {
+                    places?.container?.close = offset
+                }
+                if name == "characters", let source = units {
+                    var at = offset
+                    while at < source.count && source[at] != 62 { at += 1 }
+                    places?.afterCharacters = at < source.count ? at + 1 : nil
+                }
+            }
+            if places != nil, open.count == 1, name == "finaldraft" { places?.rootClose = offset }
             if open.last == name { open.removeLast() }
             return true
         }
@@ -413,18 +482,20 @@ extension Fdx {
         layout: [ParagraphLayout],
         limits: Limits,
         diagnostics: DiagnosticCollector
-    ) -> [ScriptNote] {
+    ) -> (notes: [ScriptNote], ownership: [OwnedNote?]) {
         let collector = ScriptNoteCollector(limits: limits, text: ScriptText(layout))
+        collector.units = Array(source.utf16)
+        collector.places = ScriptNotesPlaces()
         FdxXmlScanner.scan(
             source,
             handlers: FdxXmlScanner.Handlers(
-                start: { tag, _ in collector.start(tag) },
-                end: { name, _ in collector.end(name) },
+                start: { tag, offset in collector.start(tag, offset: offset) },
+                end: { name, offset in collector.end(name, offset: offset) },
                 text: { value, cdata in collector.text(value, cdata: cdata) }
             ),
             diagnostics: DiagnosticCollector(limit: 1)
         )
-        collector.finishNote()
+        collector.finishNote(closing: nil)
         if collector.limitReached {
             diagnostics.add(.init(
                 code: "FDX_SCRIPT_NOTES_LIMIT_REACHED",
@@ -433,6 +504,231 @@ extension Fdx {
                 count: collector.notes.count
             ))
         }
-        return collector.notes
+        return (collector.notes, collector.places?.notes.map(\.owned) ?? [])
+    }
+}
+
+// MARK: - The writer's notes, as ScriptNotes (IL-0039)
+
+extension Fdx {
+
+    /// How a save writes the notes the writer left in eDraft: each one a Final
+    /// Draft ScriptNote (RFC-NOTES-SYSTEM §4.2), never a paragraph of the
+    /// script. Every value that is new each time is the caller's to give, so a
+    /// test can pin every byte; left out, each is made fresh (TypeScript
+    /// `FdxNoteWriting`).
+    public struct NoteWriting: Sendable {
+        /// The writer's name for notes: `Name (Role)`, or `Name` (D4). A note
+        /// that does not name its author is written with it (D3). Never read
+        /// from the system: without it, such a note names nobody.
+        public var writer: String?
+        /// `yyyyMMddTHHmmss`, local time, as Final Draft writes DateTime.
+        public var now: String?
+        /// A fresh lowercase UUID, for a note's RefId and each paragraph's id.
+        public var newId: (@Sendable () -> String)?
+
+        public init(
+            writer: String? = nil,
+            now: String? = nil,
+            newId: (@Sendable () -> String)? = nil
+        ) {
+            self.writer = writer
+            self.now = now
+            self.newId = newId
+        }
+    }
+
+    /// The title a note eDraft wrote carries (RFC-NOTES-SYSTEM §4.3).
+    static let eDraftTitle = "[eDraft]"
+
+    /// A note eDraft wrote: its title, Final Draft's `Name`, is `[eDraft]`
+    /// (§4.3; TypeScript `OwnedNote`). Final Draft keeps a note's title when
+    /// someone edits the note there, so the note stays eDraft's; it re-stamps
+    /// the author field, so the note is then authored by whoever edited it (D9).
+    struct OwnedNote: Equatable, Sendable {
+        /// Its author: Final Draft's `WriterName`.
+        let name: String?
+        /// Their role: Final Draft's Type.
+        let role: String?
+        let message: String
+    }
+
+    private static func jsTrimmed(_ text: String) -> String {
+        String(decoding: FdxXmlScanner.jsTrimmed(ArraySlice(text.utf16)), as: UTF16.self)
+    }
+
+    static func ownedNote(title: String?, writerName: String?, type: String?, paragraphs: [String]) -> OwnedNote? {
+        guard jsTrimmed(title ?? "") == eDraftTitle else { return nil }
+        let name = jsTrimmed(writerName ?? "")
+        let role = jsTrimmed(type ?? "")
+        return OwnedNote(
+            name: name.isEmpty ? nil : name,
+            role: role.isEmpty ? nil : role,
+            message: paragraphs.joined(separator: "\n")
+        )
+    }
+
+    /// How a note of eDraft's signs in the editor: `Name (Role)`, or `Name` (D4).
+    static func ownedNoteAuthor(_ note: OwnedNote) -> String? {
+        guard let name = note.name else { return nil }
+        return note.role.map { "\(name) (\($0))" } ?? name
+    }
+
+    /// A note of eDraft's as the writer reads and edits it: `Name (Role): words`.
+    static func ownedNoteText(_ note: OwnedNote) -> String {
+        ownedNoteAuthor(note).map { "\($0): \(note.message)" } ?? note.message
+    }
+
+    /// `Name (Role)` into the name and the role; a signature with no role is
+    /// all name (TypeScript `nameAndRole`).
+    static func nameAndRole(_ signature: String) -> (name: String, role: String) {
+        let units = Array(signature.utf16)
+        let open = Array(" (".utf16)
+        if units.last == 41, units.count >= 2 {   // )
+            var at = units.count - 2
+            while at > 0 && !(units[at] == open[0] && units[at + 1] == open[1]) { at -= 1 }
+            if at > 0 {
+                let name = jsTrimmed(String(decoding: units[0..<at], as: UTF16.self))
+                if !name.isEmpty {
+                    let role = jsTrimmed(String(decoding: units[(at + 2)..<(units.count - 1)], as: UTF16.self))
+                    return (name, role)
+                }
+            }
+        }
+        return (jsTrimmed(signature), "")
+    }
+
+    /// The notes eDraft wrote, back as the writer's own (RFC-NOTES-SYSTEM
+    /// §4.3; TypeScript `withOwnedNotes`).
+    ///
+    /// A ScriptNote titled `[eDraft]` is eDraft's: it becomes a note element in
+    /// front of the element its Range starts in —
+    /// where the editor keeps a note — reading `Name (Role): words`, and is no
+    /// longer one of the file's notes. A note whose Range
+    /// lands nowhere goes to the end of the script. Final Draft's notes stay
+    /// as they are, their anchors moved past the elements put in.
+    static func withOwnedNotes(
+        _ elements: [ScreenplayElement],
+        _ notes: [ScriptNote],
+        _ ownership: [OwnedNote?]
+    ) -> (elements: [ScreenplayElement], scriptNotes: [ScriptNote]) {
+        var inFront: [Int: [ScreenplayElement]] = [:]
+        var theirs: [ScriptNote] = []
+        for (index, note) in notes.enumerated() {
+            guard index < ownership.count, let owned = ownership[index] else {
+                theirs.append(note)
+                continue
+            }
+            let at = note.anchor?.start.element ?? elements.count
+            inFront[at, default: []].append(ScreenplayElement(type: .note, text: ownedNoteText(owned)))
+        }
+        guard !inFront.isEmpty else { return (elements, notes) }
+        var result: [ScreenplayElement] = []
+        var movedTo: [Int] = []
+        for (index, element) in elements.enumerated() {
+            result += inFront[index] ?? []
+            movedTo.append(result.count)
+            result.append(element)
+        }
+        result += inFront[elements.count] ?? []
+        func moved(_ position: ScriptNote.Position) -> ScriptNote.Position {
+            ScriptNote.Position(element: movedTo[position.element], offset: position.offset)
+        }
+        return (result, theirs.map { note in
+            var note = note
+            if let anchor = note.anchor {
+                note.anchor = ScriptNote.Anchor(start: moved(anchor.start), end: moved(anchor.end))
+            }
+            return note
+        })
+    }
+
+    struct ResolvedNoteWriting {
+        let writer: String?
+        let now: String
+        let newId: () -> String
+    }
+
+    /// Final Draft's `20260918T120000`: local time, no zone.
+    static func noteTimestamp(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd'T'HHmmss"
+        return formatter.string(from: date)
+    }
+
+    static func resolvedNoteWriting(_ writing: NoteWriting?) -> ResolvedNoteWriting {
+        let writer = writing?.writer.map { String(decoding: FdxXmlScanner.jsTrimmed(ArraySlice($0.utf16)), as: UTF16.self) }
+        return ResolvedNoteWriting(
+            writer: (writer?.isEmpty ?? true) ? nil : writer,
+            now: writing?.now ?? noteTimestamp(Date()),
+            newId: writing?.newId ?? { UUID().uuidString.lowercased() }
+        )
+    }
+
+    /// Who wrote a note and what it says, from the words the editor holds
+    /// (TypeScript `noteAuthorship`). A `Name: ` prefix names the author when
+    /// the name is the writer's own or one the file's eDraft notes already
+    /// carry — the longest that fits. Any other note is the writer's (D3),
+    /// prefix and all: a colon in a sentence is not a person.
+    static func noteAuthorship(_ text: String, names: [String], writer: String?) -> (author: String?, message: String) {
+        let units = Array(text.utf16)
+        var author: String?
+        for name in names {
+            let prefix = Array("\(name): ".utf16)
+            if units.starts(with: prefix), author == nil || name.utf16.count > author!.utf16.count { author = name }
+        }
+        if let author {
+            return (author, String(decoding: units[(author.utf16.count + 2)...], as: UTF16.self))
+        }
+        return (writer, text)
+    }
+
+    /// Where a paragraph sits as a Range counts it: its first unit, and its last.
+    static func paragraphRange(_ lengths: [Int], at: Int) -> ScriptNote.Range {
+        guard at >= 0, !lengths.isEmpty else { return ScriptNote.Range(start: 0, end: 0) }
+        var start = 0
+        for index in 0..<at { start += lengths[index] + 1 }
+        return ScriptNote.Range(start: start, end: start + lengths[at])
+    }
+
+    private static let noteParagraphAttributes =
+        "Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"0.00\" OutlineLevel=\"1\" RightIndent=\"1.39\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\""
+    private static let noteTextAttributes = "AdornmentStyle=\"0\" Font=\"Arial\" RevisionID=\"0\" Size=\"12\" Style=\"\""
+    /// WriterID carries nothing (IL-0024): one fixed value, never an identity.
+    private static let noteWriterID = "00000000-0000-4000-8000-000000000001"
+
+    /// One of the writer's notes as a Final Draft ScriptNote (RFC-NOTES-SYSTEM
+    /// §4.2), in the shape Final Draft 13.4 opened, showed and kept whole:
+    /// titled `[eDraft]`, the writer's name as its author, their role as the
+    /// Type Final Draft shows in the note's dropdown, and one paragraph for each
+    /// line of the message — the writer's words, once, and nothing else. Its
+    /// lines, each with its depth under the note (TypeScript `scriptNoteLines`).
+    static func scriptNoteLines(
+        id: Int,
+        author: String?,
+        message: String,
+        range: ScriptNote.Range,
+        writing: ResolvedNoteWriting,
+        diagnostics: DiagnosticCollector
+    ) -> [(depth: Int, text: String)] {
+        let refId = writing.newId()
+        let (name, role) = nameAndRole(author ?? "")
+        func value(_ text: String, _ context: String) -> String {
+            encodeXmlValue(text, diagnostics: diagnostics, context: context)
+        }
+        var lines: [(depth: Int, text: String)] = [(0,
+            "<ScriptNote Color=\"#000000000000\" DateModified=\"\(writing.now)\" DateTime=\"\(writing.now)\" Id=\"\(id)\""
+            + " Name=\"\(eDraftTitle)\" Range=\"\(range.start),\(range.end)\""
+            + " RefId=\"\(refId)\" Type=\"\(value(role, "note role"))\" WriterID=\"\(noteWriterID)\""
+            + " WriterName=\"\(value(name, "note author"))\">"
+        )]
+        for text in message.components(separatedBy: "\n") {
+            lines.append((1, "<Paragraph \(noteParagraphAttributes) id=\"\(writing.newId())\">"))
+            lines.append((2, "<Text \(noteTextAttributes)>\(value(text, "note"))</Text>"))
+            lines.append((1, "</Paragraph>"))
+        }
+        lines.append((0, "</ScriptNote>"))
+        return lines
     }
 }

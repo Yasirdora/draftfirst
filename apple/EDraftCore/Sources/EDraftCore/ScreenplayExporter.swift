@@ -22,9 +22,13 @@ public enum ScreenplayExporter {
     /// Final Draft interchange XML, written by the engine's conformance-
     /// pinned exporter — the delivery format productions expect. Elements
     /// FDX cannot represent are omitted with an in-file warning comment,
-    /// the same contract as the web app.
+    /// the same contract as the web app. The writer's notes are Final Draft
+    /// ScriptNotes, signed with the name the writer gave (RFC-NOTES-SYSTEM §8).
     public static func fdxSource(_ screenplay: EDraftCore.Screenplay) -> String {
-        Fdx.writeXml(screenplay.engineModel)
+        Fdx.write(
+            screenplay.engineModel,
+            options: Fdx.ExportOptions(notes: Fdx.NoteWriting(writer: NoteIdentity.signature))
+        ).xml
     }
 
     /// Monospaced text mirroring the printed layout: element indents applied,

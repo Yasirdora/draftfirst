@@ -73,9 +73,12 @@ public enum Fdx {
     public struct ExportOptions: Sendable {
         /// Maximum diagnostics returned. Default: 100.
         public var maxWarnings: Int?
+        /// How the writer's notes are written into <ScriptNotes>.
+        public var notes: NoteWriting?
 
-        public init(maxWarnings: Int? = nil) {
+        public init(maxWarnings: Int? = nil, notes: NoteWriting? = nil) {
             self.maxWarnings = maxWarnings
+            self.notes = notes
         }
     }
 
@@ -709,10 +712,11 @@ public enum Fdx {
         /* The title page reads verbatim — it reports no diagnostics, so the
            collector's snapshot needs no particular order against it. */
         let title = titlePageLines(of: parsed.title)
-        let notes = scriptNotes(in: source, layout: layout, limits: limits, diagnostics: diagnostics)
+        let read = scriptNotes(in: source, layout: layout, limits: limits, diagnostics: diagnostics)
+        let (withOwn, notes) = withOwnedNotes(elements, read.notes, read.ownership)
         let items = diagnostics.result()
         return ImportResult(
-            script: Screenplay(titlePage: title, elements: elements),
+            script: Screenplay(titlePage: title, elements: withOwn),
             warnings: items.map(\.message),
             diagnostics: items,
             scriptNotes: notes
@@ -835,6 +839,8 @@ public enum Fdx {
         fileprivate let topLevelUnits: [[Int32]]
         fileprivate let topLevelAt: [Int: Int]
         fileprivate let rangeValues: [ScriptNoteRangeValue?]
+        /// Where each note and their container sit, and which are eDraft's.
+        fileprivate let places: ScriptNotesPlaces
         fileprivate let limits: Limits
 
         /// The screenplay written back into the file it came from.
@@ -847,11 +853,11 @@ public enum Fdx {
         /// production tags and reads an emphasised heading as Action. Given
         /// this reading, a paragraph whose element comes back exactly as it
         /// was read is written as its original bytes, whatever was lost.
-        public func rewrite(_ script: Screenplay, unedited: Screenplay? = nil) -> String {
+        public func rewrite(_ script: Screenplay, unedited: Screenplay? = nil, notes: NoteWriting? = nil) -> String {
             guard let first = spans.first, let last = spans.last else {
                 // Nothing recognisable to edit: write a whole new file rather
                 // than pretend, so a malformed original cannot corrupt a save.
-                return Fdx.writeXml(script)
+                return Fdx.write(script, options: ExportOptions(notes: notes)).xml
             }
 
             /* Only paragraphs the import turned into elements can be matched to
@@ -859,7 +865,7 @@ public enum Fdx {
                every save, and — typed General when it has no Alignment — was
                paired with the writer's next edit and given their text. */
             let aligned = spans.filter { !$0.absorbed }
-            let elements = script.elements
+            var elements = script.elements
 
             /* A paragraph the writer did not edit is written as its original
                bytes. With the caller's unedited reading, "did not edit" is asked
@@ -936,6 +942,36 @@ public enum Fdx {
             for (j, span) in verbatim { paired[j] = span }
             for (j, entry) in merged { paired[j] = entry.span }
 
+            /* The writer's notes go into <ScriptNotes> (RFC-NOTES-SYSTEM §4.2):
+               every note that is not one of the file's own body Note
+               paragraphs. A body Note paragraph stays a paragraph — kept,
+               edited or deleted as before. Taken out of the script before
+               anything is laid out, so a note never becomes a paragraph and
+               never parts a dual pair; each remembers the element it sits in
+               front of. */
+            var outOfBody: [(element: ScreenplayElement, before: Int)] = []
+            if elements.indices.contains(where: { elements[$0].type == .note && paired[$0]?.type != .note }) {
+                var keep: [Int] = []
+                for (j, element) in elements.enumerated() {
+                    if element.type == .note && paired[j]?.type != .note {
+                        outOfBody.append((element, keep.count))
+                    } else {
+                        keep.append(j)
+                    }
+                }
+                var moved: [Int: Int] = [:]
+                for (k, j) in keep.enumerated() { moved[j] = k }
+                var verbatimKept: [Int: Span] = [:]
+                for (j, span) in verbatim { if let k = moved[j] { verbatimKept[k] = span } }
+                verbatim = verbatimKept
+                var mergedKept: [Int: (span: Span, bytes: [UInt16])] = [:]
+                for (j, entry) in merged { if let k = moved[j] { mergedKept[k] = entry } }
+                merged = mergedKept
+                consumed = Set(consumed.compactMap { moved[$0] })
+                paired = keep.map { paired[$0] }
+                elements = keep.map { elements[$0] }
+            }
+
             /* Each absorbed paragraph goes back, verbatim, in front of the
                first paragraph after it that this save keeps — anchored to what
                follows, so lines added at the end of an act still land before
@@ -1001,10 +1037,15 @@ public enum Fdx {
                 let fresh = Fdx.writeXml(Screenplay(titlePage: [], elements: [element]))
                 return Fdx.paragraphBody(of: fresh).map { Array($0.utf16) } ?? []
             }
+            /* The paragraph each element was written into, as `written`
+               counts: a note in front of an element is placed on that
+               paragraph. */
+            var paragraphOf = [Int](repeating: -1, count: elements.count)
             var index = 0
             while index < elements.count {
                 // A line of a paragraph already written whole.
                 if consumed.contains(index) {
+                    paragraphOf[index] = written.count - 1
                     index += 1
                     continue
                 }
@@ -1032,6 +1073,7 @@ public enum Fdx {
                         }
                     }
                     out += block.tail
+                    for line in index...pair.end { paragraphOf[line] = written.count - 1 }
                     wrote = true
                     index = pair.end + 1
                     continue
@@ -1058,6 +1100,7 @@ public enum Fdx {
                     out += freshBytes(elements[index])
                     written.append(WrittenParagraph(origin: nil, kind: .same))
                 }
+                paragraphOf[index] = written.count - 1
                 wrote = true
                 index += 1
             }
@@ -1067,33 +1110,118 @@ public enum Fdx {
                Final Draft counts a Range over the script as it now stands, so a
                Range written for the old text points at other words after any
                edit that moves them. Only the Range values that move are
-               rewritten. */
+               rewritten.
+
+               Then the writer's notes (RFC-NOTES-SYSTEM §4.2, stage 1). A note
+               of eDraft's the writer left as it was, on the same line, keeps
+               every byte but its Range. One whose note is gone — deleted, or
+               changed, which stage 1 writes as a new note — is taken out. Every
+               note left over is written as a new ScriptNote on the paragraph it
+               sits in front of. Final Draft's own notes are never touched. */
             var prefix = Array(units[0..<firstStart])
             var suffix = Array(units[lastEnd...])
-            if rangeValues.contains(where: { $0 != nil }) {
+            let ownedCount = places.notes.filter { $0.owned != nil }.count
+            if rangeValues.contains(where: { $0 != nil }) || !outOfBody.isEmpty || ownedCount > 0 {
                 let after = Fdx.collectParagraphs(
                     from: String(decoding: prefix + out + suffix, as: UTF16.self),
                     limits: limits,
                     diagnostics: DiagnosticCollector(limit: 1)
                 ).body
-                if after.count == written.count {
-                    let replacements = Fdx.movedScriptNoteRanges(
-                        before: topLevelUnits, written: written, after: after.map(Fdx.rangeUnits), values: rangeValues
+                let afterUnits = after.map(Fdx.rangeUnits)
+                let matched = after.count == written.count
+                let moved = matched
+                    ? Fdx.movedScriptNoteRanges(
+                        before: topLevelUnits, written: written, after: afterUnits, values: rangeValues
                     )
-                    func apply(_ text: [UInt16], base: Int, limit: Int) -> [UInt16] {
-                        var result = text
-                        for replacement in replacements.reversed()
-                        where replacement.start >= base && replacement.end <= limit {
-                            result.replaceSubrange(
-                                (replacement.start - base)..<(replacement.end - base),
-                                with: Array(replacement.value.utf16)
-                            )
-                        }
-                        return result
-                    }
-                    prefix = apply(prefix, base: 0, limit: firstStart)
-                    suffix = apply(suffix, base: lastEnd, limit: units.count)
+                    : (replacements: [], ranges: rangeValues.map { $0?.range })
+                let lengths = afterUnits.map(\.count)
+                var starts: [Int] = []
+                var cursor = 0
+                for length in lengths {
+                    starts.append(cursor)
+                    cursor += length + 1
                 }
+                func paragraphAt(_ position: Int) -> Int {
+                    var found = -1
+                    var index = 0
+                    while index < starts.count && starts[index] <= position {
+                        found = index
+                        index += 1
+                    }
+                    return found
+                }
+                let lastParagraph = written.count - 1
+                let placed: [(element: ScreenplayElement, at: Int)] = outOfBody.map { note in
+                    (note.element, matched ? (note.before < paragraphOf.count ? paragraphOf[note.before] : lastParagraph) : -1)
+                }
+
+                // Stage 1 pairs eDraft's notes by their line and their words.
+                var removed = Set<Int>()
+                var pairedNote = Set<Int>()
+                for (index, note) in places.notes.enumerated() {
+                    guard let owned = note.owned else { continue }
+                    let range = index < moved.ranges.count ? moved.ranges[index] : nil
+                    // Where the import put it: the paragraph its Range starts in, or the end.
+                    let at: Int? = !matched ? nil : range.map { paragraphAt($0.start) } ?? lastParagraph
+                    let text = Fdx.ownedNoteText(owned)
+                    let match = placed.indices.first { k in
+                        !pairedNote.contains(k) && (at == nil || placed[k].at == at) && placed[k].element.text == text
+                    }
+                    if let match { pairedNote.insert(match) } else { removed.insert(index) }
+                }
+
+                var edits: [(start: Int, end: Int, value: [UInt16])] = []
+                for replacement in moved.replacements where !removed.contains(replacement.note) {
+                    edits.append((replacement.start, replacement.end, Array(replacement.value.utf16)))
+                }
+                for index in removed { edits.append((places.notes[index].start, places.notes[index].end, [])) }
+                let fresh = placed.indices.filter { !pairedNote.contains($0) }.map { placed[$0] }
+                if !fresh.isEmpty {
+                    let writing = Fdx.resolvedNoteWriting(notes)
+                    let names = (writing.writer.map { [$0] } ?? []) + places.notes.compactMap { $0.owned.flatMap(Fdx.ownedNoteAuthor) }
+                    var id = places.notes.reduce(0) { highest, note in note.id.map { max(highest, $0) } ?? highest }
+                    let diagnostics = DiagnosticCollector(limit: 1)
+                    var lines: [(depth: Int, text: String)] = []
+                    for note in fresh {
+                        id += 1
+                        let authorship = Fdx.noteAuthorship(note.element.text, names: names, writer: writing.writer)
+                        lines += Fdx.scriptNoteLines(
+                            id: id,
+                            author: authorship.author,
+                            message: authorship.message,
+                            range: Fdx.paragraphRange(lengths, at: note.at),
+                            writing: writing,
+                            diagnostics: diagnostics
+                        )
+                    }
+                    let indented = lines.map { "\n" + String(repeating: " ", count: 4 + 2 * $0.depth) + $0.text }.joined()
+                    if let container = places.container, let close = container.close {
+                        var lineStart = close - 1
+                        while lineStart >= 0 && units[lineStart] != 10 { lineStart -= 1 }
+                        let indentOnly = lineStart >= 0 && units[(lineStart + 1)..<close].allSatisfy { $0 == 32 || $0 == 9 }
+                        let at = indentOnly ? lineStart : close
+                        edits.append((at, at, Array(indented.utf16)))
+                    } else if let container = places.container {
+                        var tagEnd = container.open
+                        while tagEnd < units.count && units[tagEnd] != 62 { tagEnd += 1 }
+                        edits.append((container.open, min(tagEnd + 1, units.count), Array("<ScriptNotes>\(indented)\n  </ScriptNotes>".utf16)))
+                    } else {
+                        let at = places.afterCharacters ?? places.rootClose ?? units.count
+                        edits.append((at, at, Array("\n\n  <ScriptNotes>\(indented)\n  </ScriptNotes>".utf16)))
+                    }
+                }
+                func apply(_ text: [UInt16], base: Int, limit: Int) -> [UInt16] {
+                    var result = text
+                    let inside = edits
+                        .filter { $0.start >= base && $0.end <= limit }
+                        .sorted { $0.start != $1.start ? $0.start > $1.start : $0.end > $1.end }
+                    for edit in inside {
+                        result.replaceSubrange((edit.start - base)..<(edit.end - base), with: edit.value)
+                    }
+                    return result
+                }
+                prefix = apply(prefix, base: 0, limit: firstStart)
+                suffix = apply(suffix, base: lastEnd, limit: units.count)
             }
             let whole = prefix + out + suffix
             return Fdx.ensureNamespaceDeclared(
@@ -1275,7 +1403,7 @@ public enum Fdx {
     /// as does every Range that does not move.
     fileprivate static func movedScriptNoteRanges(
         before: [[Int32]], written: [WrittenParagraph], after: [[Int32]], values: [ScriptNoteRangeValue?]
-    ) -> [(start: Int, end: Int, value: String)] {
+    ) -> (replacements: [(start: Int, end: Int, value: String, note: Int)], ranges: [ScriptNote.Range?]) {
         func layout(_ paragraphs: [[Int32]]) -> (starts: [Int], lengths: [Int], end: Int) {
             var starts: [Int] = []
             var lengths: [Int] = []
@@ -1336,9 +1464,10 @@ public enum Fdx {
             }
         }
 
-        var replacements: [(start: Int, end: Int, value: String)] = []
-        guard !before.isEmpty, !after.isEmpty else { return replacements }
-        for value in values {
+        var replacements: [(start: Int, end: Int, value: String, note: Int)] = []
+        var ranges: [ScriptNote.Range?] = values.map { $0?.range }
+        guard !before.isEmpty, !after.isEmpty else { return (replacements, ranges) }
+        for (note, value) in values.enumerated() {
             guard let value, value.range.end <= old.end else { continue }
             let start = value.range.start
             let end = value.range.end
@@ -1349,12 +1478,14 @@ public enum Fdx {
                 movedEnd = movedStart
             }
             if movedStart == start && movedEnd == end { continue }
+            ranges[note] = ScriptNote.Range(start: movedStart, end: movedEnd)
             replacements.append((
                 value.valueStart, value.valueEnd,
-                value.reversed ? "\(movedEnd),\(movedStart)" : "\(movedStart),\(movedEnd)"
+                value.reversed ? "\(movedEnd),\(movedStart)" : "\(movedStart),\(movedEnd)",
+                note
             ))
         }
-        return replacements
+        return (replacements, ranges)
     }
 
     /// Opens a Final Draft file and keeps it, so it can be written back whole.
@@ -1416,6 +1547,7 @@ public enum Fdx {
 
         var topLevelAt: [Int: Int] = [:]
         for (index, paragraph) in collected.body.enumerated() { topLevelAt[paragraph.start] = index }
+        let noteScan = scriptNoteRangeValues(in: xml, limits: limits)
         return Document(
             script: imported.script,
             warnings: imported.warnings,
@@ -1425,7 +1557,8 @@ public enum Fdx {
             blocks: blocks,
             topLevelUnits: collected.body.map(rangeUnits),
             topLevelAt: topLevelAt,
-            rangeValues: scriptNoteRangeValues(in: xml, limits: limits),
+            rangeValues: noteScan.values,
+            places: noteScan.places,
             limits: limits
         )
     }
@@ -2307,6 +2440,11 @@ public enum Fdx {
             limit: positiveInteger(options.maxWarnings, fallback: defaultLimits.maxWarnings)
         )
         var body: [String] = []
+        /* Each paragraph's length as a ScriptNote Range counts it. */
+        var lengths: [Int] = []
+        /* The writer's notes, and the paragraph each sits in front of. */
+        var notes: [(element: ScreenplayElement, at: Int)] = []
+        var waiting: [ScreenplayElement] = []
         var omittedStructural = 0
         var omittedUnknown = 0
         var actCount = 0
@@ -2315,6 +2453,13 @@ public enum Fdx {
         var previousActCard: String?
 
         for (index, element) in script.elements.enumerated() {
+            /* A note is a ScriptNote (RFC-NOTES-SYSTEM §4.2), never a
+               paragraph: Final Draft shows a body Note paragraph as a line of
+               the script. */
+            if element.type == .note {
+                waiting.append(element)
+                continue
+            }
             guard let fdxType = fdxType(of: element) else {
                 if element.type.isPrinting { omittedUnknown += 1 } else { omittedStructural += 1 }
                 continue
@@ -2336,6 +2481,7 @@ public enum Fdx {
                     body.append(
                         "<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>\(encodeXmlValue(endText, diagnostics: diagnostics, context: "end-of-act card", elementIndex: index))</Text></Paragraph>"
                     )
+                    lengths.append(endText.utf16.count)
                 }
                 previousActCard = element.text
             }
@@ -2358,7 +2504,11 @@ public enum Fdx {
                 element.text, diagnostics: diagnostics, context: "paragraph text", elementIndex: index
             )
             body.append("<Paragraph \(attributes.joined(separator: " "))>\(textRunsMarkup(text: element.text, runs: element.runs))</Paragraph>")
+            lengths.append(element.text.utf16.count)
+            for note in waiting { notes.append((note, body.count - 1)) }
+            waiting = []
         }
+        for note in waiting { notes.append((note, body.count - 1)) }
 
         if omittedStructural > 0 {
             diagnostics.add(.init(
@@ -2415,6 +2565,24 @@ public enum Fdx {
             }
             out.append("</Content>")
             out.append("</TitlePage>")
+        }
+
+        if !notes.isEmpty {
+            let writing = resolvedNoteWriting(options.notes)
+            let names = writing.writer.map { [$0] } ?? []
+            out.append("<ScriptNotes>")
+            for (index, note) in notes.enumerated() {
+                let authorship = noteAuthorship(note.element.text, names: names, writer: writing.writer)
+                out += scriptNoteLines(
+                    id: index + 1,
+                    author: authorship.author,
+                    message: authorship.message,
+                    range: paragraphRange(lengths, at: note.at),
+                    writing: writing,
+                    diagnostics: diagnostics
+                ).map(\.text)
+            }
+            out.append("</ScriptNotes>")
         }
 
         out.append("</FinalDraft>")

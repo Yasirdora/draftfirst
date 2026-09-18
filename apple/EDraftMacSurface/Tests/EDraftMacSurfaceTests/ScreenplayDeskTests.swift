@@ -17,6 +17,7 @@ import EDraftCore
 /// the thing that broke: that the desk is a fixed value, not a semantic
 /// colour something else is entitled to re-resolve. Swap either literal back
 /// for a system colour and these fail.
+@MainActor
 final class ScreenplayDeskTests: XCTestCase {
 
     private func rgb(_ color: NSColor, in name: NSAppearance.Name) -> (r: Int, g: Int, b: Int) {

@@ -172,13 +172,14 @@ struct FdxEndOfActRoundTripTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.rewriteCases.count == 53)
+        #expect(Self.corpus.rewriteCases.count == 69)
     }
 
     @Test("rewrite", arguments: Self.corpus.rewriteCases)
     func rewrite(_ case_: FdxCorpus.RewriteCase) throws {
         let source = try case_.xml()
         let document = Fdx.open(source)
+        let notes = case_.notes?.writing()
         let saved: String
         if case_.through == "fountain" {
             let reading = try FountainReading.of(source)
@@ -186,12 +187,12 @@ struct FdxEndOfActRoundTripTests {
                 let text = FountainReading.source(of: source)
                 #expect(text.components(separatedBy: edit.find).count == 2, "\(case_.name): the edit must occur once")
                 let edited = try Fountain.parse(text.replacingOccurrences(of: edit.find, with: edit.replace), emphasis: .runs)
-                saved = document.rewrite(edited, unedited: reading)
+                saved = document.rewrite(edited, unedited: reading, notes: notes)
             } else {
-                saved = document.rewrite(reading, unedited: reading)
+                saved = document.rewrite(reading, unedited: reading, notes: notes)
             }
         } else {
-            saved = document.rewrite(case_.screenplay ?? document.script, unedited: case_.unedited)
+            saved = document.rewrite(case_.screenplay ?? document.script, unedited: case_.unedited, notes: notes)
         }
         if let xml = case_.expected.xml {
             #expect(saved == xml, "\(case_.name): the save differs from the TypeScript engine")

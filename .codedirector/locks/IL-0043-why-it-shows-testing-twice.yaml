@@ -1,0 +1,120 @@
+schemaVersion: 1
+id: IL-0043
+status: verified
+utterance: "why it shows testing twice, once as header and once as body? — and: you could use title to add eDraft"
+goal: A note eDraft writes into Final Draft carries no title of its own — Name is empty, the way Final Draft writes an untitled note — so Final Draft shows the writer's words once; in both engines, with every IL-0041 and IL-0042 keep holding.
+interpretation: |
+  From the human's Final Draft check of IL-0042 (uncommitted): a short note
+  shows twice — once as the bold title, once as the text — because eDraft
+  fills Final Draft's `Name` (the title) with the note's first words. The
+  human's direction: use the title to mark eDraft.
+
+  MEASURED:
+    - Final Draft's own notes on this Mac (677, in 60 files): 308 have an
+      empty title, 1 none; none repeats its body's opening. Final Draft never
+      writes the words twice.
+    - Through a Final Draft edit (probe-B, note 900): Name, Type, RefId,
+      Color, Range and DateTime are kept; WriterName, WriterID and
+      DateModified are re-stamped. So a mark in the title survives someone
+      editing the note in Final Draft, where IL-0042's mark in the author
+      field is lost.
+
+  THE RULES, both engines, FDX only — superseding IL-0042's author-field mark:
+    1. WRITE. A note of the writer's is one <ScriptNote> as in IL-0042, with
+       `Name` = `[eDraft]` (the title Final Draft shows in bold) and
+       `WriterName` = the writer's name alone, empty when none is known.
+       `Type` is the role, empty when there is none. The body is only the
+       words. The note's words are never copied into the title.
+    2. OWNERSHIP. A ScriptNote is eDraft's if and only if its `Name`, trimmed,
+       is `[eDraft]`. It stays eDraft's when someone edits it in Final Draft
+       (measured: the title is kept); a Final Draft user who retitles it makes
+       it Final Draft's.
+    3. READ BACK. An eDraft note returns as the writer's own note element,
+       `Name (Role): words`, the name from `WriterName` — which, after an edit
+       in Final Draft, is whoever edited it (D9, last editor) — the role from
+       `Type`.
+    4. Everything else as IL-0041/IL-0042: Ranges, pairing, placement, the
+       name prompt, no header line, no attribute Final Draft does not define.
+       A file written by IL-0042's builds (the mark in the author field) reads
+       as Final Draft's notes — test files only.
+
+  RFC: D8 and D9 amended again (the carrier is the title; a Final Draft edit
+  keeps the note eDraft's, authored by the editor); §4.2, §4.3 and §8; §3 gains
+  the measured list of what a Final Draft edit keeps; stage 1 status.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: a save with no edit is byte-identical — both Final Draft-written fixtures and a file with eDraft notes written by this lock — in both engines and through the app's path
+  - kind: custom
+    text: Final Draft's own ScriptNotes keep every byte but their Range values, a body Note paragraph already in a file stays a paragraph, and no attribute Final Draft does not define is written
+  - kind: custom
+    text: a note's words appear once — in its body — and no mark is written into its text
+  - kind: custom
+    text: Fountain is unchanged, and every corpus expectation from before IL-0041 is unchanged; both ports produce identical files for every case
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/types.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/*.fdx
+  - apple/eDraftEngine/Fixtures/parse.json
+  - apple/eDraftEngine/Fixtures/serialise.json
+  - apple/eDraftEngine/Fixtures/paginate.json
+  - apple/eDraftEngine/Fixtures/predict.json
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Paginate/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - "*.xcodeproj/**"
+  - "**/DerivedData/**"
+change: eDraft's notes in Final Draft are titled "[eDraft]", with the writer's name alone as author and the role in Type, so the words show once; the title, which a Final Draft edit keeps, is what makes a note eDraft's.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface --filter ScriptSurfaceNotesTests && swift build --package-path apple/EDraftUI && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxScriptNotesTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift
+    - docs/RFC-NOTES-SYSTEM.md
+  symbols: []
+  maxFiles: 10
+  maxLines: 900
+accept:
+  - "WRITE, both engines: a note left in an FDX document is one ScriptNote with Name `[eDraft]`, WriterName `Dana Reyes`, Type `Director`, and only its words as body — the words nowhere else. Fails on IL-0042's code (Name is the first words; the mark is in the author field)."
+  - "OWNERSHIP: Name `[eDraft]` comes back as the writer's own note, `Dana Reyes (Director): words`; after a Final Draft edit — WriterName re-stamped, the title kept — it is still eDraft's, authored by the editor; retitled, or with IL-0042's author-field mark only, it is Final Draft's."
+  - "REOPEN AND SAVE: no-edit save byte-identical; an edit elsewhere moves only its Range; deleted, it goes; changed, it is written again — regenerated in the new form, identical in both ports."
+  - "KEEPS: both Final Draft-written fixtures save with no edit to identical bytes; Final Draft's notes keep every byte but their Ranges; Fountain corpus byte-identical; every corpus expectation from before IL-0041 unchanged."
+  - "Final Draft check by the human before commit: the card shows the bold title `[eDraft]`, the author `Y`, the role in the dropdown, and the words once."
+  - "Suites green: TypeScript, Swift engine, EDraftCore, the Mac notes suite, EDraftUI builds, the Mac app builds."
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored only on fragments ("shows", "once", "body") and proposed page-zoom and editor-cache files; its confidence was low.
+    source: system
+    confirmed: false
+  - text: 'Directed by the human after the Final Draft check of IL-0042: the title marks eDraft ("you could use title to add eDraft").'
+    source: user
+    confirmed: true
+  - text: "Confirmed by the human: the title reads exactly `[eDraft]` (the same mark as before, in brackets, so an ordinary title can't be mistaken for it); IL-0042's author-field mark is not read any more (test files only); after a Final Draft edit the note is authored by its editor, as Final Draft shows it."
+    source: user
+    confirmed: true
+  - text: "maxLines 900: engine ~60 lines per port (the title function goes, the mark moves), TypeScript tests ~120, Swift tests ~60, corpus ~200 (Name and WriterName values in the note cases), EDraftCore test ~10, RFC ~60, changelog ~2."
+    source: system
+    confirmed: false
+createdAt: 2026-09-18T15:38:44.812Z
+createdBy: Yasirdora

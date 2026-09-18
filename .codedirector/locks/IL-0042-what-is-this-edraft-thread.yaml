@@ -1,0 +1,137 @@
+schemaVersion: 1
+id: IL-0042
+status: verified
+utterance: 'what is this: [eDraft thread:tubg4hj status:open from:"Y (Director)"] and why you added this. You could simple put [eDraft] in front of name or before it. the fdx already has a drop down for the role so it is not necessary in front of the name. look on top it say director and at the bottom selector says writer. — Chosen: [eDraft] in the name. No header line. WriterName reads "[eDraft] Y" and the role goes in Type.'
+goal: "eDraft's notes in an FDX document carry no header line: the author field reads \"[eDraft] Name\", the role is Final Draft's Type, and the note's body is only the writer's words; a note is eDraft's while its WriterName starts \"[eDraft] \", comes back as the writer's own on reopen, and becomes Final Draft's once Final Draft re-stamps it — in both engines, with every IL-0041 keep holding."
+interpretation: |
+  Found in the human's Final Draft check of IL-0041 (uncommitted): the header
+  line `[eDraft thread:… status:open from:"Name (Role)"]` shows as the first
+  line of every eDraft note in Final Draft, and the role duplicates the Type
+  dropdown. The human chose: `[eDraft]` in the name, the role in Type, no
+  header line. This reverses RFC D4 (role inside the name), D8 (the header
+  line as the carrier) and D9 (authorship in the header).
+
+  MEASURED from this morning's probe files, byte for byte:
+    - A plain Final Draft save keeps RefId, WriterID, WriterName and Type.
+    - Editing a note in Final Draft re-stamps WriterName (to the Mac account's
+      name) and WriterID; RefId and Type stay. (RFC §3 fact 4 said the edit was
+      only observed; probe-B holds it — note 900. Corrected in the RFC.)
+    - Final Draft opens eDraft's notes as notes, with author and date, never in
+      the script text (the human's check of IL-0041).
+
+  THE RULES, both engines, FDX only:
+    1. WRITE. A note of the writer's is one <ScriptNote> as in IL-0041, without
+       the header paragraph: its body is only the message, one paragraph per
+       line. WriterName is `[eDraft] Name`, or `[eDraft]` alone when no name
+       is known. Type is the role, or empty when there is none. Every other
+       attribute as IL-0041.
+    2. OWNERSHIP. A ScriptNote is eDraft's if and only if its WriterName is
+       `[eDraft]` or starts `[eDraft] `. Final Draft re-stamps WriterName when
+       anyone edits a note there, so an edited note becomes Final Draft's —
+       read-only in eDraft, as every Final Draft note is (measured).
+    3. READ BACK. An eDraft note returns as the writer's own note element,
+       `Name (Role): words` — the name from WriterName, the role from Type —
+       or `Name: words`, or the words alone.
+    4. PAIRING, Ranges, placement, the name prompt: unchanged from IL-0041.
+    5. The header grammar (parseNoteHeader, noteHeaderLine, NoteHeaderField)
+       is removed from both engines: nothing writes or reads it now. A file
+       written by today's test builds, with a header line, reads as Final
+       Draft's notes — test files only.
+
+  RFC: D4, D8 and D9 amended; §3 fact 4 corrected; §4.2 and §4.3 rewritten;
+  §8 read rules; §11 stage 1 status; stages 2 and 3 note that threads and
+  resolve need a new carrier (the header is gone). Fountain unchanged.
+
+  Out of scope, reported: a note on an empty line gets a zero-length Range;
+  within one session, a second save writes eDraft's notes again as new ones
+  (the document keeps the file as opened — app document class, outside this
+  lock).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: a save with no edit is byte-identical — both Final Draft-written fixtures and a file with eDraft notes written by this lock — in both engines and through the app's path
+  - kind: custom
+    text: Final Draft's own ScriptNotes keep every byte but their Range values, a body Note paragraph already in a file stays a paragraph, and no attribute Final Draft does not define is written
+  - kind: custom
+    text: no header line and no marker is written into any note's text; the writer's words are the note's whole body
+  - kind: custom
+    text: Fountain is unchanged — parse.json, serialise.json, paginate.json and predict.json regenerate byte-identical — and every corpus expectation from before IL-0041 is unchanged; both ports produce identical files for every case
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/types.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/*.fdx
+  - apple/eDraftEngine/Fixtures/parse.json
+  - apple/eDraftEngine/Fixtures/serialise.json
+  - apple/eDraftEngine/Fixtures/paginate.json
+  - apple/eDraftEngine/Fixtures/predict.json
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Paginate/**
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - "*.xcodeproj/**"
+  - "**/DerivedData/**"
+change: eDraft's notes in Final Draft carry no header line. The author field reads "[eDraft] Name", the role is the Type dropdown, and a note stays eDraft's until Final Draft re-stamps its author.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface --filter ScriptSurfaceNotesTests && swift build --package-path apple/EDraftUI && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxScriptNotesTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxConformanceTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift
+    - docs/RFC-NOTES-SYSTEM.md
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+  symbols: []
+  maxFiles: 12
+  maxLines: 1600
+accept:
+  - "WRITE, both engines: a note left in an FDX document is one ScriptNote whose body is only its words (no header paragraph), WriterName `[eDraft] Dana Reyes`, Type `Director`; with no role, Type is empty; with no name, WriterName is `[eDraft]`. Fails on IL-0041's code (it writes the header)."
+  - "OWNERSHIP: a ScriptNote with WriterName `[eDraft] …` comes back as the writer's own note, `Dana Reyes (Director): words`; one whose WriterName Final Draft re-stamped (no `[eDraft]`) stays Final Draft's, read-only; a note with a header line and no `[eDraft]` name is Final Draft's."
+  - "REOPEN AND SAVE: no-edit save byte-identical; an edit elsewhere moves only its Range; deleted, it goes; changed, it is written again (stage 1) — the IL-0041 cases, regenerated in the new form, identical in both ports."
+  - "KEEPS: both Final Draft-written fixtures save with no edit to identical bytes; Final Draft's notes keep every byte but their Ranges; Fountain corpus byte-identical; every corpus expectation from before IL-0041 unchanged."
+  - "RFC: D4, D8, D9 amended with the measured facts; §3 fact 4 corrected; stages 2 and 3 marked as needing a new carrier."
+  - "Final Draft check by the human before commit: the note shows `[eDraft] Name` on top, the role in the Type dropdown, and only the words in its body."
+  - "Suites green: TypeScript, Swift engine, EDraftCore, the Mac notes suite, EDraftUI builds, the Mac app builds."
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on "open", "line", "fdx" and "type", and proposed paste, transcription and live-collapse files.
+    source: system
+    confirmed: false
+  - text: "Decided by the human after the Final Draft check of IL-0041: `[eDraft]` in the name, the role in Type, no header line."
+    source: user
+    confirmed: true
+  - text: "Confirmed by the human: Type is empty when the writer has no role (so a note reopens with exactly the words it was saved with); WriterName is `[eDraft]` alone when no name is known; the header grammar API is removed rather than kept unused, so today's test files with a header line read as Final Draft's notes."
+    source: user
+    confirmed: true
+  - text: "Next, decided by the human: a design pass on the .draft format (the bar the human set: far better, more efficient and more robust than .fdx — something the industry needs), before word-anchored notes."
+    source: user
+    confirmed: true
+  - text: Lands on top of IL-0041's verified, uncommitted work; IL-0041 and this lock are committed after the human's Final Draft check.
+    source: system
+    confirmed: false
+  - text: "maxLines 1,600: engine ~120 lines per port (writer, ownership, read-back; the header grammar removed, which counts as deleted lines), TypeScript tests ~200, Swift tests ~120, corpus ~700 (IL-0041's note cases regenerated without the header), EDraftCore test ~20, RFC ~80, changelog ~3."
+    source: system
+    confirmed: false
+  - text: "Budget widened by the human, 11 to 12 files: FixtureStore.swift, so the note-writing option newThread — unused once the header is gone — is removed from both engines and from the test helper that passes it."
+    source: user
+    confirmed: true
+createdAt: 2026-09-18T15:17:26.635Z
+createdBy: Yasirdora

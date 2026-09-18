@@ -43,12 +43,41 @@ public nonisolated enum NoteAttribution {
         let body = String(text[text.index(after: colon)...])
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard !name.isEmpty, name.count <= longestName, !body.isEmpty else { return nil }
-        guard !name.contains(where: \.isNewline) else { return nil }
-        guard name.rangeOfCharacter(from: notInAName) == nil else { return nil }
-        // A name has a letter in it. "12:30 — move this" does not.
-        guard name.contains(where: \.isLetter) else { return nil }
+        guard !body.isEmpty, !name.contains(where: \.isNewline) else { return nil }
+        // `Name (Role)` (RFC-NOTES-SYSTEM D4): the role is part of how the
+        // writer signs, and never part of who they are — see `person(of:)`.
+        let (person, role) = split(name)
+        guard isName(person) else { return nil }
+        if let role, !isName(role) { return nil }
         return (name, body)
+    }
+
+    /// A name, or a role: short, a letter in it, nothing that settles it is
+    /// not one.
+    private static func isName(_ text: String) -> Bool {
+        guard !text.isEmpty, text.count <= longestName else { return false }
+        guard text.rangeOfCharacter(from: notInAName) == nil else { return false }
+        // A name has a letter in it. "12:30 — move this" does not.
+        return text.contains(where: \.isLetter)
+    }
+
+    /// `Name (Role)` into its name and its role; a prefix with no role is all
+    /// name.
+    private static func split(_ signature: String) -> (name: String, role: String?) {
+        guard signature.hasSuffix(")"), let open = signature.range(of: " (", options: .backwards) else {
+            return (signature, nil)
+        }
+        let name = String(signature[..<open.lowerBound]).trimmingCharacters(in: .whitespaces)
+        let role = String(signature[open.upperBound..<signature.index(before: signature.endIndex)])
+            .trimmingCharacters(in: .whitespaces)
+        return (name, role)
+    }
+
+    /// Who a signature is: `Dana Reyes (Director)` is Dana Reyes. Colour and
+    /// the roster key on this, so a person's role can change without their
+    /// colour changing (RFC-NOTES-SYSTEM §8).
+    public static func person(of signature: String) -> String {
+        split(signature.trimmingCharacters(in: .whitespaces)).name
     }
 
     /// The names that earned attribution in this document.
@@ -64,14 +93,14 @@ public nonisolated enum NoteAttribution {
         var seen: [String: (name: String, count: Int)] = [:]
         for note in notes {
             guard let found = candidate(in: note) else { continue }
-            let key = found.name.lowercased()
+            let key = person(of: found.name).lowercased()
             // The first spelling wins, so a name typed two ways stays one
             // person with one colour rather than becoming two.
             let existing = seen[key]
             seen[key] = (existing?.name ?? found.name, (existing?.count ?? 0) + 1)
         }
         var roster = Set(seen.values.filter { $0.count >= 2 }.map(\.name))
-        let mine = (signature ?? "").trimmingCharacters(in: .whitespaces)
+        let mine = person(of: signature ?? "")
         if !mine.isEmpty, let found = seen[mine.lowercased()] {
             roster.insert(found.name)
         }
@@ -87,7 +116,8 @@ public nonisolated enum NoteAttribution {
         of text: String, roster: Set<String>
     ) -> (name: String, body: String)? {
         guard let found = candidate(in: text) else { return nil }
-        guard let name = roster.first(where: { $0.lowercased() == found.name.lowercased() })
+        let who = person(of: found.name).lowercased()
+        guard let name = roster.first(where: { person(of: $0).lowercased() == who })
         else { return nil }
         return (name, found.body)
     }
@@ -167,4 +197,36 @@ public nonisolated enum NoteAttribution {
     /// number in the Navigator and in the margin, and two lists of different
     /// lengths would quietly give one person two colours.
     public static var paletteSlots: Int { paletteHues.count }
+}
+
+/// The writer's name for notes (RFC-NOTES-SYSTEM §8).
+///
+/// Asserted by the writer — asked once, the first time they leave a note —
+/// and kept on this device. Never read from the system: not the account name,
+/// not the computer's, not a contact card. A name the writer did not give is
+/// not theirs to have written.
+public nonisolated enum NoteIdentity {
+    /// The key Settings has always kept the name under.
+    static let nameKey = "noteSignature"
+    static let roleKey = "noteRole"
+
+    /// The name the writer gave, or empty.
+    public static var name: String {
+        (UserDefaults.standard.string(forKey: nameKey) ?? "").trimmingCharacters(in: .whitespaces)
+    }
+
+    /// The role beside it, or empty.
+    public static var role: String {
+        (UserDefaults.standard.string(forKey: roleKey) ?? "").trimmingCharacters(in: .whitespaces)
+    }
+
+    /// `Name (Role)`, or `Name` (D4); empty while the writer has given none.
+    public static var signature: String { signature(name: name, role: role) }
+
+    public static func signature(name: String, role: String) -> String {
+        let name = name.trimmingCharacters(in: .whitespaces)
+        let role = role.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty else { return "" }
+        return role.isEmpty ? name : "\(name) (\(role))"
+    }
 }

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	decodeXmlEntities,
 	encodeXmlEntities,
+	type FdxNoteWriting,
 	type FdxScriptNote,
 	openFdx,
 	parseFdx,
@@ -14,7 +15,7 @@ import { canonicalCasing } from './normalize.js';
 import { parseFountain } from './parse.js';
 import { serialiseFountain } from './serialise.js';
 import { SAMPLE_FOUNTAIN } from '../test/fixtures/sample.js';
-import type { ElementType, Screenplay } from './types.js';
+import type { ElementType, Screenplay, ScreenplayElement } from './types.js';
 
 /** A file with every ScriptNote Range value emptied. A save rewrites the Range
     of each note whose words moved (IL-0033); a comparison of the script sets
@@ -447,16 +448,35 @@ describe('writeFdx · export', () => {
 		expect(result.diagnostics).toEqual([]);
 	});
 
-	it('writes a note as the Note paragraph Final Draft reads', () => {
-		const result = writeFdxWithDiagnostics({
-			titlePage: [],
-			elements: [
-				{ type: 'action', text: 'Visible.' },
-				{ type: 'note', text: 'Check this against the schedule.' }
-			]
-		});
+	it('writes a note as a Final Draft ScriptNote, never a line of the script (IL-0039)', () => {
+		let id = 0;
+		const result = writeFdxWithDiagnostics(
+			{
+				titlePage: [],
+				elements: [
+					{ type: 'action', text: 'Visible.' },
+					{ type: 'note', text: 'Check this against the schedule.' }
+				]
+			},
+			{
+				notes: {
+					writer: 'Sam Okafor',
+					now: '20260918T120000',
+					newId: () => `00000000-0000-4000-8000-${(++id).toString(16).padStart(12, '0')}`
+				}
+			}
+		);
+		expect(result.xml).not.toContain('Type="Note"');
 		expect(result.xml).toContain(
-			'<Paragraph Type="Note"><Text>Check this against the schedule.</Text></Paragraph>'
+			[
+				'<ScriptNotes>',
+				'<ScriptNote Color="#000000000000" DateModified="20260918T120000" DateTime="20260918T120000" Id="1" Name="[eDraft]" Range="0,8" RefId="00000000-0000-4000-8000-000000000001" Type="" WriterID="00000000-0000-4000-8000-000000000001" WriterName="Sam Okafor">',
+				'<Paragraph Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="0.00" OutlineLevel="1" RightIndent="1.39" SpaceBefore="0" Spacing="1" StartsNewPage="No" id="00000000-0000-4000-8000-000000000002">',
+				'<Text AdornmentStyle="0" Font="Arial" RevisionID="0" Size="12" Style="">Check this against the schedule.</Text>',
+				'</Paragraph>',
+				'</ScriptNote>',
+				'</ScriptNotes>'
+			].join('\n')
 		);
 		expect(result.diagnostics).toEqual([]);
 	});
@@ -1802,5 +1822,259 @@ describe('openFdx · a note added inside a dialogue block (IL-0040)', () => {
 			expect(saved).toContain(line);
 		}
 		expect(saved).not.toMatch(/Type="Action"><Text>(BOB|\(beat\)|Hello\.)</);
+	});
+});
+
+describe('the writer’s notes as Final Draft ScriptNotes (IL-0039)', () => {
+	/* A note left in eDraft saved into an .fdx as <Paragraph Type="Note">, a
+	   line of the script: Final Draft showed it in the script text, not in its
+	   notes. It is now a ScriptNote (RFC-NOTES-SYSTEM §4.2), and comes back as
+	   the writer's own note (§4.3). */
+	const LAB = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+
+  <Content>
+    <Paragraph Type="Scene Heading">
+      <Text>INT. KITCHEN - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The kettle screams.</Text>
+    </Paragraph>
+    <Paragraph Type="Note">
+      <Text>A note the file already has.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MARA</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>It's the same lab.</Text>
+    </Paragraph>
+  </Content>
+
+  <Characters>
+    <Character>MARA</Character>
+  </Characters>
+
+  <Navigator/>
+</FinalDraft>
+`;
+	const FEATURE = readFileSync(
+		new URL('../../../apple/eDraftEngine/Fixtures/finaldraft-sample02.fdx', import.meta.url),
+		'utf8'
+	);
+	const writing = (writer = 'Dana Reyes (Director)'): FdxNoteWriting => {
+		let id = 0;
+		return {
+			...(writer ? { writer } : {}),
+			now: '20260918T120000',
+			newId: () => `00000000-0000-4000-8000-${(++id).toString(16).padStart(12, '0')}`
+		};
+	};
+	/** The app's path: shouted into Fountain, read back with runs. */
+	const throughFountain = (script: Screenplay): Screenplay =>
+		parseFountain(
+			serialiseFountain({
+				...script,
+				elements: script.elements.map((element) => ({
+					...element,
+					text: canonicalCasing(element.type as ElementType, element.text)
+				}))
+			}),
+			{ emphasis: 'runs' }
+		);
+	/** Opened as the app opens it, edited in the editor's Fountain, and saved. */
+	const save = (
+		xml: string,
+		edit: (elements: ScreenplayElement[]) => ScreenplayElement[],
+		notes: FdxNoteWriting = writing()
+	) => {
+		const unedited = throughFountain(parseFdx(xml).script);
+		const edited = throughFountain({ ...unedited, elements: edit(unedited.elements) });
+		return openFdx(xml).rewrite(edited, { unedited, notes });
+	};
+	const noteBefore =
+		(text: string, line: string) =>
+		(elements: ScreenplayElement[]): ScreenplayElement[] => {
+			const at = elements.findIndex((element) => element.text === line);
+			expect(at).toBeGreaterThanOrEqual(0);
+			return [...elements.slice(0, at), { type: 'note', text }, ...elements.slice(at)];
+		};
+	const contentOf = (xml: string) => xml.slice(xml.indexOf('<Content>'), xml.indexOf('</Content>'));
+	const scriptNotesOf = (xml: string) => xml.slice(xml.indexOf('<ScriptNotes'), xml.indexOf('</ScriptNotes>'));
+	const noteParagraph = (id: number, text: string) =>
+		[
+			`      <Paragraph Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="0.00" OutlineLevel="1" RightIndent="1.39" SpaceBefore="0" Spacing="1" StartsNewPage="No" id="00000000-0000-4000-8000-${id.toString(16).padStart(12, '0')}">`,
+			`        <Text AdornmentStyle="0" Font="Arial" RevisionID="0" Size="12" Style="">${text}</Text>`,
+			'      </Paragraph>'
+		].join('\n');
+
+	it('writes a note as one ScriptNote, after </Characters>, and the script gains no paragraph', () => {
+		const saved = save(LAB, noteBefore('Dana Reyes (Director): Too flat?', "It's the same lab."));
+		expect(contentOf(saved.xml)).toBe(contentOf(LAB));
+		expect(saved.xml).toBe(
+			LAB.replace(
+				'  </Characters>\n',
+				[
+					'  </Characters>',
+					'',
+					'  <ScriptNotes>',
+					'    <ScriptNote Color="#000000000000" DateModified="20260918T120000" DateTime="20260918T120000" Id="1" Name="[eDraft]" Range="75,93" RefId="00000000-0000-4000-8000-000000000001" Type="Director" WriterID="00000000-0000-4000-8000-000000000001" WriterName="Dana Reyes">',
+					noteParagraph(2, 'Too flat?'),
+					'    </ScriptNote>',
+					'  </ScriptNotes>',
+					''
+				].join('\n')
+			)
+		);
+		expect(saved.xml).not.toContain('EDraft:');
+		expect(saved.xml).not.toContain('[eDraft thread');
+		expect(saved.warnings).toEqual([]);
+	});
+
+	it('puts its Range on the whole paragraph it sits in front of, as Final Draft counts it', () => {
+		const saved = save(LAB, noteBefore('Too flat?', 'The kettle screams.'));
+		// INT. KITCHEN - NIGHT is 20 units and a break: The kettle screams. is 21 to 40.
+		expect(saved.xml).toContain('Range="21,40"');
+		// An unsigned note is written with the writer's name (D3), the role in Type.
+		expect(saved.xml).toContain('Type="Director" WriterID="00000000-0000-4000-8000-000000000001" WriterName="Dana Reyes"');
+	});
+
+	it('anchors a note after the last line to the last paragraph', () => {
+		const saved = save(LAB, (elements) => [...elements, { type: 'note', text: 'The end?' }]);
+		expect(saved.xml).toContain('Range="75,93"');
+	});
+
+	it('writes a note of several lines one paragraph to a line', () => {
+		const saved = save(LAB, noteBefore('First thought.\nSecond thought.', 'The kettle screams.'));
+		expect(scriptNotesOf(saved.xml)).toContain(noteParagraph(2, 'First thought.'));
+		expect(scriptNotesOf(saved.xml)).toContain(noteParagraph(3, 'Second thought.'));
+		// The words once: never copied into the title.
+		expect(saved.xml).toContain('Name="[eDraft]"');
+		expect(saved.xml.match(/First thought\./g)).toHaveLength(1);
+	});
+
+	it('names nobody when the writer has no name and the note names nobody', () => {
+		const saved = save(LAB, noteBefore('Too flat?', 'The kettle screams.'), writing(''));
+		expect(saved.xml).toContain('Name="[eDraft]" Range="21,40"');
+		expect(saved.xml).toContain('Type="" WriterID="00000000-0000-4000-8000-000000000001" WriterName=""');
+		expect(parseFdx(saved.xml).script.elements.filter((element) => element.type === 'note').map((element) => element.text)).toEqual([
+			'Too flat?',
+			'A note the file already has.'
+		]);
+	});
+
+	it('adds to Final Draft’s own ScriptNotes with the next Id, and every other byte stays', () => {
+		const saved = save(FEATURE, (elements) => [...elements.slice(0, 3), { type: 'note', text: 'Tighter?' }, ...elements.slice(3)]);
+		const close = FEATURE.lastIndexOf('\n  </ScriptNotes>');
+		const added = saved.xml.slice(close, saved.xml.length - (FEATURE.length - close));
+		expect(saved.xml.slice(0, close)).toBe(FEATURE.slice(0, close));
+		expect(saved.xml.slice(close + added.length)).toBe(FEATURE.slice(close));
+		const ids = [...FEATURE.matchAll(/<ScriptNote\b[^>]*\sId="(\d+)"/g)].map((match) => Number(match[1]));
+		expect(added).toContain(`Id="${Math.max(...ids) + 1}"`);
+		expect(added.match(/<ScriptNote /g)).toHaveLength(1);
+	});
+
+	describe('reopened', () => {
+		const written = save(LAB, noteBefore('Dana Reyes (Director): Too flat?', "It's the same lab.")).xml;
+
+		it('comes back as the writer’s own note on its line, and not as one of the file’s', () => {
+			const reopened = parseFdx(written);
+			expect(reopened.script.elements.map((element) => [element.type, element.text])).toEqual([
+				['scene', 'INT. KITCHEN - NIGHT'],
+				['action', 'The kettle screams.'],
+				['note', 'A note the file already has.'],
+				['character', 'MARA'],
+				['note', 'Dana Reyes (Director): Too flat?'],
+				['dialogue', "It's the same lab."]
+			]);
+			expect(reopened.scriptNotes).toEqual([]);
+		});
+
+		it('saves with no edit to the identical file', () => {
+			expect(save(written, (elements) => elements).xml).toBe(written);
+			const document = openFdx(written);
+			expect(document.rewrite(document.script).xml).toBe(written);
+		});
+
+		it('moves only its Range when a line above it is edited', () => {
+			const saved = save(written, (elements) =>
+				elements.map((element) => (element.text === 'The kettle screams.' ? { ...element, text: 'The old kettle screams.' } : element))
+			);
+			expect(scriptNotesOf(saved.xml)).toBe(scriptNotesOf(written).replace('Range="75,93"', 'Range="79,97"'));
+		});
+
+		it('is taken out of ScriptNotes when the writer deletes it', () => {
+			const saved = save(written, (elements) => elements.filter((element) => !element.text.endsWith('Too flat?')));
+			expect(saved.xml).not.toContain('<ScriptNote ');
+			expect(saved.xml).toContain('<ScriptNotes>\n  </ScriptNotes>');
+			expect(contentOf(saved.xml)).toBe(contentOf(LAB));
+			expect(saved.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['FDX_REWRITE_SCRIPT_NOTES_REMOVED']);
+		});
+
+		it('is written again as a new note when the writer changes it — stage 1', () => {
+			const saved = save(written, (elements) =>
+				elements.map((element) => (element.text.endsWith('Too flat?') ? { ...element, text: 'Dana Reyes (Director): Much too flat.' } : element))
+			);
+			expect(saved.xml.match(/<ScriptNote /g)).toHaveLength(1);
+			expect(saved.xml).toContain('Id="2" Name="[eDraft]"');
+			expect(saved.xml).toContain('>Much too flat.</Text>');
+			expect(saved.xml).not.toContain('Too flat?');
+		});
+	});
+
+	it('keeps a body Note paragraph the file already has a paragraph — edited, or deleted', () => {
+		const edited = save(LAB, (elements) =>
+			elements.map((element) => (element.text === 'A note the file already has.' ? { ...element, text: 'A note the file has, edited.' } : element))
+		);
+		expect(edited.xml).toContain('<Paragraph Type="Note">\n      <Text>A note the file has, edited.</Text>');
+		expect(edited.xml).not.toContain('<ScriptNotes>');
+		const deleted = save(LAB, (elements) => elements.filter((element) => element.text !== 'A note the file already has.'));
+		expect(deleted.xml).not.toContain('Type="Note"');
+		expect(deleted.xml).not.toContain('<ScriptNotes>');
+	});
+
+	it('never parts a dual dialogue with a note', () => {
+		const dual = `<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>
+    <Paragraph><DualDialogue><Paragraph Type="Character"><Text>BOB</Text></Paragraph><Paragraph Type="Dialogue"><Text>Hi.</Text></Paragraph><Paragraph Type="Character"><Text>ANN</Text></Paragraph><Paragraph Type="Dialogue"><Text>Ho.</Text></Paragraph></DualDialogue></Paragraph>
+  </Content>
+</FinalDraft>`;
+		const saved = save(dual, noteBefore('Overlap?', 'Ho.'));
+		expect(contentOf(saved.xml)).toBe(contentOf(dual));
+		// The block's own paragraph: 20 units and a break, then its two.
+		expect(saved.xml).toContain('Range="21,23"');
+	});
+});
+
+describe('which notes are eDraft’s (RFC-NOTES-SYSTEM §4.3, IL-0043)', () => {
+	const file = (title: string, writerName = 'Sam Okafor', type = 'Director') => `<FinalDraft><Content>
+<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>
+</Content><ScriptNotes><ScriptNote Id="1" Name="${title}" Range="0,4" Type="${type}" WriterName="${writerName}"><Paragraph><Text>Words.</Text></Paragraph></ScriptNote></ScriptNotes></FinalDraft>`;
+
+	it.each<[string, string, string, string]>([
+		['[eDraft]', 'Sam Okafor', 'Director', 'Sam Okafor (Director): Words.'],
+		['[eDraft]', 'Sam Okafor', '', 'Sam Okafor: Words.'],
+		['[eDraft]', '', '', 'Words.'],
+		// After an edit in Final Draft: the title kept, the author re-stamped.
+		['[eDraft]', 'x', 'Director', 'x (Director): Words.']
+	])('a note titled %j by %j, Type %j, comes back as the writer’s own: %j', (title, writerName, type, text) => {
+		const read = parseFdx(file(title, writerName, type));
+		expect(read.scriptNotes).toEqual([]);
+		expect(read.script.elements).toEqual([
+			{ type: 'note', text },
+			{ type: 'action', text: 'Hum.' }
+		]);
+	});
+
+	it.each([
+		['retitled in Final Draft', 'Tighter?', 'Sam Okafor'],
+		['untitled', '', 'Sam Okafor'],
+		['marked the IL-0042 way, in the author field', '', '[eDraft] Sam Okafor'],
+		['titled eDraft without brackets', 'eDraft', 'Sam Okafor']
+	])('a note stays Final Draft’s when %s', (_, title, writerName) => {
+		const read = parseFdx(file(title, writerName));
+		expect(read.scriptNotes).toHaveLength(1);
+		expect(read.script.elements).toEqual([{ type: 'action', text: 'Hum.' }]);
 	});
 });

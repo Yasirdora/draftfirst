@@ -1747,8 +1747,38 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         addNote(to: nil)
     }
 
+    /// How the writer is asked their name for notes. Nil presents
+    /// `NoteNamePrompt` on the window; the tests answer it themselves.
+    var askNoteName: ((@escaping (NoteNamePrompt.Answer?) -> Void) -> Void)?
+
+    /// Runs `add` once the writer has a name for notes: at once when they
+    /// have one, after "Your name for notes" when they do not (RFC-NOTES-SYSTEM
+    /// §8), and not at all when they cancel.
+    private func withNoteName(_ add: @escaping () -> Void) {
+        guard let editor, editor.needsNoteName else {
+            add()
+            return
+        }
+        let finish: (NoteNamePrompt.Answer?) -> Void = { [weak self] answer in
+            guard let self, let editor = self.editor, let answer else { return }
+            editor.setNoteIdentity(name: answer.name, role: answer.role)
+            add()
+        }
+        if let askNoteName {
+            askNoteName(finish)
+        } else {
+            NoteNamePrompt.ask(on: textView.window, completion: finish)
+        }
+    }
+
     /// `nil` means the caret's own element — see `EditorState.addNote`.
     private func addNote(to anchor: UUID?) {
+        // The line is settled before anything is asked.
+        let line = anchor ?? editor?.activeElementID
+        withNoteName { [weak self] in self?.placeNote(on: line) }
+    }
+
+    private func placeNote(on anchor: UUID?) {
         guard let editor, let note = editor.addNote(to: anchor) else { return }
         renderIfNeeded(editor)
         // Everything on that line, so a second note joins the first in one
@@ -1809,10 +1839,14 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                     // The same line the card belongs to, whatever the caret
                     // is doing elsewhere.
                     let line = self.notedLines(editor).first { $0.id == anchor }?.anchor
-                    guard let added = editor.addNote(to: line) else { return }
-                    // The caret goes into the note just made — not back to
-                    // the first one, which the writer has already written.
-                    self.reopen(self.openNoteIDs + [added.id], focusing: added.id)
+                    let open = self.openNoteIDs
+                    self.withNoteName { [weak self] in
+                        guard let self, let editor = self.editor,
+                              let added = editor.addNote(to: line) else { return }
+                        // The caret goes into the note just made — not back to
+                        // the first one, which the writer has already written.
+                        self.reopen(open + [added.id], focusing: added.id)
+                    }
                 }
             )
         )

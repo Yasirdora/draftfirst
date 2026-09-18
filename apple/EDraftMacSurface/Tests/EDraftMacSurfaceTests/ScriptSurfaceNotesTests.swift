@@ -37,6 +37,73 @@ final class ScriptSurfaceNotesTests: XCTestCase {
         XCTAssertTrue(surface.textView.string.contains("She waits."))
     }
 
+    // MARK: - The name for notes (RFC-NOTES-SYSTEM §8, IL-0039)
+
+    /// The Mac has no Settings window: the name comes from here, asked at the
+    /// first note, once — and never from the account or the computer.
+    private func withNoName(_ body: () throws -> Void) rethrows {
+        let keys = ["noteSignature", "noteRole", "signsNotes"]
+        let saved = keys.map { UserDefaults.standard.object(forKey: $0) }
+        keys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
+        defer {
+            for (key, value) in zip(keys, saved) {
+                if let value { UserDefaults.standard.set(value, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) }
+            }
+        }
+        try body()
+    }
+
+    func testTheFirstNoteAsksTheWritersNameOnceAndSignsWithIt() {
+        withNoName {
+            let elements = script()
+            let (editor, surface) = ScriptSurfaceHarness.bound(elements)
+            // The note's card opens beside it, and a card needs a window.
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+                styleMask: [.titled], backing: .buffered, defer: false
+            )
+            window.contentView?.addSubview(surface.scrollView)
+            surface.scrollView.frame = window.contentView?.bounds ?? .zero
+            var asked = 0
+            surface.askNoteName = { reply in
+                asked += 1
+                reply((name: "Dana Reyes", role: "Director"))
+            }
+            editor.activeElementID = elements[1].id
+            editor.onAddNote?()
+            editor.onAddNote?()
+
+            XCTAssertEqual(asked, 1, "the name was asked more than once")
+            XCTAssertEqual(editor.notes.count, 2)
+            XCTAssertTrue(editor.notes.allSatisfy { $0.text.hasPrefix("Dana Reyes (Director):") }, "a note was not signed")
+            XCTAssertEqual(editor.notes.first?.anchor, elements[1].id, "the note left the caret's line")
+        }
+    }
+
+    func testCancellingTheNameAddsNoNote() {
+        withNoName {
+            let elements = script()
+            let (editor, surface) = ScriptSurfaceHarness.bound(elements)
+            surface.askNoteName = { reply in reply(nil) }
+            editor.activeElementID = elements[1].id
+            editor.onAddNote?()
+
+            XCTAssertTrue(editor.notes.isEmpty, "a note was added without an author")
+            XCTAssertTrue(editor.needsNoteName)
+        }
+    }
+
+    /// A name is required and nothing is filled in; a role is optional.
+    func testThePromptTakesOnlyANameTheWriterTyped() {
+        XCTAssertNil(NoteNamePrompt.answer(name: "  ", role: "Director"))
+        XCTAssertEqual(NoteNamePrompt.answer(name: " Dana Reyes ", role: " Director ")?.name, "Dana Reyes")
+        XCTAssertEqual(NoteNamePrompt.answer(name: "Dana Reyes", role: " Director ")?.role, "Director")
+        XCTAssertEqual(NoteNamePrompt.answer(name: "Dana Reyes", role: "")?.role, "")
+        withNoName {
+            XCTAssertEqual(EditorState(source: "INT. LAB - DAY").noteSignature, "", "a name was taken from the system")
+        }
+    }
+
     /// The outline shares the seam. It must not be set on the page either —
     /// and unlike a note it gets no mark in the margin, because an act heading
     /// belongs to the whole stretch under it, not to one line.

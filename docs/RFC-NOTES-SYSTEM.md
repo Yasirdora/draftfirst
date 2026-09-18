@@ -36,12 +36,12 @@ is public.*
 | D1 | A save keeps every Final Draft note on its words: only the Range values of notes whose words moved are rewritten. | Human, 1=B. Built in IL-0033. |
 | D2 | eDraft owns the notes it wrote, and only those. It may add, rewrite or remove a note it owns; it never rewrites a note Final Draft owns. | Human, 2B. The ownership mark is the header line (§4), not an attribute — the probe decided that. |
 | D3 | An unsigned note is written with the writer's own name. | Human, 3A. |
-| D4 | A role lives inside the author name, `Name (Role)`, both ways. Final Draft's `Type` is a category, never a role. | Human, 4A. |
+| D4 | In the editor and in Fountain, a role lives inside the author name, `Name (Role)`. **In FDX, an eDraft note's role is Final Draft's `Type`** — the note's dropdown — and its name is the author field. On Final Draft's own notes, `Type` is still a category, never a role. | Human, 4A; amended by the human after the Final Draft check of IL-0041 (IL-0042). |
 | D5 | Display is `Name · Role`; colour comes from the person (the name), never from the note. | Human. |
 | D6 | No login, no account, no identity service, ever. A person is the name they type. eDraft never derives a name from the system. | Human; §8. |
 | D7 | Every fidelity keep from IL-0024 to IL-0033 is permanent (§2.3). | Human. |
-| D8 | **The FDX carrier is a header line inside the note's text. Attributes are never used.** | **measured (probe)**, §3. |
-| D9 | Final Draft's `WriterName` is the *last editor*. Provenance — who wrote a message, with their role — lives in the header line. | **measured (probe)**, §3, §8. |
+| D8 | **The FDX carrier is the title: an eDraft note's `Name` is `[eDraft]`.** The author field is the writer's name alone; no header line; a note's words appear once, in its body. Attributes Final Draft does not define are never used. | **measured (probe)**, §3 facts 4 and 9. Amended twice: the header line of §4.1 showed as the first line of every note (IL-0042 moved the mark to the author field); the first words as title showed a short note twice, and a Final Draft edit keeps the title but not the author (IL-0043, the human's direction). |
+| D9 | Final Draft's `WriterName` is the *last editor*: an edit in Final Draft re-stamps it. A note someone edits in Final Draft stays eDraft's (its title is kept) and is authored by whoever edited it, as Final Draft shows it. | **measured (probe)**, §3 facts 4 and 9, §8. Amended (IL-0042, IL-0043). |
 | D10 | A quoted anchor that matches more than once is resolved by position, then by ordinal (§5.3). Stated here, not deferred. | Human directive; this RFC. |
 
 ### Open — the human's to decide
@@ -98,6 +98,7 @@ Measured 2026-09-18 for this RFC, through the engine:
 - **A native note saves into FDX as a script paragraph,**
   `<Paragraph Type="Note"><Text>Dir: too slow</Text></Paragraph>`, never into
   `<ScriptNotes>`. Final Draft shows it as a line of the script, not as a note.
+  A ScriptNote since IL-0039 (§11, stage 1).
 - **A note whose text ends in `]` breaks the next parse.** `[[… see [scene
   4]]]` closes at the first `]]`: the note loses its last character and a
   stray `]` becomes an action line of the script. A header-only note
@@ -164,11 +165,12 @@ the files stay outside the repository.
 | 1 | **Final Draft strips every unknown attribute on a plain Save As.** `EDraft:` occurs 9 times in the probe and 0 times in both saved copies; `xmlns:EDraft` is gone. The `[eDraft thread:…]` header lines survive byte for byte. | byte-verified here |
 | 2 | **Highlights are collateral damage.** `EDraft:Highlight`, the highlighter's carrier (RFC-HIGHLIGHTER D5), is stripped by the same save. A Final Draft round trip erases eDraft highlights. | byte-verified here |
 | 3 | **Notes survive whole:** all 14 notes, with their ids, Ranges, titles, colours, `Type`s and `WriterName`s — the probe's `Probe Writer (Director)` included. | byte-verified here |
-| 4 | **`WriterName` is the last editor.** A note created in Final Draft is stamped with the macOS account name. Editing a note in Final Draft re-stamps its `WriterName` to the Final Draft user; untouched notes keep theirs through any number of saves. | new notes: byte-verified (a one-character name matching the account). The edit re-stamp: the human's observation — the retained edited file does not contain that edit. |
+| 4 | **`WriterName` is the last editor.** A note created in Final Draft is stamped with the macOS account name. Editing a note in Final Draft re-stamps its `WriterName` to the Final Draft user; untouched notes keep theirs through any number of saves. | new notes: byte-verified (a one-character name matching the account). The edit re-stamp: byte-verified too, in `probe-B-edited.fdx` — note 900 was edited in Final Draft, and its `WriterName` became the account's one-character name and its `WriterID` changed, while its `RefId`, `Type` and text header stayed. (Corrected by IL-0042: this row first said the retained file did not hold the edit.) |
 | 5 | **Final Draft keeps notes on their words by position, as IL-0033 does.** A 46-unit insertion moved every note after it by exactly +46 (1303→1349, 2824→2870, and the zero-length 31820→31866); notes before it did not move. Summary paragraphs are inside the Range space. | the shifts: byte-verified here. That the insertion was in a Summary paragraph: the human's observation. |
 | 6 | **Final Draft's own notes carry user-defined categories.** Two notes created in Final Draft: `Type="Tester"`, Name as typed, Range = the selected words (5 and 7 units). | byte-verified here |
 | 7 | **Final Draft 13.4 has no reply feature.** "Re:" is a title convention only. | the human's observation; nothing new was written |
 | 8 | **Final Draft shows the probe notes** with their full authors, and the header line as each note's visible first line — "reads as metadata, not garbage". | the human's observation, with screenshots |
+| 9 | **What a Final Draft edit keeps.** Editing a note there keeps its `Name` (title), `Type`, `RefId`, `Color`, `Range` and `DateTime`; it re-stamps `WriterName`, `WriterID` and `DateModified`. Final Draft's own notes: of 677 on this Mac, 308 are untitled and none repeats its opening words as a title. | byte-verified here: `probe-B-edited.fdx`, note 900; the count across 60 files Final Draft wrote (IL-0043) |
 
 What follows from it:
 
@@ -187,6 +189,10 @@ What follows from it:
 ---
 
 ## 4. The carrier — the header line
+
+*Amended by IL-0042 and IL-0043: in FDX the carrier is the note's title
+(§4.2, §4.3), and no header line is written into a Final Draft note. The grammar below stays as
+the design considered for Fountain threads (§4.4, stage 2); it is not built.*
 
 ### 4.1 Grammar
 
@@ -234,12 +240,13 @@ Rules:
 
 ### 4.2 In FDX
 
-- **One `<ScriptNote>` per message.** Its first body paragraph is the header;
-  its remaining paragraphs are the message.
+- **One `<ScriptNote>` per message.** Its paragraphs are the message, one to a
+  line — the writer's words and nothing else.
 - **The root:** `Name` = the first words of the first message, trimmed at a
-  word boundary to 40 characters (*judgement*). `WriterName` = the author
-  (`Name (Role)`, D4). `Type` = `Writer` unless the writer chose a category.
-  `Range` = the anchor (§5).
+  word boundary to 40 characters (*judgement*) — superseded: `Name` =
+  `[eDraft]`, the words never copied into the title (D8, IL-0043).
+  `WriterName` = the writer's name alone, empty when none is given. `Type` =
+  the role, empty when there is none (D4). `Range` = the anchor (§5).
 - **A reply:** `Name` = `Re: ` + the root's `Name` — one `Re:`, never
   stacked — and the root's `Range`, so Final Draft shows it beside its root on
   the same words (§3, facts 3 and 8).
@@ -253,15 +260,15 @@ Rules:
 
 ### 4.3 Ownership (D2)
 
-- **A note is eDraft's if and only if its first paragraph is a well-formed
-  header with a `thread` key.** Nothing else — not the author's name, not a
-  colour, not a `Type` — makes a note eDraft's.
+- **A note is eDraft's if and only if its `Name` (title) is `[eDraft]`.**
+  Nothing else — not the words, not the author, not a colour, not a `Type` —
+  makes a note eDraft's.
 - eDraft adds, rewrites and removes only notes it owns. A note Final Draft owns
   keeps every byte but its Range value (IL-0033).
-- A Final Draft user can edit a note eDraft owns. It stays eDraft's (the header
-  survives, fact 1), its `WriterName` becomes the Final Draft user (fact 4), and
-  eDraft shows "edited in Final Draft by …" beside the message, whose author is
-  still `from` (D9).
+- A Final Draft user can edit a note eDraft owns. Final Draft keeps its title
+  and re-stamps its `WriterName` (facts 4, 9), so it stays eDraft's, authored
+  by whoever edited it, as Final Draft itself shows it (D9). Retitling it
+  there makes it Final Draft's.
 
 ### 4.4 In Fountain
 
@@ -401,15 +408,16 @@ Stated now, because an identity rule left open becomes accidental behaviour:
   account name (§3, fact 4); eDraft does not read the account name, the
   computer name or a contact card — a name the writer did not give is not
   theirs to have written.
-- **Written:** `WriterName` = `Name (Role)`, or `Name` with no role (D4). An
-  unsigned note is written with the writer's name (D3).
+- **Written (FDX):** `Name` = `[eDraft]`, `WriterName` = the writer's name,
+  `Type` = the role (D4, D8). An unsigned note is written with the writer's
+  name (D3).
 - **Read:**
-  - the author of a message is its header's `from`;
-  - a note without a header (Final Draft's) is authored by its `WriterName`;
-  - a role is read only from the `Name (Role)` form — never from `Type`
-    (D4), never from "Name, Role";
-  - `WriterName` on a note eDraft owns, when it differs from `from`, is shown
-    as the last editor (D9).
+  - a note eDraft owns is authored by its `WriterName`, with its `Type` as the
+    role, and reaches the editor as `Name (Role): words`;
+  - a Final Draft note is authored by its `WriterName`, and its `Type` stays a
+    category (D4);
+  - in the editor and in Fountain, a role is read only from the `Name (Role)`
+    form, never from "Name, Role".
 - **Colour** is keyed on the name alone, ordered down the roster (IL-0016), so
   a person's role can change without their colour changing.
 - **Two people with the same name are one person** to eDraft. That is the
@@ -542,9 +550,33 @@ committed.
 - **Final Draft check:** eDraft's notes open in Final Draft as notes, with
   their authors; the header and every note survive a Final Draft save; eDraft
   reads them back as its own.
+- **Built in IL-0039 (2026-09-18), cut to the FDX notes and the name:**
+  - A note written in eDraft is one ScriptNote: header, message, the writer's
+    name, a Range over its line's paragraph. No attribute Final Draft does not
+    define. `writeFdx` writes notes the same way.
+  - eDraft's notes come back as the writer's own on reopen. Stage 1 pairs them
+    by line and words, so an edited note is written again as a new note (new
+    Id and date). Keeping a note's identity through an edit waits for the
+    carrier stages 2 and 3 need (below).
+  - Amended by IL-0042 and IL-0043, after the human's Final Draft checks: no
+    header line. The title reads `[eDraft]`, the author field is the name, the
+    role is `Type`, and the words appear once (D4, D8, D9).
+  - A note after the last line is anchored to the last paragraph, so it
+    reopens in front of that line.
+  - "Your name for notes", with an optional role, is asked on the Mac at the
+    first note. Cancel adds no note. The account-name seed is gone. The phone
+    writes ScriptNotes signed with the name its Settings holds, and has no
+    prompt yet.
+  - `Name (Role):` is read as an author, and colour keys on the name.
+  - Fountain is unchanged: its notes keep §4.4's spelling and have no header
+    yet.
 
 ### Stage 2 — threads
 
+- **Carrier reopened (IL-0042).** Stages 2 and 3 were designed on the header
+  line (`thread`, `reply-to`, `from`, `status`), which is no longer written
+  into Final Draft notes. They need a new carrier before they are built; the
+  `.draft` design pass decides it.
 - **Builds:** replies in the header (`thread`, `reply-to`, `from`), in FDX as
   "Re:" notes on the root's Range and in Fountain as lines of the thread's
   `[[ ]]`. Replying to a Final Draft note. Legacy "Re:" chains shown as

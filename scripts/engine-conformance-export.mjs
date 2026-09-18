@@ -974,6 +974,23 @@ const FOREIGN_FDX = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
   </TitlePage>
 </FinalDraft>`;
 
+/* The writer's notes as ScriptNotes (IL-0039, IL-0042): everything new each
+   time — a note's RefId, paragraph ids, date — is pinned, so both engines
+   write the same bytes. */
+const NOTE_WRITING = {
+	writer: 'Dana Reyes (Director)',
+	now: '20260918T120000',
+	ids: Array.from({ length: 24 }, (_, index) => `00000000-0000-4000-8000-${(index + 1).toString(16).padStart(12, '0')}`)
+};
+function noteWriting(spec) {
+	let id = 0;
+	return {
+		...(spec.writer ? { writer: spec.writer } : {}),
+		now: spec.now,
+		newId: () => spec.ids[id++]
+	};
+}
+
 const fdxImport = [];
 const fdxExport = [];
 function addFdxImport(name, source, options = {}) {
@@ -981,8 +998,9 @@ function addFdxImport(name, source, options = {}) {
 	fdxImport.push({ name, source, options, expected: { script: result.script, diagnostics: result.diagnostics } });
 }
 function addFdxExport(name, screenplay) {
-	const result = writeFdxWithDiagnostics(screenplay);
-	fdxExport.push({ name, screenplay, expected: { xml: result.xml, diagnostics: result.diagnostics } });
+	const notes = screenplay.elements.some((element) => element.type === 'note') ? NOTE_WRITING : undefined;
+	const result = writeFdxWithDiagnostics(screenplay, notes ? { notes: noteWriting(notes) } : {});
+	fdxExport.push({ name, screenplay, ...(notes ? { notes } : {}), expected: { xml: result.xml, diagnostics: result.diagnostics } });
 }
 
 /* Real-world and adversarial imports. Each malformed shape pins the exact
@@ -1402,12 +1420,15 @@ addUneditedRewrite('unedited-unaligned-falls-back', tagged, {
 const NOTE_RANGE = /(<ScriptNote\b[^>]*?\sRange=")([^"]*)(")/g;
 const scriptNoteRangesOf = (xml) => [...xml.matchAll(NOTE_RANGE)].map((match) => match[2]);
 const withoutNoteRanges = (xml) => xml.replace(NOTE_RANGE, '$1$3');
-function addMergedRewrite(name, { source, file }, find, replace) {
+function addMergedRewrite(name, { source, file }, find, replace, notes) {
 	const original = source ?? readFileSync(join(outDir, file), 'utf8');
 	const text = fountainSource(original);
 	if (text.split(find).length !== 2) throw new Error(`${name}: ${JSON.stringify(find)} must occur once`);
 	const edited = parseFountain(text.replace(find, () => replace), { emphasis: 'runs' });
-	const written = openFdx(original).rewrite(edited, { unedited: parseFountain(text, { emphasis: 'runs' }) }).xml;
+	const written = openFdx(original).rewrite(edited, {
+		unedited: parseFountain(text, { emphasis: 'runs' }),
+		...(notes ? { notes: noteWriting(notes) } : {})
+	}).xml;
 	const scriptNoteRanges = file ? scriptNoteRangesOf(written) : [];
 	const xml = scriptNoteRanges.length > 0 ? withoutNoteRanges(original) : original;
 	const saved = scriptNoteRanges.length > 0 ? withoutNoteRanges(written) : written;
@@ -1424,6 +1445,7 @@ function addMergedRewrite(name, { source, file }, find, replace) {
 		...(file ? { sourceFile: file } : { source }),
 		through: 'fountain',
 		edit: { find, replace },
+		...(notes ? { notes } : {}),
 		expected: file
 			? { changed, ...(scriptNoteRanges.length > 0 ? { scriptNoteRanges } : {}) }
 			: { xml: saved }
@@ -1528,6 +1550,100 @@ addMergedRewrite(
 	'#2#',
 	'#3#'
 );
+
+/* The writer's notes, written as Final Draft ScriptNotes and read back as the
+   writer's own (IL-0039). The screenplay saved and the unedited reading are
+   pinned as data, so Swift is judged without its own Fountain in the way. */
+const NOTES_LAB = `<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FinalDraft DocumentType="Script" Template="No" Version="5">
+
+  <Content>
+    <Paragraph Type="Scene Heading">
+      <Text>INT. KITCHEN - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>The kettle screams.</Text>
+    </Paragraph>
+    <Paragraph Type="Note">
+      <Text>A note the file already has.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MARA</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>It's the same lab.</Text>
+    </Paragraph>
+  </Content>
+
+  <Characters>
+    <Character>MARA</Character>
+  </Characters>
+
+  <Navigator/>
+</FinalDraft>
+`;
+const throughFountain = (script) => parseFountain(serialiseFountain(script), { emphasis: 'runs' });
+function addNoteRewrite(name, source, edit, notes = NOTE_WRITING) {
+	const unedited = fountainReading(source);
+	const screenplay = throughFountain({ ...unedited, elements: edit(unedited.elements) });
+	const xml = openFdx(source).rewrite(screenplay, { unedited, notes: noteWriting(notes) }).xml;
+	fdxRewrite.push({ name, source, screenplay, unedited, notes, expected: { xml } });
+	return xml;
+}
+const noteBefore = (text, line) => (elements) => {
+	const at = elements.findIndex((element) => element.text === line);
+	if (at === -1) throw new Error(`no line ${JSON.stringify(line)}`);
+	return [...elements.slice(0, at), { type: 'note', text }, ...elements.slice(at)];
+};
+const withOwnNote = addNoteRewrite('script-notes-new-note', NOTES_LAB, noteBefore('Dana Reyes (Director): Too flat?', "It's the same lab."));
+addNoteRewrite('script-notes-unsigned-note-takes-the-writer', NOTES_LAB, noteBefore('Too flat?', 'The kettle screams.'));
+addNoteRewrite('script-notes-trailing-note', NOTES_LAB, (elements) => [...elements, { type: 'note', text: 'The end?' }]);
+addNoteRewrite('script-notes-lines', NOTES_LAB, noteBefore('First thought.\nSecond thought.', 'The kettle screams.'));
+addNoteRewrite('script-notes-no-writer', NOTES_LAB, noteBefore('Too flat?', 'The kettle screams.'), { ...NOTE_WRITING, writer: undefined });
+addNoteRewrite('script-notes-body-note-edited-stays', NOTES_LAB, (elements) =>
+	noteBefore('Tighter?', 'MARA')(elements.map((element) => (element.text === 'A note the file already has.' ? { ...element, text: 'A note the file has, edited.' } : element)))
+);
+addNoteRewrite('script-notes-body-note-deleted', NOTES_LAB, (elements) => elements.filter((element) => element.text !== 'A note the file already has.'));
+addNoteRewrite(
+	'script-notes-dual-dialogue-kept',
+	`<FinalDraft DocumentType="Script" Template="No" Version="5">
+  <Content>
+    <Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>
+    <Paragraph><DualDialogue><Paragraph Type="Character"><Text>BOB</Text></Paragraph><Paragraph Type="Dialogue"><Text>Hi.</Text></Paragraph><Paragraph Type="Character"><Text>ANN</Text></Paragraph><Paragraph Type="Dialogue"><Text>Ho.</Text></Paragraph></DualDialogue></Paragraph>
+  </Content>
+</FinalDraft>`,
+	noteBefore('Overlap?', 'Ho.')
+);
+addNoteRewrite(
+	'script-notes-self-closing-container',
+	lab(['<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>']).replace('</Content>', '</Content><ScriptNotes/>'),
+	noteBefore('Why?', 'Hum.')
+);
+addNoteRewrite('script-notes-no-container-no-characters', lab(['<Paragraph Type="Action"><Text>Hum.</Text></Paragraph>']), noteBefore('Why?', 'Hum.'));
+/* Reopened: the file this save wrote. */
+addRewrite('script-notes-reopened-no-edit', withOwnNote);
+{
+	const reading = fountainReading(withOwnNote);
+	const xml = openFdx(withOwnNote).rewrite(reading, { unedited: reading, notes: noteWriting(NOTE_WRITING) }).xml;
+	fdxRewrite.push({ name: 'script-notes-reopened-no-edit-through-fountain', source: withOwnNote, through: 'fountain', notes: NOTE_WRITING, expected: { identical: xml === withOwnNote } });
+}
+addNoteRewrite('script-notes-reopened-line-above-edited', withOwnNote, (elements) =>
+	elements.map((element) => (element.text === 'The kettle screams.' ? { ...element, text: 'The old kettle screams.' } : element))
+);
+addNoteRewrite('script-notes-reopened-deleted', withOwnNote, (elements) => elements.filter((element) => !element.text.endsWith('Too flat?')));
+addNoteRewrite('script-notes-reopened-changed', withOwnNote, (elements) =>
+	elements.map((element) => (element.text.endsWith('Too flat?') ? { ...element, text: 'Dana Reyes (Director): Much too flat.' } : element))
+);
+/* Added to Final Draft's own notes, in a file Final Draft wrote. */
+addMergedRewrite('script-notes-added-to-final-draft-notes', sample02, 'Xxxx XXXXXX, 12,', 'Xxxx XXXXXX, 12, [[Tighter?]]', NOTE_WRITING);
+/* And read: eDraft's notes back as the writer's own, Final Draft's as they were. */
+addScriptNotes('script-notes-owned-read-back', { source: withOwnNote });
+addScriptNotes('script-notes-owned-beside-final-draft', {
+	source: withOwnNote.replace(
+		'  <ScriptNotes>\n',
+		'  <ScriptNotes>\n    <ScriptNote Id="7" Range="0,20" Type="Producer" WriterName="Sam Okafor"><Paragraph><Text>No [eDraft] mark: Final Draft\'s.</Text></Paragraph></ScriptNote>\n'
+	)
+});
 
 writeFixture('fdx.json', {
 	import: fdxImport,

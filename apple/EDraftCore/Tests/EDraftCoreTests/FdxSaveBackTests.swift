@@ -195,6 +195,81 @@ final class FdxSaveBackTests: XCTestCase {
         }
     }
 
+    // MARK: - The writer's notes, as Final Draft ScriptNotes (IL-0039)
+
+    /// A note left in eDraft on a Final Draft file used to save as
+    /// `<Paragraph Type="Note">` — a line of the script in Final Draft. It is
+    /// a ScriptNote now, titled `[eDraft]`, the writer's name as author and the
+    /// role in Type, and the script itself is not touched.
+    func testANoteLeftOnAFinalDraftFileIsAScriptNoteAndNotALineOfTheScript() throws {
+        try withName("Dana Reyes", role: "Director") {
+            let original = Self.production
+            let file = try opened()
+            let editor = EditorState(source: file.source)
+            let line = try XCTUnwrap(editor.screenplay.elements.first { $0.text == "Majestic." })
+            var published: String?
+            editor.onSourceChange = { published = $0 }
+            XCTAssertNotNil(editor.addNote("Too flat?", to: line.id))
+            editor.flushPendingWork()
+
+            let xml = String(decoding: try ScreenplayFile.encode(
+                try XCTUnwrap(published), as: .finalDraftScreenplay, origin: file.origin
+            ), as: UTF8.self)
+            func content(_ xml: String) -> Substring? {
+                guard let start = xml.range(of: "<Content>"), let end = xml.range(of: "</Content>") else { return nil }
+                return xml[start.lowerBound..<end.upperBound]
+            }
+            XCTAssertEqual(content(xml), content(original), "the script itself changed")
+            XCTAssertFalse(xml.contains("Too flat?</Text></Paragraph>\n        <Paragraph Type"), "the note became a line")
+            // Titled [eDraft], the writer's name as author, the role in Type,
+            // and only the words in the note's body (IL-0043).
+            XCTAssertTrue(xml.contains("Name=\"[eDraft]\""))
+            XCTAssertTrue(xml.contains("Type=\"Director\" WriterID=\"00000000-0000-4000-8000-000000000001\" WriterName=\"Dana Reyes\""))
+            XCTAssertEqual(xml.components(separatedBy: "Too flat?").count, 2, "the words are written more than once")
+            XCTAssertFalse(xml.contains("[eDraft thread"), "a header line was written into the note")
+            XCTAssertTrue(xml.contains(">Too flat?</Text>"))
+            XCTAssertFalse(xml.contains("EDraft:"), "an attribute Final Draft strips was written")
+
+            // Reopened, it is the writer's own note on its line — not one of
+            // the file's — and a save with no edit is the identical file.
+            let reopened = try ScreenplayFile.open(Data(xml.utf8), as: .finalDraftScreenplay)
+            let again = EditorState(source: reopened.source)
+            again.attachImportedNotes(from: reopened.origin)
+            // Beside the file's own body note, which stays what it was.
+            XCTAssertEqual(
+                again.notes.map(\.text),
+                ["Dana Reyes (Director): Too flat?", "Is this the same library as scene 9?"]
+            )
+            XCTAssertEqual(
+                again.notes.first?.anchor, again.screenplay.elements.first { $0.text == "Majestic." }?.id,
+                "the note left its line"
+            )
+            XCTAssertFalse(again.importedNotes.contains { $0.text.contains("Too flat?") }, "it came back as Final Draft's")
+            var republished: String?
+            again.onSourceChange = { republished = $0 }
+            again.flushPendingWork()
+            let resaved = try ScreenplayFile.encode(
+                republished ?? reopened.source, as: .finalDraftScreenplay, origin: reopened.origin
+            )
+            XCTAssertEqual(String(decoding: resaved, as: UTF8.self), xml, "a save with no edit changed the file")
+        }
+    }
+
+    /// Runs `body` with this name for notes on the device, and puts back
+    /// whatever was there.
+    private func withName(_ name: String, role: String, _ body: () throws -> Void) throws {
+        let keys = ["noteSignature", "noteRole", "signsNotes"]
+        let saved = keys.map { UserDefaults.standard.object(forKey: $0) }
+        UserDefaults.standard.set(name, forKey: "noteSignature")
+        UserDefaults.standard.set(role, forKey: "noteRole")
+        defer {
+            for (key, value) in zip(keys, saved) {
+                if let value { UserDefaults.standard.set(value, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) }
+            }
+        }
+        try body()
+    }
+
     // MARK: - End of Act
 
     /// A real feature, anonymised — the engine's own fixture — with one End of

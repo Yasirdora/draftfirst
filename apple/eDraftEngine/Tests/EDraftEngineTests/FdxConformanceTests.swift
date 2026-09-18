@@ -41,8 +41,12 @@ struct FdxImportConformanceTests {
     @Test("import → export → import is stable", arguments: Self.corpus.importCases)
     func identityRoundTrip(_ case_: FdxCorpus.ImportCase) {
         let once = Fdx.parse(case_.source, options: case_.importOptions).script
-        let exported = Fdx.writeXml(once)
-        #expect(Fdx.writeXml(Fdx.parse(exported).script) == exported,
+        // A note is written with a thread, ids and a date new each time: pinned.
+        func export(_ script: Screenplay) -> String {
+            Fdx.write(script, options: Fdx.ExportOptions(notes: NoteWritingSpec.pinned.writing())).xml
+        }
+        let exported = export(once)
+        #expect(export(Fdx.parse(exported).script) == exported,
                 "\(case_.name): our own export did not re-import to itself")
     }
 }
@@ -61,7 +65,7 @@ struct FdxExportConformanceTests {
 
     @Test("export", arguments: Self.corpus.exportCases)
     func export(_ case_: FdxCorpus.ExportCase) {
-        let result = Fdx.write(case_.screenplay)
+        let result = Fdx.write(case_.screenplay, options: Fdx.ExportOptions(notes: case_.notes?.writing()))
         #expect(result.xml == case_.expected.xml,
                 "\(case_.name): exported FDX differs from the TypeScript engine")
         #expect(result.diagnostics == case_.expected.diagnostics,
@@ -76,19 +80,25 @@ struct FdxExportConformanceTests {
     /// alignment prints centered and comes back recorded.
     @Test("export → import restores representable elements", arguments: Self.corpus.exportCases)
     func printingRoundTrip(_ case_: FdxCorpus.ExportCase) {
-        let result = Fdx.write(case_.screenplay)
+        let result = Fdx.write(case_.screenplay, options: Fdx.ExportOptions(notes: case_.notes?.writing()))
         let back = Fdx.parse(result.xml).script
         // Stated rather than derived from the map the export uses, so this
         // fails when the subset changes instead of agreeing with it. Most of
         // what does not print is still representable — a Note is a line that
         // does not print, an Outline level is a section, a Summary is a
         // synopsis. A page break is the only thing left with no counterpart.
+        // A note is a ScriptNote now (IL-0039), and one that names nobody is
+        // written with the writer's name (D3): it comes back signed.
+        let writer = case_.notes?.writer
         let printable = case_.screenplay.elements
             .filter { $0.type != .pagebreak }
             .map { element in
                 var copy = element
                 copy.text = Self.xmlLegal(element.text)
                 copy.sceneNumber = element.sceneNumber.map(Self.xmlLegal)
+                if element.type == .note, let writer, !copy.text.hasPrefix("\(writer): ") {
+                    copy.text = "\(writer): \(copy.text)"
+                }
                 return copy
             }
         #expect(back.elements == printable,

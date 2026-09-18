@@ -100,8 +100,11 @@ public nonisolated enum ScreenplayFile {
     public static func encode(_ source: String, as type: UTType, origin: String? = nil) throws -> Data {
         guard type.conforms(to: .finalDraftScreenplay) else { return try encode(source) }
         let screenplay = try Fountain.parse(source, emphasis: .runs)
-        guard let origin else { return try encode(Fdx.writeXml(screenplay)) }
-        return try encode(Fdx.open(origin).rewrite(screenplay, unedited: uneditedReading(of: origin)))
+        // The writer's notes go into Final Draft's <ScriptNotes>, each signed
+        // with the name the writer gave (RFC-NOTES-SYSTEM §4.2, §8).
+        let notes = Fdx.NoteWriting(writer: NoteIdentity.signature)
+        guard let origin else { return try encode(Fdx.write(screenplay, options: Fdx.ExportOptions(notes: notes)).xml) }
+        return try encode(Fdx.open(origin).rewrite(screenplay, unedited: uneditedReading(of: origin), notes: notes))
     }
 
     /// The script as the editor first held it: the file carried through

@@ -1,0 +1,206 @@
+schemaVersion: 1
+id: IL-0039
+status: failed
+utterance: "Scope it to exactly this: eDraft notes on an FDX document are written into real `<ScriptNotes>` — one note per message, header grammar per RFC §4.1/4.2, Range from IL-0031's counter, kept by IL-0033 on every save. Native eDraft notes no longer save as body Note paragraphs on FDX. (Fountain files stay Fountain — unchanged.) \"Your name for notes\" asked once at first note (RFC §8) — must work on macOS, which has no Settings panel at all (found in testing today: no gear, no ⌘,). The prompt covers signing; the panel itself is v1 polish. Threads, resolve, word anchors, report: stay postponed. The 3 test notes currently in ~/Documents/sample02.fdx (\"testing this one\", \"test\", \"see [scene 4]\"): strip them as part of this lock's validation, on a copy first, then the real file with my yes. Proofs: note written in eDraft → opens in FD's navigator with author, anchored, never in the script text; no-edit save still byte-identical; all existing keeps hold. Final Draft check by the human before commit, as the RFC's stage protocol says. Draft the lock and show me the Vibe Check."
+goal: A note the writer adds in eDraft to an FDX document is saved as a real Final Draft <ScriptNote> — header line per RFC §4.1/4.2, the writer's own name and role, Range over its line by IL-0031's counter, kept by IL-0033 — never as a body Note paragraph; it comes back as the writer's own note on reopen; the name is asked once at the first note, on macOS; Fountain files are unchanged; every existing keep holds.
+interpretation: |
+  RFC-NOTES-SYSTEM stage 1, cut to the human's list: FDX writing, the name
+  prompt, and the validation on sample02. Threads, resolve, word anchors and
+  the report stay postponed.
+
+  MEASURED at ab67d4d:
+    - A note added in eDraft saves into FDX as <Paragraph Type="Note"> in the
+      script body. Final Draft shows it as a line of the script.
+    - ~/Documents/sample02.fdx (Final Draft's save, 11:13:23 today) holds four
+      eDraft test notes as body Note paragraphs ("test" twice), no ScriptNote
+      of eDraft's, and two cue/speech pairs turned into Action by eDraft
+      (see PREREQUISITE).
+    - The note signature is seeded from NSFullUserName() on macOS
+      (EditorState.swift:331), against D6 and the standing rule. Nothing is
+      stored on this Mac (noteSignature, signsNotes: not set).
+    - NoteAttribution.candidate rejects "(" and ")", so a `Name (Role):`
+      prefix is not read as an author (D4 needs it).
+    - Both apps save through ScreenplayFile.encode, so macOS and iOS share
+      one save path.
+    - Final Draft accepted this morning's probe: <ScriptNotes> sits after
+      </Characters>. Header lines and every attribute Final Draft defines
+      survived its save; only EDraft: attributes were stripped.
+
+  THE RULES, both engines:
+    1. WRITE. Each note element with no body paragraph of its own is written
+       as one <ScriptNote> in <ScriptNotes>, which is created after
+       </Characters> when absent. Its body is the header paragraph
+       `[eDraft thread:tXXXXXX status:open from:"Name (Role)"]` (§4.1), then
+       one paragraph per line of the message, with the probe's paragraph and
+       text attributes. Attributes (§4.2):
+         - WriterName = Name (Role), or Name alone;
+         - Type="Writer"; Color unset (#000000000000);
+         - WriterID a fixed placeholder; Id = the next free integer;
+         - RefId, paragraph ids and DateTime/DateModified (yyyyMMddTHHmmss)
+           from caller-injected generators, so the corpus is deterministic;
+         - Name = the message's first words, cut at a word boundary to 40
+           characters;
+         - Range = the whole paragraph of the element the note sits in front
+           of, by IL-0031's counter over the saved script (a trailing note:
+           the last paragraph). No attribute Final Draft does not define.
+    2. NEVER IN THE BODY. A new note writes no body paragraph. A body Note
+       paragraph the file already has (Final Draft's own, and the four
+       eDraft test notes) stays a paragraph, kept, edited or deleted as today.
+    3. OWNERSHIP (§4.3). A ScriptNote is eDraft's if and only if its first
+       paragraph is a well-formed header with a `thread` key. The import
+       gives each of eDraft's notes back as a note element with the text
+       `Name (Role): message`, placed in front of the element its Range
+       starts in. Final Draft's notes stay as they are: read-only, never
+       elements.
+    4. PAIRING ON SAVE (stage 1). An eDraft ScriptNote whose element comes
+       back unchanged on the same line keeps every byte but its Range
+       (IL-0033). One whose element is gone is removed. A changed element is
+       written as a new note: new Id, thread and date. Thread identity across
+       edits waits for stage 2, when the header enters the editor.
+    5. D3/D4. Author and message come from the element's `Name (Role):`
+       prefix when it is the writer's signature. Otherwise the author is the
+       stored name (D3). With no stored name, WriterName is left empty and no
+       `from` is written: an iOS-only case, see below.
+    6. writeFdx (a whole new file, e.g. Save As .fdx) follows rules 1, 2 and 5.
+
+  THE NAME (§8), EDraftCore + the Mac surface:
+    - The account-name seed goes. eDraft never reads a name from the system.
+    - "Your name for notes", plus an optional "Your role", is asked once: the
+      first time a note is added and no name is stored. Stored locally
+      (UserDefaults, name + role) and signs every note after it as
+      `Name (Role)`. Cancel adds no note, so every note has an author.
+    - `Name (Role):` is read as an author (D4). A role is never read from
+      Type.
+    - Built on macOS (a sheet on the script window). iOS keeps its Settings
+      row and gets no prompt in this lock.
+
+  VALIDATION ON sample02 (the human's): strip the four test notes through
+  eDraft's own save path, on a copy first, and splice the four paragraphs of
+  the two broken cue/speech pairs back from the 08:18 no-edit reference.
+  Check the copy: it differs from the file only in those paragraphs
+  and in Range values put back. Then the real file, with the human's yes.
+  (Three broken pairs, measured later, not two: two are spliced from the
+  08:18 reference, the third from the Sep 9 copy, the only version where it
+  is intact.)
+
+  PREREQUISITE, found in this design pass, NOT in this lock: a note in front
+  of a dialogue line serialises as `CUE` / `[[note]]` / `Speech` with blank
+  lines between, and reopens as Action, Note, Action. That is how sample02's
+  two pairs broke. Rule 3 places reopened notes the same way. The
+  Fountain-level fix is its own lock and lands first.
+
+  Out of scope: threads, resolve, word anchors, the report, a Settings panel,
+  the iOS prompt, the Fountain carrier (Fountain files unchanged), the
+  highlight carrier.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: a save with no edit is byte-identical — both Final Draft-written fixtures, the probe file with eDraft-shaped notes, and a file with eDraft notes written by this lock — in both engines and through the app's path
+  - kind: custom
+    text: Final Draft's own ScriptNotes keep every byte but their Range values (IL-0033), and a body Note paragraph already in a file stays a paragraph
+  - kind: custom
+    text: a note the file did not already have never becomes a body paragraph, and no attribute Final Draft does not define is written
+  - kind: custom
+    text: eDraft never reads a name from the system — no NSFullUserName, account, computer or contact name anywhere in the note path
+  - kind: custom
+    text: Fountain is unchanged — parse.json, serialise.json, paginate.json and predict.json regenerate byte-identical — and every existing corpus expectation is unchanged; both ports produce identical files for every case
+deny:
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/style.ts
+  - apple/eDraftEngine/Package.swift
+  - apple/eDraftEngine/Fixtures/*.fdx
+  - apple/eDraftEngine/Fixtures/parse.json
+  - apple/eDraftEngine/Fixtures/serialise.json
+  - apple/eDraftEngine/Fixtures/paginate.json
+  - apple/eDraftEngine/Fixtures/predict.json
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Editor/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Paginate/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/XmlScanner.swift
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - "*.xcodeproj/**"
+  - "**/DerivedData/**"
+change: eDraft's notes in an FDX document save as real Final Draft ScriptNotes with a header line, the writer's name and role, and a Range over their line — never as body paragraphs — and come back as the writer's own on reopen. The name is asked once, at the first note, on macOS.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface --filter ScriptSurfaceNotesTests && swift build --package-path apple/EDraftUI && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxScriptNotesTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxPreservingRoundTripTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayFile.swift
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Sources/EDraftCore/NoteAuthor.swift
+    - apple/EDraftCore/Sources/EDraftCore/ImportedNotes.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/EditorNotesTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/ImportedNotesTests.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/NoteNamePrompt.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/ScriptSurfaceNotesTests.swift
+    - docs/RFC-NOTES-SYSTEM.md
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxConformanceTests.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayExporter.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/ScreenplayDeskTests.swift
+  symbols: []
+  maxFiles: 24
+  maxLines: 4000
+accept:
+  - "WRITE, both engines, fails today: a note added to an FDX document and saved is one <ScriptNote> in <ScriptNotes> — header `[eDraft thread:… status:open from:\"Name (Role)\"]`, message paragraphs, WriterName, Type Writer, next free Id, Range = its line's whole paragraph by IL-0031's counter, no EDraft: attribute — and the script body gains no paragraph. A file without <ScriptNotes> gets one after </Characters>; a multi-line message is one paragraph per line; a trailing note anchors to the last paragraph."
+  - "REOPEN: the note comes back as the writer's own, on its line, with its author and role, and not also as a Final Draft note. Saved again with no edit: byte-identical. An edit elsewhere moves only its Range (IL-0033). Deleted in eDraft: gone from <ScriptNotes>. Edited: replaced — named in the report as the stage-1 rule."
+  - "KEEPS: both Final Draft-written fixtures and the probe file save with no edit to identical bytes; Final Draft's notes keep every byte but their Ranges; a body Note paragraph stays a paragraph; Fountain corpus files byte-identical."
+  - "NAME, macOS: the first note with no stored name asks once for a name and an optional role; Cancel adds no note; notes after it are signed `Name (Role)`; the stored default is empty — no system name, asserted by a test."
+  - "sample02, on a copy first: the four test notes stripped through eDraft's save; the copy differs from the file only by those four paragraphs and by Range values put back. Then the real file, with the human's yes."
+  - "Final Draft check by the human, before commit: the note opens in Final Draft's Navigator with its author, on its line, not in the script text; it survives a Final Draft save; eDraft reads it back as its own."
+  - "Suites green: TypeScript, Swift engine, EDraftCore, EDraftMacSurface, EDraftUI builds, the Mac app builds."
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on "document", "fountain", "report", "text" and "author", proposed import, launch and case-memory files, and denied the TypeScript tests this lock needs.
+    source: system
+    confirmed: false
+  - text: "Scope as the human set it: ScriptNotes writing per §4.1/4.2 with IL-0031/IL-0033 Ranges, no body Note paragraphs for new notes, Fountain unchanged, the name asked once and working on macOS, threads/resolve/anchors/report postponed, the sample02 strip on a copy then the real file, the Final Draft check before commit."
+    source: user
+    confirmed: true
+  - text: "Confirmed by the human (decisions 1 to 4 as proposed): eDraft's notes come back editable on reopen (RFC stage 1); stage-1 pairing by content, so an edit replaces the note; Cancel on the prompt adds no note; iOS shares the save path but gets no prompt (its Settings row stays, and with no name its notes are written unsigned); writeFdx (Save As .fdx) writes ScriptNotes too."
+    source: user
+    confirmed: true
+  - text: "Sequenced by the human: the note-in-dialogue corruption (a note in front of a dialogue line turns the cue and the speech into Action on the next open; sample02 has two such pairs) is fixed in its own lock, which lands before this one runs."
+    source: user
+    confirmed: true
+  - text: "sample02 repair, decided by the human: on the copy, alongside stripping the four test notes, the broken cue/speech pairs get their original bytes back; everything Final Draft wrote afterwards stays. Checked on the copy, then the real file with the human's yes."
+    source: user
+    confirmed: true
+  - text: "Measured after that decision: there are three broken pairs, not two. One test note and its broken pair were already in the 08:18 reference, saved by eDraft before Final Draft's first save today (07:15:28). That pair is intact only in the authentic Sep 9 copy (sample02 copy.fdx, 0160cea5). Decided by the human: two pairs from the 08:18 reference, the third from the Sep 9 copy."
+    source: user
+    confirmed: true
+  - text: "maxLines 3,200: engine ~450 lines per port (header grammar, ownership, writer, pairing), TypeScript tests ~450, Swift engine tests ~350, corpus ~700 (write, reopen and pairing cases), FixtureStore and the corpus runner ~80, EDraftCore ~250 and tests ~350, Mac prompt ~180 and tests ~100, RFC status ~40."
+    source: system
+    confirmed: false
+  - text: "Budget widened by the human during implementation, 21 to 23 files: FdxConformanceTests.swift, whose export runner and export round trip now pass the corpus's fixed note ids and time (the two export cases holding notes, edge-structural and structural-omissions, pinned notes as body paragraphs and change on purpose); and ScreenplayExporter.swift, so export as .fdx signs notes with the writer's name (D3)."
+    source: user
+    confirmed: true
+  - text: "Decided by the human during implementation: the Mac surface test target does not compile at HEAD (ScreenplayDeskTests needs @MainActor under the current toolchain), and with that fixed, 4 MacPdfRoundTripTests fail and xctest crashes in TextFinderMeasurementTests.testAFindBarSessionAgainstAFullRender. All three reproduce at 10bede2 without this lock's changes. Budget 23 to 24 for the one-line @MainActor fix; the Mac verify step runs ScriptSurfaceNotesTests only. The PDF failures and the crash are reported and offered as separate tasks."
+    source: user
+    confirmed: true
+  - text: "Ceiling raised by the human during implementation, 3,200 to 4,000 lines: the diff is about 3,860. fdx.json is 1,549 lines against ~700 estimated, because its 16 new rewrite cases pin the screenplay and the unedited reading as data so Swift is judged without its own Fountain; fdx.ts is ~550 against ~450."
+    source: user
+    confirmed: true
+createdAt: 2026-09-18T09:44:56.183Z
+createdBy: Yasirdora

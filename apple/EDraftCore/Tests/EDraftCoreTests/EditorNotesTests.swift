@@ -72,6 +72,62 @@ final class EditorNotesTests: XCTestCase {
         }
     }
 
+    // MARK: - The name for notes (RFC-NOTES-SYSTEM §8, IL-0039)
+
+    /// Runs `body` with no name for notes on this device, and puts back
+    /// whatever was there.
+    private func withNoName(_ body: () throws -> Void) rethrows {
+        let keys = ["noteSignature", "noteRole", "signsNotes"]
+        let saved = keys.map { UserDefaults.standard.object(forKey: $0) }
+        keys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
+        defer {
+            for (key, value) in zip(keys, saved) {
+                if let value { UserDefaults.standard.set(value, forKey: key) } else { UserDefaults.standard.removeObject(forKey: key) }
+            }
+        }
+        try body()
+    }
+
+    /// No name is ever taken from the system — not the account's, not the
+    /// computer's. A writer who has given none has none, and is asked.
+    func testTheNameForNotesStartsEmptyAndNeverFromTheSystem() {
+        withNoName {
+            let editor = editor("INT. LAB - DAY\n\nShe waits.")
+            XCTAssertEqual(editor.noteSignature, "")
+            XCTAssertEqual(editor.signature, "")
+            XCTAssertTrue(editor.needsNoteName)
+            XCTAssertEqual(NoteIdentity.signature, "")
+        }
+    }
+
+    func testTheNameGivenOnceSignsEveryNoteAfterIt() {
+        withNoName {
+            let editor = editor("INT. LAB - DAY\n\nShe waits.")
+            editor.activeElementID = editor.screenplay.elements[1].id
+            editor.setNoteIdentity(name: " Dana Reyes ", role: "Director")
+
+            XCTAssertFalse(editor.needsNoteName)
+            XCTAssertEqual(NoteIdentity.signature, "Dana Reyes (Director)")
+            XCTAssertEqual(editor.addNote("Too flat?")?.text, "Dana Reyes (Director): Too flat?")
+            XCTAssertEqual(editor.addNote("And this.")?.text, "Dana Reyes (Director): And this.")
+            // Kept on this device: the next document knows it.
+            XCTAssertFalse(EditorState(source: "INT. LAB - DAY").needsNoteName)
+        }
+    }
+
+    /// `Name (Role)` is an author (D4), and the person is the name: their
+    /// colour does not change when their role does.
+    func testARoleSignsANoteButTheNameIsThePerson() {
+        XCTAssertEqual(NoteAttribution.candidate(in: "Dana Reyes (Director): Too flat?")?.name, "Dana Reyes (Director)")
+        XCTAssertEqual(NoteAttribution.person(of: "Dana Reyes (Director)"), "Dana Reyes")
+        XCTAssertNil(NoteAttribution.candidate(in: "Dana (: nothing"))
+        let roster = NoteAttribution.roster(
+            of: ["Dana Reyes (Director): One.", "Dana Reyes (Producer): Two."], signature: nil
+        )
+        XCTAssertEqual(roster.count, 1, "one person, two roles, became two people")
+        XCTAssertEqual(NoteAttribution.author(of: "Dana Reyes (Producer): Two.", roster: roster)?.body, "Two.")
+    }
+
     func testAddingANoteAnchorsItToTheCaretsElement() {
         let editor = editor("INT. LAB - DAY\n\nShe waits.")
         let action = editor.screenplay.elements[1]

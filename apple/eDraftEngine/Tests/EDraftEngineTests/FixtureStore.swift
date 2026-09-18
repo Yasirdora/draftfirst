@@ -275,6 +275,8 @@ enum FdxCorpus {    struct Root: Decodable {
         let unedited: Screenplay?
         let through: String?
         let edit: Edit?
+        /// How the writer's notes are written, everything new pinned (IL-0039).
+        let notes: NoteWritingSpec?
         let expected: Expected
 
         struct Edit: Decodable {
@@ -369,12 +371,63 @@ enum FdxCorpus {    struct Root: Decodable {
     struct ExportCase: Decodable {
         let name: String
         let screenplay: Screenplay
+        /// How the writer's notes are written, everything new pinned (IL-0039).
+        let notes: NoteWritingSpec?
         let expected: Expected
 
         struct Expected: Decodable {
             let xml: String
             let diagnostics: [Fdx.Diagnostic]
         }
+    }
+}
+
+/// How a save writes the writer's notes, with everything that is new each
+/// time — RefId, paragraph ids, date — given in order (IL-0039, IL-0042).
+struct NoteWritingSpec: Decodable {
+    let writer: String?
+    let now: String
+    let ids: [String]
+
+    /// A fresh writing: its ids handed out from the start.
+    func writing() -> Fdx.NoteWriting {
+        let ids = Supply(ids)
+        return Fdx.NoteWriting(writer: writer, now: now, newId: { ids.next() })
+    }
+
+    /// The same values the corpus pins, for a test that writes notes itself.
+    static let pinned = NoteWritingSpec(
+        writer: "Dana Reyes (Director)",
+        now: "20260918T120000",
+        ids: (1...24).map { "00000000-0000-4000-8000-" + String(String($0, radix: 16)).leftPadded(to: 12) }
+    )
+
+    init(writer: String?, now: String, ids: [String]) {
+        self.writer = writer
+        self.now = now
+        self.ids = ids
+    }
+
+    private final class Supply: @unchecked Sendable {
+        private let items: [String]
+        private var index = 0
+        private let lock = NSLock()
+
+        init(_ items: [String]) { self.items = items }
+
+        func next() -> String {
+            lock.lock()
+            defer { lock.unlock() }
+            let item = items[index % items.count]
+            index += 1
+            return item
+        }
+    }
+}
+
+private extension String {
+    func leftPadded(to width: Int) -> String {
+        String(repeating: "0", count: max(0, width - count)) + self
     }
 }
 

@@ -51,6 +51,25 @@ export interface FdxImportOptions {
 export interface FdxExportOptions {
 	/** Maximum diagnostics returned. Default: 100. */
 	maxWarnings?: number;
+	/** How the writer's notes are written into <ScriptNotes>. */
+	notes?: FdxNoteWriting;
+}
+
+/**
+ * How a save writes the notes the writer left in eDraft: each one a Final
+ * Draft ScriptNote (RFC-NOTES-SYSTEM §4.2), never a paragraph of the script.
+ * Every value that is new each time is the caller's to give, so a test can
+ * pin every byte; left out, each is made fresh.
+ */
+export interface FdxNoteWriting {
+	/** The writer's name for notes: `Name (Role)`, or `Name` (D4). A note that
+	    does not name its author is written with it (D3). Never read from the
+	    system: without it, such a note names nobody. */
+	writer?: string;
+	/** `yyyyMMddTHHmmss`, local time, as Final Draft writes DateTime. */
+	now?: string;
+	/** A fresh lowercase UUID, for a note's RefId and each paragraph's id. */
+	newId?: () => string;
 }
 
 export interface FdxImportResult {
@@ -108,6 +127,57 @@ export interface FdxScriptNote {
 	range?: { start: number; end: number };
 	anchor?: { start: FdxScriptNotePosition; end: FdxScriptNotePosition };
 	text: string;
+}
+
+/** The title a note eDraft wrote carries (RFC-NOTES-SYSTEM §4.3). */
+const EDRAFT_TITLE = '[eDraft]';
+
+/**
+ * A note eDraft wrote: its title, Final Draft's `Name`, is `[eDraft]` (§4.3).
+ * Final Draft keeps a note's title when someone edits the note there, so the
+ * note stays eDraft's; it re-stamps the author field, so the note is then
+ * authored by whoever edited it (D9).
+ */
+interface OwnedNote {
+	/** Its author: Final Draft's `WriterName`. */
+	name?: string;
+	/** Their role: Final Draft's Type. */
+	role?: string;
+	message: string;
+}
+
+function ownedNoteOf(
+	title: string | undefined,
+	writerName: string | undefined,
+	type: string | undefined,
+	paragraphs: string[]
+): OwnedNote | null {
+	if ((title ?? '').trim() !== EDRAFT_TITLE) return null;
+	const name = (writerName ?? '').trim();
+	const role = (type ?? '').trim();
+	return { ...(name ? { name } : {}), ...(role ? { role } : {}), message: paragraphs.join('\n') };
+}
+
+/** How a note of eDraft's signs in the editor: `Name (Role)`, or `Name` (D4). */
+function ownedNoteAuthor(note: OwnedNote): string | undefined {
+	if (!note.name) return undefined;
+	return note.role ? `${note.name} (${note.role})` : note.name;
+}
+
+/** A note of eDraft's as the writer reads and edits it: `Name (Role): words`. */
+function ownedNoteText(note: OwnedNote): string {
+	const author = ownedNoteAuthor(note);
+	return author ? `${author}: ${note.message}` : note.message;
+}
+
+/** `Name (Role)` into the name and the role; a signature with no role is all name. */
+function nameAndRole(signature: string): { name: string; role: string } {
+	const at = signature.lastIndexOf(' (');
+	if (signature.endsWith(')') && at > 0) {
+		const name = signature.slice(0, at).trim();
+		if (name) return { name, role: signature.slice(at + 2, -1).trim() };
+	}
+	return { name: signature.trim(), role: '' };
 }
 
 export interface FdxExportResult {
@@ -980,9 +1050,11 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 			elements.push(elementOf(paragraph, kind));
 		}
 
-		const scriptNotes = scriptNotesOf(source, layout, limits, diagnostics);
+		const places: ScriptNotesPlaces = { notes: [], container: null, afterCharacters: null, rootClose: null };
+		const read = scriptNotesOf(source, layout, limits, diagnostics, undefined, places);
+		const { elements: withOwn, scriptNotes } = withOwnedNotes(elements, read, places.notes.map((note) => note.owned));
 		return {
-			script: { titlePage: titlePageLinesOf(parsed.title), elements },
+			script: { titlePage: titlePageLinesOf(parsed.title), elements: withOwn },
 			warnings: messagesOf(diagnostics.result()),
 			diagnostics: diagnostics.result(),
 			scriptNotes
@@ -1212,6 +1284,20 @@ function anchorOf(
 	return start && end ? { start, end } : undefined;
 }
 
+/** Where the file's <ScriptNotes> sit, so a save can take one out or add one. */
+interface ScriptNotesPlaces {
+	/** Each <ScriptNote>, in file order: from the line break in front of it
+	    (when only its indent is between) to the end of its closing tag. */
+	notes: { start: number; end: number; id: number; owned: OwnedNote | null }[];
+	/** The <ScriptNotes> container: where it opens, and where its closing tag
+	    starts — null when it closes itself. */
+	container: { open: number; close: number | null; selfClosing: boolean } | null;
+	/** Just past the top-level </Characters>, where Final Draft keeps them. */
+	afterCharacters: number | null;
+	/** Where </FinalDraft> starts. */
+	rootClose: number | null;
+}
+
 /** Where a ScriptNote's Range value sits in the source, and what it says. */
 interface ScriptNoteRangeValue {
 	valueStart: number;
@@ -1302,22 +1388,34 @@ function scriptNotesOf(
 	layout: ParagraphLayout[],
 	limits: FdxLimits,
 	diagnostics: DiagnosticCollector,
-	rangeValues?: (ScriptNoteRangeValue | null)[]
+	rangeValues?: (ScriptNoteRangeValue | null)[],
+	places?: ScriptNotesPlaces
 ): FdxScriptNote[] {
 	const text = scriptTextOf(layout);
 	const notes: FdxScriptNote[] = [];
 	const open: string[] = [];
-	let note: { attributes: Map<string, string>; depth: number; paragraphs: string[] } | null = null;
+	let note: { attributes: Map<string, string>; depth: number; paragraphs: string[]; start: number } | null = null;
 	let paragraph: { text: string; depth: number } | null = null;
 	let run: { uppercases: boolean; depth: number } | null = null;
 	let paragraphCount = 0;
 	let textRunCount = 0;
 	let limitReached = false;
 
-	const finishNote = (): void => {
+	const finishNote = (closing?: number): void => {
 		if (!note) return;
 		if (paragraph) note.paragraphs.push(paragraph.text);
 		notes.push(scriptNoteOf(note.attributes, note.paragraphs, text));
+		if (places) {
+			const end = closing === undefined ? source.length : source.indexOf('>', closing) + 1 || source.length;
+			const lineStart = source.lastIndexOf('\n', note.start - 1);
+			const indentOnly = lineStart !== -1 && /^[ \t]*$/.test(source.slice(lineStart + 1, note.start));
+			places.notes.push({
+				start: indentOnly ? lineStart : note.start,
+				end,
+				id: /^\d+$/.test((note.attributes.get('id') ?? '').trim()) ? Number((note.attributes.get('id') ?? '').trim()) : NaN,
+				owned: ownedNoteOf(note.attributes.get('name'), note.attributes.get('writername'), note.attributes.get('type'), note.paragraphs)
+			});
+		}
 		note = null;
 		paragraph = null;
 		run = null;
@@ -1330,6 +1428,9 @@ function scriptNotesOf(
 				const parent = open[open.length - 1];
 				open.push(tag.name);
 				const opensNote = tag.name === 'scriptnote' && parent === 'scriptnotes' && !note;
+				if (places && open.length === 2 && tag.name === 'scriptnotes' && !places.container) {
+					places.container = { open: offset, close: null, selfClosing: tag.selfClosing === true };
+				}
 				const opensParagraph =
 					note !== null && tag.name === 'paragraph' && open.length === note.depth + 1;
 				if (opensNote || opensParagraph) {
@@ -1340,7 +1441,7 @@ function scriptNotesOf(
 					paragraphCount++;
 				}
 				if (opensNote) {
-					note = { attributes: tag.attributes, depth: open.length, paragraphs: [] };
+					note = { attributes: tag.attributes, depth: open.length, paragraphs: [], start: offset };
 					rangeValues?.push(rangeValueIn(source, offset));
 				} else if (opensParagraph) {
 					paragraph = { text: '', depth: open.length };
@@ -1354,15 +1455,22 @@ function scriptNotesOf(
 				}
 				return true;
 			},
-			end(name): boolean {
+			end(name, offset): boolean {
 				if (run && name === 'text' && open.length === run.depth) {
 					run = null;
 				} else if (note && paragraph && name === 'paragraph' && open.length === paragraph.depth) {
 					note.paragraphs.push(paragraph.text);
 					paragraph = null;
 				} else if (note && name === 'scriptnote' && open.length === note.depth) {
-					finishNote();
+					finishNote(offset);
 				}
+				if (places && open.length === 2 && open[1] === name) {
+					if (name === 'scriptnotes' && places.container && !places.container.selfClosing && places.container.close === null) {
+						places.container.close = offset;
+					}
+					if (name === 'characters') places.afterCharacters = source.indexOf('>', offset) + 1 || null;
+				}
+				if (places && open.length === 1 && name === 'finaldraft') places.rootClose = offset;
 				if (open[open.length - 1] === name) open.pop();
 				return true;
 			},
@@ -1387,6 +1495,53 @@ function scriptNotesOf(
 		});
 	}
 	return notes;
+}
+
+/**
+ * The notes eDraft wrote, back as the writer's own (RFC-NOTES-SYSTEM §4.3).
+ *
+ * A ScriptNote titled `[eDraft]` is eDraft's: it becomes a note element in
+ * front of the element its Range starts in —
+ * where the editor keeps a note — reading `Name (Role): words`, and is no
+ * longer one of the file's notes. A note whose Range lands nowhere goes to the
+ * end of the script, as an editor note whose line is gone does. Final Draft's
+ * notes stay as they are, their anchors moved past the elements put in.
+ */
+function withOwnedNotes(
+	elements: ScreenplayElement[],
+	notes: FdxScriptNote[],
+	ownership: (OwnedNote | null)[]
+): { elements: ScreenplayElement[]; scriptNotes: FdxScriptNote[] } {
+	const inFront = new Map<number, ScreenplayElement[]>();
+	const theirs: FdxScriptNote[] = [];
+	notes.forEach((note, index) => {
+		const owned = ownership[index];
+		if (!owned) {
+			theirs.push(note);
+			return;
+		}
+		const at = note.anchor?.start.element ?? elements.length;
+		inFront.set(at, [...(inFront.get(at) ?? []), { type: 'note', text: ownedNoteText(owned) }]);
+	});
+	if (inFront.size === 0) return { elements, scriptNotes: notes };
+	const result: ScreenplayElement[] = [];
+	const movedTo: number[] = [];
+	elements.forEach((element, index) => {
+		result.push(...(inFront.get(index) ?? []));
+		movedTo.push(result.length);
+		result.push(element);
+	});
+	result.push(...(inFront.get(elements.length) ?? []));
+	const moved = (position: FdxScriptNotePosition): FdxScriptNotePosition => ({
+		element: movedTo[position.element],
+		offset: position.offset
+	});
+	return {
+		elements: result,
+		scriptNotes: theirs.map((note) =>
+			note.anchor ? { ...note, anchor: { start: moved(note.anchor.start), end: moved(note.anchor.end) } } : note
+		)
+	};
 }
 
 /* ---- preserving round trip ---------------------------------------------- */
@@ -1437,6 +1592,8 @@ export interface FdxRewriteOptions {
 	 * it, the save judges each paragraph against the file itself.
 	 */
 	unedited?: Screenplay;
+	/** How the writer's notes are written into <ScriptNotes>. */
+	notes?: FdxNoteWriting;
 }
 
 /** One paragraph as it sits in the original file. */
@@ -2330,7 +2487,9 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 	const topLevelAt = new Map(topLevel.map((paragraph, index) => [paragraph.start, index]));
 	/* Where each ScriptNote's Range value sits, so a save can keep it on its words. */
 	const rangeValues: (ScriptNoteRangeValue | null)[] = [];
-	scriptNotesOf(source, [], importLimits(options), new DiagnosticCollector(1), rangeValues);
+	/* And where each note and their container sit, and which are eDraft's. */
+	const places: ScriptNotesPlaces = { notes: [], container: null, afterCharacters: null, rootClose: null };
+	scriptNotesOf(source, [], importLimits(options), new DiagnosticCollector(1), rangeValues, places);
 	const first = spans.length > 0 ? (spans[0].block?.start ?? spans[0].start) : -1;
 	const last = spans.length > 0 ? (spans[spans.length - 1].block?.end ?? spans[spans.length - 1].end) : -1;
 	/* Only paragraphs the import turned into elements can be matched to one.
@@ -2344,12 +2503,14 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 		rewrite(script: Screenplay, rewriteOptions: FdxRewriteOptions = {}): FdxExportResult {
 			// Nothing recognisable to edit: write a whole new file rather than
 			// pretend, so a malformed or empty original cannot corrupt a save.
-			if (spans.length === 0 || first < 0) return writeFdxWithDiagnostics(script);
+			if (spans.length === 0 || first < 0) {
+				return writeFdxWithDiagnostics(script, rewriteOptions.notes ? { notes: rewriteOptions.notes } : {});
+			}
 
 			const diagnostics = new DiagnosticCollector(
 				positiveInteger(options.maxWarnings, DEFAULT_FDX_LIMITS.maxWarnings)
 			);
-			const elements = script.elements;
+			let elements = script.elements;
 
 			/* A paragraph the writer did not edit is written as its original
 			   bytes. With the caller's unedited reading, "did not edit" is asked
@@ -2453,6 +2614,35 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 				paired[j] = entry.span;
 			});
 
+			/* The writer's notes go into <ScriptNotes> (RFC-NOTES-SYSTEM §4.2):
+			   every note that is not one of the file's own body Note paragraphs.
+			   A body Note paragraph stays a paragraph — kept, edited or deleted
+			   as before. Taken out of the script before anything is laid out,
+			   so a note never becomes a paragraph and never parts a dual pair;
+			   each remembers the element it sits in front of. */
+			const outOfBody: { element: ScreenplayElement; before: number }[] = [];
+			if (elements.some((element, j) => element.type === 'note' && paired[j]?.type !== 'note')) {
+				const keep: number[] = [];
+				elements.forEach((element, j) => {
+					if (element.type === 'note' && paired[j]?.type !== 'note') outOfBody.push({ element, before: keep.length });
+					else keep.push(j);
+				});
+				const moved = new Map(keep.map((j, k) => [j, k]));
+				const remapped = <T>(map: Map<number, T>): [number, T][] =>
+					[...map].flatMap(([j, value]) => (moved.has(j) ? [[moved.get(j) as number, value] as [number, T]] : []));
+				const verbatimKept = remapped(verbatim);
+				const mergedKept = remapped(merged);
+				const consumedKept = [...consumed].flatMap((j) => (moved.has(j) ? [moved.get(j) as number] : []));
+				verbatim.clear();
+				for (const [k, span] of verbatimKept) verbatim.set(k, span);
+				merged.clear();
+				for (const [k, entry] of mergedKept) merged.set(k, entry);
+				consumed.clear();
+				for (const k of consumedKept) consumed.add(k);
+				paired.splice(0, paired.length, ...keep.map((j) => paired[j]));
+				elements = keep.map((j) => elements[j]);
+			}
+
 			/* Each absorbed paragraph goes back, verbatim, in front of the first
 			   paragraph after it that this save keeps — anchored to what
 			   follows, so lines added at the end of an act still land before
@@ -2529,9 +2719,15 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 				const fresh = writeFdxWithDiagnostics({ titlePage: [], elements: [element] }, options);
 				return fresh.xml.match(/<Paragraph[\s\S]*<\/Paragraph>/)?.[0] ?? '';
 			};
+			/* The paragraph each element was written into, as `written` counts:
+			   a note in front of an element is placed on that paragraph. */
+			const paragraphOf: number[] = new Array(elements.length).fill(-1);
 			for (let index = 0; index < elements.length; index++) {
 				// A line of a paragraph already written whole.
-				if (consumed.has(index)) continue;
+				if (consumed.has(index)) {
+					paragraphOf[index] = written.length - 1;
+					continue;
+				}
 				const pair = pairs.get(index);
 				if (pair) {
 					const { block } = pair;
@@ -2550,6 +2746,7 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 						out.push(origin ? keptBytes(line, origin) : freshBytes(speech));
 					}
 					out.push(block.tail);
+					for (let line = index; line <= pair.end; line++) paragraphOf[line] = written.length - 1;
 					index = pair.end;
 					continue;
 				}
@@ -2568,11 +2765,13 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 					} else {
 						writtenFrom(origin.start, verbatim.get(index) === origin ? 'same' : 'text');
 					}
+					paragraphOf[index] = written.length - 1;
 					continue;
 				}
 				if (out.length > 0) out.push(lead === '' ? '\n' : lead);
 				out.push(freshBytes(elements[index]));
 				written.push({ origin: null, kind: 'same' });
+				paragraphOf[index] = written.length - 1;
 			}
 			for (const span of waiting) restore(span);
 
@@ -2580,47 +2779,152 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 			   over the script as it now stands, so a Range written for the
 			   old text points at other words after any edit that moves them —
 			   measured, one word typed near the start moved ten of eleven
-			   notes. Only the Range values that move are rewritten. */
+			   notes. Only the Range values that move are rewritten.
+
+			   Then the writer's notes (RFC-NOTES-SYSTEM §4.2, stage 1). A note
+			   of eDraft's the writer left as it was, on the same line, keeps
+			   every byte but its Range. One whose note is gone — deleted, or
+			   changed, which stage 1 writes as a new note — is taken out. Every
+			   note left over is written as a new ScriptNote on the paragraph it
+			   sits in front of. Final Draft's own notes are never touched. */
 			let prefix = source.slice(0, first);
 			let suffix = source.slice(last);
 			const body = out.join('');
-			if (rangeValues.some((value) => value !== null)) {
+			const ownedCount = places.notes.filter((note) => note.owned !== null).length;
+			if (rangeValues.some((value) => value !== null) || outOfBody.length > 0 || ownedCount > 0) {
 				const after = paragraphsOf(prefix + body + suffix, importLimits(options), new DiagnosticCollector(1)).body;
-				if (after.length !== written.length) {
+				const matched = after.length === written.length;
+				const moved = matched
+					? movedScriptNoteRanges(topLevel, written, after, rangeValues)
+					: { replacements: [], ranges: rangeValues.map((value) => (value === null ? null : value.range)), deleted: [] };
+				if (!matched && rangeValues.some((value) => value !== null)) {
 					diagnostics.add({
 						code: 'FDX_REWRITE_SCRIPT_NOTE_RANGES_KEPT',
 						severity: 'warning',
 						message: 'The saved script could not be matched paragraph for paragraph, so script note Ranges were left as they were.'
 					});
-				} else {
-					const { replacements, deleted } = movedScriptNoteRanges(topLevel, written, after, rangeValues);
-					const apply = (text: string, base: number, limit: number): string => {
-						let result = text;
-						for (const replacement of [...replacements].reverse()) {
-							if (replacement.start < base || replacement.end > limit) continue;
-							result = result.slice(0, replacement.start - base) + replacement.value + result.slice(replacement.end - base);
-						}
-						return result;
-					};
-					prefix = apply(prefix, 0, first);
-					suffix = apply(suffix, last, source.length);
-					if (replacements.length > 0) {
-						diagnostics.add({
-							code: 'FDX_REWRITE_SCRIPT_NOTE_RANGES_MOVED',
-							severity: 'info',
-							message: `${replacements.length} script note Range(s) were moved to stay on their words.`,
-							count: replacements.length
-						});
+				}
+				const lengths = after.map((paragraph) => paragraph.text.length + BLOCK_UNITS * paragraph.blocks.length);
+				const starts: number[] = [];
+				lengths.reduce((cursor, length) => {
+					starts.push(cursor);
+					return cursor + length + 1;
+				}, 0);
+				const paragraphAt = (position: number): number => {
+					let found = -1;
+					for (let index = 0; index < starts.length && starts[index] <= position; index++) found = index;
+					return found;
+				};
+				const lastParagraph = written.length - 1;
+				const placed = outOfBody.map(({ element, before }) => ({
+					element,
+					at: matched ? (before < paragraphOf.length ? paragraphOf[before] : lastParagraph) : -1
+				}));
+
+				// Stage 1 pairs eDraft's notes by their line and their words.
+				const removed = new Set<number>();
+				const pairedNote = new Set<number>();
+				places.notes.forEach((note, index) => {
+					if (!note.owned) return;
+					const range = moved.ranges[index];
+					// Where the import put it: the paragraph its Range starts in, or the end.
+					const at = !matched ? null : range ? paragraphAt(range.start) : lastParagraph;
+					const text = ownedNoteText(note.owned);
+					const match = placed.findIndex(
+						(candidate, k) => !pairedNote.has(k) && (at === null || candidate.at === at) && candidate.element.text === text
+					);
+					if (match === -1) removed.add(index);
+					else pairedNote.add(match);
+				});
+
+				const edits: { start: number; end: number; value: string }[] = [];
+				for (const replacement of moved.replacements) {
+					if (!removed.has(replacement.note)) edits.push(replacement);
+				}
+				for (const index of removed) edits.push({ start: places.notes[index].start, end: places.notes[index].end, value: '' });
+				const fresh = placed.filter((_, k) => !pairedNote.has(k));
+				if (fresh.length > 0) {
+					const writing = resolvedNoteWriting(rewriteOptions.notes);
+					const names = [
+						...(writing.writer ? [writing.writer] : []),
+						...places.notes.flatMap((note) => {
+							const author = note.owned ? ownedNoteAuthor(note.owned) : undefined;
+							return author ? [author] : [];
+						})
+					];
+					let id = places.notes.reduce((highest, note) => (Number.isFinite(note.id) ? Math.max(highest, note.id) : highest), 0);
+					const lines = fresh.flatMap(({ element, at }) =>
+						scriptNoteLines(
+							{ id: ++id, ...noteAuthorship(element.text, names, writing.writer), range: paragraphRange(lengths, at) },
+							writing,
+							diagnostics
+						)
+					);
+					const indented = lines.map((line) => `\n${' '.repeat(4 + 2 * line.depth)}${line.text}`).join('');
+					const { container, afterCharacters, rootClose } = places;
+					if (container && container.close !== null) {
+						const lineStart = source.lastIndexOf('\n', container.close - 1);
+						const at = lineStart !== -1 && /^[ \t]*$/.test(source.slice(lineStart + 1, container.close)) ? lineStart : container.close;
+						edits.push({ start: at, end: at, value: indented });
+					} else if (container) {
+						const tagEnd = source.indexOf('>', container.open) + 1;
+						edits.push({ start: container.open, end: tagEnd, value: `<ScriptNotes>${indented}\n  </ScriptNotes>` });
+					} else {
+						const at = afterCharacters ?? rootClose ?? source.length;
+						edits.push({ start: at, end: at, value: `\n\n  <ScriptNotes>${indented}\n  </ScriptNotes>` });
 					}
-					if (deleted > 0) {
+					diagnostics.add({
+						code: 'FDX_REWRITE_SCRIPT_NOTES_WRITTEN',
+						severity: 'info',
+						message: `${fresh.length} note(s) were written as Final Draft script notes.`,
+						count: fresh.length
+					});
+					if (!matched) {
 						diagnostics.add({
-							code: 'FDX_REWRITE_SCRIPT_NOTE_WORDS_DELETED',
+							code: 'FDX_REWRITE_SCRIPT_NOTES_UNPLACED',
 							severity: 'warning',
-							message: `${deleted} script note(s) lost all their words and were closed to zero length where the words stood.`,
-							count: deleted
+							message: `The saved script could not be matched paragraph for paragraph, so ${fresh.length} note(s) were written at the start of the script.`,
+							count: fresh.length
 						});
 					}
 				}
+				if (removed.size > 0) {
+					diagnostics.add({
+						code: 'FDX_REWRITE_SCRIPT_NOTES_REMOVED',
+						severity: 'info',
+						message: `${removed.size} note(s) eDraft wrote were taken out: deleted, or changed and written again.`,
+						count: removed.size
+					});
+				}
+				const kept = moved.replacements.filter((replacement) => !removed.has(replacement.note)).length;
+				if (kept > 0) {
+					diagnostics.add({
+						code: 'FDX_REWRITE_SCRIPT_NOTE_RANGES_MOVED',
+						severity: 'info',
+						message: `${kept} script note Range(s) were moved to stay on their words.`,
+						count: kept
+					});
+				}
+				const deleted = moved.deleted.filter((note) => !removed.has(note)).length;
+				if (deleted > 0) {
+					diagnostics.add({
+						code: 'FDX_REWRITE_SCRIPT_NOTE_WORDS_DELETED',
+						severity: 'warning',
+						message: `${deleted} script note(s) lost all their words and were closed to zero length where the words stood.`,
+						count: deleted
+					});
+				}
+				const apply = (text: string, base: number, limit: number): string => {
+					let result = text;
+					const inside = edits.filter((edit) => edit.start >= base && edit.end <= limit);
+					inside.sort((a, b) => b.start - a.start || b.end - a.end);
+					for (const edit of inside) {
+						result = result.slice(0, edit.start - base) + edit.value + result.slice(edit.end - base);
+					}
+					return result;
+				};
+				prefix = apply(prefix, 0, first);
+				suffix = apply(suffix, last, source.length);
 			}
 
 			return {
@@ -2757,7 +3061,13 @@ function movedScriptNoteRanges(
 	written: WrittenParagraph[],
 	after: FdxParagraph[],
 	values: (ScriptNoteRangeValue | null)[]
-): { replacements: { start: number; end: number; value: string }[]; deleted: number } {
+): {
+	replacements: { start: number; end: number; value: string; note: number }[];
+	/** Each note's Range after the save, as rewritten or as it was. */
+	ranges: ({ start: number; end: number } | null)[];
+	/** The notes that lost all their words. */
+	deleted: number[];
+} {
 	const layoutOf = (paragraphs: FdxParagraph[]) => {
 		const starts: number[] = [];
 		const lengths: number[] = [];
@@ -2812,27 +3122,30 @@ function movedScriptNoteRanges(
 		return now.starts[at];
 	};
 
-	const replacements: { start: number; end: number; value: string }[] = [];
-	let deleted = 0;
-	if (before.length === 0 || after.length === 0) return { replacements, deleted };
-	for (const value of values) {
-		if (value === null || value.range.end > old.end) continue;
+	const replacements: { start: number; end: number; value: string; note: number }[] = [];
+	const ranges = values.map((value) => (value === null ? null : value.range));
+	const deleted: number[] = [];
+	if (before.length === 0 || after.length === 0) return { replacements, ranges, deleted };
+	values.forEach((value, note) => {
+		if (value === null || value.range.end > old.end) return;
 		const { start, end } = value.range;
 		let movedStart = boundary(start, 'start');
 		let movedEnd = start === end ? movedStart : boundary(end, 'end');
 		if (start < end && movedEnd <= movedStart) {
 			movedStart = Math.min(movedStart, movedEnd);
 			movedEnd = movedStart;
-			deleted += 1;
+			deleted.push(note);
 		}
-		if (movedStart === start && movedEnd === end) continue;
+		if (movedStart === start && movedEnd === end) return;
+		ranges[note] = { start: movedStart, end: movedEnd };
 		replacements.push({
 			start: value.valueStart,
 			end: value.valueEnd,
-			value: value.reversed ? `${movedEnd},${movedStart}` : `${movedStart},${movedEnd}`
+			value: value.reversed ? `${movedEnd},${movedStart}` : `${movedStart},${movedEnd}`,
+			note
 		});
-	}
-	return { replacements, deleted };
+	});
+	return { replacements, ranges, deleted };
 }
 
 /** The kinds that belong to a speech after its cue. */
@@ -2871,6 +3184,113 @@ function dualPairEnd(
 		if (origin && origin.block !== block) return null;
 	}
 	return end;
+}
+
+/* ---- the writer's notes, as ScriptNotes -------------------------------- */
+
+interface ResolvedNoteWriting {
+	writer?: string;
+	now: string;
+	newId: () => string;
+}
+
+/** Final Draft's `20260918T120000`: local time, no zone. */
+function noteTimestamp(date: Date): string {
+	const two = (value: number): string => String(value).padStart(2, '0');
+	return `${date.getFullYear()}${two(date.getMonth() + 1)}${two(date.getDate())}T${two(date.getHours())}${two(date.getMinutes())}${two(date.getSeconds())}`;
+}
+
+function randomBytes(count: number): number[] {
+	const crypto = (globalThis as { crypto?: { getRandomValues?: (array: Uint8Array) => Uint8Array } }).crypto;
+	const bytes = new Uint8Array(count);
+	if (crypto?.getRandomValues) crypto.getRandomValues(bytes);
+	else for (let index = 0; index < count; index++) bytes[index] = Math.floor(Math.random() * 256);
+	return [...bytes];
+}
+
+function freshUuid(): string {
+	const bytes = randomBytes(16);
+	bytes[6] = (bytes[6] & 0x0f) | 0x40;
+	bytes[8] = (bytes[8] & 0x3f) | 0x80;
+	const hex = bytes.map((byte) => byte.toString(16).padStart(2, '0')).join('');
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function resolvedNoteWriting(writing: FdxNoteWriting = {}): ResolvedNoteWriting {
+	const writer = writing.writer?.trim();
+	return {
+		...(writer ? { writer } : {}),
+		now: writing.now ?? noteTimestamp(new Date()),
+		newId: writing.newId ?? freshUuid
+	};
+}
+
+/**
+ * Who wrote a note and what it says, from the words the editor holds.
+ *
+ * A `Name: ` prefix names the author when the name is the writer's own or one
+ * the file's eDraft notes already carry — the longest that fits. Any other
+ * note is the writer's (D3), prefix and all: a colon in a sentence is not a
+ * person.
+ */
+function noteAuthorship(text: string, names: string[], writer?: string): { author?: string; message: string } {
+	let author: string | undefined;
+	for (const name of names) {
+		if (text.startsWith(`${name}: `) && (author === undefined || name.length > author.length)) author = name;
+	}
+	if (author !== undefined) return { author, message: text.slice(author.length + 2) };
+	return { ...(writer ? { author: writer } : {}), message: text };
+}
+
+/** Where a paragraph sits as a Range counts it: its first unit, and its last. */
+function paragraphRange(lengths: number[], at: number): { start: number; end: number } {
+	if (at < 0 || lengths.length === 0) return { start: 0, end: 0 };
+	let start = 0;
+	for (let index = 0; index < at; index++) start += lengths[index] + 1;
+	return { start, end: start + lengths[at] };
+}
+
+const NOTE_PARAGRAPH_ATTRIBUTES =
+	'Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="0.00" OutlineLevel="1" RightIndent="1.39" SpaceBefore="0" Spacing="1" StartsNewPage="No"';
+const NOTE_TEXT_ATTRIBUTES = 'AdornmentStyle="0" Font="Arial" RevisionID="0" Size="12" Style=""';
+/** WriterID carries nothing (IL-0024): one fixed value, never an identity. */
+const NOTE_WRITER_ID = '00000000-0000-4000-8000-000000000001';
+
+/**
+ * One of the writer's notes as a Final Draft ScriptNote (RFC-NOTES-SYSTEM
+ * §4.2), in the shape Final Draft 13.4 opened, showed and kept whole: titled
+ * `[eDraft]`, the writer's name as its author, their role as the Type Final
+ * Draft shows in the note's dropdown, and one paragraph for each line of the
+ * message — the writer's words, once, and nothing else. Its lines, each with
+ * its depth under the note.
+ */
+function scriptNoteLines(
+	note: { id: number; author?: string; message: string; range: { start: number; end: number } },
+	writing: ResolvedNoteWriting,
+	diagnostics: DiagnosticCollector
+): { depth: number; text: string }[] {
+	const refId = writing.newId();
+	const { name, role } = nameAndRole(note.author ?? '');
+	const value = (text: string, context: string): string => encodeXmlValue(text, diagnostics, context);
+	const lines = [
+		{
+			depth: 0,
+			text:
+				`<ScriptNote Color="#000000000000" DateModified="${writing.now}" DateTime="${writing.now}" Id="${note.id}"` +
+				` Name="${EDRAFT_TITLE}" Range="${note.range.start},${note.range.end}"` +
+				` RefId="${refId}" Type="${value(role, 'note role')}" WriterID="${NOTE_WRITER_ID}"` +
+				` WriterName="${value(name, 'note author')}">`
+		}
+	];
+	for (const text of note.message.split('\n')) {
+		lines.push(
+			{ depth: 1, text: `<Paragraph ${NOTE_PARAGRAPH_ATTRIBUTES} id="${writing.newId()}">` },
+			{ depth: 2, text: `<Text ${NOTE_TEXT_ATTRIBUTES}>${value(text, 'note')}</Text>` },
+			{ depth: 1, text: '</Paragraph>' }
+		);
+	}
+	lines.push({ depth: 0, text: '</ScriptNote>' });
+	return lines;
 }
 
 /* ---- export ------------------------------------------------------------- */
@@ -2948,6 +3368,11 @@ export function writeFdxWithDiagnostics(
 		positiveInteger(options.maxWarnings, DEFAULT_FDX_LIMITS.maxWarnings)
 	);
 	const body: string[] = [];
+	/* Each paragraph's length as a ScriptNote Range counts it. */
+	const lengths: number[] = [];
+	/* The writer's notes, and the paragraph each sits in front of. */
+	const notes: { element: ScreenplayElement; at: number }[] = [];
+	let waiting: ScreenplayElement[] = [];
 	let omittedStructural = 0;
 	let omittedUnknown = 0;
 	let actCount = 0;
@@ -2956,6 +3381,12 @@ export function writeFdxWithDiagnostics(
 	let previousActCard: string | undefined;
 
 	for (const [index, element] of script.elements.entries()) {
+		/* A note is a ScriptNote (RFC-NOTES-SYSTEM §4.2), never a paragraph:
+		   Final Draft shows a body Note paragraph as a line of the script. */
+		if (element.type === 'note') {
+			waiting.push(element);
+			continue;
+		}
 		const fdxType = fdxTypeOf(element);
 		if (!fdxType) {
 			/* A non-printing element FDX has no paragraph type for — a
@@ -2983,6 +3414,7 @@ export function writeFdxWithDiagnostics(
 				body.push(
 					`<Paragraph Type="End of Act" Alignment="Center"><Text>${encodeXmlValue(endText, diagnostics, 'end-of-act card', index)}</Text></Paragraph>`
 				);
+				lengths.push(endText.length);
 			}
 			previousActCard = element.text;
 		}
@@ -2999,7 +3431,11 @@ export function writeFdxWithDiagnostics(
 			);
 		}
 		body.push(`<Paragraph ${attributes.join(' ')}>${textRunsMarkup(element, diagnostics, index)}</Paragraph>`);
+		lengths.push(element.text.length);
+		for (const note of waiting) notes.push({ element: note, at: body.length - 1 });
+		waiting = [];
 	}
+	for (const note of waiting) notes.push({ element: note, at: body.length - 1 });
 
 	if (omittedStructural > 0) {
 		diagnostics.add({
@@ -3043,6 +3479,21 @@ export function writeFdxWithDiagnostics(
 			);
 		}
 		out.push('</Content>', '</TitlePage>');
+	}
+
+	if (notes.length > 0) {
+		const writing = resolvedNoteWriting(options.notes);
+		const names = writing.writer ? [writing.writer] : [];
+		out.push('<ScriptNotes>');
+		notes.forEach(({ element, at }, index) => {
+			const lines = scriptNoteLines(
+				{ id: index + 1, ...noteAuthorship(element.text, names, writing.writer), range: paragraphRange(lengths, at) },
+				writing,
+				diagnostics
+			);
+			out.push(...lines.map((line) => line.text));
+		});
+		out.push('</ScriptNotes>');
 	}
 
 	out.push('</FinalDraft>', '');

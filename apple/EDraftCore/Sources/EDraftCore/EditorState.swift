@@ -38,6 +38,8 @@ public final class EditorState {
     /// App-level state, like the assistance mode above it: read once at open
     /// and written on every change, so a Settings row survives relaunch.
     public private(set) var noteSignature = ""
+    /// The role beside the name, optional (RFC-NOTES-SYSTEM D4).
+    public private(set) var noteRole = ""
     public private(set) var signsNotes = false
 
     /// The names this document is prepared to attribute a note to.
@@ -49,7 +51,7 @@ public final class EditorState {
     /// one colour whichever app their note was left in.
     public var noteRoster: Set<String> {
         ImportedNotes.roster(
-            NoteAttribution.roster(of: notes.map(\.text), signature: noteSignature),
+            NoteAttribution.roster(of: notes.map(\.text), signature: signature),
             adding: importedNotes
         )
     }
@@ -296,7 +298,8 @@ public final class EditorState {
 
     /// UserDefaults keys for the writer's own name and whether notes carry it
     /// (see init, `setNoteSignature` and `setSignsNotes`).
-    private static let noteSignatureKey = "noteSignature"
+    private static let noteSignatureKey = NoteIdentity.nameKey
+    private static let noteRoleKey = NoteIdentity.roleKey
     private static let signsNotesKey = "signsNotes"
 
     public init(
@@ -325,11 +328,11 @@ public final class EditorState {
            let mode = PredictionMode(rawValue: stored) {
             predictionMode = mode
         }
-        // Seeded from the account's full name — "Mario Moreno", not the short
-        // login name — so a writer who turns signing on has something sensible
-        // already in the field. Never written to a document until they do.
-        noteSignature = UserDefaults.standard.string(forKey: Self.noteSignatureKey)
-            ?? Self.accountName()
+        // The name the writer gave, or nothing — never the account's, the
+        // computer's or a contact card's (RFC-NOTES-SYSTEM §8, D6). A writer
+        // with none is asked at their first note.
+        noteSignature = NoteIdentity.name
+        noteRole = NoteIdentity.role
         signsNotes = UserDefaults.standard.bool(forKey: Self.signsNotesKey)
         // Never paginate synchronously at open: a cheap estimate renders
         // immediately, the debounced pass refines it off the critical path.
@@ -1130,17 +1133,26 @@ public final class EditorState {
         UserDefaults.standard.set(signs, forKey: Self.signsNotesKey)
     }
 
-    /// The human name on this account, or nothing.
-    ///
-    /// `NSFullUserName` is a Mac API; the phone has no such notion and is left
-    /// with an empty field, which is the honest answer rather than a device
-    /// name standing in for a person.
-    private static func accountName() -> String {
-        #if os(macOS)
-        return NSFullUserName()
-        #else
-        return ""
-        #endif
+    /// How this writer signs a note: `Name (Role)`, or `Name` (D4) — empty
+    /// while they have given no name.
+    public var signature: String { NoteIdentity.signature(name: noteSignature, role: noteRole) }
+
+    /// Whether the writer has yet to say who they are — asked once, the first
+    /// time they leave a note (RFC-NOTES-SYSTEM §8).
+    public var needsNoteName: Bool {
+        noteSignature.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// The writer's answer to "Your name for notes": kept on this device, and
+    /// every note they leave from now on is signed with it.
+    public func setNoteIdentity(name: String, role: String) {
+        let role = role.trimmingCharacters(in: .whitespaces)
+        setNoteSignature(name)
+        if role != noteRole {
+            noteRole = role
+            UserDefaults.standard.set(role, forKey: Self.noteRoleKey)
+        }
+        setSignsNotes(!noteSignature.isEmpty)
     }
 
     public func setPredictionMode(_ mode: PredictionMode) {
@@ -1187,7 +1199,7 @@ public final class EditorState {
         }
         // Signed only when the writer asked for it, and never over a note
         // that already names somebody — see `NoteAttribution.signed`.
-        let body = signsNotes ? NoteAttribution.signed(text, as: noteSignature) : text
+        let body = signsNotes ? NoteAttribution.signed(text, as: signature) : text
         let note = ScriptAside(
             element: ScriptElement(type: .note, text: body), anchor: target
         )
