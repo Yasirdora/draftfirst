@@ -1,0 +1,146 @@
+schemaVersion: 1
+id: IL-0037
+status: verified
+utterance: "New design pass — the notes system RFC. Goal: the best, most intuitive notes ever created for screenwriting, on these seven principles: [1] never interrupts writing; [2] anchored to words, not positions; [3] author + role at a glance; [4] real threads, not Re: conventions; [5] Open/Resolved workflow — resolved fades, never deletes; [6] travels inside the FDX both ways, no accounts; [7] one-click notes report PDF. Constraints: every fidelity keep from IL-0024–33 is permanent; no login system ever; Apple-native feel. Sequence: round trip → threads → resolve → range anchors → report export → polish. Write it as docs/RFC-NOTES-SYSTEM.md under a docs-only lock, like RFC-MULTI-CONTAINER-PAGES. Design only, no code."
+goal: "docs/RFC-NOTES-SYSTEM.md exists: a design for eDraft's notes system on the seven principles, built on what is measured today, carrying every IL-0024–IL-0033 fidelity keep as permanent, with no login, an Apple-native interface, the six-stage sequence as locks with proofs, and every open question named. Design only; no code changes."
+interpretation: |
+  One new document, docs/RFC-NOTES-SYSTEM.md, in the form of
+  RFC-MULTI-CONTAINER-PAGES: every claim marked measured (run here, output
+  quoted), inference, Apple's documented behaviour, or unproven. Design only —
+  no code, no test, no other document changes.
+
+  It stands on what is already measured and settled:
+
+    - Native notes are Fountain [[ ]] with the author as a "Name:" prefix
+      (IL-0016); ids are regenerated per parse, so no sidecar; the colour
+      comes from the ordered roster.
+    - Final Draft's notes: read with WriterName (IL-0024), shown read-only
+      and coloured by author (IL-0026), anchored by Final Draft's own count
+      (IL-0031), kept on their words through every save (IL-0033).
+    - Measured 2026-09-18 for this RFC: a multi-line [[ ]] is one note and
+      round-trips; a note typed mid-sentence is pulled out to its own line
+      with a double space left behind, in dialogue between cue and speech;
+      a native note saves into FDX as <Paragraph Type="Note">, never into
+      <ScriptNotes>.
+    - The human's decisions: 1=B (Range maintenance, done), 2B (eDraft owns
+      the ScriptNotes it wrote, tagged in the EDraft: namespace), 3A (an
+      unsigned note is written as "Your name"), 4A (a role lives inside the
+      author name, "Name (Role)", both ways), display "Name · Role", colour
+      from the person, never a login.
+
+  It designs the seven principles as mechanisms — the note model (anchor,
+  thread of messages, status), its carriers in Fountain, FDX and PDF, and the
+  Apple-native interface on macOS and iOS — and lays out the six stages as
+  locks, each with its proofs and the Final Draft checks it waits on.
+
+  AMENDED BY THE HUMAN BEFORE APPROVAL:
+
+    1. Whether Final Draft keeps EDraft: attributes when it saves is not a
+       risk to list at the end: it is the load-bearing assumption of the FDX
+       carrier. It is measured first — a probe file prepared outside the
+       repository, opened and saved in Final Draft by the human, its bytes
+       read back — and the RFC records the result as measured.
+    2. The FDX carrier is written against both outcomes: attributes-primary,
+       and text-fallback (a parseable header line inside the note's text,
+       which Final Draft preserves), with the switch point between them
+       named. The RFC is correct under either result, not optimistic under
+       one.
+    3. A quoted anchor that matches more than once has its disambiguation
+       rule stated in the RFC, not deferred.
+    4. The interface section is judgement, not mechanics: where the design is
+       a taste call it presents two or three options with trade-offs, and
+       every Apple claim is marked as sourced (APPLE-PLATFORM-GUIDE.md, Apple
+       documentation, the HIG) or "no official guidance — my judgement".
+
+  THE PROBE, run by the human 2026-09-18 in Final Draft 13.4.0 build 120,
+  bytes read back here — it decided the carrier, so the two-sided plan is
+  withdrawn:
+
+    - Final Draft strips every unknown attribute on a plain Save As: 9
+      EDraft: occurrences before, 0 in both saved copies; xmlns:EDraft gone.
+      The [eDraft thread:…] header lines survive byte for byte. The header
+      line inside the note's text is THE carrier; attributes are never used;
+      there is no switch point.
+    - EDraft:Highlight is stripped too: an FD round trip erases eDraft
+      highlights. The RFC addresses a highlight carrier or names its
+      follow-up lock.
+    - All 14 notes survive: ids, Ranges, titles, colours, Types, WriterNames.
+    - Authorship: new FD notes are stamped with the macOS account name
+      (byte-verified); editing a note re-stamps its WriterName to the FD user
+      (the human's observation; not in the retained file). WriterName is
+      read as last editor; provenance lives in the header line; eDraft never
+      derives a name from the system.
+    - Final Draft moves Ranges exactly as IL-0033 does: +46 for every note
+      after a 46-unit insertion, earlier notes untouched; Summary paragraphs
+      are inside the Range space.
+    - FD-created notes carry user-defined Types ("Tester"); no reply feature
+      exists in FD 13.4 — "Re:" is a title convention only.
+
+  Amended directives: the header line carries thread, status, reply-to, and
+  the author with role (provenance); the quoted-anchor disambiguation rule is
+  stated; the interface section offers 2–3 options with trade-offs, each
+  Apple claim sourced or marked "no official guidance — my judgement"; the
+  probe's facts are cited as measured.
+
+  What cannot be decided without the human, or without Final Draft, is named
+  as an open decision, never assumed.
+
+  The repository is public: every example uses invented script text and
+  names; nothing from the human's own files.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the only file changed is the new docs/RFC-NOTES-SYSTEM.md — no source, test, fixture, lock, other document or project file
+  - kind: custom
+    text: every fidelity keep from IL-0024 to IL-0033 is carried as a permanent constraint on the design
+  - kind: custom
+    text: no login, account or identity service appears anywhere in the design
+  - kind: custom
+    text: every claim is marked measured, inference, documented platform behaviour or unproven; nothing from the human's own scripts or names is quoted
+  - kind: custom
+    text: the FDX carrier is the header line inside the note text — never an attribute — as the probe measured; the highlight’s loss in a Final Draft round trip is addressed or given its follow-up lock; the quoted-anchor disambiguation rule is stated; interface taste calls carry 2–3 options with trade-offs and sourced-or-judgement marks
+deny:
+  - package.json
+  - package-lock.json
+  - packages/**
+  - apple/**
+  - src/**
+  - scripts/**
+  - README.md
+  - docs/RFC-MULTI-CONTAINER-PAGES.md
+  - docs/RFC-ACT-BREAK.md
+  - docs/RFC-HIGHLIGHTER.md
+  - docs/APPLE-PLATFORM-GUIDE.md
+change: Write docs/RFC-NOTES-SYSTEM.md — the design for eDraft's notes system on the seven principles, stages as locks. Design only.
+verifyCommand: test -f docs/RFC-NOTES-SYSTEM.md && grep -q "^## " docs/RFC-NOTES-SYSTEM.md && grep -q "IL-0024" docs/RFC-NOTES-SYSTEM.md && grep -q "IL-0033" docs/RFC-NOTES-SYSTEM.md && grep -qi "round trip" docs/RFC-NOTES-SYSTEM.md && grep -qi "thread" docs/RFC-NOTES-SYSTEM.md && grep -qi "resolved" docs/RFC-NOTES-SYSTEM.md && grep -qi "report" docs/RFC-NOTES-SYSTEM.md
+verifyTimeoutMs: 60000
+budget:
+  files:
+    - docs/RFC-NOTES-SYSTEM.md
+  symbols: []
+  maxFiles: 1
+  maxLines: 900
+accept:
+  - The RFC maps each of the seven principles to a mechanism, a carrier in each format (Fountain, FDX, PDF) and an interface on macOS and iOS.
+  - The six stages (round trip, threads, resolve, range anchors, report export, polish) are each a lock with scope, proofs, and the Final Draft checks it waits on.
+  - Every IL-0024–IL-0033 keep is listed as permanent; no login appears; open decisions and unproven risks are named.
+  - The probe’s results (Final Draft 13.4.0 build 120, 2026-09-18) are cited as measured, saying which were byte-verified and which were the human’s observation.
+  - WriterName is treated as last editor; provenance (author and role) lives in the header line; a note’s author is never derived from the system.
+assumptions:
+  - text: Budget and deny replaced by hand. The auto-draft anchored on "write", "report", "author" and "resolve" and proposed six source files.
+    source: system
+    confirmed: false
+  - text: "Amended again after the probe (human, 2026-09-18): header-first, attributes never, no switch point; highlight carrier added; authorship rules from the probe. Budget unchanged."
+    source: user
+    confirmed: true
+  - text: "Amended by the human before approval: probe first (load-bearing, not a risk); carrier correct under both outcomes with the switch point named; quoted-anchor disambiguation stated now; interface as options with sourced-or-judgement marks per APPLE-PLATFORM-GUIDE.md."
+    source: user
+    confirmed: true
+  - text: The verify command checks structure only — the file, its sections, the IL-0024/IL-0033 constraint, each stage named. That the design is sound, and that no login appears, is the human's judgement.
+    source: system
+    confirmed: false
+  - text: "maxLines 900: RFC-MULTI-CONTAINER-PAGES is 255 lines for one mechanism; this covers seven, six stages and three carriers."
+    source: system
+    confirmed: false
+createdAt: 2026-09-18T04:16:08.021Z
+createdBy: Yasirdora
