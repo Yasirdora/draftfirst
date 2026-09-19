@@ -1,0 +1,134 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0051-20260919-131153.json",
+  "baselineSha256": "c6e9dca59ae38ee145c05d44f2d737c71927d084e991dd20e5502b5968ecf83b",
+  "budget": {
+    "filesChanged": 2,
+    "linesChanged": 668,
+    "maxFiles": 1,
+    "maxLines": 2000
+  },
+  "changed": [
+    {
+      "class": "denied",
+      "matchedDeny": "apple/**",
+      "path": "apple/eDraft/Resources/Assets.xcassets/DraftDocBackground.iconset/",
+      "status": "??"
+    },
+    {
+      "class": "denied",
+      "matchedDeny": "apple/**",
+      "path": "apple/eDraft/Resources/Assets.xcassets/DraftDocBadge.iconset/",
+      "status": "??"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260919T131149275",
+    "createdAt": "2026-09-19T13:11:49.440Z",
+    "dirty": true,
+    "id": "ckpt-20260919T131149275",
+    "ref": "90dbe0de0fc70dbf21ce58a127ccc7634269731d",
+    "statusHash": "121d2db13c41483d9aa910f42258cb05e735df69d67d16bd667c680a1c120f3c",
+    "tag": "cdir/ckpt-20260919T131149275"
+  },
+  "command": [
+    "true"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-19T13:11:53.645Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "docs/RFC-DRAFT-PRODUCTION.md names all five FDX statuses Editable Preserved Regenerated Warned Blocked — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "no file other than docs/RFC-DRAFT-PRODUCTION.md is changed — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0051",
+  "startedAt": "2026-09-19T13:11:53.642Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0051-20260919-131153.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 2
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0051-20260919-131153.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0051-20260919-131153.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"test -s docs/RFC-DRAFT-PRODUCTION.md && grep -q Editable docs/RFC-DRAFT-PRODUCTION.md && grep -q Preserved docs/RFC-DRAFT-PRODUCTION.md && grep -q Regenerated docs/RFC-DRAFT-PRODUCTION.md && grep -q Warned docs/RFC-DRAFT-PRODUCTION.md && grep -q Blocked docs/RFC-DRAFT-PRODUCTION.md\" → exit 0",
+        "detail": "verifyCommand passed: test -s docs/RFC-DRAFT-PRODUCTION.md && grep -q Editable docs/RFC-DRAFT-PRODUCTION.md && grep -q Preserved docs/RFC-DRAFT-PRODUCTION.md && grep -q Regenerated docs/RFC-DRAFT-PRODUCTION.md && grep -q Warned docs/RFC-DRAFT-PRODUCTION.md && grep -q Blocked docs/RFC-DRAFT-PRODUCTION.md",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · test -s docs/RFC-DRAFT-PRODUCTION.md && grep -q Editable docs/RFC-DRAFT-PRODUCTION.md && grep -q Preserved docs/RFC-DRAFT-PRODUCTION.md && grep -q Regenerated docs/RFC-DRAFT-PRODUCTION.md && grep -q Warned docs/RFC-DRAFT-PRODUCTION.md && grep -q Blocked docs/RFC-DRAFT-PRODUCTION.md",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · docs/RFC-DRAFT-PRODUCTION.md names all five FDX statuses Editable Preserved Regenerated Warned Blocked",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no file other than docs/RFC-DRAFT-PRODUCTION.md is changed",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0051",
+    "verifiedAt": "2026-09-19T13:12:03.356Z",
+    "violations": []
+  },
+  "violations": [
+    "DENY: apple/eDraft/Resources/Assets.xcassets/DraftDocBackground.iconset/ matches deny pattern \"apple/**\"",
+    "DENY: apple/eDraft/Resources/Assets.xcassets/DraftDocBadge.iconset/ matches deny pattern \"apple/**\"",
+    "BUDGET: 2 files changed > maxFiles 1"
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0051-20260919-141642.json",
+  "baselineSha256": "5ec44d4e8fa1413c614ae605ff84a87c64680676e416f0bbe115cd8d9fd1c0a8",
+  "budget": {
+    "filesChanged": 0,
+    "linesChanged": 0,
+    "maxFiles": 1,
+    "maxLines": 2000
+  },
+  "changed": [],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260919T141635728",
+    "createdAt": "2026-09-19T14:16:35.902Z",
+    "dirty": true,
+    "id": "ckpt-20260919T141635728",
+    "ref": "d76cfd69669d5f3bdb6b6ee2a1eab1b5b5744783",
+    "statusHash": "2d57b4b86559643709bc8e091610027e4f0e1185aa792fc5f57bc05b1dd0b530",
+    "tag": "cdir/ckpt-20260919T141635728"
+  },
+  "command": [
+    "true"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-19T14:16:42.676Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "docs/RFC-DRAFT-PRODUCTION.md names all five FDX statuses Editable Preserved Regenerated Warned Blocked — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "no file other than docs/RFC-DRAFT-PRODUCTION.md is changed — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0051",
+  "startedAt": "2026-09-19T14:16:42.673Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0051-20260919-141642.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 2
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0051-20260919-141642.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0051-20260919-141642.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"test -s docs/RFC-DRAFT-PRODUCTION.md && grep -q Editable docs/RFC-DRAFT-PRODUCTION.md && grep -q Preserved docs/RFC-DRAFT-PRODUCTION.md && grep -q Regenerated docs/RFC-DRAFT-PRODUCTION.md && grep -q Warned docs/RFC-DRAFT-PRODUCTION.md && grep -q Blocked docs/RFC-DRAFT-PRODUCTION.md\" → exit 0",
+        "detail": "verifyCommand passed: test -s docs/RFC-DRAFT-PRODUCTION.md && grep -q Editable docs/RFC-DRAFT-PRODUCTION.md && grep -q Preserved docs/RFC-DRAFT-PRODUCTION.md && grep -q Regenerated docs/RFC-DRAFT-PRODUCTION.md && grep -q Warned docs/RFC-DRAFT-PRODUCTION.md && grep -q Blocked docs/RFC-DRAFT-PRODUCTION.md",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · test -s docs/RFC-DRAFT-PRODUCTION.md && grep -q Editable docs/RFC-DRAFT-PRODUCTION.md && grep -q Preserved docs/RFC-DRAFT-PRODUCTION.md && grep -q Regenerated docs/RFC-DRAFT-PRODUCTION.md && grep -q Warned docs/RFC-DRAFT-PRODUCTION.md && grep -q Blocked docs/RFC-DRAFT-PRODUCTION.md",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · docs/RFC-DRAFT-PRODUCTION.md names all five FDX statuses Editable Preserved Regenerated Warned Blocked",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no file other than docs/RFC-DRAFT-PRODUCTION.md is changed",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0051",
+    "verifiedAt": "2026-09-19T14:16:56.657Z",
+    "violations": []
+  },
+  "violations": []
+}

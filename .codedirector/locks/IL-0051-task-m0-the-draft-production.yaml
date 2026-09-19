@@ -1,0 +1,53 @@
+schemaVersion: 1
+id: IL-0051
+status: verified
+utterance: "Task: M0 — the .draft production-format charter (RFC addendum). Docs only."
+goal: "docs/RFC-DRAFT-PRODUCTION.md exists as an addendum to RFC-DRAFT-FORMAT: JSON schemas for revisions.json, production.json, notes.json, history/ snapshots and FDX mapping; every FDX production feature assigned Editable, Preserved, Regenerated, Warned or Blocked; development/prepared/issued/archived; versioning 1.0↔1.1; DraftElementID; omissions; page locks; fixture inventory. Docs only. Every production field has one source of truth, one storage location and one preservation/export rule, or is named in Open questions. No code."
+interpretation: |
+  One new document, docs/RFC-DRAFT-PRODUCTION.md, an addendum to
+  RFC-DRAFT-FORMAT. Docs only. The auto-draft's app-file anchors are
+  noise ("draft" inside EDraftApp); the budget is the one path the
+  human named. Ceiling 2,000 lines (human, 2026-09-19); aim 700–1,000
+  as the sibling RFCs. Open questions named, never guessed.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: docs/RFC-DRAFT-PRODUCTION.md names all five FDX statuses Editable Preserved Regenerated Warned Blocked
+  - kind: custom
+    text: no file other than docs/RFC-DRAFT-PRODUCTION.md is changed
+deny:
+  - packages/**
+  - apple/**
+  - scripts/**
+  - src/**
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - apple/eDraftEngine/Package.swift
+  - apple/EDraftCore/Package.swift
+change: One addendum, docs/RFC-DRAFT-PRODUCTION.md, finishing the .draft 1.0 production data contract. No code.
+verifyCommand: test -s docs/RFC-DRAFT-PRODUCTION.md && grep -q Editable docs/RFC-DRAFT-PRODUCTION.md && grep -q Preserved docs/RFC-DRAFT-PRODUCTION.md && grep -q Regenerated docs/RFC-DRAFT-PRODUCTION.md && grep -q Warned docs/RFC-DRAFT-PRODUCTION.md && grep -q Blocked docs/RFC-DRAFT-PRODUCTION.md
+budget:
+  files:
+    - docs/RFC-DRAFT-PRODUCTION.md
+  symbols: []
+  maxFiles: 1
+  maxLines: 2000
+accept:
+  - docs/RFC-DRAFT-PRODUCTION.md exists and names Editable, Preserved, Regenerated, Warned, Blocked.
+  - Every production field has one source of truth, one storage location and one preservation/export rule, or is listed under Open questions.
+assumptions:
+  - text: "Human approved (2026-09-19): ceiling 2,000 lines; aim for sibling RFC scale (~700–1,000); write only through run_locked; seal before any commit; commit only when asked, by explicit path."
+    source: user
+    confirmed: true
+  - text: 'low confidence — confirm territory with the human: every anchor matched only as a fragment of a symbol name ("draft" in EDraftApp, "draft" in PasteHeuristics.isDraftStamp, "format" in ScreenplayExportFormat, "format" in PageFormat, "draft" in EDraftEngine.PageLine+extension) — an incidental word can do this'
+    source: system
+    confirmed: true
+  - text: Auto-anchors on EDraftApp / PageFormat / etc. are name fragments. The human named the budget as docs/RFC-DRAFT-PRODUCTION.md only; those app files are denied.
+    source: user
+    confirmed: true
+  - text: Deny list is the human's (packages/**, apple/**, scripts/**, src/**, manifests), not the auto-suggested test globs.
+    source: user
+    confirmed: true
+createdAt: 2026-09-19T12:21:22.545Z
+createdBy: Yasirdora
