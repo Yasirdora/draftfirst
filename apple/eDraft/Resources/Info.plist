@@ -122,6 +122,13 @@
 			</array>
 			<key>UTTypeDescription</key>
 			<string>eDraft Screenplay</string>
+			<key>UTTypeIcons</key>
+			<dict>
+				<key>UTTypeIconBackgroundName</key>
+				<string>DraftDocBackground</string>
+				<key>UTTypeIconBadgeName</key>
+				<string>DraftDocBadge</string>
+			</dict>
 			<key>UTTypeIdentifier</key>
 			<string>xyz.edraft.screenplay</string>
 			<key>UTTypeTagSpecification</key>

@@ -102,6 +102,13 @@
 			<string>xyz.edraft.screenplay</string>
 			<key>UTTypeDescription</key>
 			<string>eDraft Screenplay</string>
+			<key>UTTypeIcons</key>
+			<dict>
+				<key>UTTypeIconBackgroundName</key>
+				<string>DraftDocBackground</string>
+				<key>UTTypeIconBadgeName</key>
+				<string>DraftDocBadge</string>
+			</dict>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.plain-text</string>

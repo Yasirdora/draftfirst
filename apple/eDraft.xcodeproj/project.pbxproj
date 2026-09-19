@@ -13,6 +13,7 @@
 		DF260000000000000000010D /* EditorChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF260000000000000000000F /* EditorChrome.swift */; };
 		DF2600000000000000000111 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000011 /* Assets.xcassets */; };
 		DF2600000000000000000112 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000012 /* PrivacyInfo.xcprivacy */; };
+		DF2A0000000000000000000A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000011 /* Assets.xcassets */; };
 		DF2600000000000000000115 /* ScanDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000015 /* ScanDocument.swift */; };
 		DF2600000000000000000116 /* ScanReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000016 /* ScanReaderView.swift */; };
 		DF2600000000000000000117 /* ScanCreation.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000017 /* ScanCreation.swift */; };
@@ -357,6 +358,7 @@
 			files = (
 				DF2A00000000000000000005 /* eDraft.icon in Resources */,
 				DF2A00000000000000000008 /* PrivacyInfo.xcprivacy in Resources */,
+				DF2A0000000000000000000A /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
