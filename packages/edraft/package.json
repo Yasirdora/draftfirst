@@ -61,6 +61,10 @@
 			"types": "./dist/editor.d.ts",
 			"import": "./dist/editor.js"
 		},
+		"./draft": {
+			"types": "./dist/draft.d.ts",
+			"import": "./dist/draft.js"
+		},
 		"./import": {
 			"types": "./dist/import.d.ts",
 			"import": "./dist/import.js"

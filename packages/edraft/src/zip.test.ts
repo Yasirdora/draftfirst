@@ -1,6 +1,6 @@
 /** Zero-dependency ZIP reader: real archives, refusal cases, integrity. */
 import { describe, expect, it } from 'vitest';
-import { findEntry, readZipEntries, ZipFormatError } from './zip.js';
+import { findEntry, readZipEntries, readZipEntriesTolerant, ZipFormatError } from './zip.js';
 import { buildZip, centralDirectoryAt, endRecordAt, textBytes } from '../test/helpers/zip.js';
 
 describe('readZipEntries', () => {
@@ -91,5 +91,79 @@ describe('readZipEntries', () => {
 		const view = new DataView(zip.buffer);
 		view.setUint32(centralDirectoryAt(zip) + 24, 1024, true);
 		await expect(readZipEntries(zip)).rejects.toThrow(/inflated past that/);
+	});
+});
+
+describe('readZipEntriesTolerant', () => {
+	const two = (): Promise<Uint8Array> =>
+		buildZip([
+			{ name: 'a.txt', data: textBytes('first entry'), method: 0 },
+			{ name: 'b.txt', data: textBytes('second entry, deflated') }
+		]);
+
+	it('reads every entry of a whole archive from its central directory', async () => {
+		const result = await readZipEntriesTolerant(await two());
+		expect(result.directory).toBe('central');
+		expect(result.entries.map((e) => [e.name, new TextDecoder().decode(e.data), e.error])).toEqual([
+			['a.txt', 'first entry', undefined],
+			['b.txt', 'second entry, deflated', undefined]
+		]);
+	});
+
+	it('keeps an entry that fails its CRC, with its bytes, and reads the rest', async () => {
+		const zip = await two();
+		zip[30 + 'a.txt'.length] ^= 0x01;
+		const [a, b] = (await readZipEntriesTolerant(zip)).entries;
+		expect(a?.error).toMatch(/CRC-32/);
+		expect(a?.data).toHaveLength('first entry'.length);
+		expect(b?.error).toBeUndefined();
+	});
+
+	it('reads a file cut short from its local headers', async () => {
+		const zip = await two();
+		const cut = zip.slice(0, 30 + 'a.txt'.length + 'first entry'.length + 30 + 'b.txt'.length + 3);
+		const result = await readZipEntriesTolerant(cut);
+		expect(result.directory).toBe('local');
+		expect(result.entries[0]?.error).toBeUndefined();
+		expect(result.entries[1]?.error).toMatch(/cut short/);
+	});
+
+	it('does not expand an entry past the limits, and says so', async () => {
+		const zip = await buildZip([{ name: 'big.txt', data: new Uint8Array(4096) }]);
+		const [entry] = (await readZipEntriesTolerant(zip, { maxEntryBytes: 1024 })).entries;
+		expect(entry?.error).toMatch(/over the 1024 limit/);
+		const [ratio] = (await readZipEntriesTolerant(zip, { maxRatio: 2 })).entries;
+		expect(ratio?.error).toMatch(/ratio/);
+	});
+
+	it('refuses what is not a ZIP, and an archive over the entry limit', async () => {
+		await expect(readZipEntriesTolerant(textBytes('plain text'))).rejects.toThrow(ZipFormatError);
+		await expect(readZipEntriesTolerant(await two(), { maxEntries: 1 })).rejects.toThrow(/entries/);
+	});
+});
+
+describe('a corrupt deflated entry', () => {
+	/* inflateRaw once left the write side's rejection unhandled, and Node ends
+       the process on that even when the read error is caught. The runner fails
+       on any unhandled rejection, so these pass only if none escapes. */
+	const deflated = (): Promise<Uint8Array> =>
+		buildZip([{ name: 'a.txt', data: textBytes('read through inflate '.repeat(20)) }]);
+	const packedAt = 30 + 'a.txt'.length;
+
+	it('is refused cleanly by the strict reader', async () => {
+		const zip = await deflated();
+		zip.fill(0xff, packedAt, packedAt + 4);
+		await expect(readZipEntries(zip)).rejects.toThrow(/could not be inflated/);
+	});
+
+	it('comes back damaged from the tolerant reader, every byte of it flipped in turn', async () => {
+		const zip = await deflated();
+		const packedEnd = zip.length - 22 - (46 + 'a.txt'.length);
+		for (let at = packedAt; at < packedEnd; at++) {
+			const copy = zip.slice();
+			copy[at]! ^= 0xff;
+			const [entry] = (await readZipEntriesTolerant(copy)).entries;
+			if (entry?.error !== undefined) expect(entry.error).toMatch(/inflate|CRC-32|size/);
+		}
 	});
 });

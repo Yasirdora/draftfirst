@@ -67,6 +67,12 @@ export async function inflateRaw(data: Uint8Array, expectedSize: number): Promis
 	const writer = session.writable.getWriter();
 	const reader = session.readable.getReader();
 	const written = writer.write(data).then(() => writer.close());
+	/* A corrupt, truncated or empty stream fails the read side, and the write
+       side fails with it. Handle that rejection now, so the error the caller
+       sees is the read's — never an unhandled rejection, which ends a Node
+       process even when the read error was caught. `await written` below
+       still throws when the write fails on its own. */
+	written.catch(() => undefined);
 	const chunks: Uint8Array[] = [];
 	let length = 0;
 	for (;;) {

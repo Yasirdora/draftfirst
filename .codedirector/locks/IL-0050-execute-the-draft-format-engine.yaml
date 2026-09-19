@@ -1,0 +1,105 @@
+schemaVersion: 1
+id: IL-0050
+status: verified
+utterance: "execute the .draft format engine with highest level of professionalism — S1 only: TypeScript and Swift reader/writer, generated conformance fixture, no app wiring"
+goal: "RFC-DRAFT-FORMAT S1: both engines read and write a deterministic .draft 1.0 ZIP (stored entries); npm run engine:conformance writes apple/eDraftEngine/Fixtures/draft.json; TypeScript tests and swift test --package-path apple/eDraftEngine pass; B3/B4/B5/B7 pinned by fixtures; B1/B2 measured and reported. No iOS/Mac/web document changes, no new dependencies, no compression decision, no hand-edited fixture."
+interpretation: |
+  RFC-DRAFT-FORMAT stage S1, engine only. TypeScript is the source of
+  truth; Swift matches it through generated Fixtures/draft.json. Stored
+  entries until O1/O2. No app, no UI, no document class.
+
+  RETROACTIVE SEAL. The code and the generated fixture were already on
+  disk before this lock was activated. This activation records that work
+  against this utterance so the lock, the report and the commit agree.
+  A no-op run_locked (npm run test:package) is the seal's verify: it
+  does not rewrite the files.
+
+  Two paste injuries were fixed before green: an unterminated string in
+  draftfile.test.ts, and isValidDraftPath, whose control-character class
+  had lost NUL and was matching hyphen.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: every existing conformance fixture and corpus expectation is byte-identical after regeneration, and the .docx writer's output does not change
+  - kind: custom
+    text: the apps are unchanged — no file under EDraftCore, EDraftUI, the Mac or iOS surfaces, the app targets or the web app is touched
+  - kind: custom
+    text: the TypeScript and Swift engines write byte-identical .draft files for every conformance case, and read every case to the same document
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - package.json
+  - package-lock.json
+  - apple/eDraftEngine/Package.swift
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/macOS/**
+  - apple/eDraft.xcodeproj/**
+  - src/**
+  - docs/**
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/fdx.ts
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/paginate.ts
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Paginate/**
+change: The .draft 1.0 container in both engines — write and read, stored entries only; apps unchanged. Sealed after the files were written.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && swift test --package-path apple/eDraftEngine
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/draftfile.ts
+    - packages/edraft/src/draftfile.test.ts
+    - packages/edraft/src/draft.ts
+    - packages/edraft/src/sha256.ts
+    - packages/edraft/src/sha256.test.ts
+    - packages/edraft/src/zipwrite.ts
+    - packages/edraft/src/zipwrite.test.ts
+    - packages/edraft/src/zip.ts
+    - packages/edraft/src/zip.test.ts
+    - packages/edraft/src/platform.ts
+    - packages/edraft/package.json
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/draft.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Export/DraftFile.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Export/Zip.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Export/CanonicalJSON.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/DraftFileConformanceTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/DraftFileRecoveryTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+  symbols: []
+  maxFiles: 20
+  maxLines: 6500
+accept:
+  - "WRITE, both engines: a document writes an ISO/IEC 21320-1-profile ZIP and the two ports write identical bytes for every conformance case (B4)."
+  - "READ: every conformance case reads back to the same document in both ports."
+  - "MUST-PRESERVE: unknown parts and unknown members survive read and write (B5)."
+  - "RECOVERY: each rung of §7.2 pinned; fuzz of fixture files does not crash (B3)."
+  - "LEGACY: detection by first bytes for .draft 1.x, PDF, FDX, UTF-8 text and refusal (B7, engine half)."
+  - "MEASURED AND REPORTED: B1 (size against FDX on the fixtures, stored) and B2 (open time)."
+assumptions:
+  - text: RETROACTIVE. The human asked (2026-09-19) to activate IL-0050 after the engine files were already written, run a no-op verify through run_locked, and commit by explicit paths. The code preceded this activation. The auto-draft's FDX-test budget was replaced so the record names the files that exist.
+    source: user
+    confirmed: true
+  - text: Budget names the twenty engine/exporter/fixture files on disk. A no-op run_locked should touch none of them.
+    source: system
+    confirmed: false
+createdAt: 2026-09-19T06:24:15.803Z
+createdBy: Yasirdora

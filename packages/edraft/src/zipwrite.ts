@@ -18,6 +18,20 @@ export interface ZipWriteEntry {
 	data: Uint8Array;
 }
 
+/**
+ * Stamps a writer may ask for. The defaults are this writer's historic bytes
+ * (the .docx exporter's): no date and no flags. The .draft writer asks for
+ * ISO/IEC 21320-1's (docs/RFC-DRAFT-FORMAT.md §4.1, §4.4).
+ */
+export interface ZipWriteOptions {
+	/** DOS date on every entry — 0x0021 is 1980-01-01. Default 0. */
+	dosDate?: number;
+	/** DOS time on every entry. Default 0. */
+	dosTime?: number;
+	/** Set general-purpose bit 11 (UTF-8) on every entry whose name is not ASCII. Default false. */
+	utf8Names?: boolean;
+}
+
 const LOCAL_SIG = 0x04034b50;
 const CENTRAL_SIG = 0x02014b50;
 const EOCD_SIG = 0x06054b50;
@@ -26,7 +40,9 @@ const EOCD_SIG = 0x06054b50;
  * Assemble a single-disk ZIP of stored entries: local headers, central
  * directory, end record — the exact layout zip.ts reads back.
  */
-export function writeZipStored(entries: readonly ZipWriteEntry[]): Uint8Array {
+export function writeZipStored(entries: readonly ZipWriteEntry[], options: ZipWriteOptions = {}): Uint8Array {
+	const dosDate = options.dosDate ?? 0;
+	const dosTime = options.dosTime ?? 0;
 	const locals: Uint8Array[] = [];
 	const records: Uint8Array[] = [];
 	let offset = 0;
@@ -34,11 +50,15 @@ export function writeZipStored(entries: readonly ZipWriteEntry[]): Uint8Array {
 	for (const entry of entries) {
 		const name = encodeUtf8(entry.name);
 		const crc = crc32(entry.data);
+		const flags = options.utf8Names === true && name.some((byte) => byte > 0x7f) ? 0x0800 : 0;
 
 		const local = new Uint8Array(30 + name.length);
 		const lv = new DataView(local.buffer);
 		lv.setUint32(0, LOCAL_SIG, true);
 		lv.setUint16(4, 20, true); /* version needed */
+		lv.setUint16(6, flags, true);
+		lv.setUint16(10, dosTime, true);
+		lv.setUint16(12, dosDate, true);
 		lv.setUint32(14, crc, true);
 		lv.setUint32(18, entry.data.length, true);
 		lv.setUint32(22, entry.data.length, true);
@@ -51,6 +71,9 @@ export function writeZipStored(entries: readonly ZipWriteEntry[]): Uint8Array {
 		rv.setUint32(0, CENTRAL_SIG, true);
 		rv.setUint16(4, 20, true); /* version made by */
 		rv.setUint16(6, 20, true); /* version needed */
+		rv.setUint16(8, flags, true);
+		rv.setUint16(12, dosTime, true);
+		rv.setUint16(14, dosDate, true);
 		rv.setUint32(16, crc, true);
 		rv.setUint32(20, entry.data.length, true);
 		rv.setUint32(24, entry.data.length, true);

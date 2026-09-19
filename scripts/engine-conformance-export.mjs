@@ -48,6 +48,21 @@ import {
 } from '../packages/edraft/dist/editor.js';
 import { crc32 } from '../packages/edraft/dist/crc32.js';
 import { canonicalCasing } from '../packages/edraft/dist/normalize.js';
+import {
+	canonicalJson,
+	detectDraftFormat,
+	draftAnchorContext,
+	draftFromScreenplay,
+	draftToScreenplay,
+	jcs,
+	parseDraftJson,
+	readDraft,
+	writeDraft
+} from '../packages/edraft/dist/draft.js';
+import { sha256Hex } from '../packages/edraft/dist/sha256.js';
+import { readZipEntries } from '../packages/edraft/dist/zip.js';
+import { writeZipStored } from '../packages/edraft/dist/zipwrite.js';
+import { deflateRawSync } from 'node:zlib';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'apple/eDraftEngine/Fixtures');
@@ -1650,6 +1665,377 @@ writeFixture('fdx.json', {
 	export: fdxExport,
 	scriptNotes: fdxScriptNotes,
 	rewrite: fdxRewrite
+});
+
+/* ------------------------------------------------------------------ */
+/* draft.json — the .draft 1.0 file (docs/RFC-DRAFT-FORMAT.md)         */
+/* ------------------------------------------------------------------ */
+
+const draftHex = (bytes) => Buffer.from(bytes).toString('hex');
+const draftUtf8 = (text) => new TextEncoder().encode(text);
+const draftText = (bytes) => new TextDecoder().decode(bytes);
+const draftChar = (...codes) => String.fromCharCode(...codes);
+const DRAFT_WRITER = { name: 'eDraft', version: '1.0 (conformance)' };
+
+/** A document as the fixture carries it: trees as canonical JSON text, so
+	member order is pinned exactly; parts in the order the reader made. */
+function draftDocJson(document) {
+	const out = {};
+	if (document.title !== undefined) out.title = document.title;
+	out.script = canonicalJson(document.script);
+	if (document.notes !== undefined) out.notes = canonicalJson(document.notes);
+	if (document.manifestExtra !== undefined) out.manifestExtra = canonicalJson(document.manifestExtra);
+	out.parts = document.parts.map((part) => ({ path: part.path, hex: draftHex(part.data), damaged: part.damaged === true }));
+	return out;
+}
+
+/** Invented script text only — the repository is public. */
+const DRAFT_SAMPLE = [
+	'Title: The Kettle',
+	'Author: Sam Okafor',
+	'',
+	'INT. KITCHEN - NIGHT',
+	'',
+	'[[Too still? She should flinch.]]',
+	'',
+	'The kettle **screams**. Mara doesn’t move.',
+	'',
+	'MARA ^',
+	'(quietly)',
+	'Not yet.',
+	'',
+	'# ACT ONE',
+	'',
+	'= The kettle, again.',
+	'',
+	'CUT TO:',
+	'',
+	'[[A last thought.]]',
+	''
+].join('\n');
+
+const draftSample = () => draftFromScreenplay(parseFountain(DRAFT_SAMPLE, { emphasis: 'runs' }), { title: 'The Kettle' });
+
+function draftWithEverything() {
+	const document = draftSample();
+	const elements = document.script.get('elements');
+	const line = elements[1].get('text');
+	const words = 'Mara doesn’t move';
+	const start = line.indexOf(words);
+	const { prefix, suffix } = draftAnchorContext(line, start, start + words.length);
+	const thread = document.notes.get('threads')[0];
+	thread.set('anchor', new Map([['element', '2'], ['start', start], ['end', start + words.length], ['quote', words], ['prefix', prefix], ['suffix', suffix]]));
+	thread.set('messages', [
+		new Map([['id', '2'], ['by', 'Dana Reyes'], ['role', 'Director'], ['at', '2026-09-18T10:02:00Z'], ['text', 'Too still? She should flinch.'], ['source', new Map([['fdx', '12']])]]),
+		new Map([['id', '5'], ['by', 'Sam Okafor'], ['at', '2026-09-18T10:05:00Z'], ['text', 'She’s frozen — that’s the beat.\nOn purpose.']])
+	]);
+	thread.set('status', [new Map([['state', 'resolved'], ['by', 'Dana Reyes'], ['at', '2026-09-18T11:00:00Z']])]);
+	document.notes.set('nextId', '6');
+	return document;
+}
+
+function draftMustPreserve() {
+	const document = draftSample();
+	document.script.set('x-future', new Map([['2', 1], ['a', [null, true, -7, 'q"\\' + draftChar(1, 0x2028)]]]));
+	document.script.get('elements')[1].set('com.example.tag', 'kept');
+	document.script.get('elements')[1].get('runs')[0].set('com.example.weight', 3);
+	document.notes.get('threads')[0].set('com.example.colour', 'teal');
+	document.notes.get('threads')[0].get('messages')[0].set('mood', 'wry');
+	document.manifestExtra = new Map([['generator', 'another tool'], ['z', new Map()]]);
+	document.parts = [
+		{ path: 'ext/com.example/data.bin', data: new Uint8Array([0, 1, 2, 255]) },
+		{ path: 'history/2026-09-01.json', data: draftUtf8('{"kept": true}') }
+	];
+	return document;
+}
+
+function draftWithParts() {
+	const document = draftFromScreenplay(parseFountain('INT. HALL - DAY\n\nQuiet.\n', { emphasis: 'runs' }));
+	document.parts = [
+		{ path: 'ext/com.example/b.json', data: draftUtf8('{}') },
+		{ path: 'revisions.json', data: draftUtf8('{"sets": []}') },
+		{ path: 'origin/source.fountain', data: draftUtf8('INT. HALL - DAY\n\nQuiet.\n') },
+		{ path: 'ext/com.example/été.txt', data: draftUtf8('x') },
+		{ path: 'origin/source.fdx', data: draftUtf8('<?xml version="1.0"?><FinalDraft/>') }
+	];
+	return document;
+}
+
+function draftDamagedCarried() {
+	const document = draftFromScreenplay(parseFountain('INT. HALL - DAY\n\nQuiet.\n', { emphasis: 'runs' }));
+	document.parts = [
+		{ path: 'notes.json', data: draftUtf8('{"threads": [ oops'), damaged: true },
+		{ path: 'mimetype', data: draftUtf8('application/zip'), damaged: true },
+		{ path: 'script.json', data: draftUtf8('not json'), damaged: true }
+	];
+	return document;
+}
+
+const draftWrites = [
+	['sample', draftSample()],
+	['no-notes-no-title', draftFromScreenplay(parseFountain('INT. HALL - DAY\n\nQuiet.\n', { emphasis: 'runs' }))],
+	['everything', draftWithEverything()],
+	['must-preserve', draftMustPreserve()],
+	['parts', draftWithParts()],
+	['damaged-carried', draftDamagedCarried()],
+	['empty', draftFromScreenplay({ titlePage: [], elements: [] })]
+].map(([name, document]) => ({ name, document: draftDocJson(document), bytes: draftHex(writeDraft(document, { writer: DRAFT_WRITER })) }));
+
+async function draftEntries(bytes) {
+	return new Map((await readZipEntries(bytes)).map((entry) => [entry.name, entry.data]));
+}
+const draftRezip = (entries) => writeZipStored([...entries].map(([name, data]) => ({ name, data })), { dosDate: 0x0021 });
+const draftBytesOf = (name) => Buffer.from(draftWrites.find((w) => w.name === name).bytes, 'hex');
+
+/** One more entry, deflated, as another tool would add it. */
+function draftAppendDeflated(archive, name, packed, rawSize, crc = 0) {
+	const view = new DataView(archive.buffer, archive.byteOffset, archive.byteLength);
+	const eocd = archive.length - 22;
+	const count = view.getUint16(eocd + 10, true);
+	const centralSize = view.getUint32(eocd + 12, true);
+	const centralOffset = view.getUint32(eocd + 16, true);
+	const nameBytes = draftUtf8(name);
+	const local = new Uint8Array(30 + nameBytes.length);
+	const lv = new DataView(local.buffer);
+	lv.setUint32(0, 0x04034b50, true);
+	lv.setUint16(4, 20, true);
+	lv.setUint16(8, 8, true);
+	lv.setUint32(14, crc, true);
+	lv.setUint32(18, packed.length, true);
+	lv.setUint32(22, rawSize, true);
+	lv.setUint16(26, nameBytes.length, true);
+	local.set(nameBytes, 30);
+	const record = new Uint8Array(46 + nameBytes.length);
+	const rv = new DataView(record.buffer);
+	rv.setUint32(0, 0x02014b50, true);
+	rv.setUint16(4, 20, true);
+	rv.setUint16(6, 20, true);
+	rv.setUint16(10, 8, true);
+	rv.setUint32(16, crc, true);
+	rv.setUint32(20, packed.length, true);
+	rv.setUint32(24, rawSize, true);
+	rv.setUint16(28, nameBytes.length, true);
+	rv.setUint32(42, centralOffset, true);
+	record.set(nameBytes, 46);
+	const end = new Uint8Array(22);
+	const ev = new DataView(end.buffer);
+	ev.setUint32(0, 0x06054b50, true);
+	ev.setUint16(8, count + 1, true);
+	ev.setUint16(10, count + 1, true);
+	ev.setUint32(12, centralSize + record.length, true);
+	ev.setUint32(16, centralOffset + local.length + packed.length, true);
+	return Buffer.concat([archive.subarray(0, centralOffset), local, packed, archive.subarray(centralOffset, centralOffset + centralSize), record, end]);
+}
+
+async function draftEdited(name, edit) {
+	const entries = await draftEntries(draftBytesOf(name));
+	await edit(entries);
+	return draftRezip(entries);
+}
+const draftScriptEdit = (name, change) =>
+	draftEdited(name, (entries) => {
+		const script = parseDraftJson(draftText(entries.get('script.json')));
+		change(script);
+		entries.set('script.json', draftUtf8(canonicalJson(script)));
+	});
+const draftManifestEdit = (change) =>
+	draftEdited('sample', (entries) => {
+		const manifest = parseDraftJson(draftText(entries.get('manifest.json')));
+		change(manifest);
+		entries.set('manifest.json', draftUtf8(canonicalJson(manifest)));
+	});
+
+const draftReadInputs = [
+	...draftWrites.map((w) => [w.name, Buffer.from(w.bytes, 'hex')]),
+	['outside-edit', await draftScriptEdit('sample', (script) => script.get('elements')[0].set('text', 'INT. KITCHEN - DAY'))],
+	['damaged-notes', await draftEdited('sample', (entries) => entries.set('notes.json', draftUtf8('{"threads": [ oops')))],
+	['damaged-script', await draftEdited('sample', (entries) => entries.set('script.json', draftUtf8('not json')))],
+	['damaged-script-and-notes', await draftEdited('sample', (entries) => {
+		entries.set('script.json', draftUtf8('{}'));
+		entries.set('notes.json', draftUtf8('[]'));
+	})],
+	['no-script', await draftEdited('sample', (entries) => {
+		entries.set('script.json', draftUtf8('x'));
+		entries.set('script.fountain', new Uint8Array([0xff, 0xfe]));
+	})],
+	['crc-damaged-notes', (() => {
+		const bytes = draftBytesOf('sample');
+		const at = bytes.indexOf(Buffer.from('"threads"')) + 1;
+		const out = Buffer.from(bytes);
+		out[at] ^= 0x20;
+		return out;
+	})()],
+	['truncated', (() => {
+		const bytes = draftBytesOf('sample');
+		const centralAt = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(bytes.length - 6, true);
+		return bytes.subarray(0, centralAt);
+	})()],
+	['newer-minor', await draftManifestEdit((manifest) => {
+		manifest.set('version', '1.4');
+		manifest.set('minReader', '1.4');
+	})],
+	['newer-major', await draftManifestEdit((manifest) => {
+		manifest.set('version', '2.0');
+		manifest.set('minReader', '2.0');
+	})],
+	['manifest-damaged', await draftEdited('sample', (entries) => entries.set('manifest.json', draftUtf8('{"format": "draft"')))],
+	['mimetype-wrong', await draftEdited('sample', (entries) => entries.set('mimetype', draftUtf8('application/zip')))],
+	['mimetype-missing', await draftEdited('sample', (entries) => entries.delete('mimetype'))],
+	['unlisted-and-missing', await draftEdited('parts', (entries) => {
+		entries.delete('revisions.json');
+		entries.set('ext/com.example/new.txt', draftUtf8('added elsewhere'));
+	})],
+	['duplicate-and-invalid-names', draftRezip(new Map([
+		...(await draftEntries(draftBytesOf('sample'))),
+		['Script.JSON', draftUtf8('{}')],
+		['../escape.txt', draftUtf8('outside')],
+		['ext/a//b', draftUtf8('empty segment')]
+	]))],
+	['bomb', draftAppendDeflated(draftBytesOf('sample'), 'ext/x/bomb', deflateRawSync(new Uint8Array(1_000_000)), 1_000_000)],
+	['deflated-part', (() => {
+		const raw = draftUtf8('read through inflate '.repeat(20));
+		return draftAppendDeflated(draftBytesOf('sample'), 'ext/x/deflated.txt', deflateRawSync(raw), raw.length, crc32(raw));
+	})()],
+	['anchor-moved-within', await draftScriptEdit('everything', (script) => script.get('elements')[1].set('text', 'Steam. The kettle screams. Mara doesn’t move.'))],
+	['anchor-words-changed', await draftScriptEdit('everything', (script) => script.get('elements')[1].set('text', 'The kettle screams. Mara runs.'))],
+	['anchor-moved-elsewhere', await draftScriptEdit('everything', (script) => {
+		const elements = script.get('elements');
+		elements.splice(1, 1);
+		elements.push(new Map([['id', 'z9'], ['type', 'action'], ['text', 'Later. The kettle screams. Mara doesn’t move.']]));
+	})],
+	['anchor-detached', await draftScriptEdit('everything', (script) => script.get('elements').splice(1, 1))],
+	['not-a-draft', writeZipStored([{ name: 'word/document.xml', data: draftUtf8('<w/>') }])],
+	['not-a-zip', draftUtf8('INT. HALL - DAY\n')]
+	/* The 512-entry limit is pinned by each port's own tests, not here: an
+       archive over it is 100 KB of fixture for one refusal. */
+];
+
+const draftReads = [];
+for (const [name, bytes] of draftReadInputs) {
+	try {
+		const result = await readDraft(new Uint8Array(bytes));
+		draftReads.push({ name, bytes: draftHex(bytes), document: draftDocJson(result.document), diagnostics: result.diagnostics, readOnly: result.readOnly });
+	} catch (error) {
+		draftReads.push({ name, bytes: draftHex(bytes), refused: error.code });
+	}
+}
+
+const draftBackslash = draftChar(92);
+const draftJsonInputs = [
+	'{"b": 1, "a": [true, false, null, "x"], "2": -3, "": {}}',
+	'{"' + draftBackslash + 'u20ac": 1, "' + draftBackslash + 'ud83d' + draftBackslash + 'ude00": 2, "a": {"z": 0, "b": []}, "' +
+		draftBackslash + 'u0080": 3, "' + draftBackslash + 'u007f": 4}',
+	'["q' + ['"', draftBackslash, '/', 'b', 'f', 'n', 'r', 't', 'u0001', 'u001f', 'u2028'].map((e) => draftBackslash + e).join('') +
+		' é 🎬", 9007199254740991, -9007199254740991, 0, -0]',
+	'  {\n\t"nested": [[[[]]]], "empty": {} , "s": "" }  '
+];
+const draftJsonInvalid = [
+	'{"a": 1, "a": 2}',
+	'{"a": 1.5}',
+	'{"a": 1e3}',
+	'{"a": 9007199254740992}',
+	'"' + draftBackslash + 'ud800"',
+	'"' + draftBackslash + 'udc00x"',
+	draftChar(0xfeff) + '{}',
+	'{} x',
+	'"a' + draftChar(1) + 'b"',
+	'['.repeat(65) + ']'.repeat(65),
+	'{"a" 1}',
+	'[1,]',
+	'{,}',
+	'tru',
+	"'a'",
+	'01',
+	'-',
+	'"' + draftBackslash + 'x"',
+	''
+];
+
+for (const input of draftJsonInvalid) {
+	let parsed = true;
+	try {
+		parseDraftJson(input);
+	} catch {
+		parsed = false;
+	}
+	if (parsed) throw new Error(`draft.json: an invalid JSON case parsed: ${JSON.stringify(input)}`);
+}
+
+const draftDetect = [
+	['draft', draftBytesOf('sample')],
+	['pdf', draftUtf8('%PDF-1.7\n')],
+	['fdx', draftUtf8('<?xml version="1.0"?><FinalDraft/>')],
+	['fdx-bom', draftUtf8(draftChar(0xfeff) + '\n<FinalDraft/>')],
+	['text', draftUtf8(DRAFT_SAMPLE)],
+	['empty', new Uint8Array(0)],
+	['not-utf8', new Uint8Array([0xc3, 0x28])],
+	['overlong', new Uint8Array([0xc0, 0xaf])],
+	['surrogate', new Uint8Array([0xed, 0xa0, 0x80])],
+	['cut-sequence', new Uint8Array([0x61, 0xe2, 0x82])],
+	['four-byte', draftUtf8('🎬')],
+	['other-zip', writeZipStored([{ name: 'word/document.xml', data: draftUtf8('<w/>') }])]
+].map(([name, bytes]) => ({ name, hex: draftHex(bytes), format: detectDraftFormat(new Uint8Array(bytes)) }));
+
+/* Small cases carry their outputs whole; the parse corpus's cases name
+   their source in parse.json and pin their outputs by SHA-256. */
+const draftBridgeSources = [
+	['sample', DRAFT_SAMPLE],
+	['trailing-note', '[[First]]\n\nA line.\n\n[[Last]]\n'],
+	['only-notes', '[[One]]\n\n[[Two]]\n']
+];
+const draftBridge = (source) => {
+	const document = draftFromScreenplay(parseFountain(source, { emphasis: 'runs' }));
+	const back = draftToScreenplay(document);
+	return { document, back: serialiseFountain(back.screenplay), diagnostics: back.diagnostics };
+};
+const draftBridges = [
+	...draftBridgeSources.map(([name, source]) => {
+		const { document, back, diagnostics } = draftBridge(source);
+		return { name, source, document: draftDocJson(document), back, diagnostics };
+	}),
+	...parseFixture.map((c) => {
+		const { document, back, diagnostics } = draftBridge(c.source);
+		const digest = (text) => sha256Hex(draftUtf8(text));
+		return {
+			name: `corpus-${c.name}`,
+			corpus: c.name,
+			scriptSha256: digest(canonicalJson(document.script)),
+			notesSha256: document.notes === undefined ? null : digest(canonicalJson(document.notes)),
+			backSha256: digest(back),
+			diagnostics
+		};
+	})
+];
+
+const draftSha = [
+	...Array.from({ length: 131 }, (_, n) => new Uint8Array(n).map((_, i) => (i * 31 + n) & 0xff)),
+	draftUtf8('abc'),
+	new Uint8Array(1000).fill(0x61)
+].map((bytes) => ({ hex: draftHex(bytes), sha256: sha256Hex(bytes) }));
+
+const draftContexts = [
+	['The kettle screams. Mara doesn’t move.', 20, 37],
+	['The quick brown foxes jump over it', 22, 26],
+	['Unbroken', 2, 4],
+	['A', 0, 1],
+	['Tabs\tand\nlines around the words here', 14, 19]
+].map(([text, start, end]) => ({ text, start, end, ...draftAnchorContext(text, start, end) }));
+
+writeFixture('draft.json', {
+	writer: DRAFT_WRITER,
+	sha256: draftSha,
+	json: {
+		valid: draftJsonInputs.map((input) => {
+			const tree = parseDraftJson(input);
+			return { input, canonical: canonicalJson(tree), jcs: jcs(tree) };
+		}),
+		invalid: draftJsonInvalid
+	},
+	contexts: draftContexts,
+	detect: draftDetect,
+	bridges: draftBridges,
+	write: draftWrites,
+	read: draftReads
 });
 
 console.log('✓ conformance corpus written to apple/eDraftEngine/Fixtures/');

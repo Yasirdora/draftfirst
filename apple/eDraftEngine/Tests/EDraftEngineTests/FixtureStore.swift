@@ -469,3 +469,116 @@ enum SceneheadingCorpus {
         let text: String
     }
 }
+
+/// The .draft file's corpus (`Fixtures/draft.json`). Trees travel as
+/// canonical JSON text, so member order is compared exactly; bytes as hex.
+enum DraftCorpus {
+    struct Root: Decodable {
+        let writer: Writer
+        let sha256: [Digest]
+        let json: JSONCases
+        let contexts: [Context]
+        let detect: [Detect]
+        let bridges: [Bridge]
+        let write: [Write]
+        let read: [Read]
+    }
+    struct Writer: Decodable {
+        let name: String
+        let version: String
+    }
+    struct Digest: Decodable {
+        let hex: String
+        let sha256: String
+    }
+    struct JSONCases: Decodable {
+        let valid: [Valid]
+        let invalid: [String]
+    }
+    struct Valid: Decodable {
+        let input: String
+        let canonical: String
+        let jcs: String
+    }
+    struct Context: Decodable {
+        let text: String
+        let start: Int
+        let end: Int
+        let prefix: String
+        let suffix: String
+    }
+    struct Detect: Decodable {
+        let name: String
+        let hex: String
+        let format: String
+    }
+    struct Doc: Decodable {
+        let title: String?
+        let script: String
+        let notes: String?
+        let manifestExtra: String?
+        let parts: [Part]
+    }
+    struct Part: Decodable, Equatable {
+        let path: String
+        let hex: String
+        let damaged: Bool
+    }
+    struct Bridge: Decodable {
+        let name: String
+        let source: String?
+        let corpus: String?
+        let document: Doc?
+        let back: String?
+        let scriptSha256: String?
+        let notesSha256: String?
+        let backSha256: String?
+        let diagnostics: [DraftDiagnostic]
+    }
+    struct Write: Decodable {
+        let name: String
+        let document: Doc
+        let bytes: String
+    }
+    struct Read: Decodable {
+        let name: String
+        let bytes: String
+        let document: Doc?
+        let diagnostics: [DraftDiagnostic]?
+        let readOnly: Bool?
+        let refused: String?
+    }
+
+    static func hex(_ bytes: [UInt8]) -> String {
+        bytes.map { String(format: "%02x", $0) }.joined()
+    }
+
+    struct NotAnObject: Error {}
+
+    static func object(_ text: String) throws -> JSONObject {
+        guard let object = try CanonicalJSON.parse(text).objectValue else { throw NotAnObject() }
+        return object
+    }
+
+    /// The fixture's document, as the engine holds it.
+    static func document(_ doc: Doc) throws -> DraftDocument {
+        DraftDocument(
+            title: doc.title,
+            script: try object(doc.script),
+            notes: try doc.notes.map(object),
+            parts: doc.parts.map { DraftPart(path: $0.path, data: CRC32Corpus.bytes(fromHex: $0.hex), damaged: $0.damaged) },
+            manifestExtra: try doc.manifestExtra.map(object)
+        )
+    }
+
+    /// The engine's document, as the fixture carries it.
+    static func doc(_ document: DraftDocument) -> (title: String?, script: String, notes: String?, manifestExtra: String?, parts: [Part]) {
+        (
+            document.title,
+            CanonicalJSON.canonical(.object(document.script)),
+            document.notes.map { CanonicalJSON.canonical(.object($0)) },
+            document.manifestExtra.map { CanonicalJSON.canonical(.object($0)) },
+            document.parts.map { Part(path: $0.path, hex: hex($0.data), damaged: $0.damaged) }
+        )
+    }
+}
