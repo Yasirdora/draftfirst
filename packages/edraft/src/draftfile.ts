@@ -55,6 +55,17 @@ const ORDER = {
 	writer: ['name', 'version'],
 	part: ['path', 'sha256', 'size'],
 	fingerprints: ['script', 'notes'],
+	revisions: ['sets', 'nextId'],
+	revisionSet: ['id', 'colour', 'mark', 'name', 'at', 'snapshot'],
+	production: ['state', 'sceneNumbers', 'pages', 'omissions', 'tags', 'delivery'],
+	sceneNumbers: ['locked'],
+	pages: ['fingerprint', 'locks'],
+	fingerprint: ['paginator', 'paper', 'sha256'],
+	pageLock: ['label', 'start', 'end'],
+	pageAnchor: ['element', 'offset'],
+	omission: ['id', 'number', 'elements', 'issued'],
+	tag: ['id', 'label'],
+	delivery: ['moreAndContinueds', 'sceneNumbersOnRight'],
 	script: ['titlePage', 'elements', 'nextId'],
 	titleLine: ['key', 'text', 'alignment', 'runs'],
 	element: ['id', 'type', 'text', 'runs', 'dual', 'sceneNumber', 'depth'],
@@ -90,6 +101,10 @@ export interface DraftDocument {
 	script: JsonObject;
 	/** notes.json (§5.4); absent when the document has no notes part. */
 	notes?: JsonObject;
+	/** revisions.json (RFC-DRAFT-PRODUCTION §6); absent in development. */
+	revisions?: JsonObject;
+	/** production.json (RFC-DRAFT-PRODUCTION §7); absent in development. */
+	production?: JsonObject;
 	/** Every other part, in no particular order: the writer orders them. */
 	parts: DraftPart[];
 	/** manifest.json members this version does not know (§8.2). */
@@ -112,7 +127,8 @@ export type DraftDiagnosticCode =
 	| 'anchor-moved'
 	| 'anchor-words-changed'
 	| 'anchor-detached'
-	| 'anchor-degraded';
+	| 'anchor-degraded'
+	| 'state-contradiction';
 
 /** What a reader or a bridge noticed. Every rung below "all valid" says one. */
 export interface DraftDiagnostic {
@@ -390,6 +406,38 @@ function canonicalNotes(notes: JsonObject): JsonObject {
 	return out;
 }
 
+function canonicalRevisions(revisions: JsonObject): JsonObject {
+	const out = ordered(revisions, ORDER.revisions);
+	withMember(out, 'sets', mapArray(out.get('sets'), (set) => ordered(set, ORDER.revisionSet)));
+	return out;
+}
+
+function canonicalProduction(production: JsonObject): JsonObject {
+	const out = ordered(production, ORDER.production);
+	const sceneNumbers = out.get('sceneNumbers');
+	if (isObject(sceneNumbers)) out.set('sceneNumbers', ordered(sceneNumbers, ORDER.sceneNumbers));
+	const pages = out.get('pages');
+	if (isObject(pages)) {
+		const p = ordered(pages, ORDER.pages);
+		const fingerprint = p.get('fingerprint');
+		if (isObject(fingerprint)) p.set('fingerprint', ordered(fingerprint, ORDER.fingerprint));
+		withMember(p, 'locks', mapArray(p.get('locks'), (lock) => {
+			const l = ordered(lock, ORDER.pageLock);
+			const start = l.get('start');
+			const end = l.get('end');
+			if (isObject(start)) l.set('start', ordered(start, ORDER.pageAnchor));
+			if (isObject(end)) l.set('end', ordered(end, ORDER.pageAnchor));
+			return l;
+		}));
+		out.set('pages', p);
+	}
+	withMember(out, 'omissions', mapArray(out.get('omissions'), (row) => ordered(row, ORDER.omission)));
+	withMember(out, 'tags', mapArray(out.get('tags'), (tag) => ordered(tag, ORDER.tag)));
+	const delivery = out.get('delivery');
+	if (isObject(delivery)) out.set('delivery', ordered(delivery, ORDER.delivery));
+	return out;
+}
+
 /* ------------------------------------------------------------------ */
 /* Schema checks (§5.2–§5.4). Each returns the first problem, or null. */
 /* ------------------------------------------------------------------ */
@@ -523,6 +571,131 @@ export function checkDraftNotes(notes: JsonValue): string | null {
 	}
 	const nextId = notes.get('nextId');
 	if (!isString(nextId) || !ID_PATTERN.test(nextId)) return 'nextId is malformed';
+	return null;
+}
+
+
+const REVISION_COLOURS = new Set([
+	'White', 'Blue', 'Pink', 'Yellow', 'Green', 'Goldenrod', 'Salmon', 'Cherry', 'Buff'
+]);
+
+function isRevisionColour(value: JsonValue | undefined): boolean {
+	if (!isString(value)) return false;
+	for (const prefix of ['', 'Double ', 'Triple ']) {
+		if (REVISION_COLOURS.has(value.slice(prefix.length)) && (prefix === '' || value.startsWith(prefix))) return true;
+	}
+	const pass = /^(White|Blue|Pink|Yellow|Green|Goldenrod|Salmon|Cherry|Buff) \(pass ([1-9][0-9]*)\)$/.exec(value);
+	return pass !== null && Number(pass[2]) >= 4;
+}
+
+function checkPageAnchor(value: JsonValue | undefined, name: string): string | null {
+	if (!isObject(value)) return `a page lock ${name} is not an object`;
+	if (!isString(value.get('element')) || !ID_PATTERN.test(value.get('element') as string)) {
+		return `a page lock ${name} names no element`;
+	}
+	const offset = value.get('offset');
+	if (!isInt(offset) || offset < 0) return `a page lock ${name} offset is malformed`;
+	return null;
+}
+
+/** Problems with revisions.json, or null when it is valid. */
+export function checkDraftRevisions(revisions: JsonValue): string | null {
+	if (!isObject(revisions)) return 'revisions.json is not an object';
+	const sets = revisions.get('sets');
+	if (!Array.isArray(sets)) return 'sets is not an array';
+	const ids = new Set<string>();
+	for (const set of sets) {
+		if (!isObject(set)) return 'a revision set is not an object';
+		const id = set.get('id');
+		if (!isString(id) || !ID_PATTERN.test(id)) return 'a revision set id is malformed';
+		if (ids.has(id)) return `revision set id ${id} is used twice`;
+		ids.add(id);
+		if (!isRevisionColour(set.get('colour'))) return 'a revision colour is unknown';
+		if (set.get('mark') !== undefined && !isString(set.get('mark'))) return 'a revision mark is not a string';
+		if (set.get('name') !== undefined && !isString(set.get('name'))) return 'a revision name is not a string';
+		if (set.get('at') !== undefined && !isString(set.get('at'))) return 'a revision time is not a string';
+		const snapshot = set.get('snapshot');
+		if (!isString(snapshot) || !isValidDraftPath(snapshot)) return 'a revision snapshot path is not allowed';
+	}
+	const nextId = revisions.get('nextId');
+	if (!isString(nextId) || !ID_PATTERN.test(nextId)) return 'nextId is malformed';
+	return null;
+}
+
+/** Problems with production.json, or null when it is valid. */
+export function checkDraftProduction(production: JsonValue): string | null {
+	if (!isObject(production)) return 'production.json is not an object';
+	const state = production.get('state');
+	if (state !== 'development' && state !== 'prepared' && state !== 'issued' && state !== 'archived') {
+		return 'production state is unknown';
+	}
+	const sceneNumbers = production.get('sceneNumbers');
+	if (sceneNumbers !== undefined) {
+		if (!isObject(sceneNumbers)) return 'sceneNumbers is not an object';
+		const locked = sceneNumbers.get('locked');
+		if (locked !== undefined && typeof locked !== 'boolean') return 'sceneNumbers.locked is not a boolean';
+	}
+	const pages = production.get('pages');
+	if (pages !== undefined) {
+		if (!isObject(pages)) return 'pages is not an object';
+		const fingerprint = pages.get('fingerprint');
+		if (fingerprint !== undefined) {
+			if (!isObject(fingerprint)) return 'a layout fingerprint is not an object';
+			if (!isString(fingerprint.get('paginator'))) return 'a layout fingerprint has no paginator';
+			if (!isString(fingerprint.get('paper'))) return 'a layout fingerprint has no paper';
+			const sha = fingerprint.get('sha256');
+			if (!isString(sha) || !HEX64.test(sha)) return 'a layout fingerprint digest is malformed';
+		}
+		const locks = pages.get('locks');
+		if (locks !== undefined) {
+			if (!Array.isArray(locks)) return 'page locks is not an array';
+			for (const lock of locks) {
+				if (!isObject(lock)) return 'a page lock is not an object';
+				if (!isString(lock.get('label'))) return 'a page lock has no label';
+				const startProblem = checkPageAnchor(lock.get('start'), 'start');
+				if (startProblem) return startProblem;
+				const endProblem = checkPageAnchor(lock.get('end'), 'end');
+				if (endProblem) return endProblem;
+			}
+		}
+	}
+	const omissions = production.get('omissions');
+	if (omissions !== undefined) {
+		if (!Array.isArray(omissions)) return 'omissions is not an array';
+		const ids = new Set<string>();
+		for (const row of omissions) {
+			if (!isObject(row)) return 'an omission is not an object';
+			const id = row.get('id');
+			if (!isString(id) || !ID_PATTERN.test(id)) return 'an omission id is malformed';
+			if (ids.has(id)) return `omission id ${id} is used twice`;
+			ids.add(id);
+			if (!isString(row.get('number'))) return 'an omission has no scene number';
+			const elements = row.get('elements');
+			if (!Array.isArray(elements) || elements.length === 0 || elements.some((e) => !isString(e) || !ID_PATTERN.test(e))) {
+				return 'an omission elements list is malformed';
+			}
+			if (row.get('issued') !== undefined && (!isString(row.get('issued')) || !ID_PATTERN.test(row.get('issued') as string))) {
+				return 'an omission issued set is malformed';
+			}
+		}
+	}
+	const tags = production.get('tags');
+	if (tags !== undefined) {
+		if (!Array.isArray(tags)) return 'tags is not an array';
+		for (const tag of tags) {
+			if (!isObject(tag)) return 'a tag is not an object';
+			if (!isString(tag.get('id')) || tag.get('id') === '') return 'a tag has no id';
+			if (!isString(tag.get('label'))) return 'a tag has no label';
+		}
+	}
+	const delivery = production.get('delivery');
+	if (delivery !== undefined) {
+		if (!isObject(delivery)) return 'delivery is not an object';
+		for (const name of ['moreAndContinueds', 'sceneNumbersOnRight']) {
+			const flag = delivery.get(name);
+			if (flag !== undefined && typeof flag !== 'boolean') return `delivery.${name} is not a boolean`;
+		}
+	}
 	return null;
 }
 
@@ -888,8 +1061,18 @@ export function writeDraft(document: DraftDocument, options: DraftWriteOptions):
 		const notesProblem = checkDraftNotes(document.notes);
 		if (notesProblem) throw new DraftFormatError('invalid-document', `the notes are invalid: ${notesProblem}`);
 	}
+	if (document.revisions !== undefined) {
+		const revisionsProblem = checkDraftRevisions(document.revisions);
+		if (revisionsProblem) throw new DraftFormatError('invalid-document', `the revisions are invalid: ${revisionsProblem}`);
+	}
+	if (document.production !== undefined) {
+		const productionProblem = checkDraftProduction(document.production);
+		if (productionProblem) throw new DraftFormatError('invalid-document', `the production data is invalid: ${productionProblem}`);
+	}
 	const script = canonicalScript(document.script);
 	const notes = document.notes === undefined ? undefined : canonicalNotes(document.notes);
+	const revisions = document.revisions === undefined ? undefined : canonicalRevisions(document.revisions);
+	const production = document.production === undefined ? undefined : canonicalProduction(document.production);
 
 	/* Fresh parts, then what is carried. A damaged part keeps its path unless
        a fresh part takes it; then it moves to damaged/, never away (§7.2). */
@@ -897,6 +1080,8 @@ export function writeDraft(document: DraftDocument, options: DraftWriteOptions):
 	fresh.set('script.json', encodeUtf8(canonicalJson(script)));
 	if (notes !== undefined) fresh.set('notes.json', encodeUtf8(canonicalJson(notes)));
 	fresh.set('script.fountain', encodeUtf8(serialiseFountain(draftToScreenplay({ ...document, script }).screenplay)));
+	if (revisions !== undefined) fresh.set('revisions.json', encodeUtf8(canonicalJson(revisions)));
+	if (production !== undefined) fresh.set('production.json', encodeUtf8(canonicalJson(production)));
 	const carried = new Map<string, Uint8Array>();
 	for (const part of document.parts) {
 		let path = part.path;
@@ -910,9 +1095,10 @@ export function writeDraft(document: DraftDocument, options: DraftWriteOptions):
 		carried.set(path, part.data);
 	}
 	const origin = [...carried.keys()].filter((path) => path.startsWith('origin/')).sort(byUnits);
+	const history = [...carried.keys()].filter((path) => path.startsWith('history/')).sort(byUnits);
 	const extensions = [...carried.keys()].filter((path) => path.startsWith('ext/')).sort(byUnits);
 	const others = [...carried.keys()]
-		.filter((path) => !path.startsWith('origin/') && !path.startsWith('ext/'))
+		.filter((path) => !path.startsWith('origin/') && !path.startsWith('ext/') && !path.startsWith('history/'))
 		.sort(byUnits);
 	const body: Array<[string, Uint8Array]> = [];
 	for (const path of ['script.json', 'notes.json', 'script.fountain']) {
@@ -922,7 +1108,12 @@ export function writeDraft(document: DraftDocument, options: DraftWriteOptions):
 			carried.delete(path);
 		}
 	}
-	for (const path of [...origin, ...others, ...extensions]) {
+	/* Fresh production parts only — a carried file of the same name stays
+	   among `others` so S1 extras named revisions.json keep their place. */
+	for (const path of ['revisions.json', 'production.json']) {
+		if (fresh.has(path)) body.push([path, fresh.get(path)!]);
+	}
+	for (const path of [...history, ...origin, ...others, ...extensions]) {
 		if (carried.has(path)) body.push([path, carried.get(path)!]);
 	}
 
@@ -1099,6 +1290,31 @@ export async function readDraft(bytes: Uint8Array): Promise<DraftReadResult> {
 	/* script.json, or the rendition (§5.5, §7.2) */
 	let script = jsonPart('script.json', checkDraftScript);
 	let notes = jsonPart('notes.json', checkDraftNotes);
+	/** A known optional part: valid schema becomes a typed tree; valid
+	    I-JSON that fails the schema is left as a carried extra (S1 used
+	    revisions.json that way); anything else is damaged. */
+	const typedPart = (path: string, check: (value: JsonValue) => string | null): JsonObject | undefined => {
+		const entry = entries.get(path);
+		if (entry === undefined) return undefined;
+		if (entry.error !== undefined) {
+			damaged(path, entry.error);
+			return undefined;
+		}
+		const value = readJson(entry.data);
+		if (value === undefined) {
+			damaged(path, 'it is not valid I-JSON');
+			return undefined;
+		}
+		if (check(value) !== null) return undefined;
+		const digest = listed?.get(path);
+		if (digest !== undefined && digest !== sha256Hex(entry.data)) diagnostics.push({ code: 'outside-edit', path });
+		return value as JsonObject;
+	};
+	const revisions = typedPart('revisions.json', checkDraftRevisions);
+	const production = typedPart('production.json', checkDraftProduction);
+	const typedPaths = new Set<string>();
+	if (revisions !== undefined) typedPaths.add('revisions.json');
+	if (production !== undefined) typedPaths.add('production.json');
 	let fromRenditionIds = false;
 	const rendition = entries.get('script.fountain');
 	if (rendition !== undefined && rendition.error !== undefined) damaged('script.fountain', rendition.error);
@@ -1123,7 +1339,7 @@ export async function readDraft(bytes: Uint8Array): Promise<DraftReadResult> {
 
 	/* Everything else is carried as it came (§5.6, §8.2). */
 	for (const [path, entry] of entries) {
-		if (FIXED_PATHS.includes(path)) continue;
+		if (FIXED_PATHS.includes(path) || typedPaths.has(path)) continue;
 		if (entry.error !== undefined) {
 			damaged(path, entry.error);
 			continue;
@@ -1136,7 +1352,18 @@ export async function readDraft(bytes: Uint8Array): Promise<DraftReadResult> {
 	if (notes !== undefined) refindAnchors(script, notes, diagnostics, !fromRenditionIds);
 	const document: DraftDocument = { script, parts };
 	if (notes !== undefined) document.notes = notes;
+	if (revisions !== undefined) document.revisions = revisions;
+	if (production !== undefined) document.production = production;
 	if (title !== undefined) document.title = title;
 	if (manifestExtra !== undefined) document.manifestExtra = manifestExtra;
+	const state = isObject(production) ? production.get('state') : undefined;
+	const sets = isObject(revisions) ? revisions.get('sets') : undefined;
+	if (state === 'issued' && (!Array.isArray(sets) || sets.length === 0)) {
+		diagnostics.push({
+			code: 'state-contradiction',
+			path: 'production.json',
+			detail: 'state is "issued" but revisions.json has no sets'
+		});
+	}
 	return { document, diagnostics, readOnly };
 }

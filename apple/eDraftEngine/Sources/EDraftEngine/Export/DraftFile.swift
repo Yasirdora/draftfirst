@@ -22,14 +22,19 @@ public struct DraftDocument: Equatable, Sendable {
     public var title: String?
     public var script: JSONObject
     public var notes: JSONObject?
+    public var revisions: JSONObject?
+    public var production: JSONObject?
     public var parts: [DraftPart]
     public var manifestExtra: JSONObject?
 
     public init(title: String? = nil, script: JSONObject, notes: JSONObject? = nil,
+                revisions: JSONObject? = nil, production: JSONObject? = nil,
                 parts: [DraftPart] = [], manifestExtra: JSONObject? = nil) {
         self.title = title
         self.script = script
         self.notes = notes
+        self.revisions = revisions
+        self.production = production
         self.parts = parts
         self.manifestExtra = manifestExtra
     }
@@ -106,6 +111,17 @@ public enum DraftFile {
         static let anchor = ["element", "start", "end", "quote", "prefix", "suffix"]
         static let message = ["id", "by", "role", "at", "text", "source"]
         static let status = ["state", "by", "at"]
+        static let revisions = ["sets", "nextId"]
+        static let revisionSet = ["id", "colour", "mark", "name", "at", "snapshot"]
+        static let production = ["state", "sceneNumbers", "pages", "omissions", "tags", "delivery"]
+        static let sceneNumbers = ["locked"]
+        static let pages = ["fingerprint", "locks"]
+        static let fingerprint = ["paginator", "paper", "sha256"]
+        static let pageLock = ["label", "start", "end"]
+        static let pageAnchor = ["element", "offset"]
+        static let omission = ["id", "number", "elements", "issued"]
+        static let tag = ["id", "label"]
+        static let delivery = ["moreAndContinueds", "sceneNumbersOnRight"]
     }
 
     // MARK: - Small helpers
@@ -174,6 +190,38 @@ public enum DraftFile {
             if let status = mapObjects(t["status"], { ordered($0, Order.status) }) { t["status"] = status }
             return t
         }) { out["threads"] = threads }
+        return out
+    }
+
+    static func canonicalRevisions(_ revisions: JSONObject) -> JSONObject {
+        var out = ordered(revisions, Order.revisions)
+        if let sets = mapObjects(out["sets"], { ordered($0, Order.revisionSet) }) { out["sets"] = sets }
+        return out
+    }
+
+    static func canonicalProduction(_ production: JSONObject) -> JSONObject {
+        var out = ordered(production, Order.production)
+        if let sceneNumbers = out["sceneNumbers"]?.objectValue {
+            out["sceneNumbers"] = .object(ordered(sceneNumbers, Order.sceneNumbers))
+        }
+        if let pages = out["pages"]?.objectValue {
+            var p = ordered(pages, Order.pages)
+            if let fingerprint = p["fingerprint"]?.objectValue {
+                p["fingerprint"] = .object(ordered(fingerprint, Order.fingerprint))
+            }
+            if let locks = mapObjects(p["locks"], { lock in
+                var l = ordered(lock, Order.pageLock)
+                if let start = l["start"]?.objectValue { l["start"] = .object(ordered(start, Order.pageAnchor)) }
+                if let end = l["end"]?.objectValue { l["end"] = .object(ordered(end, Order.pageAnchor)) }
+                return l
+            }) { p["locks"] = locks }
+            out["pages"] = .object(p)
+        }
+        if let omissions = mapObjects(out["omissions"], { ordered($0, Order.omission) }) { out["omissions"] = omissions }
+        if let tags = mapObjects(out["tags"], { ordered($0, Order.tag) }) { out["tags"] = tags }
+        if let delivery = out["delivery"]?.objectValue {
+            out["delivery"] = .object(ordered(delivery, Order.delivery))
+        }
         return out
     }
 
@@ -286,6 +334,111 @@ public enum DraftFile {
             }
         }
         if !isID(notes["nextId"]) { return "nextId is malformed" }
+        return nil
+    }
+
+
+    static let revisionColours: Set<String> = [
+        "White", "Blue", "Pink", "Yellow", "Green", "Goldenrod", "Salmon", "Cherry", "Buff"
+    ]
+
+    static func isRevisionColour(_ value: JSONValue?) -> Bool {
+        guard let s = value?.stringValue else { return false }
+        if revisionColours.contains(s) { return true }
+        for prefix in ["Double ", "Triple "] where s.hasPrefix(prefix) {
+            if revisionColours.contains(String(s.dropFirst(prefix.count))) { return true }
+        }
+        return false
+    }
+
+    static func checkPageAnchor(_ value: JSONValue?, _ name: String) -> String? {
+        guard let object = value?.objectValue else { return "a page lock \(name) is not an object" }
+        if !isID(object["element"]) { return "a page lock \(name) names no element" }
+        guard let offset = object["offset"]?.intValue, offset >= 0 else {
+            return "a page lock \(name) offset is malformed"
+        }
+        return nil
+    }
+
+    static func checkRevisions(_ value: JSONValue) -> String? {
+        guard let revisions = value.objectValue else { return "revisions.json is not an object" }
+        guard let sets = revisions["sets"]?.arrayValue else { return "sets is not an array" }
+        var ids = Set<String>()
+        for item in sets {
+            guard let set = item.objectValue else { return "a revision set is not an object" }
+            guard isID(set["id"]), let id = set["id"]?.stringValue else { return "a revision set id is malformed" }
+            if ids.contains(id) { return "revision set id \(id) is used twice" }
+            ids.insert(id)
+            if !isRevisionColour(set["colour"]) { return "a revision colour is unknown" }
+            if let mark = set["mark"], mark.stringValue == nil { return "a revision mark is not a string" }
+            if let name = set["name"], name.stringValue == nil { return "a revision name is not a string" }
+            if let at = set["at"], at.stringValue == nil { return "a revision time is not a string" }
+            guard let snapshot = set["snapshot"]?.stringValue, isValidPath(snapshot) else {
+                return "a revision snapshot path is not allowed"
+            }
+        }
+        if !isID(revisions["nextId"]) { return "nextId is malformed" }
+        return nil
+    }
+
+    static func checkProduction(_ value: JSONValue) -> String? {
+        guard let production = value.objectValue else { return "production.json is not an object" }
+        let state = production["state"]?.stringValue
+        if state != "development" && state != "prepared" && state != "issued" && state != "archived" {
+            return "production state is unknown"
+        }
+        if let sceneNumbersValue = production["sceneNumbers"] {
+            guard let sceneNumbers = sceneNumbersValue.objectValue else { return "sceneNumbers is not an object" }
+            if let locked = sceneNumbers["locked"], locked.boolValue == nil { return "sceneNumbers.locked is not a boolean" }
+        }
+        if let pagesValue = production["pages"] {
+            guard let pages = pagesValue.objectValue else { return "pages is not an object" }
+            if let fingerprintValue = pages["fingerprint"] {
+                guard let fingerprint = fingerprintValue.objectValue else { return "a layout fingerprint is not an object" }
+                if fingerprint["paginator"]?.stringValue == nil { return "a layout fingerprint has no paginator" }
+                if fingerprint["paper"]?.stringValue == nil { return "a layout fingerprint has no paper" }
+                if !isHex64(fingerprint["sha256"]) { return "a layout fingerprint digest is malformed" }
+            }
+            if let locksValue = pages["locks"] {
+                guard let locks = locksValue.arrayValue else { return "page locks is not an array" }
+                for item in locks {
+                    guard let lock = item.objectValue else { return "a page lock is not an object" }
+                    if lock["label"]?.stringValue == nil { return "a page lock has no label" }
+                    if let problem = checkPageAnchor(lock["start"], "start") { return problem }
+                    if let problem = checkPageAnchor(lock["end"], "end") { return problem }
+                }
+            }
+        }
+        if let omissionsValue = production["omissions"] {
+            guard let omissions = omissionsValue.arrayValue else { return "omissions is not an array" }
+            var ids = Set<String>()
+            for item in omissions {
+                guard let row = item.objectValue else { return "an omission is not an object" }
+                guard isID(row["id"]), let id = row["id"]?.stringValue else { return "an omission id is malformed" }
+                if ids.contains(id) { return "omission id \(id) is used twice" }
+                ids.insert(id)
+                if row["number"]?.stringValue == nil { return "an omission has no scene number" }
+                guard let elements = row["elements"]?.arrayValue, !elements.isEmpty,
+                      elements.allSatisfy({ $0.stringValue.map { isID(.string($0)) } ?? false }) else {
+                    return "an omission elements list is malformed"
+                }
+                if let issued = row["issued"], !isID(issued) { return "an omission issued set is malformed" }
+            }
+        }
+        if let tagsValue = production["tags"] {
+            guard let tags = tagsValue.arrayValue else { return "tags is not an array" }
+            for item in tags {
+                guard let tag = item.objectValue else { return "a tag is not an object" }
+                guard let id = tag["id"]?.stringValue, !id.isEmpty else { return "a tag has no id" }
+                if tag["label"]?.stringValue == nil { return "a tag has no label" }
+            }
+        }
+        if let deliveryValue = production["delivery"] {
+            guard let delivery = deliveryValue.objectValue else { return "delivery is not an object" }
+            for name in ["moreAndContinueds", "sceneNumbersOnRight"] {
+                if let flag = delivery[name], flag.boolValue == nil { return "delivery.\(name) is not a boolean" }
+            }
+        }
         return nil
     }
 
@@ -638,8 +791,16 @@ public enum DraftFile {
         if let notes = document.notes, let problem = checkNotes(.object(notes)) {
             throw DraftFormatError(code: "invalid-document", message: "the notes are invalid: \(problem)")
         }
+        if let revisions = document.revisions, let problem = checkRevisions(.object(revisions)) {
+            throw DraftFormatError(code: "invalid-document", message: "the revisions are invalid: \(problem)")
+        }
+        if let production = document.production, let problem = checkProduction(.object(production)) {
+            throw DraftFormatError(code: "invalid-document", message: "the production data is invalid: \(problem)")
+        }
         let script = canonicalScript(document.script)
         let notes = document.notes.map(canonicalNotes)
+        let revisions = document.revisions.map(canonicalRevisions)
+        let production = document.production.map(canonicalProduction)
 
         var fresh: [String: [UInt8]] = [:]
         fresh["script.json"] = Array(CanonicalJSON.canonical(.object(script)).utf8)
@@ -647,6 +808,8 @@ public enum DraftFile {
         var forRendition = document
         forRendition.script = script
         fresh["script.fountain"] = Array(Fountain.serialise(toScreenplay(forRendition).screenplay).utf8)
+        if let revisions { fresh["revisions.json"] = Array(CanonicalJSON.canonical(.object(revisions)).utf8) }
+        if let production { fresh["production.json"] = Array(CanonicalJSON.canonical(.object(production)).utf8) }
 
         var carried: [(String, [UInt8])] = []
         func isCarried(_ path: String) -> Bool { carried.contains { $0.0 == path } }
@@ -666,8 +829,9 @@ public enum DraftFile {
         }
         let keys = carried.map(\.0)
         let origin = keys.filter { $0.hasPrefix("origin/") }.sorted(by: byUnits)
+        let history = keys.filter { $0.hasPrefix("history/") }.sorted(by: byUnits)
         let extensions = keys.filter { $0.hasPrefix("ext/") }.sorted(by: byUnits)
-        let others = keys.filter { !$0.hasPrefix("origin/") && !$0.hasPrefix("ext/") }.sorted(by: byUnits)
+        let others = keys.filter { !$0.hasPrefix("origin/") && !$0.hasPrefix("ext/") && !$0.hasPrefix("history/") }.sorted(by: byUnits)
         var remaining = Dictionary(carried, uniquingKeysWith: { first, _ in first })
         var body: [(String, [UInt8])] = []
         for path in ["script.json", "notes.json", "script.fountain"] {
@@ -678,7 +842,10 @@ public enum DraftFile {
                 remaining[path] = nil
             }
         }
-        for path in origin + others + extensions {
+        for path in ["revisions.json", "production.json"] {
+            if let data = fresh[path] { body.append((path, data)) }
+        }
+        for path in history + origin + others + extensions {
             if let data = remaining[path] { body.append((path, data)) }
         }
 
@@ -839,6 +1006,27 @@ public enum DraftFile {
 
         var script = jsonPart("script.json", checkScript)
         var notes = jsonPart("notes.json", checkNotes)
+        func typedPart(_ path: String, _ check: (JSONValue) -> String?) -> JSONObject? {
+            guard let entry = entries[path] else { return nil }
+            if let error = entry.error {
+                damaged(path, error)
+                return nil
+            }
+            guard let value = readJSON(entry.data) else {
+                damaged(path, "it is not valid I-JSON")
+                return nil
+            }
+            if check(value) != nil { return nil }
+            if let digest = listed?[path], digest != SHA256Digest.hex(entry.data) {
+                diagnostics.append(DraftDiagnostic(code: "outside-edit", path: path))
+            }
+            return value.objectValue
+        }
+        let revisions = typedPart("revisions.json", checkRevisions)
+        let production = typedPart("production.json", checkProduction)
+        var typedPaths: Set<String> = []
+        if revisions != nil { typedPaths.insert("revisions.json") }
+        if production != nil { typedPaths.insert("production.json") }
         var fromRenditionIDs = false
         let rendition = entries["script.fountain"]
         if let error = rendition?.error { damaged("script.fountain", error) }
@@ -862,7 +1050,7 @@ public enum DraftFile {
             }
         }
 
-        for path in entryOrder where !fixedPaths.contains(path) {
+        for path in entryOrder where !fixedPaths.contains(path) && !typedPaths.contains(path) {
             let entry = entries[path]!
             if let error = entry.error {
                 damaged(path, error)
@@ -878,8 +1066,23 @@ public enum DraftFile {
             refindAnchors(script: script!, notes: &n, diagnostics: &diagnostics, idsTrusted: !fromRenditionIDs)
             notes = n
         }
-        let document = DraftDocument(title: title, script: script!, notes: notes, parts: parts, manifestExtra: manifestExtra)
-        return DraftReadResult(document: document, diagnostics: diagnostics, readOnly: readOnly)
+        var diagnosticsOut = diagnostics
+        if production?["state"] == .string("issued") {
+            let sets = revisions?["sets"]?.arrayValue ?? []
+            if sets.isEmpty {
+                diagnosticsOut.append(DraftDiagnostic(
+                    code: "state-contradiction",
+                    path: "production.json",
+                    detail: "state is \"issued\" but revisions.json has no sets"
+                ))
+            }
+        }
+        let document = DraftDocument(
+            title: title, script: script!, notes: notes,
+            revisions: revisions, production: production,
+            parts: parts, manifestExtra: manifestExtra
+        )
+        return DraftReadResult(document: document, diagnostics: diagnosticsOut, readOnly: readOnly)
     }
 }
 

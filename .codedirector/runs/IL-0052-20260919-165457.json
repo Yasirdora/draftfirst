@@ -1,0 +1,117 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0052-20260919-165457.json",
+  "baselineSha256": "f32be52270121edf69431f19744e2aa1f003db6704c8dcee88b98c20285432f1",
+  "budget": {
+    "filesChanged": 0,
+    "linesChanged": 0,
+    "maxFiles": 9,
+    "maxLines": 5000
+  },
+  "changed": [],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260919T165451181",
+    "createdAt": "2026-09-19T16:54:51.409Z",
+    "dirty": true,
+    "id": "ckpt-20260919T165451181",
+    "ref": "1b572c7fbab1e5938d2d12e7fda0f46ac4d2b969",
+    "statusHash": "de9f679352d3e8cb783e7e0e5e633734d68d44a123700e2b01a6c0719da0c645",
+    "tag": "cdir/ckpt-20260919T165451181"
+  },
+  "command": [
+    "true"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-19T16:54:57.934Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "existing Fixtures JSON other than draft.json is byte-identical after regeneration — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "apps are unchanged — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0052",
+  "startedAt": "2026-09-19T16:54:57.930Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0052-20260919-165457.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 2
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0052-20260919-165457.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0052-20260919-165457.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && git diff --quiet -- apple/eDraftEngine/Fixtures ':!apple/eDraftEngine/Fixtures/draft.json' && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore\" → exit 0",
+        "detail": "verifyCommand passed: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && git diff --quiet -- apple/eDraftEngine/Fixtures ':!apple/eDraftEngine/Fixtures/draft.json' && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && git diff --quiet -- apple/eDraftEngine/Fixtures ':!apple/eDraftEngine/Fixtures/draft.json' && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · existing Fixtures JSON other than draft.json is byte-identical after regeneration",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · apps are unchanged",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0052",
+    "verifiedAt": "2026-09-19T16:56:32.898Z",
+    "violations": []
+  },
+  "violations": []
+}

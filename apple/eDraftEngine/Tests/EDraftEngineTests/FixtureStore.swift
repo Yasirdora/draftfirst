@@ -516,6 +516,8 @@ enum DraftCorpus {
         let title: String?
         let script: String
         let notes: String?
+        let revisions: String?
+        let production: String?
         let manifestExtra: String?
         let parts: [Part]
     }
@@ -566,17 +568,21 @@ enum DraftCorpus {
             title: doc.title,
             script: try object(doc.script),
             notes: try doc.notes.map(object),
+            revisions: try doc.revisions.map(object),
+            production: try doc.production.map(object),
             parts: doc.parts.map { DraftPart(path: $0.path, data: CRC32Corpus.bytes(fromHex: $0.hex), damaged: $0.damaged) },
             manifestExtra: try doc.manifestExtra.map(object)
         )
     }
 
     /// The engine's document, as the fixture carries it.
-    static func doc(_ document: DraftDocument) -> (title: String?, script: String, notes: String?, manifestExtra: String?, parts: [Part]) {
+    static func doc(_ document: DraftDocument) -> (title: String?, script: String, notes: String?, revisions: String?, production: String?, manifestExtra: String?, parts: [Part]) {
         (
             document.title,
             CanonicalJSON.canonical(.object(document.script)),
             document.notes.map { CanonicalJSON.canonical(.object($0)) },
+            document.revisions.map { CanonicalJSON.canonical(.object($0)) },
+            document.production.map { CanonicalJSON.canonical(.object($0)) },
             document.manifestExtra.map { CanonicalJSON.canonical(.object($0)) },
             document.parts.map { Part(path: $0.path, hex: hex($0.data), damaged: $0.damaged) }
         )

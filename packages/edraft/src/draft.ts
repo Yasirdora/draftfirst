@@ -16,6 +16,8 @@ export type {
 export {
 	canonicalJson,
 	checkDraftNotes,
+	checkDraftProduction,
+	checkDraftRevisions,
 	checkDraftScript,
 	detectDraftFormat,
 	draftAnchorContext,

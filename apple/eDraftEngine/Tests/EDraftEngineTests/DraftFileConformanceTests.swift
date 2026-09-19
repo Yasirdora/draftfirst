@@ -119,6 +119,8 @@ struct DraftFileConformanceTests {
             #expect(doc.title == expected.title, "\(read.name): title")
             #expect(doc.script == expected.script, "\(read.name): script")
             #expect(doc.notes == expected.notes, "\(read.name): notes")
+            #expect(doc.revisions == expected.revisions, "\(read.name): revisions")
+            #expect(doc.production == expected.production, "\(read.name): production")
             #expect(doc.manifestExtra == expected.manifestExtra, "\(read.name): manifestExtra")
             #expect(doc.parts == expected.parts, "\(read.name): parts")
         }

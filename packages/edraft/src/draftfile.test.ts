@@ -54,6 +54,8 @@ function key(document: DraftDocument): string {
 		['title', document.title ?? null],
 		['script', document.script],
 		['notes', document.notes ?? null],
+		['revisions', document.revisions ?? null],
+		['production', document.production ?? null],
 		['manifestExtra', document.manifestExtra ?? null],
 		[
 			'parts',
@@ -198,6 +200,125 @@ describe('reading', () => {
 		expect(newerMinor.readOnly).toBe(true);
 		expect(newerMinor.diagnostics).toEqual([{ code: 'read-only-newer-minor', detail: '1.4' }]);
 		await expect(readDraft(bump('2.0', '2.0'))).rejects.toMatchObject({ code: 'newer-major' });
+	});
+});
+
+
+
+describe('production parts (RFC-DRAFT-PRODUCTION §6–§7)', () => {
+	const sha = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+	const pageAnchor = (element: string, offset: number): JsonObject =>
+		new Map<string, JsonValue>([['element', element], ['offset', offset]]);
+	const pages = (): JsonObject => new Map<string, JsonValue>([
+		['fingerprint', new Map<string, JsonValue>([['paginator', '1.0'], ['paper', 'us-letter'], ['sha256', sha]])],
+		['locks', [new Map<string, JsonValue>([
+			['label', '1'],
+			['start', pageAnchor('1', 0)],
+			['end', pageAnchor('8', 0)]
+		])]]
+	]);
+
+	function prepared(): DraftDocument {
+		const document = sampleDocument();
+		document.revisions = new Map<string, JsonValue>([['sets', []], ['nextId', '1']]);
+		document.production = new Map<string, JsonValue>([
+			['state', 'prepared'],
+			['sceneNumbers', new Map<string, JsonValue>([['locked', true]])],
+			['pages', pages()]
+		]);
+		return document;
+	}
+
+	it('round-trips a prepared file with revisions.json and production.json', async () => {
+		const document = prepared();
+		const bytes = writeDraft(document, { writer: WRITER });
+		const names = [...(await entriesOf(bytes)).keys()];
+		expect(names.indexOf('script.fountain')).toBeLessThan(names.indexOf('revisions.json'));
+		expect(names.indexOf('revisions.json')).toBeLessThan(names.indexOf('production.json'));
+		const result = await readDraft(bytes);
+		expect(result.diagnostics).toEqual([]);
+		expect(writeDraft(result.document, { writer: WRITER })).toEqual(bytes);
+		expect(key(result.document)).toBe(key(document));
+	});
+
+	it('round-trips an issued file with two sets and a snapshot path', async () => {
+		const document = prepared();
+		document.revisions = new Map<string, JsonValue>([
+			['sets', [
+				new Map<string, JsonValue>([
+					['id', '1'], ['colour', 'White'], ['mark', '*'], ['name', 'White draft'],
+					['at', '2026-09-01T12:00:00Z'], ['snapshot', 'history/prepared.json']
+				]),
+				new Map<string, JsonValue>([
+					['id', '2'], ['colour', 'Blue'], ['mark', '*'], ['name', 'Blue revisions'],
+					['at', '2026-09-18T10:00:00Z'], ['snapshot', 'history/2.json']
+				])
+			]],
+			['nextId', '3']
+		]);
+		document.production!.set('state', 'issued');
+		const bytes = writeDraft(document, { writer: WRITER });
+		const result = await readDraft(bytes);
+		expect(result.diagnostics).toEqual([]);
+		expect(writeDraft(result.document, { writer: WRITER })).toEqual(bytes);
+		expect((result.document.revisions!.get('sets') as JsonObject[]).map((s) => s.get('snapshot'))).toEqual([
+			'history/prepared.json', 'history/2.json'
+		]);
+	});
+
+	it('round-trips an omission, keeping the body in script.json', async () => {
+		const document = prepared();
+		document.production!.set('omissions', [
+			new Map<string, JsonValue>([['id', '1'], ['number', '1'], ['elements', ['1']], ['issued', '1']])
+		]);
+		const bytes = writeDraft(document, { writer: WRITER });
+		const result = await readDraft(bytes);
+		expect(result.diagnostics).toEqual([]);
+		expect(writeDraft(result.document, { writer: WRITER })).toEqual(bytes);
+		expect((document.script.get('elements') as JsonObject[])[0]!.get('text')).toBe('INT. KITCHEN - NIGHT');
+	});
+
+	it('keeps unknown members inside sets, locks, omissions and tags', async () => {
+		const document = prepared();
+		(document.revisions!.get('sets') as JsonValue[]);
+		document.revisions!.set('sets', [
+			new Map<string, JsonValue>([
+				['id', '1'], ['colour', 'White'], ['snapshot', 'history/prepared.json'], ['com.example.note', 'kept']
+			])
+		]);
+		document.revisions!.set('nextId', '2');
+		const lock = ((document.production!.get('pages') as JsonObject).get('locks') as JsonObject[])[0]!;
+		lock.set('com.example.gap', true);
+		document.production!.set('omissions', [
+			new Map<string, JsonValue>([['id', '1'], ['number', '1'], ['elements', ['1']], ['mood', 'wry']])
+		]);
+		document.production!.set('tags', [
+			new Map<string, JsonValue>([['id', 't1'], ['label', 'kettle'], ['color', 'teal']])
+		]);
+		const first = writeDraft(document, { writer: WRITER });
+		const read = await readDraft(first);
+		expect(read.diagnostics).toEqual([]);
+		expect(writeDraft(read.document, { writer: WRITER })).toEqual(first);
+		expect(((read.document.revisions!.get('sets') as JsonObject[])[0]!.get('com.example.note'))).toBe('kept');
+	});
+
+	it('a development file writes neither part', async () => {
+		const names = [...(await entriesOf(writeDraft(sampleDocument(), { writer: WRITER }))).keys()];
+		expect(names).not.toContain('revisions.json');
+		expect(names).not.toContain('production.json');
+	});
+
+	it('reports issued state with empty sets, and does not pick a state', async () => {
+		const document = prepared();
+		document.production!.set('state', 'issued');
+		const result = await readDraft(writeDraft(document, { writer: WRITER }));
+		expect(result.document.production!.get('state')).toBe('issued');
+		expect(result.document.revisions!.get('sets')).toEqual([]);
+		expect(result.diagnostics).toEqual([{
+			code: 'state-contradiction',
+			path: 'production.json',
+			detail: 'state is "issued" but revisions.json has no sets'
+		}]);
 	});
 });
 

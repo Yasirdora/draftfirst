@@ -1684,6 +1684,8 @@ function draftDocJson(document) {
 	if (document.title !== undefined) out.title = document.title;
 	out.script = canonicalJson(document.script);
 	if (document.notes !== undefined) out.notes = canonicalJson(document.notes);
+	if (document.revisions !== undefined) out.revisions = canonicalJson(document.revisions);
+	if (document.production !== undefined) out.production = canonicalJson(document.production);
 	if (document.manifestExtra !== undefined) out.manifestExtra = canonicalJson(document.manifestExtra);
 	out.parts = document.parts.map((part) => ({ path: part.path, hex: draftHex(part.data), damaged: part.damaged === true }));
 	return out;
@@ -1771,6 +1773,68 @@ function draftDamagedCarried() {
 	return document;
 }
 
+
+const DRAFT_EMPTY_SHA = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+function draftPages() {
+	return new Map([
+		['fingerprint', new Map([['paginator', '1.0'], ['paper', 'us-letter'], ['sha256', DRAFT_EMPTY_SHA]])],
+		['locks', [new Map([
+			['label', '1'],
+			['start', new Map([['element', '1'], ['offset', 0]])],
+			['end', new Map([['element', '8'], ['offset', 0]])]
+		])]]
+	]);
+}
+function draftPrepared() {
+	const document = draftSample();
+	document.revisions = new Map([['sets', []], ['nextId', '1']]);
+	document.production = new Map([
+		['state', 'prepared'],
+		['sceneNumbers', new Map([['locked', true]])],
+		['pages', draftPages()]
+	]);
+	return document;
+}
+function draftIssued() {
+	const document = draftPrepared();
+	document.revisions = new Map([
+		['sets', [
+			new Map([['id', '1'], ['colour', 'White'], ['mark', '*'], ['name', 'White draft'], ['at', '2026-09-01T12:00:00Z'], ['snapshot', 'history/prepared.json']]),
+			new Map([['id', '2'], ['colour', 'Blue'], ['mark', '*'], ['name', 'Blue revisions'], ['at', '2026-09-18T10:00:00Z'], ['snapshot', 'history/2.json']])
+		]],
+		['nextId', '3']
+	]);
+	document.production.set('state', 'issued');
+	return document;
+}
+function draftOmission() {
+	const document = draftPrepared();
+	document.production.set('omissions', [
+		new Map([['id', '1'], ['number', '1'], ['elements', ['1']], ['issued', '1']])
+	]);
+	return document;
+}
+function draftProductionUnknown() {
+	const document = draftPrepared();
+	document.revisions.set('sets', [
+		new Map([['id', '1'], ['colour', 'White'], ['snapshot', 'history/prepared.json'], ['com.example.note', 'kept']])
+	]);
+	document.revisions.set('nextId', '2');
+	document.production.get('pages').get('locks')[0].set('com.example.gap', true);
+	document.production.set('omissions', [
+		new Map([['id', '1'], ['number', '1'], ['elements', ['1']], ['mood', 'wry']])
+	]);
+	document.production.set('tags', [
+		new Map([['id', 't1'], ['label', 'kettle'], ['color', 'teal']])
+	]);
+	return document;
+}
+function draftIssuedEmptySets() {
+	const document = draftPrepared();
+	document.production.set('state', 'issued');
+	return document;
+}
+
 const draftWrites = [
 	['sample', draftSample()],
 	['no-notes-no-title', draftFromScreenplay(parseFountain('INT. HALL - DAY\n\nQuiet.\n', { emphasis: 'runs' }))],
@@ -1778,7 +1842,12 @@ const draftWrites = [
 	['must-preserve', draftMustPreserve()],
 	['parts', draftWithParts()],
 	['damaged-carried', draftDamagedCarried()],
-	['empty', draftFromScreenplay({ titlePage: [], elements: [] })]
+	['empty', draftFromScreenplay({ titlePage: [], elements: [] })],
+	['development', draftSample()],
+	['prepared', draftPrepared()],
+	['issued', draftIssued()],
+	['omission', draftOmission()],
+	['production-unknown', draftProductionUnknown()]
 ].map(([name, document]) => ({ name, document: draftDocJson(document), bytes: draftHex(writeDraft(document, { writer: DRAFT_WRITER })) }));
 
 async function draftEntries(bytes) {
@@ -1905,6 +1974,7 @@ const draftReadInputs = [
 	})],
 	['anchor-detached', await draftScriptEdit('everything', (script) => script.get('elements').splice(1, 1))],
 	['not-a-draft', writeZipStored([{ name: 'word/document.xml', data: draftUtf8('<w/>') }])],
+	['issued-empty-sets', writeDraft(draftIssuedEmptySets(), { writer: DRAFT_WRITER })],
 	['not-a-zip', draftUtf8('INT. HALL - DAY\n')]
 	/* The 512-entry limit is pinned by each port's own tests, not here: an
        archive over it is 100 KB of fixture for one refusal. */

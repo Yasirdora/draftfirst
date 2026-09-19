@@ -1,0 +1,64 @@
+schemaVersion: 1
+id: IL-0052
+status: verified
+utterance: "Task: engine support for the .draft production parts (RFC-DRAFT-PRODUCTION §14's next engine lock). Engine only — no app wiring."
+goal: "Both engines read and write revisions.json and production.json per RFC-DRAFT-PRODUCTION §6–§7: I-JSON, member order, unknown-member preservation, amended entry order, state-contradiction diagnostics. TypeScript is source of truth; Swift byte-identical. engine:conformance extends draft.json with prepared, issued (two sets + snapshot path), omission, unknown-member round-trip, and development-neither-part cases; existing fixture files other than draft.json are unchanged. No app wiring, no history snapshot writing, no page-map generation, no notes.json schema change, no new dependencies. Exit: a prepared .draft with both parts and an omission round-trips byte-identically in both engines; a reader reports state contradiction."
+interpretation: |
+  Engine only, both ports. TypeScript is the source of truth; Swift matches
+  it through generated Fixtures/draft.json. revisions.json and
+  production.json per RFC-DRAFT-PRODUCTION §6–§7: I-JSON, member order,
+  unknown-member preservation, ZIP entry order (fresh parts after
+  script.fountain), state-contradiction diagnostic when production state
+  is issued and sets are empty. No app, no history body generation, no
+  page-map from the paginator, no notes.json schema change. Ceiling 5,000
+  (human, 2026-09-19); verify with test:package not full npm test while
+  the web tree is dirty.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: existing Fixtures JSON other than draft.json is byte-identical after regeneration
+  - kind: custom
+    text: apps are unchanged
+deny:
+  - apple/EDraftCore/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUI/**
+  - apple/eDraft/**
+  - apple/macOS/**
+  - src/**
+  - static/**
+  - docs/**
+  - package.json
+  - package-lock.json
+change: Both engines read and write revisions.json and production.json; draft.json gains the production cases; apps unchanged.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && git diff --quiet -- apple/eDraftEngine/Fixtures ':!apple/eDraftEngine/Fixtures/draft.json' && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/draftfile.ts
+    - packages/edraft/src/draftfile.test.ts
+    - packages/edraft/src/draft.ts
+    - packages/edraft/CHANGELOG.md
+    - apple/eDraftEngine/Sources/EDraftEngine/Export/DraftFile.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/DraftFileConformanceTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+    - apple/eDraftEngine/Fixtures/draft.json
+    - scripts/engine-conformance-export.mjs
+  symbols: []
+  maxFiles: 9
+  maxLines: 5000
+accept:
+  - A prepared .draft with revisions.json, production.json and an omission round-trips byte-identically through both engines.
+  - A reader seeing production.json state "issued" with empty revision sets reports a diagnostic and does not silently pick a state.
+assumptions:
+  - text: "Human approved (2026-09-19): test:package while the web tree is dirty (full npm test deferred); ceiling 5,000; commit only when asked, by explicit path."
+    source: user
+    confirmed: true
+  - text: Auto-anchor on paginate.ts BlockSource.next is noise. Budget is the nine engine/exporter/fixture files named.
+    source: user
+    confirmed: true
+  - text: Deny is the human's app/docs/src/static list, not the auto-suggested test globs.
+    source: user
+    confirmed: true
+createdAt: 2026-09-19T16:37:16.087Z
+createdBy: Yasirdora
