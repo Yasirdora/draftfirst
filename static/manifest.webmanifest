@@ -2,7 +2,7 @@
 	"name": "eDraft Screenwriting",
 	"short_name": "eDraft",
 	"description": "A private, browser-based screenplay editor with Fountain and FDX support.",
-	"start_url": "/",
+	"start_url": "/screenplay",
 	"display": "standalone",
 	"background_color": "#E8EBEE",
 	"theme_color": "#2A5B8C",
