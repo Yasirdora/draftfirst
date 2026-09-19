@@ -1,0 +1,150 @@
+schemaVersion: 1
+id: IL-0047
+status: active
+utterance: "run the app and commit as well after that proceed with professionalism — [next: RFC-DRAFT-FORMAT stage S1, the engine]"
+goal: Both engines read and write the .draft 1.0 container of RFC-DRAFT-FORMAT §4–§11 — the ISO/IEC 21320-1 ZIP profile, the manifest with per-part SHA-256 and RFC 8785 fingerprints, script.json with stable counter ids, notes.json threads, the Fountain rendition, origin/ parts, must-preserve of unknown parts and members, the recovery ladder, the limits, and legacy detection by first bytes — byte-identical across TypeScript and Swift, with entries stored (deflate writing waits for O1/O2); the apps are unchanged.
+interpretation: |
+  RFC-DRAFT-FORMAT's stage S1 (d224dbf), narrowed so it depends on no open
+  decision. The engine only, both ports; TypeScript is the source of truth
+  and the Swift port matches it through generated conformance fixtures
+  (HANDOFF rule 2). No app, no UI, no document class changes: opening and
+  saving in eDraft behave exactly as today until S2.
+
+  WHAT EXISTS (measured):
+    - TypeScript: zip.ts reads stored and deflated entries (inflate through
+      the platform), with limits of 512 entries / 64 MiB / 128 MiB;
+      zipwrite.ts writes stored entries, deterministically, but stamps DOS
+      date 0 and never sets the UTF-8 flag; crc32.ts.
+    - Swift: CRC32.swift only — no ZIP reader or writer, no SHA-256.
+
+  WHAT IT BUILDS, both engines:
+    1. The container (§4): mimetype first and stored; entries in §4.2's
+       order; the 1980-01-01 stamp; bit 11 for non-ASCII names; §4.2's
+       path rules; §4.3's limits enforced before decompressing or parsing.
+       zipwrite.ts gains these as options; its defaults — the .docx
+       writer's bytes — do not change.
+    2. The parts (§5): canonical JSON (§5.1); manifest.json with SHA-256
+       per part and RFC 8785 (JCS) fingerprints; script.json with counter
+       ids and nextId (§6.1); notes.json threads; script.fountain written
+       by the existing serialiser; origin/ parts carried byte for byte.
+       SHA-256: a small own implementation in TypeScript (the engine is
+       dependency-free and synchronous; Web Crypto's digest is async),
+       CryptoKit in Swift; both pinned by the same vectors.
+    3. Must-preserve (§8.2): unknown parts and unknown members survive a
+       read and write byte for byte; minReader and version rules (§8.1).
+    4. The recovery ladder (§7.2), every rung, including reading a
+       truncated file from its local headers.
+    5. Legacy detection by first bytes (§11.1): .draft 1.x, PDF, FDX,
+       UTF-8 text, refused.
+    6. Bridges for today's apps, so S2 can adopt the format without a big
+       bang: fromScreenplay (counter ids; each note element becomes a
+       thread anchored to the whole element after it, §6.6 — its text kept
+       whole; author recognition stays in EDraftCore) and toScreenplay
+       (threads back to note elements in front of their element; a word
+       anchor degrades to its line, said in a diagnostic).
+
+  DEFERRED, named:
+    - Writing deflated entries — O1 (compression) and O2 (omnipdf as a
+      dependency or a port) are the human's. Readers accept deflate now;
+      writers store. S1 measures and reports B1 (size) for stored and for
+      omnipdf's deflate, and B2 (open time), which is what O1 needs.
+    - The apps (S2), notes on words (S3), threads UI (S4), the .draft PDF
+      (S5), platforms (S6), publication (S7).
+
+  FIXTURES: invented script text only (the repository is public).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: every existing conformance fixture and corpus expectation is byte-identical after regeneration, and the .docx writer's output does not change
+  - kind: custom
+    text: the apps are unchanged — no file under EDraftCore, EDraftUI, the Mac or iOS surfaces, the app targets or the web app is touched, and opening and saving .draft in eDraft behaves exactly as today
+  - kind: custom
+    text: the TypeScript and Swift engines write byte-identical .draft files for every conformance case, and read every case to the same document
+  - kind: custom
+    text: no reader path crashes on any input, opens damaged data without saying so, or discards bytes it was given — every rung of the recovery ladder says what it kept and what it lost
+deny:
+  - package.json
+  - package-lock.json
+  - apple/eDraftEngine/Package.swift
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/macOS/**
+  - apple/eDraft.xcodeproj/**
+  - src/**
+  - docs/**
+  - packages/edraft/src/parse.ts
+  - packages/edraft/src/serialise.ts
+  - packages/edraft/src/fdx.ts
+  - packages/edraft/src/types.ts
+  - packages/edraft/src/paginate.ts
+  - apple/eDraftEngine/Sources/EDraftEngine/Fountain/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Paginate/**
+change: The .draft 1.0 container in both engines — write and read, manifest and fingerprints, counter ids, threads, rendition, origin, must-preserve, recovery, limits, legacy detection — stored entries only; the apps unchanged.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && git diff --quiet -- apple/eDraftEngine/Fixtures && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/draftfile.ts
+    - packages/edraft/src/draftfile.test.ts
+    - packages/edraft/src/draft.ts
+    - packages/edraft/src/sha256.ts
+    - packages/edraft/src/sha256.test.ts
+    - packages/edraft/src/zipwrite.ts
+    - packages/edraft/src/zipwrite.test.ts
+    - packages/edraft/src/zip.ts
+    - packages/edraft/src/zip.test.ts
+    - packages/edraft/src/platform.ts
+    - packages/edraft/package.json
+    - packages/edraft/CHANGELOG.md
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/draft.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Export/DraftFile.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Export/Zip.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Export/CanonicalJSON.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/DraftFileConformanceTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/DraftFileRecoveryTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+  symbols: []
+  maxFiles: 20
+  maxLines: 6500
+accept:
+  - "WRITE, both engines: a document writes an ISO/IEC 21320-1-profile ZIP — mimetype stored first (its content at byte 38), §4.2's order, the 1980-01-01 stamp, the UTF-8 flag rule, canonical JSON parts, a manifest with each part's SHA-256 and JCS fingerprints — and the two ports write identical bytes for every conformance case (B4)."
+  - "READ: every conformance case reads back to the same document in both ports; ids, nextId, threads with word anchors, messages, status, origin parts and the rendition all survive."
+  - "MUST-PRESERVE: unknown parts and unknown members survive read and write byte for byte (B5); a file whose minReader is newer opens read-only; a newer major is refused."
+  - "RECOVERY: each rung of §7.2 pinned — an outside edit (hash differs, part valid), a damaged part kept byte for byte, script.json damaged so the rendition opens it with threads detached, a truncated file read from its local headers, nothing readable refused; §4.3's limits refuse with a reason."
+  - "FUZZ, both engines: every single-byte change and every truncation of the fixture files — no crash, and nothing damaged opens without a diagnostic (B3)."
+  - "LEGACY: detection by first bytes for .draft 1.x, PDF, FDX, UTF-8 text and refusal; an XML file named .draft is FDX (B7, engine half)."
+  - "BRIDGES: fromScreenplay and toScreenplay round-trip every existing parse-corpus case's printable elements and notes; a word anchor degrading to its line is a diagnostic."
+  - "MEASURED AND REPORTED: B1 (size against FDX on the fixtures, stored and with omnipdf's deflate) and B2 (open time), for O1."
+  - "KEEPS: every existing fixture byte-identical; the .docx writer's bytes unchanged; suites green — TypeScript, the Swift engine, EDraftCore."
+assumptions:
+  - text: "Ceiling raised by the human (2026-09-19) from 5,000 to 6,500 lines. Measured before the run: 5,857 changed lines — engine source 2,980 in both ports (estimate ~2,000: each port carries its own strict JSON parser, canonical writer, schema checks and recovery), tests 943, the generated fixture 1,539 (7 write and 29 read cases, bytes pinned), export script, changelog and exports 395. Nothing trimmed."
+    source: user
+    confirmed: true
+  - text: "Budget widened by the human during the build (2026-09-19): packages/edraft/src/platform.ts, for a two-line fix. Measured: inflateRaw leaves the write side's promise unhandled when the stream is corrupt, truncated or empty, and Node exits on the unhandled rejection even though the read error is caught; the .docx import has the same exposure. The tolerant reader passes damaged entries to it, so without the fix a damaged .draft could end the process. Regression test in zip.test.ts."
+    source: user
+    confirmed: true
+  - text: Budget and deny replaced by hand. The auto-draft anchored on "next" and "run" and proposed the paginator, a freshness script and an app test.
+    source: system
+    confirmed: false
+  - text: "Scoped from RFC-DRAFT-FORMAT stage S1 (committed d224dbf), narrowed to depend on no open decision: stored entries only until O1/O2."
+    source: system
+    confirmed: false
+  - text: New files sit in folders already tracked (packages/edraft/src, Export/, EDraftEngineTests, Fixtures) — Code Director 0.4.5 misjudges files in new folders.
+    source: system
+    confirmed: false
+  - text: The run will be flagged for the other session's four pre-existing paths (apple/eDraft.icon/ and three deleted AppIcon images) unless they are committed first — the IL-0044/IL-0046 pattern.
+    source: system
+    confirmed: false
+  - text: "maxLines 5,000: two ports of a container, SHA-256, canonical JSON and recovery (~2,000), tests and fuzzing in both (~1,800), the generated fixture (~800), the export script and changelog (~200)."
+    source: system
+    confirmed: false
+createdAt: 2026-09-18T21:45:02.016Z
+createdBy: Yasirdora

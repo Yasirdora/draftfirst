@@ -1,0 +1,34 @@
+schemaVersion: 1
+id: IL-0048
+status: draft
+utterance: "Draft and publish a complete eDraft App Store privacy policy as clean HTML followed by a plain-text version, using only the supplied facts, with Last updated: September 19, 2026 and [SUPPORT EMAIL] placeholder."
+goal: Create publication-ready privacy policy deliverables for eDraft without inventing data practices.
+interpretation: TODO — the system's operationalization of the goal (edit to correct it)
+keep:
+  - kind: no-new-dependency
+deny:
+  - src/**
+  - apple/**
+  - package*.json
+  - "*.swift"
+change: TODO — one-line scope description
+verifyCommand: test -s docs/privacy-policy.html && test -s docs/privacy-policy.txt
+budget:
+  files:
+    - "2"
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — ElementCaseMemory.text — apple/EDraftCore/Sources/EDraftCore/ElementCaseMemory.swift (Swift); "text" is its whole name · PageArrangement.store — apple/EDraftCore/Sources/EDraftCore/PageLayoutMode.swift (Swift); "store" is its whole name · PageLayoutMode.store — apple/EDraftCore/Sources/EDraftCore/PageLayoutMode.swift (Swift); "store" is its whole name · PagePaper.store — apple/EDraftCore/Sources/EDraftCore/PagePaper.swift (Swift); "store" is its whole name · TitlePage.text — apple/eDraftEngine/Sources/EDraftEngine/Model/TitlePage.swift (Swift); "text" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: ElementCaseMemory.text, PageArrangement.store, PageLayoutMode.store, PagePaper.store, TitlePage.text (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-18T22:53:06.896Z
+createdBy: Yasirdora

@@ -1,0 +1,35 @@
+eDraft Privacy Policy
+
+Last updated: September 19, 2026
+
+OUR APPROACH
+
+eDraft is a screenwriting app for Mac, iPhone, and iPad. It is designed to keep your work yours. We do not collect personal data through eDraft. There are no accounts, logins, registrations, or email collection. We do not use analytics, crash-reporting services, third-party SDKs, advertising, ad identifiers, or tracking across apps or websites.
+
+DATA NOT COLLECTED
+
+eDraft’s App Store privacy disclosure is Data Not Collected. eDraft does not collect, retain, or transmit information about you, your use of the app, or the content you create in it.
+
+WHAT eDRAFT STORES
+
+Your screenplays are plain-text files that you own. They are stored on your device or in your personal iCloud Drive. eDraft does not operate a server or backend, and the developer never receives, stores, or can read your scripts, notes, or files. We do not share or sell your data—ever.
+
+ICLOUD
+
+When you use iCloud, eDraft reads and writes only inside its own iCloud Documents container, named iCloud.xyz.edraft. Sync between your devices happens entirely through your own iCloud account, operated by Apple. Your access to iCloud and the handling of information by Apple are governed by your Apple ID and Apple’s iCloud terms. eDraft does not receive a copy of your iCloud files.
+
+CAMERA SCANNING
+
+On iPhone and iPad, eDraft offers an optional feature that photographs paper pages for scanning. Scans are processed entirely on your device and are never uploaded anywhere. You choose whether to use this feature and whether to grant camera access.
+
+CHILDREN’S PRIVACY
+
+eDraft does not knowingly collect personal information from children or from anyone else. Because eDraft has no accounts, analytics, advertising, or data-collection systems, it has no child-specific personal information to retain or share.
+
+CHANGES TO THIS POLICY
+
+If our privacy practices change, we will update this policy and its “Last updated” date. The current version will describe the practices that apply to eDraft.
+
+CONTACT
+
+If you have a privacy question about eDraft, contact us at [SUPPORT EMAIL].

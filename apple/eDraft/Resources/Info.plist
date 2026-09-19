@@ -75,6 +75,18 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.xyz.edraft</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerName</key>
+			<string>eDraft</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Scanning uses the camera to photograph pages. Scans are processed on this device and never uploaded.</string>
 	<key>UIApplicationSceneManifest</key>

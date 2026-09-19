@@ -67,6 +67,17 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidatio
         DispatchQueue.global().async {
             _ = FileManager.default.url(forUbiquityContainerIdentifier: iCloudContainerID)
         }
+        // With iCloud enabled, Tahoe shows its own document-browser open
+        // panel at launch and never asks applicationShouldOpenUntitledFile —
+        // the system's panel replaces the app's front door. Close it and
+        // open ours instead; a launch that opened a document has no panel
+        // and skips this entirely.
+        for window in NSApp.windows {
+            (window as? NSOpenPanel)?.cancel(nil)
+        }
+        if NSDocumentController.shared.documents.isEmpty {
+            showLaunchWindow()
+        }
     }
 
     /// Reopening from the Dock with nothing on screen means the same thing as

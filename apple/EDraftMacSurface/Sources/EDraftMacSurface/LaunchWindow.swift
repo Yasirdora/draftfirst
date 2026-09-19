@@ -204,7 +204,7 @@ public struct LaunchWindow: View {
         VStack(alignment: .leading, spacing: 8) {
             LaunchIdentity.title
                 .font(.system(size: 40, weight: .bold))
-            Text("Screenplays, in plain text that stays yours.")
+            Text("Stories begin here.")
                 .font(.system(size: 16))
                 .foregroundStyle(.secondary)
             // Their shortcuts belong to the menu bar, which reaches this
