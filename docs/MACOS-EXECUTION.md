@@ -464,6 +464,13 @@ production drafts and counting.
       **Stepping to the next note revealed its line unconditionally**, which
       scrolled it to the top and took the caret with it — it now scrolls only
       when the mark is off screen.
+- [x] **Grid is a map of the pages.** Each visible card paints a miniature of
+      that page's type at the card's own scale; cards well below the fold are
+      not snapshotted. Page numbers use `screenplayInk` — the caret's pairing
+      with the paper — so they stay readable on cream in the dark. A note mark
+      sits on the card that holds its line, not on the hidden full-width
+      column. Single click still selects; double click still opens the sheet.
+      `GridMapTests`.
 - [x] **The outline is a writer's structure, not stage directions.**
       `Outline 1/2/3` and `Summary` had no entries either, so 82 headings and
       57 summaries printed as action — and took the page count with them,

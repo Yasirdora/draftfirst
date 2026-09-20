@@ -339,7 +339,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             forName: NSView.boundsDidChangeNotification,
             object: scrollView.contentView, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.repositionFormatBar() }
+            MainActor.assumeIsolated {
+                self?.repositionFormatBar()
+                self?.canvas.refreshVisibleGridPreviews()
+            }
         }
         for (name, live) in [
             (NSScrollView.willStartLiveMagnifyNotification, true),
@@ -1902,6 +1905,14 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 inCanvas = canvas.convert(geometry.rect, from: geometry.view)
                 marginX = canvas.convert(geometry.view.bounds, from: geometry.view).maxX + PageCanvasView.noteMarkerGap
                 page = pageIndex(containing: range.location)
+            } else if canvas.arrangement == .grid {
+                guard let rect = boundingRect(atCharacter: range.location) else { continue }
+                page = pageIndex(containing: range.location)
+                guard let mapped = canvas.gridNotePlacement(textRect: rect, page: page) else { continue }
+                inCanvas = CGRect(
+                    x: mapped.marginX, y: mapped.lineTop, width: 0, height: mapped.lineHeight
+                )
+                marginX = mapped.marginX
             } else {
                 guard let rect = boundingRect(atCharacter: range.location) else { continue }
                 let drawn = (textView as? ArrangedTextView)?.fold?.spreadRect(fromVertical: rect) ?? rect

@@ -1,0 +1,66 @@
+schemaVersion: 1
+id: IL-0070
+status: verified
+utterance: |-
+  Make Grid show the script. Repo /Users/x/Documents/edraft, branch rename/edraft, HEAD 02f4bb9 (clean tree — verify with git status first; never stage the xcscheme file, .codedirector/mcp.log, or the repo-root png files). Follow CLAUDE.md exactly: lock_draft → show me the Vibe Check → wait for my yes → lock_check + lock_activate → every change through run_locked → report. No commits, no co-author trailers.
+  The diagnosis is already measured — your job is the fix, not the search. In grid arrangement (apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift), the text view is hidden (line ~386) and cards draw as blank paper with a centered page number — "a map, not a typesetting." Three defects: (1) cards show no text, so the map is unreadable; (2) the page-number labels are invisible in dark mode — they're painted in a label color that resolves light-on-cream (compare the caret-color fix documented in applyAppearance); (3) note markers are placed in the hidden full-width text column's coordinates (ScriptSurface placeNoteMarkers), so in grid they land on whichever card sits at that spot instead of on the note's own page.
+  Done means: each visible card draws a miniature of its page's real text (at 4-across the type is texture, not reading matter — same taste as Final Draft's panel), the page number is legible on the paper in both light and dark appearances, and a note marker sits on the correct card at the correct scaled height. Grid stays a map: single click selects, double click opens the sheet (existing behavior, keep it). The legacy path and Single/Two-page modes stay byte-for-byte behaviorally unchanged.
+  Performance is a hard requirement, not a hope: the old comment "Grid must open without snapshotting the script" existed because a 900-page draft must not rasterize 900 bitmaps on open. Render lazily — visible cards only, on scroll — and measure open time on a 100+ page script before and after; report both numbers. Rasterization quality: text must be drawn at the card's scale, not a full-size bitmap downscaled by the layer (that shimmers).
+  Budget proposal: PageCanvasView.swift, ScriptSurface.swift, NoteMarker if needed, the surface test files, plus docs/MACOS-EXECUTION.md if behavior notes change. Deny: every other package, apple/macOS, apple/iOS, EDraftCore, eDraftEngine, EDraftUI, packages/**, manifests, project files. Proof: swift test --package-path apple/EDraftMacSurface green (currently 296, 5 skipped); new tests pinning (a) marker frames inside the correct card's rect in grid, (b) label/paper contrast in both appearances, (c) visible cards carry rendered content — a rasterize-and-sample test like the probe that diagnosed this; the macOS Debug build passes.
+goal: Grid cards show a miniature of each page's real text, page numbers stay legible on paper in light and dark, and note markers sit on the correct card at the scaled height. Render lazily for visible cards only. Single/Two-page and the legacy path stay unchanged. No commits.
+interpretation: Grid cards show a miniature of each page's real text. Page numbers use screenplayInk so they stay legible on paper in light and dark. Note markers sit on the owning card at the scaled line height. Paint is lazy — visible cards only. Single Two-page Continuous and the legacy path stay unchanged. No commit.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no commit and no co-author trailers
+  - kind: custom
+    text: Single Two-page Continuous and the legacy path stay behaviorally unchanged
+  - kind: custom
+    text: never stage eDraft.xcscheme mcp.log or repo-root png files
+  - kind: custom
+    text: grid remains a map single click selects double click opens the sheet
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/eDraft/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/EDraftUI/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft.xcodeproj/**
+  - packages/**
+  - src/**
+  - "**/Package.swift"
+change: Lazy Grid page miniatures legible page numbers and note markers on the owning card.
+verifyCommand: swift test --package-path apple/EDraftMacSurface
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/NoteMarker.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/GridMapTests.swift
+    - docs/MACOS-EXECUTION.md
+  symbols: []
+  maxFiles: 6
+  maxLines: 1500
+accept: []
+assumptions:
+  - text: Grid stays on the legacy single-container path. Default paper stays cream. Page numbers use screenplayInk and sit at the foot of the card. Offscreen cards drop bitmaps. No commit.
+    source: user
+    confirmed: true
+  - text: Tree HEAD 02f4bb9 on rename/edraft. Leave eDraft.xcscheme mcp.log and repo-root pngs unstaged.
+    source: user
+    confirmed: true
+createdAt: 2026-09-20T18:33:46.634Z
+createdBy: Yasirdora

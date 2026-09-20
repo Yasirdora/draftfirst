@@ -1,0 +1,161 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0070-20260920-191639.json",
+  "baselineSha256": "08550b025b0bd96d00d24f83ebc10893d59999e8ca1fc028746d3bd2732084db",
+  "budget": {
+    "filesChanged": 2,
+    "linesChanged": 18,
+    "maxFiles": 6,
+    "maxLines": 1500
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/GridMapTests.swift",
+      "status": "??"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T191632560",
+    "createdAt": "2026-09-20T19:16:32.701Z",
+    "dirty": true,
+    "id": "ckpt-20260920T191632560",
+    "ref": "02f4bb9e71e6bec37bef0f353818b608008d516d",
+    "statusHash": "e22dd53b9ea572207afcfe6cf82c56d792f5daf7bab70bd19d49cdf9f9355993",
+    "tag": "cdir/ckpt-20260920T191632560"
+  },
+  "command": [
+    "python3",
+    "/tmp/il0070/fix_visible.py"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T19:16:40.019Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "no commit and no co-author trailers — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "Single Two-page Continuous and the legacy path stay behaviorally unchanged — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "never stage eDraft.xcscheme mcp.log or repo-root png files — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "grid remains a map single click selects double click opens the sheet — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0070",
+  "startedAt": "2026-09-20T19:16:39.962Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0070-20260920-191639.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 4
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0070-20260920-191639.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0070-20260920-191639.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftMacSurface\" → exit 1",
+        "detail": "verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftMacSurface",
+        "verdict": "violated"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no commit and no co-author trailers",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · Single Two-page Continuous and the legacy path stay behaviorally unchanged",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · never stage eDraft.xcscheme mcp.log or repo-root png files",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · grid remains a map single click selects double click opens the sheet",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0070",
+    "verifiedAt": "2026-09-20T19:17:24.475Z",
+    "violations": [
+      "VERIFY verify-command: verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface"
+    ]
+  },
+  "violations": [
+    "VERIFY verify-command: verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface"
+  ]
+}

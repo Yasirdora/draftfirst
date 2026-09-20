@@ -157,9 +157,11 @@ final class PageCanvasView: NSView {
         )
         if signature == laidSignature {
             applyAppearance()
+            if arrangement == .grid { refreshVisibleGridPreviews() }
             return
         }
         laidSignature = signature
+        laidStarts = starts
         layoutPages(pageCount: starts.count, textHeight: textHeight, viewport: viewport,
                     starts: starts)
     }
@@ -207,11 +209,15 @@ final class PageCanvasView: NSView {
         let padding: CGFloat
     }
     private var laidSignature: PagesSignature?
+    private var laidStarts: [CGFloat] = [0]
+    private var gridPreviewEpoch = 0
+    private var gridPreviewKeys: [ObjectIdentifier: GridPreviewKey] = [:]
 
     func layoutPages(pageCount: Int, textHeight: CGFloat, viewport: CGSize,
                      starts: [CGFloat]? = nil) {
         // Called directly, this is not the pass the signature remembers.
         laidSignature = nil
+        if let starts, !starts.isEmpty { laidStarts = starts }
         let format = PageFormat.current
         let pageSize = format.pageRect.size
         let desk = canvasPadding
@@ -315,6 +321,8 @@ final class PageCanvasView: NSView {
         while pageViews.count > sheets {
             pageViews.removeLast().removeFromSuperview()
         }
+        gridPreviewEpoch += 1
+        gridPreviewKeys.removeAll(keepingCapacity: true)
         for index in 0..<sheets {
             let col = index % columns
             let row = index / columns
@@ -386,6 +394,9 @@ final class PageCanvasView: NSView {
         textView?.isHidden = arranged == .grid
         applyAppearance()
         needsDisplay = true
+        if arranged == .grid {
+            refreshVisibleGridPreviews()
+        }
     }
 
     func pageIndex(at point: CGPoint) -> Int? {
@@ -630,17 +641,18 @@ final class PageCanvasView: NSView {
         scrollToVisible(pageViews[index].frame.insetBy(dx: 0, dy: -16))
     }
 
+
     private var gridLabels: [NSTextField] = []
 
     /// Page numbers on the map, and the one sheet a Navigator click lit.
-    /// Cheap on purpose: Grid must open without snapshotting the script.
+    /// Visible cards carry a miniature of the page; the rest stay empty
+    /// paper so a feature-length draft does not snapshot every sheet on open.
     private func syncGridChrome() {
         let grid = layoutMode == .pages && arrangement == .grid
         while gridLabels.count < pageViews.count {
             let label = NSTextField(labelWithString: "")
             label.alignment = .center
-            label.font = .systemFont(ofSize: 22, weight: .medium)
-            label.textColor = .tertiaryLabelColor
+            label.font = .systemFont(ofSize: 11, weight: .medium)
             label.isBordered = false
             label.drawsBackground = false
             label.isSelectable = false
@@ -649,15 +661,18 @@ final class PageCanvasView: NSView {
         while gridLabels.count > pageViews.count {
             gridLabels.removeLast().removeFromSuperview()
         }
+        let numberColor = NSColor.screenplayInk.usingColorSpace(.sRGB) ?? .labelColor
         for (index, page) in pageViews.enumerated() {
             let label = gridLabels[index]
             if grid {
                 if label.superview !== page { page.addSubview(label) }
+                label.textColor = numberColor
                 label.stringValue = "\(index + 1)"
                 label.sizeToFit()
+                let pad: CGFloat = 6
                 label.frame.origin = CGPoint(
                     x: (page.bounds.width - label.frame.width) / 2,
-                    y: (page.bounds.height - label.frame.height) / 2
+                    y: page.bounds.height - label.frame.height - pad
                 )
                 label.isHidden = false
             } else {
@@ -667,6 +682,176 @@ final class PageCanvasView: NSView {
             page.layer?.borderWidth = lit ? 3 : 0
             page.layer?.borderColor = NSColor.controlAccentColor.cgColor
         }
+    }
+
+    /// The colour Grid actually painted the page numbers, for contrast tests.
+    var gridPageNumberColors: [NSColor] {
+        zip(gridLabels, pageViews).compactMap { label, _ in
+            label.isHidden ? nil : label.textColor
+        }
+    }
+
+    /// The miniature last assigned to that card, if this card has been painted.
+    func gridPreviewImage(at index: Int) -> CGImage? {
+        guard pageViews.indices.contains(index) else { return nil }
+        return pageViews[index].layer?.contents as! CGImage?
+    }
+
+    /// Maps a line in the hidden column onto the Grid card that holds it.
+    func gridNotePlacement(
+        textRect: CGRect, page: Int
+    ) -> (lineTop: CGFloat, lineHeight: CGFloat, marginX: CGFloat)? {
+        guard arrangement == .grid, pageViews.indices.contains(page) else { return nil }
+        let card = pageViews[page]
+        let format = PageFormat.current
+        let scale = card.frame.width / max(format.pageRect.width, 1)
+        let start = page < laidStarts.count ? laidStarts[page] : 0
+        let lineTop = card.frame.minY + (format.textTop + textRect.minY - start) * scale
+        let lineHeight = max(textRect.height * scale, 1)
+        let marginX = card.frame.minX + (
+            ScreenplayPageLayout.textLeft
+                + ScreenplayPageLayout.textBlockWidth(format)
+                + Self.noteMarkerGap
+        ) * scale
+        return (lineTop, lineHeight, marginX)
+    }
+
+    private struct GridPreviewKey: Equatable {
+        let epoch: Int
+        let pixels: CGSize
+        let dark: Bool
+        let paper: PagePaper
+    }
+
+    /// Paint only the cards in (or one row past) the clip. Called from layout
+    /// and from the scroll-view bounds observer.
+    func refreshVisibleGridPreviews() {
+        guard layoutMode == .pages, arrangement == .grid else { return }
+        let keep = Set(visibleGridPageIndexes())
+        for (index, page) in pageViews.enumerated() {
+            if keep.contains(index) {
+                paintGridPreview(index: index, page: page)
+            } else if page.layer?.contents != nil {
+                page.layer?.contents = nil
+                gridPreviewKeys.removeValue(forKey: ObjectIdentifier(page))
+            }
+        }
+    }
+
+    private func visibleGridPageIndexes() -> [Int] {
+        guard !pageViews.isEmpty else { return [] }
+        let vis = gridVisibleRect()
+        let row = pageViews[0].frame.height + Self.gridGap
+        let expanded = vis.insetBy(dx: 0, dy: -row)
+        return pageViews.indices.filter { pageViews[$0].frame.intersects(expanded) }
+    }
+
+    /// The window's viewport in canvas coordinates. Clip `bounds` can be the
+    /// whole document when the scroll view has no window yet — the tests, and
+    /// the first layout before attach — so the scroll view's *frame* is the
+    /// size that is actually on screen, matching `ScriptSurface.visibleViewport`.
+    private func gridVisibleRect() -> CGRect {
+        guard let scroll = enclosingScrollView else { return bounds }
+        let mag = max(scroll.magnification, 0.001)
+        let origin = scroll.contentView.bounds.origin
+        return CGRect(
+            x: origin.x,
+            y: origin.y,
+            width: max(scroll.frame.width / mag, 1),
+            height: max(scroll.frame.height / mag, 1)
+        )
+    }
+
+    private func paintGridPreview(index: Int, page: FlippedView) {
+        let card = page.bounds.size
+        guard card.width > 1, card.height > 1 else { return }
+        let backing = window?.backingScaleFactor
+            ?? NSScreen.main?.backingScaleFactor
+            ?? 1
+        let pixels = CGSize(
+            width: max(1, (card.width * backing).rounded()),
+            height: max(1, (card.height * backing).rounded())
+        )
+        let key = GridPreviewKey(
+            epoch: gridPreviewEpoch,
+            pixels: pixels,
+            dark: effectiveAppearance.isDark,
+            paper: PagePaper.stored
+        )
+        if gridPreviewKeys[ObjectIdentifier(page)] == key, page.layer?.contents != nil {
+            return
+        }
+
+        let pxW = Int(pixels.width)
+        let pxH = Int(pixels.height)
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: pxW,
+            pixelsHigh: pxH,
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else { return }
+        rep.size = card
+        guard let bitmap = NSGraphicsContext(bitmapImageRep: rep) else { return }
+        let cg = bitmap.cgContext
+        cg.translateBy(x: 0, y: card.height)
+        cg.scaleBy(x: 1, y: -1)
+        let flipped = NSGraphicsContext(cgContext: cg, flipped: true)
+        flipped.shouldAntialias = true
+        flipped.imageInterpolation = .medium
+
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = flipped
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            NSColor.screenplayPaper.setFill()
+            NSRect(origin: .zero, size: card).fill()
+            let pageSize = PageFormat.current.pageRect.size
+            let scale = card.width / max(pageSize.width, 1)
+            let transform = NSAffineTransform()
+            transform.scale(by: scale)
+            transform.concat()
+            drawGridPageGlyphs(index: index, pageSize: pageSize)
+        }
+        NSGraphicsContext.restoreGraphicsState()
+
+        page.wantsLayer = true
+        page.layer?.contentsScale = backing
+        page.layer?.contentsGravity = .resize
+        page.layer?.contents = rep.cgImage
+        gridPreviewKeys[ObjectIdentifier(page)] = key
+    }
+
+    private func drawGridPageGlyphs(index: Int, pageSize: CGSize) {
+        guard let textView,
+              let layoutManager = textView.layoutManager,
+              let container = textView.textContainer else { return }
+        let format = PageFormat.current
+        let slack = ScreenplayPageLayout.glyphOverflow
+        let start = index < laidStarts.count ? laidStarts[index] : 0
+        let end = index + 1 < laidStarts.count
+            ? laidStarts[index + 1]
+            : layoutManager.usedRect(for: container).maxY
+        NSBezierPath.clip(NSRect(origin: .zero, size: pageSize))
+        let origin = CGPoint(
+            x: ScreenplayPageLayout.textLeft,
+            y: slack + format.textTop - start
+        )
+        let containerRect = CGRect(
+            x: 0,
+            y: start - slack,
+            width: max(container.size.width, 1),
+            height: max(end - start, 1)
+        )
+        let glyphs = layoutManager.glyphRange(
+            forBoundingRectWithoutAdditionalLayout: containerRect, in: container
+        )
+        guard glyphs.length > 0 else { return }
+        layoutManager.drawGlyphs(forGlyphRange: glyphs, at: origin)
     }
 
     private func makePageView() -> FlippedView {
