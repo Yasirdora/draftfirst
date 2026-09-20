@@ -164,6 +164,39 @@ final class PageCanvasView: NSView {
                     starts: starts)
     }
 
+    /// Stage 2 uses ordinary views on the same paper geometry. The frame-to-
+    /// bounds scale belongs to AppKit, so the layout manager and view hierarchy
+    /// agree; no SpreadFold participates in drawing these views.
+    func layoutSheets(_ sheets: [PageSheet], viewport: CGSize) {
+        precondition(layoutMode == .pages && arrangement == .spread)
+        layoutPages(pageCount: sheets.count, textHeight: 1, viewport: viewport)
+        textView?.isHidden = true
+        let format = PageFormat.current
+        let slack = ScreenplayPageLayout.glyphOverflow
+        let scale = Self.spreadScale(viewport: viewport, page: format.pageRect.size,
+                                     desk: canvasPadding)
+        for (sheet, paper) in zip(sheets, pageViews) {
+            let view = sheet.textView
+            if view.superview !== self { addSubview(view, positioned: .above, relativeTo: paper) }
+            let manager = sheet.textContainer.layoutManager!
+            let glyphs = manager.glyphRange(for: sheet.textContainer)
+            let ink = manager.boundingRect(forGlyphRange: glyphs, in: sheet.textContainer)
+            let extra = manager.extraLineFragmentTextContainer === sheet.textContainer
+                ? manager.extraLineFragmentUsedRect.maxY : 0
+            let height = max(ink.maxY, extra, ScreenplayPageLayout.textBlockHeight(format)) + slack * 2
+            let size = CGSize(width: sheet.textContainer.size.width, height: height)
+            view.frame = CGRect(
+                x: paper.frame.minX + ScreenplayPageLayout.textLeft * scale,
+                y: paper.frame.minY + (format.textTop - slack) * scale,
+                width: size.width * scale, height: size.height * scale
+            )
+            view.setBoundsSize(size)
+            view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                view.insertionPointColor = NSColor.screenplayInk.usingColorSpace(.sRGB) ?? .labelColor
+            }
+        }
+    }
+
     /// What the last `layoutPages` pass was asked for; a repeat is a no-op.
     private struct PagesSignature: Equatable {
         let mode: PageLayoutMode

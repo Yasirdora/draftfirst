@@ -1,0 +1,109 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0053-20260920-043239.json",
+  "baselineSha256": "0e4d5cf6a4e52b630309c1fa20eac5fc640b380ce0856811576962deeb188402",
+  "budget": {
+    "filesChanged": 0,
+    "linesChanged": 0,
+    "maxFiles": 6,
+    "maxLines": 2500
+  },
+  "changed": [],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T043232944",
+    "createdAt": "2026-09-20T04:32:33.179Z",
+    "dirty": true,
+    "id": "ckpt-20260920T043232944",
+    "ref": "1ad9b20e176132f82dfe0ac9b5cffda3d3c23106",
+    "statusHash": "8cd9f27698d50378818a8776647cdb0076947806f231b8d4fde90f0479367bbd",
+    "tag": "cdir/ckpt-20260920T043232944"
+  },
+  "command": [
+    "/bin/sh",
+    "-c",
+    "swift test --package-path apple/EDraftMacSurface > /tmp/edraft-stage2-full-surface.log 2>&1"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T04:32:54.365Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "Flag OFF preserves legacy behavior. Single-page and Grid behavior remain unchanged. No Stage 3 consumer migration, no sheets.first compatibility shim, and no commits without a separate user request. — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0053",
+  "startedAt": "2026-09-20T04:32:39.947Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0053-20260920-043239.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 1
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0053-20260920-043239.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0053-20260920-043239.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftCore && swift test --package-path apple/eDraftEngine && (cd apple && xcodebuild -project eDraft.xcodeproj -scheme \\\"eDraft (macOS)\\\" -configuration Debug build)\" → exit 1",
+        "detail": "verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftCore && swift test --package-path apple/eDraftEngine && (cd apple && xcodebuild -project eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug build)",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftCore && swift test --package-path apple/eDraftEngine && (cd apple && xcodebuild -project eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug build)",
+        "verdict": "violated"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · Flag OFF preserves legacy behavior. Single-page and Grid behavior remain unchanged. No Stage 3 consumer migration, no sheets.first compatibility shim, and no commits without a separate user request.",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0053",
+    "verifiedAt": "2026-09-20T04:33:48.711Z",
+    "violations": [
+      "VERIFY verify-command: verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftCore && swift test --package-path apple/eDraftEngine && (cd apple && xcodebuild -project eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug build)"
+    ]
+  },
+  "violations": [
+    "VERIFY verify-command: verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftCore && swift test --package-path apple/eDraftEngine && (cd apple && xcodebuild -project eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug build)"
+  ]
+}

@@ -253,3 +253,85 @@ be asked.
 3. **What to do if Stage 1 finds a divergence** the engine intends and TextKit
    cannot express — a forcing rule per container is the likely answer, but it
    is unwritten until a real script needs it.
+
+
+## 9. Stage 2 implementation — 2026-09-19
+
+`ScriptSurface` now owns one `NSTextStorage` and one `NSLayoutManager`.
+With the flag enabled **and** the arrangement set to Two-page, its `sheets`
+array holds one `PageSheet` (container and ordinary `NSTextView`) for each
+engine page. The legacy `PageGapContainer` is detached from that manager
+while the sheet containers are attached, so it cannot consume any text.
+Single, Grid and Continuous still use the original container and view.
+The existing public `textView` remains explicitly the **legacy** view; it
+never returns the first sheet. Storage access no longer depends on that
+view being attached.
+
+`PageSheetContainer` refuses line fragments at the next engine page start.
+Its boundary setter calls `textContainerChangedGeometry` when the break
+changes, including after layout has already run. Container height is
+unbounded so TextKit cannot move a break earlier to make the text fit the
+paper. A resize or a moved break reuses the existing views. Page-count
+changes add/remove only the tail of the array. Returning to a legacy mode
+reattaches the original container, invalidates its cached page bands, and
+restores the saved selection, clamped to the current storage.
+
+The canvas uses the existing paper frames and AppKit's frame/bounds scaling
+to position the sheet views. The new path has no `SpreadFold`; the fold and
+`ArrangedTextView` implementation remain compiled and unchanged for the
+legacy path.
+
+### Enabling the preview
+
+The flag defaults **OFF**. In a Debug launch, set the environment variable
+`EDRAFT_MULTI_CONTAINER_SPREAD=1` and choose Two-page using the existing
+arrangement control. Unset the variable and relaunch to disable it. Release
+builds ignore this environment switch. Tests use
+`ScriptSurface(multiContainerSpreadEnabled: true)` or `false` explicitly.
+There is no new settings UI or persisted preference.
+
+This is a **read-only layout preview** until Stage 3: the new views reject
+editing and selection, and the legacy find/format/ghost overlays are not
+rehosted onto them. That gate prevents unobserved edits from reaching shared
+storage before the planner, delegate routing and geometry consumers have
+been migrated. It does not claim to fix the right-sheet insertion bug.
+
+### Evidence and limits
+
+The Stage 1 harness keeps its independent forced-container candidate and
+legacy per-page geometry assertions, and runs those checks against the
+production `PageSheet` array too. A separate full-rectangle comparison maps
+every UTF-16 character in the corpus to canvas coordinates through each
+architecture, within 0.5 points, including fitted spreads and resizes.
+Lifecycle tests cover shared ownership, break invalidation after layout,
+changed text, page growth/shrinkage, empty/trailing-empty elements, mode
+round trips, view reuse and restoration of legacy geometry.
+
+**Unchecked:** drag-select as a gesture across views; first responder, tab
+order and IME across sheet views; Stage 3 caret, selection, format bar,
+find, reveal and ghost behavior; manual appearance and accessibility with
+real input; performance on production-length documents. The geometry
+tests prove rectangle placement, not those interactions.
+
+
+The initial full-suite run on the unchanged checkout exposed a lifetime
+bug in `TextFinderMeasurementTests`: an ARC-owned window was also released
+on close. A zombie run identified `-[NSWindow release]` on a deallocated
+instance. The one-line `isReleasedWhenClosed = false` correction arrived
+independently in the working tree; Stage 2 did not edit that file.
+
+On 2026-09-20 the full Mac surface suite passed: **278 tests, zero failures,
+five existing opt-in benchmarks skipped**, including all **17** Stage 2
+equivalence/lifecycle tests. The engine suite passed **222** tests and the
+requested macOS Debug build succeeded on 2026-09-19 (IL-0053 run
+`20260919-210042` ran that exact build after the final source changes).
+A fresh 2026-09-20 build passed with `CODE_SIGNING_ALLOWED=NO` after
+developer-certificate signing stalled and the platform guide's ad-hoc
+options encountered a provisioning-profile requirement. The unsigned build
+checks compilation and linking; it does not prove signing. No signing
+settings in the project were changed. Full acceptance is still blocked by
+seven `PasteCorpusGateTests` that cannot read their external `scripts-corpus`
+directory (`Operation not permitted`). The core and engine were not edited
+by this stage, and the corpus tests were not skipped or pointed at an empty
+directory to make the verification command pass. An accessible copy can be
+supplied through the tests' existing `EDRAFT_SCRIPT_CORPUS` setting.

@@ -94,6 +94,7 @@ final class TextFinderMeasurementTests: XCTestCase {
             backing: .buffered,
             defer: false
         )
+        window.isReleasedWhenClosed = false
         window.contentView = scroll
         window.makeKeyAndOrderFront(nil)
         XCTAssertTrue(window.makeFirstResponder(textView))

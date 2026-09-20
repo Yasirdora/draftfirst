@@ -1,0 +1,30 @@
+Suggested task work with codedirector cdir fixing Two-page mode: build the PageSheet array (Stage 2 of the multi-container migration)
+
+In the eDraft repo at /Users/x/Documents/edraft (branch rename/edraft, HEAD 1ad9b20), implement Stage 2 of docs/RFC-MULTI-CONTAINER-PAGES.md: one NSTextStorage, one NSLayoutManager, and one NSTextContainer + NSTextView per sheet (a `PageSheet` array), driven by the engine's page starts — spread (two-page) mode only, behind a feature flag, with the old single-column path staying live and unchanged.
+
+Follow the repo's CLAUDE.md exactly: this project uses Code Director (cdir) for every code change — draft a lock with lock\_draft, show the human the Vibe Check (goal, budget, deny list) and wait for their yes, then lock\_check + lock\_activate, apply every change through run\_locked only, and finish with report. Never edit project files directly while a lock is active. Commit only when the human asks, by explicit paths only, and never add AI co-author trailers (a .githooks/commit-msg hook rejects them).
+
+The problem you are ultimately killing (do not try to fix it in this stage): in Two-page mode the script is drawn as a spread by SpreadFold, a pixel trick the layout manager never learns about. So clicks, the caret, selection, the format bar, find, the reveal highlight and the ghost all answer in single-column coordinates — measured on 2026-09-16: clicking the right-hand sheet and typing inserted into the left-hand sheet (/tmp/caret-test.fountain). These are one bug with seven faces; Stage 3 kills them. Your stage builds the foundation that makes Stage 3 possible.
+
+Read first, in this order:
+
+1. docs/RFC-MULTI-CONTAINER-PAGES.md — the whole design. Respect its measured facts: a container can be forced to end at a chosen character by overriding lineFragmentRect(forProposedRect:at:writingDirection:remaining:) to return .zero past the engine's page start, and you MUST call layoutManager.textContainerChangedGeometry(\_:) after assigning the break or layout is silently stale (the spike's first failure was exactly this).
+2. apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MultiContainerEquivalenceTests.swift — the Stage 1 harness. It must pass on BOTH paths: old architecture and your new sheet array, asserting (a) every container's first character equals the engine's page-start location, character for character, and (b) every character's on-screen rect matches today's architecture within tolerance.
+3. apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift — 3,535 lines, 121 textView references. Most are mechanical (textView\.string wants the storage), but do NOT write a compatibility shim like `var textView: NSTextView { sheets.first }` — the RFC explicitly forbids it: it would silently reintroduce the bug (right answer on page 1, wrong everywhere else).
+
+Rules for this stage:
+
+- The old path (PageGapContainer + SpreadFold + ArrangedTextView) stays compiled, live, and byte-for-byte behaviourally identical when the flag is off. Default flag state: OFF.
+- The new path builds PageSheet (container + view) from the engine's page starts — TextKit never gets a vote on where pages break.
+- Flag plumbing only; no UI for switching yet beyond whatever the equivalence tests and a manual debug toggle need.
+- Out of scope: Stage 3 (migrating clicks/caret/selection/format bar/highlight/find/ghost to the sheets), Stage 4 (single-page decision), Stage 5 (deleting the fold), any change to Single-page or Grid mode, any new third-party dependency.
+- Working-tree warning: apple/macOS/EDraftMacApp.swift has an unstaged change owned by another agent — do not touch, stage, or revert it. Same for .codedirector/mcp.log, repo-root "edraft logo.png" and screenshot.png.
+
+Proof bar, all must hold in the real repo before report:
+
+- swift test --package-path apple/EDraftMacSurface — including the equivalence harness running against both paths.
+- swift test --package-path apple/EDraftCore and swift test --package-path apple/eDraftEngine — untouched and green.
+- A macOS build succeeds: cd apple && xcodebuild -project eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug build.
+- With the flag OFF, the equivalence harness's rect assertions pass against the old architecture exactly as before your change.
+
+Finish with the Change Report: what changed, what was run, and an Unchecked bucket naming anything the suites did not cover (e.g., drag-select as a gesture across views — RFC §2.4 leaves it unproven; say so rather than claiming it).

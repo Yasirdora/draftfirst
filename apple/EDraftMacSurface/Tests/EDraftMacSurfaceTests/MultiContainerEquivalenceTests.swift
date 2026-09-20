@@ -39,6 +39,16 @@ final class MultiContainerEquivalenceTests: XCTestCase {
     /// under the twelve-point line this type is set on.
     private static let tolerance: CGFloat = 0.5
 
+    override func setUp() {
+        super.setUp()
+        let mode = PageLayoutMode.stored
+        let arrangement = PageArrangement.stored
+        addTeardownBlock {
+            PageLayoutMode.store(mode)
+            PageArrangement.store(arrangement)
+        }
+    }
+
     // MARK: - The candidate architecture
 
     /// A container that stops dead at a chosen character.
@@ -83,14 +93,24 @@ final class MultiContainerEquivalenceTests: XCTestCase {
     /// thing.
     private struct Candidate {
         let layoutManager: NSLayoutManager
-        let containers: [ForcedBreakContainer]
+        let containers: [NSTextContainer]
         /// Held because `NSLayoutManager.delegate` is weak — exactly the
         /// reason `ScriptSurface` holds its own.
-        let leading: FixedLeading
+        let leading: FixedLeading?
         let storage: NSTextStorage
+        /// Own the production view hierarchy and its weak layout delegate.
+        var surface: ScriptSurface? = nil
     }
 
-    private func candidate(for elements: [ScriptElement], starts: [Int]) -> Candidate {
+    private func candidate(for elements: [ScriptElement], starts: [Int], production: Bool) -> Candidate {
+        if production {
+            let surface = spread(elements, enabled: true, size: CGSize(width: 700, height: 400))
+            return Candidate(
+                layoutManager: surface.layoutManager,
+                containers: surface.sheets.map(\.textContainer), leading: nil,
+                storage: surface.textStorage, surface: surface
+            )
+        }
         let script = ScriptLayout.attributedScript(elements, measure: ScriptLayout.pageMeasure)
         let storage = NSTextStorage(attributedString: script.text)
         let layoutManager = NSLayoutManager()
@@ -192,6 +212,22 @@ final class MultiContainerEquivalenceTests: XCTestCase {
         ]
     }
 
+    /// Keep Stage 1's independent candidate and add the production surface.
+    /// The old-path oracle in the geometry test is explicitly flag OFF.
+    private func configurations() -> [(String, [ScriptElement], Bool)] {
+        [false, true].flatMap { production in
+            corpus().map { ("\($0.name) / \(production ? "PageSheet" : "Stage 1")", $0.elements, production) }
+        }
+    }
+
+    private func spread(_ elements: [ScriptElement], enabled: Bool, size: CGSize) -> ScriptSurface {
+        let surface = ScriptSurface(multiContainerSpreadEnabled: enabled)
+        surface.scrollView.frame = CGRect(origin: .zero, size: size)
+        surface.setArrangement(.spread)
+        surface.render(elements)
+        return surface
+    }
+
     /// The engine's own page starts — the authority the containers must obey.
     private func engineStarts(_ elements: [ScriptElement]) throws -> [Int] {
         let pages = try XCTUnwrap(
@@ -211,10 +247,10 @@ final class MultiContainerEquivalenceTests: XCTestCase {
     // MARK: - 1. Page starts
 
     func testEveryContainerBeginsWhereTheEngineSaysThePageBegins() throws {
-        for (name, elements) in corpus() {
+        for (name, elements, production) in configurations() {
             let starts = try engineStarts(elements)
             XCTAssertFalse(starts.isEmpty, "\(name): the engine produced no pages")
-            let built = candidate(for: elements, starts: starts)
+            let built = candidate(for: elements, starts: starts, production: production)
 
             XCTAssertEqual(
                 built.containers.count, starts.count,
@@ -243,9 +279,9 @@ final class MultiContainerEquivalenceTests: XCTestCase {
     /// a break that silently drops or repeats text would satisfy the starts
     /// and still lose a scene.
     func testTheContainersHoldTheWholeScriptExactlyOnce() throws {
-        for (name, elements) in corpus() {
+        for (name, elements, production) in configurations() {
             let starts = try engineStarts(elements)
-            let built = candidate(for: elements, starts: starts)
+            let built = candidate(for: elements, starts: starts, production: production)
             let length = built.storage.length
 
             var covered = 0
@@ -262,11 +298,11 @@ final class MultiContainerEquivalenceTests: XCTestCase {
     // MARK: - 2. Geometry
 
     func testEveryCharacterSitsWhereItSitsToday() throws {
-        for (name, elements) in corpus() {
+        for (name, elements, production) in configurations() {
             let starts = try engineStarts(elements)
-            let built = candidate(for: elements, starts: starts)
+            let built = candidate(for: elements, starts: starts, production: production)
 
-            let surface = ScriptSurface()
+            let surface = ScriptSurface(multiContainerSpreadEnabled: false)
             surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
             surface.render(elements)
             surface.setLayoutMode(.pages)
@@ -331,4 +367,48 @@ final class MultiContainerEquivalenceTests: XCTestCase {
             XCTAssertNil(firstFailure, firstFailure ?? "")
         }
     }
+
+    /// Stage 2 also owns where the sheets sit. Compare full rectangles in
+    /// canvas coordinates, including the scale of a fitted spread, so a
+    /// page-local match cannot conceal a misplaced right-hand sheet.
+    func testProductionSpreadMatchesLegacyCanvasRectsForEveryCharacter() throws {
+        for (name, elements) in corpus() {
+            let starts = try engineStarts(elements)
+            let old = spread(elements, enabled: false, size: CGSize(width: 700, height: 400))
+            let new = spread(elements, enabled: true, size: CGSize(width: 700, height: 400))
+            for size in [CGSize(width: 700, height: 400), CGSize(width: 1500, height: 1000),
+                         CGSize(width: 600, height: 350)] {
+                for surface in [old, new] {
+                    surface.scrollView.frame.size = size
+                    surface.remeasure(to: size.width, elements: elements)
+                }
+                let fold = try XCTUnwrap(old.canvas.spreadFold)
+                XCTAssertNil(new.canvas.spreadFold)
+                XCTAssertEqual(new.sheets.count, starts.count)
+                XCTAssertEqual(new.pageFrames, old.pageFrames)
+                XCTAssertEqual(new.textStorage.string, old.textStorage.string)
+                var compared = 0
+                var firstFailure: String?
+                for location in 0..<old.textStorage.length {
+                    let page = page(of: location, in: starts)
+                    let view = new.sheets[page].textView
+                    let range = NSRange(location: location, length: 1)
+                    guard let oldLocal = ScriptLayout.boundingRect(of: range, in: old.textView),
+                          let newLocal = ScriptLayout.boundingRect(of: range, in: view) else { continue }
+                    let expected = old.textView.convert(fold.spreadRect(fromVertical: oldLocal), to: old.canvas)
+                    let actual = view.convert(newLocal, to: new.canvas)
+                    compared += 1
+                    let differences = [actual.minX - expected.minX, actual.minY - expected.minY,
+                                       actual.width - expected.width, actual.height - expected.height]
+                    if differences.contains(where: { abs($0) > Self.tolerance }), firstFailure == nil {
+                        firstFailure = "\(name), viewport \(size), page \(page + 1), character \(location): "
+                            + "legacy \(expected), PageSheet \(actual)"
+                    }
+                }
+                XCTAssertEqual(compared, old.textStorage.length, "\(name): no character may escape the canvas comparison")
+                XCTAssertNil(firstFailure, firstFailure ?? "")
+            }
+        }
+    }
+
 }
