@@ -72,14 +72,39 @@ public final class EditorState {
     public func attachImportedNotes(from origin: String?) {
         guard let origin else {
             importedNotes = []
+            omittedScenes = OmittedScenes()
             return
         }
         let file = Fdx.parse(origin)
+        let document = ScriptAsides.merge(page: screenplay.elements, asides: asides)
         importedNotes = ImportedNotes.resolve(
             file.scriptNotes,
             imported: file.script.elements,
-            document: ScriptAsides.merge(page: screenplay.elements, asides: asides)
+            document: document
         )
+        /* The omitted scenes come off the same parse, on the same seam and
+           for the same reason: both are readings of the file the document
+           was opened from, and both are placed on the lines that file was
+           read into, before any edit has moved them. The name says notes
+           because the document target calls it and is not this lock's to
+           change; what it means is "attach what only the origin knows". */
+        omittedScenes = Omissions.resolve(
+            file.script.omissions ?? [],
+            imported: file.script.elements,
+            document: document
+        )
+    }
+
+    /// The scenes this document's file says are omitted (§7.3), by
+    /// `DraftElementID`, so an edit that moves elements cannot mis-mark one.
+    /// Empty for a document that did not come from a Final Draft file with
+    /// an `<OmittedScene>` in it.
+    public private(set) var omittedScenes = OmittedScenes()
+
+    /// Whether this element is inside an omitted span — the one question the
+    /// surface, the Navigator and the paginator all ask.
+    public func isOmitted(_ element: ScriptElement) -> Bool {
+        omittedScenes.contains(element)
     }
 
     /// The writer's structure among them: acts, sequences and beats, each
@@ -499,6 +524,11 @@ public final class EditorState {
         var number = 0
         let rows = screenplay.elements.enumerated().compactMap { index, element in
             guard element.type == .scene, !element.text.isEmpty else { return nil as SceneRow? }
+            /* The heading inside an omitted span is not a scene of its own
+               in the Navigator: its card, which prints, is the scene. Left
+               in, a Final Draft file with one omission showed scene 21
+               twice — the card and the scene behind it (§7.3). */
+            guard !omittedScenes.contains(element) else { return nil as SceneRow? }
             number += 1
             return SceneRow(
                 id: element.id,
@@ -506,7 +536,8 @@ public final class EditorState {
                 page: stats.elementPages[index],
                 sceneNumber: element.sceneNumber,
                 title: element.text,
-                elementIndex: index
+                elementIndex: index,
+                omitted: omittedScenes.isCard(element)
             ) as SceneRow?
         }
         scenesCache = (revision, stats, rows)
@@ -1593,14 +1624,21 @@ public final class EditorState {
         statsTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(800))
             guard let self, !Task.isCancelled else { return }
-            let model = self.currentEngineModel
+            /* An omitted scene is not on a page: Final Draft does not count
+               one, and neither do we (Omissions.paginable). The page numbers
+               come back keyed by the script's own indices. */
+            let paginable = Omissions.paginable(
+                self.currentEngineModel, document: self.screenplay.elements, omitted: self.omittedScenes
+            )
+            let model = paginable.model
+            let kept = paginable.kept
             let scheduledRevision = self.revision
             let linesPerPage = PageFormat.current.linesPerPage
             // Pagination walks and wraps every element — off the main actor,
             // so page math on a feature script never hitches the keystroke
             // that triggered it.
             let computed = await Task.detached(priority: .utility) {
-                Self.screenplayStats(for: model, linesPerPage: linesPerPage)
+                Self.screenplayStats(for: model, linesPerPage: linesPerPage, kept: kept)
             }.value
             guard !Task.isCancelled, self.revision == scheduledRevision else { return }
             self.stats = computed
@@ -1643,7 +1681,8 @@ public final class EditorState {
 
     private nonisolated static func screenplayStats(
         for model: EDraftEngine.Screenplay,
-        linesPerPage: Int
+        linesPerPage: Int,
+        kept: [Int]
     ) -> ScreenplayStats {
         let words = model.elements.reduce(0) {
             $0 + $1.text.split(whereSeparator: \.isWhitespace).count
@@ -1661,7 +1700,7 @@ public final class EditorState {
             pages: max(1, pages.count),
             runtime: Paginator.estimateRuntime(pages),
             words: words,
-            elementPages: elementPages(in: pages)
+            elementPages: Omissions.restored(elementPages(in: pages), through: kept)
         )
     }
 

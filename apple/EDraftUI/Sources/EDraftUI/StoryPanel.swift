@@ -1041,6 +1041,30 @@ private struct ActListRow: View {
 /// what makes Finder's sidebar look like Finder's sidebar. The phone wraps it
 /// in `SceneListRow` below, because a bare row in a plain list is not
 /// tappable there.
+/// How a Navigator row is drawn, as a value.
+///
+/// The view reads this and nothing else, so the rules — selected wins over
+/// everything, a cut scene is struck and inked back, a secondary slug is a
+/// shade lighter — live in one place and can be measured without rendering
+/// a view. SwiftUI shape styles are not comparable, which is the other
+/// reason the decision is a value and the colour is a lookup from it.
+struct SceneRowStyle: Equatable {
+    enum Ink: Equatable { case accent, omitted, secondary, primary }
+    var ink: Ink
+    var struckThrough: Bool
+
+    /// RFC-DRAFT-PRODUCTION §7.3: an omitted scene keeps its number and its
+    /// place, and says what it is the way the page says it.
+    static func of(_ scene: SceneRow, isSelected: Bool) -> SceneRowStyle {
+        SceneRowStyle(
+            ink: isSelected ? .accent
+                : scene.omitted ? .omitted
+                : scene.isSecondary ? .secondary : .primary,
+            struckThrough: scene.omitted
+        )
+    }
+}
+
 struct SceneRowLabel: View {
     let scene: SceneRow
     /// Tints the row's own type, which is how Finder says "this one" without
@@ -1076,6 +1100,7 @@ struct SceneRowLabel: View {
                 // for why this is emphasis and not a second element type.
                 Text(scene.title)
                     .font(scene.isSecondary ? .subheadline : .body)
+                    .strikethrough(style.struckThrough, color: .secondary)
                     // `.foreground` rather than `.primary`: it means "whatever
                     // the row's colour currently is", which is what the source
                     // list changes when the row is selected. `.primary` pins
@@ -1101,15 +1126,24 @@ struct SceneRowLabel: View {
 
     /// Accent when chosen; otherwise the outline's own two levels — a master
     /// slug at full strength, a secondary one a shade back.
+    var style: SceneRowStyle { SceneRowStyle.of(scene, isSelected: isSelected) }
+
     private var rowInk: AnyShapeStyle {
-        if isSelected { return AnyShapeStyle(Color.accentColor) }
-        return scene.isSecondary ? AnyShapeStyle(.secondary) : AnyShapeStyle(.foreground)
+        switch style.ink {
+        case .accent: return AnyShapeStyle(Color.accentColor)
+        case .omitted: return AnyShapeStyle(.tertiary)
+        case .secondary: return AnyShapeStyle(.secondary)
+        case .primary: return AnyShapeStyle(.foreground)
+        }
     }
 
     /// Spoken without the selection state: on the Mac the list says "selected"
     /// itself, and on the phone `SceneListRow` adds "current scene".
     var spokenLabel: String {
         var label = "Scene \(scene.label), \(scene.title)"
+        /* A strike through type is not spoken; an omitted scene has to say
+           so out loud or a VoiceOver reader is told a cut scene is live. */
+        if scene.omitted { label += ", omitted" }
         if let page = scene.page { label += ", page \(page)" }
         return label
     }

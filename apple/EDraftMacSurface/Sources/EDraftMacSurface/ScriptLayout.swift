@@ -81,8 +81,19 @@ public enum ScriptLayout {
     /// Elements are joined by newlines exactly as `ScreenplayEditPlanner`
     /// flattens them, so a range computed here means the same characters the
     /// planner means.
+    /// Muted ink and a line through it, for a scene the production cut
+    /// (RFC-DRAFT-PRODUCTION §7.3).
+    ///
+    /// Final Draft hides an omitted scene behind its OMITTED card. eDraft
+    /// shows it, struck: a writer who cannot see what was cut cannot tell a
+    /// cut scene from a scene that was never written, and the body is still
+    /// theirs to read and copy. Muted, never hidden — and never editable,
+    /// which the surface enforces where the caret and the keystrokes are.
+    public static let omittedInk = NSColor.tertiaryLabelColor
+
     public static func attributedScript(
-        _ elements: [ScriptElement], measure: CGFloat
+        _ elements: [ScriptElement], measure: CGFloat,
+        omitted: OmittedScenes = OmittedScenes()
     ) -> (text: NSAttributedString, ranges: [ElementRange]) {
         let result = NSMutableAttributedString()
         var ranges: [ElementRange] = []
@@ -97,6 +108,16 @@ public enum ScriptLayout {
             )
             result.append(NSAttributedString(string: element.text, attributes: style))
             let length = (element.text as NSString).length
+            if omitted.contains(element), length > 0 {
+                result.addAttributes(
+                    [
+                        .foregroundColor: omittedInk,
+                        .strikethroughStyle: NSUnderlineStyle.single.rawValue,
+                        .strikethroughColor: omittedInk
+                    ],
+                    range: NSRange(location: location, length: length)
+                )
+            }
             // Runs are canonical over the text (sorted, clamped,
             // non-overlapping), so each one lands as an attribute range.
             for run in element.runs ?? [] {

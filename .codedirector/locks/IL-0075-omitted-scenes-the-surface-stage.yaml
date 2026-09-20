@@ -1,0 +1,175 @@
+schemaVersion: 1
+id: IL-0075
+status: verified
+utterance: "Omitted scenes: the surface stage. Done means: an omitted span renders greyed/struck-through (Final Draft's visual language — muted ink, not hidden), is not editable (clicking into it does not place a caret), and the Navigator marks it. Pagination: measure what Final Draft 13.4 does with the fixture first — does the omitted scene count toward page numbers? — follow it, and report what you measured. Edits outside the span stay exactly as today; the IL-0071 save behavior (file's bytes win, FDX_REWRITE_OMITTED_SCENE_KEPT) must keep passing untouched."
+goal: "An omitted scene reads as omitted in the Mac app: the span comes off the origin FDX onto the document model as DraftElementIDs, renders in muted ink with a strike and is never hidden, refuses the caret and refuses edits, is left out of pagination the way Final Draft 13.4 leaves it out (measured on the fixture), and yields one Navigator row marked omitted instead of a duplicate scene 21 — with every edit outside the span, and IL-0071's save behaviour, exactly as today."
+interpretation: |
+  MEASURED FIRST, as asked. Final Draft 13.4 wrote finaldraft-sample02.fdx,
+  so the file itself says what Final Draft did with its omitted scene:
+
+    - The Scene Heading that holds the block — the OMITTED card, Number 21 —
+      records `Length="0" Page="17"`. It sits on page 17 and takes no
+      measurable height.
+    - The scene nested inside <OmittedScene> records `Page="1"`. The script
+      runs to page 25 and its 35 live scenes are monotonic from 1 to 25, so
+      `Page="1"` is not a place in this script: that scene was never
+      paginated in situ.
+
+  THE RULE THAT FOLLOWS: an omitted scene does not count toward page
+  numbers. The card holds the scene's place at zero length; the body is out
+  of the flow. This lock follows that, and the report will carry the
+  numbers.
+
+  HOW THE MARKER REACHES THE SURFACE — the design decision the human asked
+  to see before any code.
+
+  The span does not survive the open path today: ScreenplayFile.open is
+  `Fountain.serialise(shouted(Fdx.parse(text).script))` (line 63), and
+  Fountain has no spelling for an omission, so `script.omissions` is
+  dropped at that boundary. Four ways across, and why this one:
+
+    1. CHOSEN — off the origin, on the seam that already exists. The app
+       target already hands EDraftCore the original FDX:
+       `editor.attachImportedNotes(from: origin)` (ScreenplayDocument.swift
+       line 82), and EditorState already calls `Fdx.parse(origin)` there
+       (line 77) to attach Final Draft's notes. The omission comes off that
+       same parse — no second read of the file, no change to
+       ScreenplayFile.open's contract, and no edit to the denied app
+       target. The engine's index span is converted, as it lands, into
+       DraftElementIDs (M1, IL-0073), which is what the surface then
+       renders and locks by. Ids survive edits that move elements; indices
+       do not, which is why the surface must not hold indices.
+    2. Rejected — a Fountain spelling for omissions. It would change what
+       eDraft writes into users' files, and the engine and packages are
+       denied. The RFC's §7.3 carrier is `.draft`'s production.json, not
+       Fountain.
+    3. Rejected — re-deriving in the surface at render time. It duplicates
+       the engine's rule in a second place and re-parses a 750 KB file on a
+       draw path.
+    4. Rejected — inferring the span from an OMITTED card's text. Fragile
+       (it reads letters, not structure) and simply wrong for a document
+       eDraft made itself.
+
+  WHAT IT BUILDS:
+
+    - EDraftCore holds the omission as `Set<DraftElementID>` plus the
+      ordered spans, attached at open from the origin, and answers "is this
+      element omitted" for the surface and the Navigator.
+    - Pagination: the model fed to `Paginator.paginate` (ScreenplayExporter
+      line 107, EditorState line 1651) leaves omitted elements out, so page
+      numbers match Final Draft's. The engine paginator is untouched — it
+      is denied, and it does not need to know.
+    - The Mac surface renders an omitted element in muted ink with a strike
+      through it (ScriptLayout's attributes), never hidden: the writer must
+      see what was cut.
+    - The caret refuses the span: a click inside it does not land, and
+      `shouldChangeTextIn` refuses edits that fall in it. Selection across
+      it is allowed — a writer may still copy what was omitted.
+    - The Navigator stops showing scene 21 twice: the omitted heading no
+      longer yields a row of its own, and the card's row carries
+      `omitted: true`.
+
+  WHAT IT DOES NOT BUILD: any way to omit or restore a scene from the app —
+  that is Production Mode, and §7.3 blocks Omit in `development` anyway.
+  No engine change. No .draft wiring. No migration of the engine's span to
+  ids (RFC §13 Q13 tracks that).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: "IL-0071 is untouched: no file under apple/eDraftEngine or packages/ changes, a no-edit save of finaldraft-sample01.fdx and finaldraft-sample02.fdx is still byte-identical, and FDX_REWRITE_OMITTED_SCENE_KEPT still fires exactly as its tests pin it"
+  - kind: custom
+    text: every edit outside an omitted span behaves exactly as today — typing, splitting, merging, paste, undo and the save path are unchanged for them
+  - kind: custom
+    text: "an omitted scene is never hidden: its text is on the page, muted and struck, and is still selectable and copyable"
+  - kind: custom
+    text: pagination follows what Final Draft 13.4 did with the fixture — measured from the file's own SceneProperties, reported with the numbers, not assumed
+  - kind: custom
+    text: the surface and the Navigator hold the omission by DraftElementID, never by element index, so an edit that moves elements cannot mis-mark a scene
+  - kind: custom
+    text: no file under apple/eDraftEngine, packages/, apple/macOS, apple/iOS, apple/eDraft or the Xcode project changes; in apple/EDraftUI only StoryPanel.swift and the new Navigator test change, and TitlePageSheet.swift in particular is untouched; the foreign working-tree changes are left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - packages/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  - apple/EDraftUI/Sources/EDraftUI/CharacterThreadView.swift
+  - apple/EDraftUI/Sources/EDraftUI/LaunchIdentity.swift
+  - apple/EDraftUI/Sources/EDraftUI/NavigatorOutline.swift
+  - apple/EDraftUI/Sources/EDraftUI/PlatformChrome.swift
+  - apple/EDraftUI/Sources/EDraftUI/ScreenplayDocument.swift
+  - apple/EDraftUI/Sources/EDraftUI/SettingsPanel.swift
+  - apple/EDraftUI/Package.swift
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - src/**
+  - scripts/**
+  - docs/RFC-DRAFT-PRODUCTION.md
+  - docs/RFC-DRAFT-FORMAT.md
+  - docs/RFC-NOTES-SYSTEM.md
+  - package.json
+  - package-lock.json
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftMacSurface/Package.swift
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: "Omitted scenes read as omitted on the Mac: muted and struck, caret and edits refused, out of the page count the way Final Draft leaves them out, and one marked row in the Navigator instead of a duplicate scene."
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftUI && swift test --package-path apple/eDraftEngine && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftCore/Sources/EDraftCore/Omissions.swift
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayModels.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayExporter.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/OmittedSceneTests.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptLayout.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScreenplayPageRenderer.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+    - apple/EDraftUI/Tests/EDraftUITests/OmittedSceneNavigatorTests.swift
+    - docs/MACOS-EXECUTION.md
+  symbols: []
+  maxFiles: 12
+  maxLines: 1750
+accept:
+  - "MEASURED AND REPORTED: what Final Draft 13.4 did with the fixture — the card at Length 0 on page 17, the nested scene at Page 1 against a 25-page script — and the rule taken from it."
+  - "RENDER: an omitted element draws in muted ink with a strike, on the page, never hidden; the OMITTED card itself draws as an ordinary scene heading."
+  - "CARET: a click inside the span does not place a caret; typing that would fall inside it is refused; selection across it still works and still copies."
+  - "PAGINATION: the omitted body is out of the page count and the card keeps its place — proven on the fixture, with the page numbers of the scenes after it unchanged from Final Draft's own."
+  - "NAVIGATOR: sample02 yields one row for scene 21, where it yields two today, and that row draws its omitted mark — proven by a test in EDraftUI's own suite, not by eye."
+  - "IDS, NOT INDICES: the span is held as DraftElementIDs, and a test proves an edit that inserts elements before the span leaves the right scene marked."
+  - "UNCHANGED: edits outside the span, and IL-0071's save behaviour, are as today — a no-edit save of both Final Draft fixtures is byte-identical."
+  - "SUITES: EDraftCore green (360), EDraftMacSurface green (307, 6 skipped), EDraftUI green, the engine suite green and untouched, and the macOS Debug build succeeds."
+assumptions:
+  - text: 'HEAD is fefa296 ("docs: Q13 — the omission span migrates to DraftElementIDs later (IL-0074)"), not the 348a38d the brief names: the Q13 commit sits on top. The tree is otherwise exactly as described — only the xcscheme, .codedirector/mcp.log and the two root PNGs are dirty, and none is touched, staged or reverted.'
+    source: user
+    confirmed: true
+  - text: "MEASURED, and a correction to the brief: `Omission` carries `start` and `end` only — it does not carry the scene number. The number stays on the OMITTED card element that precedes the span, which is the one source of truth for it (IL-0071, and the record's own documentation)."
+    source: system
+    confirmed: false
+  - text: "MEASURED on finaldraft-sample02.fdx: the OMITTED card records Length=0 Page=17; the scene inside the block records Page=1 while the script's 35 live scenes run monotonically 1 to 25. Final Draft did not paginate the omitted body. Needs the human's yes to the rule taken from it."
+    source: system
+    confirmed: false
+  - text: "ANSWERED (2026-09-21): the human added apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift so the Navigator's row can draw the mark, and then a twelfth file — a new OmittedSceneNavigatorTests.swift in EDraftUI's own test package — so the view change is proven by a test rather than by eye. EDraftUI's suite joins the verify command. The blanket apple/EDraftUI/** deny is replaced by naming the other files: Code Director's hook checks deny before budget, so a blanket would have blocked the very file that was approved."
+    source: user
+    confirmed: true
+  - text: "ANSWERED (2026-09-21): the seam keeps its name. The omission rides `attachImportedNotes(from: origin)`, which now does two jobs under one name; the code says so where it happens. A clean `attachOrigin(...)` would need apple/macOS/ScreenplayDocument.swift, which stays denied."
+    source: user
+    confirmed: true
+  - text: The index-to-id conversion assumes the Fountain round trip keeps element order and count. Measured once on sample02 during IL-0062 (788 elements before and after, the omitted body at the same indices); the run re-proves it on the fixture and a test pins it, rather than trusting the earlier measurement.
+    source: system
+    confirmed: false
+  - text: "maxLines 1,600, a tripwire and not a target: estimate — EDraftCore ~350 (the span model, the attach, the paginate filter, SceneRow), the Mac surface ~300 (attributes, caret, edit refusal), tests ~450 in the two packages, docs ~40. If quality work hits the ceiling the run stops and the evidence is shown rather than trimming tests."
+    source: system
+    confirmed: false
+  - text: New files sit in folders already tracked by git (EDraftCore/Sources, EDraftCore/Tests, EDraftMacSurfaceTests) — Code Director 0.4.5 misjudges files in new folders.
+    source: system
+    confirmed: false
+createdAt: 2026-09-21T10:00:00.000Z
+createdBy: Yasirdora

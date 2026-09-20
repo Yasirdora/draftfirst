@@ -1,0 +1,225 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0075-20260920-235022.json",
+  "baselineSha256": "be35242323c12f924893e2abac0f7ace8c8127443c52bac057db6fef5004cd81",
+  "budget": {
+    "filesChanged": 10,
+    "linesChanged": 766,
+    "maxFiles": 12,
+    "maxLines": 1750
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftCore/Sources/EDraftCore/EditorState.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftCore/Sources/EDraftCore/Omissions.swift",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftCore/Sources/EDraftCore/ScreenplayModels.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftCore/Tests/EDraftCoreTests/OmittedSceneTests.swift",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptLayout.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftUI/Tests/EDraftUITests/OmittedSceneNavigatorTests.swift",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "docs/MACOS-EXECUTION.md",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T235014875",
+    "createdAt": "2026-09-20T23:50:14.937Z",
+    "dirty": true,
+    "id": "ckpt-20260920T235014875",
+    "ref": "fefa296140146491116e34f71b69ea983e1a5ac9",
+    "statusHash": "7f140d5b56faeb5c7e7c1b30e245254df97f8efa8e4a7e178a44bc76453ce6a5",
+    "tag": "cdir/ckpt-20260920T235014875"
+  },
+  "command": [
+    "bash",
+    "/private/tmp/claude-501/-Users-x-Documents-edraft/723d4c0a-b9b0-499f-97f6-620bdeac65dc/scratchpad/apply-IL-0075.sh"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T23:50:22.498Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "IL-0071 is untouched: no file under apple/eDraftEngine or packages/ changes, a no-edit save of finaldraft-sample01.fdx and finaldraft-sample02.fdx is still byte-identical, and FDX_REWRITE_OMITTED_SCENE_KEPT still fires exactly as its tests pin it — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "every edit outside an omitted span behaves exactly as today — typing, splitting, merging, paste, undo and the save path are unchanged for them — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "an omitted scene is never hidden: its text is on the page, muted and struck, and is still selectable and copyable — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "pagination follows what Final Draft 13.4 did with the fixture — measured from the file's own SceneProperties, reported with the numbers, not assumed — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the surface and the Navigator hold the omission by DraftElementID, never by element index, so an edit that moves elements cannot mis-mark a scene — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "no file under apple/eDraftEngine, packages/, apple/macOS, apple/iOS, apple/eDraft or the Xcode project changes; in apple/EDraftUI only StoryPanel.swift and the new Navigator test change, and TitlePageSheet.swift in particular is untouched; the foreign working-tree changes are left exactly as found — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0075",
+  "startedAt": "2026-09-20T23:50:22.469Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0075-20260920-235022.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 6
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0075-20260920-235022.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0075-20260920-235022.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftUI && swift test --package-path apple/eDraftEngine && xcodebuild -project apple/eDraft.xcodeproj -scheme \\\"eDraft (macOS)\\\" -configuration Debug -destination platform=macOS -quiet build\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftUI && swift test --package-path apple/eDraftEngine && xcodebuild -project apple/eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug -destination platform=macOS -quiet build",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftUI && swift test --package-path apple/eDraftEngine && xcodebuild -project apple/eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug -destination platform=macOS -quiet build",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · IL-0071 is untouched: no file under apple/eDraftEngine or packages/ changes, a no-edit save of finaldraft-sample01.fdx and finaldraft-sample02.fdx is still byte-identical, and FDX_REWRITE_OMITTED_SCENE_KEPT still fires exactly as its tests pin it",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · every edit outside an omitted span behaves exactly as today — typing, splitting, merging, paste, undo and the save path are unchanged for them",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · an omitted scene is never hidden: its text is on the page, muted and struck, and is still selectable and copyable",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · pagination follows what Final Draft 13.4 did with the fixture — measured from the file's own SceneProperties, reported with the numbers, not assumed",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the surface and the Navigator hold the omission by DraftElementID, never by element index, so an edit that moves elements cannot mis-mark a scene",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no file under apple/eDraftEngine, packages/, apple/macOS, apple/iOS, apple/eDraft or the Xcode project changes; in apple/EDraftUI only StoryPanel.swift and the new Navigator test change, and TitlePageSheet.swift in particular is untouched; the foreign working-tree changes are left exactly as found",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0075",
+    "verifiedAt": "2026-09-20T23:53:02.378Z",
+    "violations": []
+  },
+  "violations": []
+}

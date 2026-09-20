@@ -356,6 +356,7 @@ driven to Open that file; the import path calls the same extract.
 
 ### M4 — The production layer
 
+- [x] Omitted scenes read as omitted (IL-0075). See below.
 - [ ] Revision colours, marks, locked pages (engine already has `RevisionDiff`,
       `SceneNumbering`).
 - [ ] Scene numbering for locked pages / production (Format already
@@ -752,3 +753,53 @@ view at once, which is what made the first version feel glitchy.
 real mouse press in the app; confirming it needs synthetic events in the
 owner's session, which §6 forbids while they are at the machine.
 
+---
+
+## 9. Omitted scenes on the Mac — measured, 2026-09-21
+
+RFC-DRAFT-PRODUCTION §7.3. The engine reads an FDX `<OmittedScene>` into the
+script and records the span (IL-0071, `cdcc477`); before this stage the app
+showed the body as ordinary text and the Navigator listed scene 21 twice.
+
+**What Final Draft 13.4 does, measured on `finaldraft-sample02.fdx` — the
+file Final Draft itself wrote:**
+
+| what | recorded |
+|---|---|
+| the OMITTED card (Number 21) | `Length="0" Page="17"` |
+| the scene nested in the block | `Page="1"` |
+| the 35 live scenes | pages 1 → 25, monotonic |
+
+`Page="1"` is not a place in a 25-page script: that scene was never
+paginated in situ. **An omitted scene does not count toward page numbers.**
+The card holds the scene's place at no measurable height.
+
+**How the marker reaches the surface.** `ScreenplayFile.open` converts FDX to
+a Fountain *string*, and Fountain has no spelling for an omission, so the
+span cannot travel that way. It comes off the origin instead, on the seam
+that already carries Final Draft's notes —
+`EditorState.attachImportedNotes(from: origin)`, which already parses the
+origin — and is converted there, once, from the engine's element *indices*
+into `DraftElementID`s (M1, IL-0073). The surface asks about elements, never
+about positions, so an edit above a cut scene cannot mis-mark it.
+
+**What the app does now:**
+
+- the body draws in `ScriptLayout.omittedInk` with a strike, on the page —
+  Final Draft hides it behind the card; eDraft shows it, because a writer
+  who cannot see what was cut cannot tell it from a scene never written;
+- the caret does not land inside the span (it passes to the far edge, the
+  way it was travelling) and no keystroke reaches it, while a selection
+  *across* it still works and still copies;
+- page numbers leave the body out, as Final Draft does;
+- the Navigator shows one row for the scene, struck, inked back, keeping its
+  number, and VoiceOver says "omitted" — a strike is not spoken.
+
+**Not done here, and why.** Omitting or restoring a scene from the app is
+Production Mode (§7.3 blocks Omit in `development`). The page *canvas* still
+lays the struck body out, so on a page-sheet canvas a cut scene still takes
+room even though the page count no longer counts it; making the canvas agree
+means teaching the layout about omissions, which is its own stage. Printing
+and PDF still include the body: §7.3 says it must not print, but
+`ScreenplayPageRenderer`'s callers are the app target and EDraftUI, which
+this lock does not own.

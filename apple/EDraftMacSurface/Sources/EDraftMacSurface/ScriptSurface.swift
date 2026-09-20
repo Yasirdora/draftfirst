@@ -93,7 +93,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// up by id measured quadratic on a 6,652-element paste (290ms per
     /// selection change, reported as "the format bar hangs"). The invariant
     /// is pinned by `testRangesStayParallelToElements`.
-    private var ranges: [ScriptLayout.ElementRange] = []
+    /// Where each element sits in the laid-out text. Written here only;
+    /// readable to the package so the omission rules can be measured.
+    private(set) var ranges: [ScriptLayout.ElementRange] = []
 
     /// The engine's reading of the text last laid out: its pages, and where
     /// each begins in the flattened text. Paginating a feature is not cheap
@@ -507,7 +509,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
         let sheetSelection = usesPageSheets ? selectionTextView.selectedRange() : nil
         applyingModel = true
-        let script = ScriptLayout.attributedScript(elements, measure: measure)
+        let script = ScriptLayout.attributedScript(
+            elements, measure: measure, omitted: editor?.omittedScenes ?? OmittedScenes()
+        )
         ranges = script.ranges
         lastLaidElements = elements
         textStorage.setAttributedString(script.text)
@@ -2293,6 +2297,52 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// path; there is no `NSTextView` subclass, so this is also the only path.
     /// Return and delete fall through to `shouldChangeTextIn`, which is the
     /// one place they are handled.
+    /// Where the omitted spans sit in the text as it is laid out
+    /// (RFC-DRAFT-PRODUCTION §7.3). Empty for every document that has none,
+    /// which is all of them but a Final Draft file with an `<OmittedScene>`.
+    var omittedTextRanges: [NSRange] {
+        guard let editor, !editor.omittedScenes.isEmpty else { return [] }
+        let omitted = Set(
+            lastLaidElements.filter { editor.omittedScenes.contains($0) }.map(\.id)
+        )
+        guard !omitted.isEmpty else { return [] }
+        return ranges.filter { omitted.contains($0.id) }.map(\.range)
+    }
+
+    /// Whether an edit at this range would fall inside an omitted scene.
+    ///
+    /// A zero-length range on the boundary is not inside: typing at the very
+    /// start of the span belongs to the line before it, and at the very end
+    /// to the line after, exactly as a caret between two elements does.
+    func touchesOmitted(_ range: NSRange) -> Bool {
+        omittedTextRanges.contains { omitted in
+            if range.length == 0 {
+                return range.location > omitted.location
+                    && range.location < omitted.location + omitted.length
+            }
+            return NSIntersectionRange(range, omitted).length > 0
+        }
+    }
+
+    /// The caret does not land in a scene the production cut.
+    ///
+    /// Selection *across* one is left alone: a writer may still sweep over
+    /// an omitted scene and copy it. Only the bare caret is moved, and it is
+    /// moved the way it was already travelling — to the far edge of the
+    /// span, never backwards into the line it just left.
+    public func textView(
+        _ textView: NSTextView,
+        willChangeSelectionFromCharacterRange oldRange: NSRange,
+        toCharacterRange newRange: NSRange
+    ) -> NSRange {
+        guard newRange.length == 0, !omittedTextRanges.isEmpty else { return newRange }
+        guard let span = omittedTextRanges.first(where: {
+            newRange.location > $0.location && newRange.location < $0.location + $0.length
+        }) else { return newRange }
+        let goingBack = oldRange.location > newRange.location
+        return NSRange(location: goingBack ? span.location : span.location + span.length, length: 0)
+    }
+
     public func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertTab(_:)) {
             editor?.cycleActiveKind(backwards: false)
@@ -2344,6 +2394,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     ) -> Bool {
         guard let editor else { return true }
         guard let replacement else { return true }
+
+        /* A scene the production cut is not the writer's to retype here
+           (§7.3): the body is the file's, kept byte for byte on save
+           (IL-0071). Refused before anything else looks at the keystroke,
+           so no planner, ghost or prediction ever runs on it. */
+        if touchesOmitted(range) {
+            pendingEdit = nil
+            hideGhost()
+            return false
+        }
 
         // The separator's escape hatch lives for exactly one keystroke:
         // the delete that immediately follows it. Consuming it here means

@@ -420,7 +420,7 @@ public struct SceneRow: Identifiable, Equatable, Sendable {
 
     nonisolated public init(
         id: UUID, number: Int, page: Int?, sceneNumber: String?,
-        title: String, elementIndex: Int
+        title: String, elementIndex: Int, omitted: Bool = false
     ) {
         self.id = id
         self.number = number
@@ -428,6 +428,7 @@ public struct SceneRow: Identifiable, Equatable, Sendable {
         self.sceneNumber = sceneNumber
         self.title = title
         self.elementIndex = elementIndex
+        self.omitted = omitted
     }
     /// Inside, outside, or crossing between — read from the heading through
     /// the engine, so a writer's spelling of `I/E` does not decide whether
@@ -464,6 +465,11 @@ public struct SceneRow: Identifiable, Equatable, Sendable {
     public let sceneNumber: String?
     public let title: String
     public let elementIndex: Int
+    /// Whether this row is the OMITTED card of a scene the production has
+    /// cut (RFC-DRAFT-PRODUCTION §7.3). The scene keeps its number and its
+    /// place in the Navigator — that is the point of an omission — and the
+    /// body behind the card is not a second row.
+    public let omitted: Bool
 
     /// What the Navigator shows: the production's number when there is one,
     /// otherwise where the scene falls.
