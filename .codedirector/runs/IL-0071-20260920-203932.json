@@ -1,0 +1,259 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0071-20260920-203932.json",
+  "baselineSha256": "26b7a2ef5c205295ba15b577b380a46e0c31d9dd27a0f71603aa4532375e4f27",
+  "budget": {
+    "filesChanged": 14,
+    "linesChanged": 1623,
+    "maxFiles": 15,
+    "maxLines": 2000
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Fixtures/fdx.json",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Model/Types.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Tests/EDraftEngineTests/FdxConformanceTests.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Tests/EDraftEngineTests/FdxPreservingRoundTripTests.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Tests/EDraftEngineTests/FdxScriptNotesTests.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Tests/EDraftEngineTests/OmittedSceneConformanceTests.swift",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/CHANGELOG.md",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/fdx.test.ts",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/fdx.ts",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/index.ts",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/types.ts",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "scripts/engine-conformance-export.mjs",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T203925266",
+    "createdAt": "2026-09-20T20:39:25.350Z",
+    "dirty": true,
+    "id": "ckpt-20260920T203925266",
+    "ref": "ff284fff4e649bee78e1922cab86928bd4157298",
+    "statusHash": "7f140d5b56faeb5c7e7c1b30e245254df97f8efa8e4a7e178a44bc76453ce6a5",
+    "tag": "cdir/ckpt-20260920T203925266"
+  },
+  "command": [
+    "bash",
+    "/private/tmp/claude-501/-Users-x-Documents-edraft/723d4c0a-b9b0-499f-97f6-620bdeac65dc/scratchpad/apply-IL-0071.sh"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T20:39:32.696Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "a no-edit preserving save of finaldraft-sample01.fdx and finaldraft-sample02.fdx stays byte-identical, through the file path and through Fountain — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the ScriptNote Range coordinate space is unchanged: the omitted-scene wrapper still counts as one paragraph plus two block units, and every note that is not after sample02's omitted scene keeps the anchor it has today — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the only existing corpus expectation that changes is fdx.json's finaldraft-sample02 scriptNotes case, and only the 3 anchors that sit after the omitted scene; every other fixture is byte-identical after regeneration — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the two ports agree byte for byte on every omission case, and read every case to the same document — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "import to export to import is stable, and the omission survives both hops — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "unknown nested structure inside the block still follows the embedded-blocks rule — skipped whole as metadata, bytes kept by the preserving save — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the apps are unchanged — no file under EDraftCore, EDraftMacSurface, EDraftUI, the app targets, the Xcode project or docs/ is touched, and the foreign working-tree changes are left exactly as found — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0071",
+  "startedAt": "2026-09-20T20:39:32.648Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0071-20260920-203932.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 7
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0071-20260920-203932.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0071-20260920-203932.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore\" → exit 0",
+        "detail": "verifyCommand passed: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · a no-edit preserving save of finaldraft-sample01.fdx and finaldraft-sample02.fdx stays byte-identical, through the file path and through Fountain",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the ScriptNote Range coordinate space is unchanged: the omitted-scene wrapper still counts as one paragraph plus two block units, and every note that is not after sample02's omitted scene keeps the anchor it has today",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the only existing corpus expectation that changes is fdx.json's finaldraft-sample02 scriptNotes case, and only the 3 anchors that sit after the omitted scene; every other fixture is byte-identical after regeneration",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the two ports agree byte for byte on every omission case, and read every case to the same document",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · import to export to import is stable, and the omission survives both hops",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · unknown nested structure inside the block still follows the embedded-blocks rule — skipped whole as metadata, bytes kept by the preserving save",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the apps are unchanged — no file under EDraftCore, EDraftMacSurface, EDraftUI, the app targets, the Xcode project or docs/ is touched, and the foreign working-tree changes are left exactly as found",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0071",
+    "verifiedAt": "2026-09-20T20:44:06.130Z",
+    "violations": []
+  },
+  "violations": []
+}

@@ -116,14 +116,18 @@ struct FdxScriptNotesTests {
         // After five dual dialogues: exactly one action line.
         #expect(at("109") == span(310, 0, 310, 41))
         #expect(elements[310].type == .action && elements[310].text.utf16.count == 41)
-        // Exactly one line of dialogue.
-        #expect(at("110") == span(548, 0, 548, 6))
-        #expect(elements[548].type == .dialogue && elements[548].text.utf16.count == 6)
+        /* Exactly one line of dialogue. Past the omitted scene, every element
+           index is eight further on than it was before the omitted body was
+           read into the script (§7.3) — the Range values in the file, and
+           every offset here, are untouched: only the model grew. */
+        #expect(at("110") == span(556, 0, 556, 6))
+        #expect(elements[556].type == .dialogue && elements[556].text.utf16.count == 6)
         // After the omitted scene too: from a cue to the start of the next line.
-        #expect(at("111") == span(593, 0, 595, 0))
+        #expect(at("111") == span(601, 0, 603, 0))
         // Zero-length, at the end of the script's last line.
-        #expect(at("112") == span(779, 13, 779, 13))
-        #expect(elements.count == 780)
+        #expect(at("112") == span(787, 13, 787, 13))
+        /* 780 before the omitted scene's eight paragraphs were read. */
+        #expect(elements.count == 788)
     }
 
     @Test("a body keeps its paragraphs, blank ones included")

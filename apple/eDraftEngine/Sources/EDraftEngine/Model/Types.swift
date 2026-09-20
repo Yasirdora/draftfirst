@@ -208,12 +208,39 @@ public struct TitlePageLine: Codable, Equatable, Sendable {
     }
 }
 
+/// A scene the production has omitted — RFC-DRAFT-PRODUCTION §7.3.
+///
+/// An omission is a *record*, not a deletion: the elements stay in the
+/// script with their text, and this names the contiguous span that no
+/// longer prints. Removing the record restores the scene.
+///
+/// `start` is inclusive and `end` exclusive, as every other span in this
+/// model is; the span begins at a scene heading. §7.3 addresses its span by
+/// DraftElementID, which this model has no equivalent for — ids are
+/// `.draft`'s script.json (RFC-DRAFT-FORMAT §6.1) — so the span is by
+/// element index, and the scene number stays on the OMITTED card element
+/// that precedes it (TypeScript `Omission`).
+public struct Omission: Codable, Equatable, Sendable {
+    public var start: Int
+    public var end: Int
+
+    public init(start: Int, end: Int) {
+        self.start = start
+        self.end = end
+    }
+}
+
 public struct Screenplay: Codable, Equatable, Sendable {
     public var titlePage: [TitlePageLine]
     public var elements: [ScreenplayElement]
+    /// Scenes the production has omitted (§7.3). Absent when there are none,
+    /// so a script without omissions encodes exactly as it always has.
+    public var omissions: [Omission]?
 
-    public init(titlePage: [TitlePageLine] = [], elements: [ScreenplayElement] = []) {
+    public init(titlePage: [TitlePageLine] = [], elements: [ScreenplayElement] = [],
+                omissions: [Omission]? = nil) {
         self.titlePage = titlePage
         self.elements = elements
+        self.omissions = omissions
     }
 }

@@ -127,9 +127,29 @@ export interface TitlePageLine {
 	key?: string;
 }
 
+/** A scene the production has omitted — RFC-DRAFT-PRODUCTION §7.3.
+ *
+ * An omission is a *record*, not a deletion: the elements stay in the script
+ * with their text, and this names the contiguous span that no longer prints.
+ * Removing the record restores the scene; nothing has to be put back.
+ *
+ * `start` is inclusive and `end` exclusive, as every other span in this
+ * model is. The span begins at a scene heading (§7.3). §7.3 addresses its
+ * span by DraftElementID; this model has no element id — ids are `.draft`'s
+ * script.json (RFC-DRAFT-FORMAT §6.1) — so the span is by element index, and
+ * the scene number stays where it already lives, on the OMITTED card element
+ * that precedes the span, rather than being copied here. */
+export interface Omission {
+	start: number;
+	end: number;
+}
+
 export interface Screenplay {
 	titlePage: TitlePageLine[];
 	elements: ScreenplayElement[];
+	/** Scenes the production has omitted (§7.3). Absent when there are none,
+	    so a script without omissions serialises exactly as it always has. */
+	omissions?: Omission[];
 }
 
 /** Element types that carry spoken dialogue blocks (cue → parenthetical? → dialogue+). */

@@ -1,0 +1,186 @@
+schemaVersion: 1
+id: IL-0071
+status: verified
+utterance: Fix silent loss of omitted scenes in FDX. Parse <OmittedScene> into a first-class, reversible representation (per docs/RFC-DRAFT-PRODUCTION.md §7.3 the body stays in the script model and the omission is a record over a contiguous element span starting at a scene heading); the editor model must expose that these elements are omitted; FDX export writes the <OmittedScene> wrapper back with the original paragraph ids and TagNumbers preserved. Unknown nested structure follows the existing embedded-blocks rule. Export of a parsed file keeps the omission; import→export→import is stable. Rendering of omitted scenes in the editor is a later surface stage — out of scope here.
+goal: "An omitted scene survives an FDX open and save in both engines: the nested <OmittedScene> body is read into script.elements as real elements, the omission is a record over a contiguous element span starting at a scene heading (RFC-DRAFT-PRODUCTION §7.3), the model says which elements are omitted, a fresh export writes the <OmittedScene> wrapper back around them with their types and TagNumbers, the byte-preserving save stays byte-identical, and import→export→import is stable — byte-identical across TypeScript and Swift, with no surface, UI or app file touched."
+interpretation: |
+  REPRODUCED FIRST, and it is worse than the brief says. Measured on
+  apple/eDraftEngine/Fixtures/finaldraft-sample02.fdx at HEAD:
+
+    - The file's one <OmittedScene> is NOT a sibling of the script's
+      paragraphs. It is nested INSIDE a visible Scene Heading paragraph
+      (Number="21", text "Xxxxxxx" — the anonymised OMITTED card), and it
+      holds 8 paragraphs: Scene Heading, 4x Action, Transition, Outline 1,
+      Summary; 8 paragraph ids and 5 TagNumbers.
+    - parseFdx does not mis-type the heading. It drops the whole nested
+      block: every <Text> run inside it that is unique in the file is
+      absent from script.elements (the heading "Ext. Xx xxx xxxxxx xxxx -
+      dusk" is not in the model at all). Checked against uniqueness,
+      because the anonymised corpus repeats short runs.
+    - No omit marker anywhere in the model ("omit", "Omit", "omitted",
+      "OmittedScene" all absent from the serialised script), and zero
+      diagnostics.
+    - writeFdx therefore does not resurrect the scene as live paragraphs —
+      it DELETES it. No <OmittedScene>, no TagNumber="317", none of the 8
+      ids. What survives is the OMITTED card with nothing behind it.
+    - The byte-preserving save is the only shield, and it holds: a no-edit
+      openFdx().rewrite() of sample02 is byte-identical and keeps the
+      wrapper.
+
+  WHY IT HAPPENS. In the scanner, an embedded block inside a paragraph
+  records its place (EMBEDDED_BLOCKS, two Range units) and is then skipped
+  whole as metadata. <DualDialogue> escapes that by also recording a source
+  span, which dualDialogueOf re-parses as a script of its own.
+  <OmittedScene> records no span, so its paragraphs are never read.
+
+  WHAT THIS LOCK BUILDS, both ports, TypeScript first and Swift pinned to
+  it by the shared conformance fixture:
+
+    1. THE BODY IS READ. omittedSceneOf mirrors dualDialogueOf: the block's
+       source span is re-parsed as a script of its own and its paragraphs
+       become real elements, with their types, runs and TagNumbers.
+    2. THE OMISSION IS A RECORD (§7.3). Screenplay gains `omissions` — a
+       contiguous element span starting at a scene heading, carrying the
+       scene `number` as locked. The elements remain in the script; the
+       record says which are omitted, and removing the record restores
+       them. This is §7.3's shape; §7.3's `elements` are DraftElementIDs,
+       which this model has no equivalent for (ids are .draft script.json,
+       FORMAT §6.1), so the span is by element index — named here so the
+       mapping is a decision, not an accident.
+    3. EXPORT WRAPS IT BACK. A fresh writeFdx writes <OmittedScene> around
+       the span's paragraphs, inside the OMITTED card paragraph, the way
+       Final Draft nests it. The preserving save keeps the original bytes,
+       ids included, as it does today.
+    4. UNKNOWN NESTED STRUCTURE still follows the embedded-blocks rule:
+       anything inside the block that is not a paragraph this engine reads
+       stays metadata, skipped whole, and the preserving save keeps its
+       bytes.
+
+  THE RANGE SPACE DOES NOT MOVE. A ScriptNote Range counts the wrapper as
+  one paragraph plus two units for its block (IL-0031, IL-0033, and the
+  Final Draft probe's fact 5). That counting is what keeps every note on
+  its words through a Final Draft round trip, so it is unchanged here: the
+  body elements are added to script.elements without becoming paragraphs
+  in the Range layout.
+
+  ONE EXISTING EXPECTATION MOVES, AND IT CANNOT NOT MOVE. The brief asks
+  that every existing corpus expectation stay unchanged. Measured: the
+  OMITTED card is element 533 of 780 in sample02, and 3 of that file's 11
+  ScriptNotes are anchored after it. Their anchors are element indices, so
+  reading the omitted body into the model shifts those 3 by the number of
+  body elements. fdx.json's `finaldraft-sample02` scriptNotes case records
+  them, so that case changes. Everything else stays byte-identical. This is
+  the price of the body existing at all; the alternative — keeping the body
+  out of script.elements — is what §7.3 forbids.
+
+  NOT IN THIS LOCK. Rendering the omission in the editor is the surface
+  stage and is out of scope (the user said so). Every surface, UI and app
+  package is denied. Nothing writes to production.json here: this lock is
+  the FDX carrier and the screenplay model, not the .draft production part.
+
+  PARAGRAPH IDS, HONESTLY. "Original paragraph ids preserved" holds for the
+  byte-preserving save, which keeps the file's bytes. A fresh writeFdx has
+  never written paragraph id attributes for any body paragraph — the model
+  has no element id to write — so the wrapper it writes carries types, text
+  and TagNumbers, and no ids. Named rather than quietly skipped.
+
+  FIXTURES: the anonymised corpus only; no real script text.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: a no-edit preserving save of finaldraft-sample01.fdx and finaldraft-sample02.fdx stays byte-identical, through the file path and through Fountain
+  - kind: custom
+    text: "the ScriptNote Range coordinate space is unchanged: the omitted-scene wrapper still counts as one paragraph plus two block units, and every note that is not after sample02's omitted scene keeps the anchor it has today"
+  - kind: custom
+    text: the only existing corpus expectation that changes is fdx.json's finaldraft-sample02 scriptNotes case, and only the 3 anchors that sit after the omitted scene; every other fixture is byte-identical after regeneration
+  - kind: custom
+    text: the two ports agree byte for byte on every omission case, and read every case to the same document
+  - kind: custom
+    text: import to export to import is stable, and the omission survives both hops
+  - kind: custom
+    text: unknown nested structure inside the block still follows the embedded-blocks rule — skipped whole as metadata, bytes kept by the preserving save
+  - kind: custom
+    text: the apps are unchanged — no file under EDraftCore, EDraftMacSurface, EDraftUI, the app targets, the Xcode project or docs/ is touched, and the foreign working-tree changes are left exactly as found
+deny:
+  - apple/EDraftCore/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - src/**
+  - docs/**
+  - package.json
+  - package-lock.json
+  - apple/eDraftEngine/Package.swift
+  - apple/EDraftCore/Package.swift
+  - packages/edraft/src/pdfsignal.ts
+  - packages/edraft/src/draftfile.ts
+  - packages/edraft/src/noteanchor.ts
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: Omitted scenes survive FDX in both engines — the nested body is read into the script model, the omission is a reversible span record per RFC-DRAFT-PRODUCTION §7.3, and a fresh export wraps it back in <OmittedScene>.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/src/types.ts
+    - packages/edraft/src/index.ts
+    - packages/edraft/CHANGELOG.md
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Model/Types.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/OmittedSceneConformanceTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxConformanceTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxPreservingRoundTripTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxScriptNotesTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - scripts/engine-conformance-export.mjs
+  symbols: []
+  maxFiles: 15
+  maxLines: 2000
+accept:
+  - 'FAILS BEFORE THE FIX, in both ports: a test that opens finaldraft-sample02.fdx and asserts the omitted heading "Ext. Xx xxx xxxxxx xxxx - dusk" is in script.elements, and a test that asserts a fresh writeFdx of that reading still contains <OmittedScene> and TagNumber="317".'
+  - "PARSE: the 8 nested paragraphs become elements with their types, runs and TagNumbers; the omission record names a contiguous span starting at the scene heading and carries the scene number as locked."
+  - "MODEL: the model says which elements are omitted — the span is queryable without re-reading the file."
+  - "EXPORT: a fresh writeFdx of a parsed file writes <OmittedScene> back, nested inside the OMITTED card paragraph, with the body's types and TagNumbers."
+  - "STABLE: import to export to import gives the same document, omission included."
+  - "PRESERVING SAVE: a no-edit save of both Final Draft fixtures is byte-identical, through the file path and through Fountain; the wrapper and its ids keep their bytes."
+  - "RANGE SPACE: sample02's 8 notes anchored at or before the omitted scene keep exactly the anchors they have today; the 3 after it move by the body's element count, and by nothing else."
+  - "PORTS: TypeScript and Swift read every omission case to the same document and write identical bytes."
+  - "SUITES: npm test green, swift test for apple/eDraftEngine green, swift test for apple/EDraftCore green (350, untouched)."
+assumptions:
+  - text: 'HEAD is 7b81455 ("mac: Grid shows the script — lazy miniatures on the cards (IL-0070)"), not the 02f4bb9 the brief names: another session committed IL-0070 on top. 02f4bb9 is HEAD~1. The tree is otherwise exactly as described.'
+    source: system
+    confirmed: false
+  - text: 'Foreign working-tree changes to leave untouched, named by the user: apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme, .codedirector/mcp.log, "edraft logo.png", screenshot.png. Never touched, staged or reverted.'
+    source: user
+    confirmed: true
+  - text: "MEASURED, and sharper than the brief: the omitted heading does not arrive as type action — it does not arrive at all, and neither does any other unique text inside the block. A fresh writeFdx deletes the scene rather than resurrecting it as live paragraphs; what survives is the OMITTED card with nothing behind it. The loss is real either way; the mechanism differs. Needs the user's yes."
+    source: system
+    confirmed: false
+  - text: "MEASURED CONFLICT with \"every existing corpus expectation stays unchanged\": the OMITTED card is element 533 of 780 in sample02 and 3 of its 11 ScriptNotes anchor after it, so those 3 anchors shift by the body's element count once the body is in the model. fdx.json's finaldraft-sample02 scriptNotes case therefore changes. No other fixture does. Needs the user's yes."
+    source: system
+    confirmed: false
+  - text: 'SCOPE BOUNDARY: "original paragraph ids preserved" holds for the byte-preserving save. A fresh writeFdx writes no paragraph id for any body paragraph today and the model carries no element id, so the wrapper it writes has types, text and TagNumbers but no ids. Giving the model element ids is a model-wide change and is not in this lock.'
+    source: system
+    confirmed: false
+  - text: The Swift corpus count assertions (importCases 29, exportCases 13, rewriteCases 69, scriptNoteCases 12) move with the new cases, so FdxConformanceTests.swift, FdxPreservingRoundTripTests.swift and FdxScriptNotesTests.swift are in budget for those numbers alone. FixtureStore.swift is in budget for the corpus shape the new model field needs.
+    source: system
+    confirmed: false
+  - text: "maxLines 2,000, a tripwire and not a target: estimate — engine source in both ports ~420, tests in both ports ~420, the regenerated fdx.json ~450 (new cases plus the 3 moved anchors), export script ~80, changelog ~15, count bumps ~10. If quality work hits the ceiling the run stops and the evidence is shown rather than trimming tests."
+    source: system
+    confirmed: false
+  - text: New files sit in folders already tracked by git (EDraftEngineTests) — Code Director 0.4.5 misjudges files in new folders.
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T20:30:00.000Z
+createdBy: Yasirdora

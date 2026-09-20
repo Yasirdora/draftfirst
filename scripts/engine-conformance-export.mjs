@@ -38,7 +38,7 @@ import {
 	synthesiseEmphasis,
 	toggleStyle
 } from '../packages/edraft/dist/style.js';
-import { openFdx, parseFdx, writeFdxWithDiagnostics } from '../packages/edraft/dist/fdx.js';
+import { openFdx, parseFdx, writeFdx, writeFdxWithDiagnostics } from '../packages/edraft/dist/fdx.js';
 import { estimateRuntime, paginate, printedLineCount } from '../packages/edraft/dist/layout.js';
 import {
 	ghostSuffix,
@@ -1666,6 +1666,56 @@ addScriptNotes('script-notes-owned-beside-final-draft', {
 		'  <ScriptNotes>\n    <ScriptNote Id="7" Range="0,20" Type="Producer" WriterName="Sam Okafor"><Paragraph><Text>No [eDraft] mark: Final Draft\'s.</Text></Paragraph></ScriptNote>\n'
 	)
 });
+
+/* Omitted scenes (RFC-DRAFT-PRODUCTION §7.3). Final Draft nests the block
+   inside the Scene Heading that shows the OMITTED card, so the card keeps
+   its place and the body follows it, named by a span. Skipped whole before
+   this, the scene was lost on any export that did not keep the file's own
+   bytes. */
+const OMIT_LAB = [
+	'<FinalDraft DocumentType="Script" Template="No" Version="5">',
+	'<Content>',
+	'<Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>',
+	'<Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>',
+	'<Paragraph Number="21" Type="Scene Heading">',
+	'<Text>OMITTED</Text>',
+	'<OmittedScene>',
+	'<Paragraph Type="Scene Heading"><Text TagNumber="317">EXT. THE YARD - DUSK</Text></Paragraph>',
+	'<Paragraph Type="Action"><Text TagNumber="213">Mara</Text><Text> waits.</Text></Paragraph>',
+	'<Paragraph Type="Transition"><Text>Cut to:</Text></Paragraph>',
+	'</OmittedScene>',
+	'</Paragraph>',
+	'<Paragraph Type="Action"><Text>She waits.</Text></Paragraph>',
+	'</Content>',
+	'</FinalDraft>'
+].join('\n');
+addFdxImport('omitted-scene', OMIT_LAB);
+/* An omitted scene with nothing but its heading, and one holding structure
+   this engine does not read — metadata, skipped whole, as the embedded-blocks
+   rule has always had it. */
+addFdxImport('omitted-scene-heading-only', OMIT_LAB.replace(
+	'<Paragraph Type="Action"><Text TagNumber="213">Mara</Text><Text> waits.</Text></Paragraph>\n<Paragraph Type="Transition"><Text>Cut to:</Text></Paragraph>\n',
+	''
+));
+addFdxImport('omitted-scene-unknown-nested-structure', OMIT_LAB.replace(
+	'<Paragraph Type="Transition"><Text>Cut to:</Text></Paragraph>',
+	'<Paragraph Type="Transition"><SomeFutureThing><Inner>x</Inner></SomeFutureThing><Text>Cut to:</Text></Paragraph>'
+));
+/* Written back: the wrapper returns, nested in its card, with the body's
+   TagNumbers — and the body is not also written as live paragraphs. */
+addFdxExport('omitted-scene', parseFdx(OMIT_LAB).script);
+/* Import → export → import, the stability the omission has to survive. */
+addFdxImport('omitted-scene-reopened', writeFdx(parseFdx(OMIT_LAB).script));
+/* The preserving save keeps the file's own bytes, block included. */
+addRewrite('omitted-scene-no-edit', OMIT_LAB);
+addRewrite('omitted-scene-edit-outside', OMIT_LAB, (elements) =>
+	elements.map((element) => (element.text === 'She waits.' ? { ...element, text: 'She waited.' } : element))
+);
+/* The real file Final Draft wrote is covered where it costs nothing: its
+   preserving saves are already rewrite cases, and its ScriptNote anchors —
+   the three that moved when the omitted body joined the model — are pinned
+   by the `finaldraft-sample02` scriptNotes case. Pinning its whole 788-element
+   model here would add 8,800 lines of fixture for no new proof. */
 
 writeFixture('fdx.json', {
 	import: fdxImport,

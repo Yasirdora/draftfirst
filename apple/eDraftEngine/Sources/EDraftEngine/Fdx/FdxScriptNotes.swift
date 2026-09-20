@@ -611,7 +611,7 @@ extension Fdx {
         _ elements: [ScreenplayElement],
         _ notes: [ScriptNote],
         _ ownership: [OwnedNote?]
-    ) -> (elements: [ScreenplayElement], scriptNotes: [ScriptNote]) {
+    ) -> (elements: [ScreenplayElement], scriptNotes: [ScriptNote], movedTo: [Int]?) {
         var inFront: [Int: [ScreenplayElement]] = [:]
         var theirs: [ScriptNote] = []
         for (index, note) in notes.enumerated() {
@@ -627,7 +627,7 @@ extension Fdx {
                 ScreenplayElement(type: .note, text: ownedNoteText(owned), anchor: anchor)
             )
         }
-        guard !inFront.isEmpty else { return (elements, notes) }
+        guard !inFront.isEmpty else { return (elements, notes, nil) }
         var result: [ScreenplayElement] = []
         var movedTo: [Int] = []
         for (index, element) in elements.enumerated() {
@@ -645,7 +645,21 @@ extension Fdx {
                 note.anchor = ScriptNote.Anchor(start: moved(anchor.start), end: moved(anchor.end))
             }
             return note
-        })
+        }, movedTo)
+    }
+
+    /// An omission span, after the notes read in front of their lines have
+    /// moved the elements it covers (TypeScript `movedOmissions`).
+    static func movedOmissions(_ omissions: [Omission], _ movedTo: [Int]?, _ total: Int) -> [Omission] {
+        guard let movedTo else { return omissions }
+        return omissions.map { omission in
+            Omission(
+                start: movedTo[omission.start],
+                /* `end` is exclusive: where the element after the span went,
+                   or the end of the script when the span runs to it. */
+                end: omission.end < movedTo.count ? movedTo[omission.end] : total
+            )
+        }
     }
 
     struct ResolvedNoteWriting {

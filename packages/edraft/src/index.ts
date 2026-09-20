@@ -6,6 +6,7 @@ export type {
 	ElementType,
 	FountainIndex,
 	NoteAnchor,
+	Omission,
 	Screenplay,
 	ScreenplayElement,
 	StructuralType,

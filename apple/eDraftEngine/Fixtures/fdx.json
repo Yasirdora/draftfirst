@@ -751,6 +751,260 @@
           }
         ]
       }
+    },
+    {
+      "name": "omitted-scene",
+      "source": "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>\n<Paragraph Number=\"21\" Type=\"Scene Heading\">\n<Text>OMITTED</Text>\n<OmittedScene>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>\n<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>\n</OmittedScene>\n</Paragraph>\n<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>\n</Content>\n</FinalDraft>",
+      "options": {},
+      "expected": {
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "scene",
+              "text": "INT. KITCHEN - NIGHT"
+            },
+            {
+              "type": "action",
+              "text": "The kettle screams."
+            },
+            {
+              "type": "scene",
+              "text": "OMITTED",
+              "sceneNumber": "21"
+            },
+            {
+              "type": "scene",
+              "text": "EXT. THE YARD - DUSK",
+              "runs": [
+                {
+                  "start": 0,
+                  "end": 20,
+                  "styles": [],
+                  "tagNumbers": [
+                    317
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "action",
+              "text": "Mara waits.",
+              "runs": [
+                {
+                  "start": 0,
+                  "end": 4,
+                  "styles": [],
+                  "tagNumbers": [
+                    213
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "transition",
+              "text": "Cut to:"
+            },
+            {
+              "type": "action",
+              "text": "She waits."
+            }
+          ],
+          "omissions": [
+            {
+              "start": 3,
+              "end": 6
+            }
+          ]
+        },
+        "diagnostics": []
+      }
+    },
+    {
+      "name": "omitted-scene-heading-only",
+      "source": "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>\n<Paragraph Number=\"21\" Type=\"Scene Heading\">\n<Text>OMITTED</Text>\n<OmittedScene>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>\n</OmittedScene>\n</Paragraph>\n<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>\n</Content>\n</FinalDraft>",
+      "options": {},
+      "expected": {
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "scene",
+              "text": "INT. KITCHEN - NIGHT"
+            },
+            {
+              "type": "action",
+              "text": "The kettle screams."
+            },
+            {
+              "type": "scene",
+              "text": "OMITTED",
+              "sceneNumber": "21"
+            },
+            {
+              "type": "scene",
+              "text": "EXT. THE YARD - DUSK",
+              "runs": [
+                {
+                  "start": 0,
+                  "end": 20,
+                  "styles": [],
+                  "tagNumbers": [
+                    317
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "action",
+              "text": "She waits."
+            }
+          ],
+          "omissions": [
+            {
+              "start": 3,
+              "end": 4
+            }
+          ]
+        },
+        "diagnostics": []
+      }
+    },
+    {
+      "name": "omitted-scene-unknown-nested-structure",
+      "source": "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>\n<Paragraph Number=\"21\" Type=\"Scene Heading\">\n<Text>OMITTED</Text>\n<OmittedScene>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>\n<Paragraph Type=\"Transition\"><SomeFutureThing><Inner>x</Inner></SomeFutureThing><Text>Cut to:</Text></Paragraph>\n</OmittedScene>\n</Paragraph>\n<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>\n</Content>\n</FinalDraft>",
+      "options": {},
+      "expected": {
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "scene",
+              "text": "INT. KITCHEN - NIGHT"
+            },
+            {
+              "type": "action",
+              "text": "The kettle screams."
+            },
+            {
+              "type": "scene",
+              "text": "OMITTED",
+              "sceneNumber": "21"
+            },
+            {
+              "type": "scene",
+              "text": "EXT. THE YARD - DUSK",
+              "runs": [
+                {
+                  "start": 0,
+                  "end": 20,
+                  "styles": [],
+                  "tagNumbers": [
+                    317
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "action",
+              "text": "Mara waits.",
+              "runs": [
+                {
+                  "start": 0,
+                  "end": 4,
+                  "styles": [],
+                  "tagNumbers": [
+                    213
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "transition",
+              "text": "Cut to:"
+            },
+            {
+              "type": "action",
+              "text": "She waits."
+            }
+          ],
+          "omissions": [
+            {
+              "start": 3,
+              "end": 6
+            }
+          ]
+        },
+        "diagnostics": []
+      }
+    },
+    {
+      "name": "omitted-scene-reopened",
+      "source": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\" Number=\"21\"><Text>OMITTED</Text><OmittedScene><Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph><Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph><Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph></OmittedScene></Paragraph>\n<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
+      "options": {},
+      "expected": {
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "scene",
+              "text": "INT. KITCHEN - NIGHT"
+            },
+            {
+              "type": "action",
+              "text": "The kettle screams."
+            },
+            {
+              "type": "scene",
+              "text": "OMITTED",
+              "sceneNumber": "21"
+            },
+            {
+              "type": "scene",
+              "text": "EXT. THE YARD - DUSK",
+              "runs": [
+                {
+                  "start": 0,
+                  "end": 20,
+                  "styles": [],
+                  "tagNumbers": [
+                    317
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "action",
+              "text": "Mara waits.",
+              "runs": [
+                {
+                  "start": 0,
+                  "end": 4,
+                  "styles": [],
+                  "tagNumbers": [
+                    213
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "transition",
+              "text": "Cut to:"
+            },
+            {
+              "type": "action",
+              "text": "She waits."
+            }
+          ],
+          "omissions": [
+            {
+              "start": 3,
+              "end": 6
+            }
+          ]
+        },
+        "diagnostics": []
+      }
     }
   ],
   "export": [
@@ -5231,6 +5485,73 @@
         "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Action\"><Text>Cold pasture.</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>TEASER</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Middle.</Text></Paragraph>\n<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END TEASER</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT TWO</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Later.</Text></Paragraph>\n<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END OF ACT TWO</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT TWO: THE TURN</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>Nearly.</Text></Paragraph>\n<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>END ACT TWO: THE TURN</Text></Paragraph>\n<Paragraph Type=\"New Act\" Alignment=\"Center\"><Text>ACT THREE</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>End.</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
         "diagnostics": []
       }
+    },
+    {
+      "name": "omitted-scene",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "scene",
+            "text": "OMITTED",
+            "sceneNumber": "21"
+          },
+          {
+            "type": "scene",
+            "text": "EXT. THE YARD - DUSK",
+            "runs": [
+              {
+                "start": 0,
+                "end": 20,
+                "styles": [],
+                "tagNumbers": [
+                  317
+                ]
+              }
+            ]
+          },
+          {
+            "type": "action",
+            "text": "Mara waits.",
+            "runs": [
+              {
+                "start": 0,
+                "end": 4,
+                "styles": [],
+                "tagNumbers": [
+                  213
+                ]
+              }
+            ]
+          },
+          {
+            "type": "transition",
+            "text": "Cut to:"
+          },
+          {
+            "type": "action",
+            "text": "She waits."
+          }
+        ],
+        "omissions": [
+          {
+            "start": 3,
+            "end": 6
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft xmlns:EDraft=\"https://edraft.xyz/ns/fdx/1\" DocumentType=\"Script\" Version=\"3\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>\n<Paragraph Type=\"Scene Heading\" Number=\"21\"><Text>OMITTED</Text><OmittedScene><Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph><Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph><Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph></OmittedScene></Paragraph>\n<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>\n</Content>\n</FinalDraft>\n",
+        "diagnostics": []
+      }
     }
   ],
   "scriptNotes": [
@@ -5812,11 +6133,11 @@
             },
             "anchor": {
               "start": {
-                "element": 550,
+                "element": 558,
                 "offset": 14
               },
               "end": {
-                "element": 550,
+                "element": 558,
                 "offset": 20
               }
             },
@@ -5835,11 +6156,11 @@
             },
             "anchor": {
               "start": {
-                "element": 595,
+                "element": 603,
                 "offset": 58
               },
               "end": {
-                "element": 598,
+                "element": 606,
                 "offset": 81
               }
             },
@@ -5858,11 +6179,11 @@
             },
             "anchor": {
               "start": {
-                "element": 783,
+                "element": 791,
                 "offset": 2
               },
               "end": {
-                "element": 783,
+                "element": 791,
                 "offset": 2
               }
             },
@@ -6078,11 +6399,11 @@
             },
             "anchor": {
               "start": {
-                "element": 548,
+                "element": 556,
                 "offset": 0
               },
               "end": {
-                "element": 548,
+                "element": 556,
                 "offset": 6
               }
             },
@@ -6101,11 +6422,11 @@
             },
             "anchor": {
               "start": {
-                "element": 593,
+                "element": 601,
                 "offset": 0
               },
               "end": {
-                "element": 595,
+                "element": 603,
                 "offset": 0
               }
             },
@@ -6124,11 +6445,11 @@
             },
             "anchor": {
               "start": {
-                "element": 779,
+                "element": 787,
                 "offset": 13
               },
               "end": {
-                "element": 779,
+                "element": 787,
                 "offset": 13
               }
             },
@@ -6518,7 +6839,7 @@
                 "offset": 7
               },
               "end": {
-                "element": 6,
+                "element": 7,
                 "offset": 0
               }
             },
@@ -6532,11 +6853,11 @@
             },
             "anchor": {
               "start": {
-                "element": 6,
+                "element": 7,
                 "offset": 0
               },
               "end": {
-                "element": 6,
+                "element": 7,
                 "offset": 3
               }
             },
@@ -6572,8 +6893,18 @@
               "text": "Omitted"
             },
             {
+              "type": "scene",
+              "text": "EXT. YARD - DAY"
+            },
+            {
               "type": "action",
               "text": "Go."
+            }
+          ],
+          "omissions": [
+            {
+              "start": 6,
+              "end": 7
             }
           ]
         }
@@ -9271,6 +9602,140 @@
           "25737,25737",
           "338,457"
         ]
+      }
+    },
+    {
+      "name": "omitted-scene-no-edit",
+      "source": "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>\n<Paragraph Number=\"21\" Type=\"Scene Heading\">\n<Text>OMITTED</Text>\n<OmittedScene>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>\n<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>\n</OmittedScene>\n</Paragraph>\n<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>\n</Content>\n</FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "scene",
+            "text": "OMITTED",
+            "sceneNumber": "21"
+          },
+          {
+            "type": "scene",
+            "text": "EXT. THE YARD - DUSK",
+            "runs": [
+              {
+                "start": 0,
+                "end": 20,
+                "styles": [],
+                "tagNumbers": [
+                  317
+                ]
+              }
+            ]
+          },
+          {
+            "type": "action",
+            "text": "Mara waits.",
+            "runs": [
+              {
+                "start": 0,
+                "end": 4,
+                "styles": [],
+                "tagNumbers": [
+                  213
+                ]
+              }
+            ]
+          },
+          {
+            "type": "transition",
+            "text": "Cut to:"
+          },
+          {
+            "type": "action",
+            "text": "She waits."
+          }
+        ],
+        "omissions": [
+          {
+            "start": 3,
+            "end": 6
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>\n<Paragraph Number=\"21\" Type=\"Scene Heading\">\n<Text>OMITTED</Text>\n<OmittedScene>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>\n<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>\n</OmittedScene>\n</Paragraph>\n<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>\n</Content>\n</FinalDraft>"
+      }
+    },
+    {
+      "name": "omitted-scene-edit-outside",
+      "source": "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>\n<Paragraph Number=\"21\" Type=\"Scene Heading\">\n<Text>OMITTED</Text>\n<OmittedScene>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>\n<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>\n</OmittedScene>\n</Paragraph>\n<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>\n</Content>\n</FinalDraft>",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "scene",
+            "text": "OMITTED",
+            "sceneNumber": "21"
+          },
+          {
+            "type": "scene",
+            "text": "EXT. THE YARD - DUSK",
+            "runs": [
+              {
+                "start": 0,
+                "end": 20,
+                "styles": [],
+                "tagNumbers": [
+                  317
+                ]
+              }
+            ]
+          },
+          {
+            "type": "action",
+            "text": "Mara waits.",
+            "runs": [
+              {
+                "start": 0,
+                "end": 4,
+                "styles": [],
+                "tagNumbers": [
+                  213
+                ]
+              }
+            ]
+          },
+          {
+            "type": "transition",
+            "text": "Cut to:"
+          },
+          {
+            "type": "action",
+            "text": "She waited."
+          }
+        ],
+        "omissions": [
+          {
+            "start": 3,
+            "end": 6
+          }
+        ]
+      },
+      "expected": {
+        "xml": "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n<Content>\n<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>\n<Paragraph Number=\"21\" Type=\"Scene Heading\">\n<Text>OMITTED</Text>\n<OmittedScene>\n<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>\n<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>\n<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>\n</OmittedScene>\n</Paragraph>\n<Paragraph Type=\"Action\"><Text>She waited.</Text></Paragraph>\n</Content>\n</FinalDraft>"
       }
     }
   ]

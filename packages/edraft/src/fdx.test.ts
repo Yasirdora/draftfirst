@@ -891,14 +891,18 @@ describe('FDX · ScriptNotes', () => {
 		/* after five dual dialogues: exactly one action line */
 		expect(at('109')).toEqual({ start: { element: 310, offset: 0 }, end: { element: 310, offset: 41 } });
 		expect([elements[310].type, elements[310].text.length]).toEqual(['action', 41]);
-		/* exactly one line of dialogue */
-		expect(at('110')).toEqual({ start: { element: 548, offset: 0 }, end: { element: 548, offset: 6 } });
-		expect([elements[548].type, elements[548].text.length]).toEqual(['dialogue', 6]);
+		/* exactly one line of dialogue. Past the omitted scene, every element
+		   index is eight further on than it was before the omitted body was
+		   read into the script (§7.3) — the Range values in the file, and
+		   every offset here, are untouched: only the model grew. */
+		expect(at('110')).toEqual({ start: { element: 556, offset: 0 }, end: { element: 556, offset: 6 } });
+		expect([elements[556].type, elements[556].text.length]).toEqual(['dialogue', 6]);
 		/* after the omitted scene too: from a cue to the start of the next line */
-		expect(at('111')).toEqual({ start: { element: 593, offset: 0 }, end: { element: 595, offset: 0 } });
+		expect(at('111')).toEqual({ start: { element: 601, offset: 0 }, end: { element: 603, offset: 0 } });
 		/* zero-length, at the end of the script's last line */
-		expect(at('112')).toEqual({ start: { element: 779, offset: 13 }, end: { element: 779, offset: 13 } });
-		expect(elements).toHaveLength(780);
+		expect(at('112')).toEqual({ start: { element: 787, offset: 13 }, end: { element: 787, offset: 13 } });
+		/* 780 before the omitted scene's eight paragraphs were read (§7.3). */
+		expect(elements).toHaveLength(788);
 	});
 
 	it('counts a block embedded in a paragraph as two units where it sits, its own text nothing', () => {
@@ -914,6 +918,9 @@ describe('FDX · ScriptNotes', () => {
 			['character', 'JON'],
 			['dialogue', 'No.'],
 			['scene', 'Omitted'],
+			/* Read since §7.3: the scene inside the block, which used to be
+			   skipped whole with it. */
+			['scene', 'EXT. YARD - DAY'],
 			['action', 'Go.']
 		]);
 		const span = (element: number, start: number, endElement: number, end: number) => ({
@@ -925,8 +932,8 @@ describe('FDX · ScriptNotes', () => {
 			span(1, 0, 1, 0), // the dual dialogue's two units and its break: its first line
 			span(5, 0, 5, 7), // "Omitted"
 			span(5, 7, 5, 7), // the omitted scene's two units: its place, after the text
-			span(5, 7, 6, 0), // the break after it, to the next line
-			span(6, 0, 6, 3) // the line after both — past the script's end, counted as zero
+			span(5, 7, 7, 0), // the break after it, to the next line
+			span(7, 0, 7, 3) // the line after both — past the script's end, counted as zero
 		]);
 	});
 
@@ -1167,9 +1174,13 @@ describe('openFdx · files Final Draft wrote', () => {
 	};
 	const REQUIRED: Record<(typeof FILES)[number], ReturnType<typeof hazards>> = {
 		'finaldraft-sample02.fdx': {
-			eDraftNamespace: false, bareParagraphLines: 0, taggedRuns: 394, revisionRuns: 98,
+			/* taggedRuns and trailingSpaces count the model, and the model now
+			   holds the omitted scene's body (§7.3): its five tagged runs and
+			   two trailing-space paragraphs were invisible before. The file
+			   has not changed — more of it is read. */
+			eDraftNamespace: false, bareParagraphLines: 0, taggedRuns: 399, revisionRuns: 98,
 			adornmentSplits: 10, dualDialogue: 6, omittedScenes: 1, endOfAct: 1, emphasisedHeadings: 1,
-			italicParentheticals: 2, multiLineParagraphs: 0, trailingSpaces: 9, astral: 0
+			italicParentheticals: 2, multiLineParagraphs: 0, trailingSpaces: 11, astral: 0
 		},
 		'finaldraft-sample01.fdx': {
 			eDraftNamespace: false, bareParagraphLines: 0, taggedRuns: 0, revisionRuns: 2,
@@ -2230,5 +2241,231 @@ describe('FDX · notes pinned to words (RFC-NOTES-SYSTEM §5, stage 4)', () => {
 		expect(reading.elements.find((e) => e.type === 'note')?.anchor).toEqual({ on: "Mara doesn't move" });
 		const saved = openFdx(source).rewrite(reading, { unedited: reading, notes: NOTES }).xml;
 		expect(saved).toBe(source);
+	});
+});
+
+/**
+ * Omitted scenes (RFC-DRAFT-PRODUCTION §7.3).
+ *
+ * Final Draft nests an <OmittedScene> INSIDE the visible Scene Heading that
+ * shows the OMITTED card. Before this suite, the parser skipped the block
+ * whole as metadata: its paragraphs never reached the model, nothing said
+ * the scene was omitted, and a fresh export dropped it. Only the
+ * byte-preserving save stood between a writer and a lost scene.
+ */
+describe('FDX · omitted scenes (§7.3)', () => {
+	const OMIT_LAB = [
+		'<FinalDraft DocumentType="Script" Template="No" Version="5">',
+		'<Content>',
+		'<Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>',
+		'<Paragraph Number="21" Type="Scene Heading">',
+		'<Text>OMITTED</Text>',
+		'<OmittedScene>',
+		'<Paragraph Type="Scene Heading"><Text TagNumber="317">EXT. THE YARD - DUSK</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text TagNumber="213">Mara</Text><Text> waits.</Text></Paragraph>',
+		'</OmittedScene>',
+		'</Paragraph>',
+		'<Paragraph Type="Action"><Text>She waits.</Text></Paragraph>',
+		'</Content>',
+		'</FinalDraft>'
+	].join('\n');
+
+	const SAMPLE02 = new URL('../../../apple/eDraftEngine/Fixtures/finaldraft-sample02.fdx', import.meta.url);
+	const OMITTED_HEADING = 'Ext. Xx xxx xxxxxx xxxx - dusk';
+
+	it('reads the omitted body into the script — it is not skipped as metadata', () => {
+		const script = parseFdx(OMIT_LAB).script;
+		const texts = script.elements.map((e) => e.text);
+		expect(texts).toContain('EXT. THE YARD - DUSK');
+		expect(texts).toContain('Mara waits.');
+		/* The card keeps its own place and its number. */
+		const card = script.elements.findIndex((e) => e.text === 'OMITTED');
+		expect(script.elements[card].sceneNumber).toBe('21');
+		expect(script.elements[card + 1].type).toBe('scene');
+		expect(script.elements[card + 1].text).toBe('EXT. THE YARD - DUSK');
+	});
+
+	it('records the omission as a reversible span starting at a scene heading', () => {
+		const script = parseFdx(OMIT_LAB).script;
+		const card = script.elements.findIndex((e) => e.text === 'OMITTED');
+		expect(script.omissions).toEqual([{ start: card + 1, end: card + 3 }]);
+		/* §7.3: the span starts at a scene heading, and the body stays. */
+		expect(script.elements[script.omissions![0].start].type).toBe('scene');
+		expect(script.omissions![0].end - script.omissions![0].start).toBe(2);
+	});
+
+	it('the model says which elements are omitted, without re-reading the file', () => {
+		const script = parseFdx(OMIT_LAB).script;
+		const omitted = new Set<number>();
+		for (const o of script.omissions ?? []) for (let i = o.start; i < o.end; i++) omitted.add(i);
+		const names = script.elements.map((e, i) => `${omitted.has(i) ? 'omitted' : 'live   '} ${e.text}`);
+		expect(names).toEqual([
+			'live    INT. KITCHEN - NIGHT',
+			'live    The kettle screams.',
+			'live    OMITTED',
+			'omitted EXT. THE YARD - DUSK',
+			'omitted Mara waits.',
+			'live    She waits.'
+		]);
+	});
+
+	it('keeps the TagNumbers of the omitted body', () => {
+		const script = parseFdx(OMIT_LAB).script;
+		const heading = script.elements.find((e) => e.text === 'EXT. THE YARD - DUSK');
+		expect(heading?.runs?.[0]?.tagNumbers).toEqual([317]);
+		const action = script.elements.find((e) => e.text === 'Mara waits.');
+		expect(action?.runs?.[0]?.tagNumbers).toEqual([213]);
+	});
+
+	it('a fresh export writes the <OmittedScene> wrapper back, nested in its card', () => {
+		const xml = writeFdx(parseFdx(OMIT_LAB).script);
+		expect(xml).toContain('<OmittedScene>');
+		expect(xml).toContain('TagNumber="317"');
+		/* Nested inside the card, not loose among the live paragraphs. */
+		const card = xml.indexOf('OMITTED<');
+		const open = xml.indexOf('<OmittedScene>');
+		const close = xml.indexOf('</OmittedScene>');
+		expect(card).toBeGreaterThan(-1);
+		expect(open).toBeGreaterThan(card);
+		expect(xml.indexOf('EXT. THE YARD - DUSK')).toBeGreaterThan(open);
+		expect(xml.indexOf('EXT. THE YARD - DUSK')).toBeLessThan(close);
+		/* And the omitted body is not also emitted as a live paragraph. */
+		expect(xml.split('EXT. THE YARD - DUSK').length - 1).toBe(1);
+	});
+
+	it('import → export → import is stable, omission included', () => {
+		const once = parseFdx(OMIT_LAB).script;
+		const twice = parseFdx(writeFdx(once)).script;
+		expect(twice).toEqual(once);
+	});
+
+	it('the real file: the omitted scene reaches the model instead of vanishing', () => {
+		const source = readFileSync(SAMPLE02, 'utf8');
+		const script = parseFdx(source).script;
+		expect(script.elements.map((e) => e.text)).toContain(OMITTED_HEADING);
+		expect(script.omissions?.length).toBe(1);
+		const [omission] = script.omissions!;
+		expect(script.elements[omission.start].text).toBe(OMITTED_HEADING);
+		expect(script.elements[omission.start].type).toBe('scene');
+	});
+
+	it('the real file: a fresh export keeps the scene instead of deleting it', () => {
+		const source = readFileSync(SAMPLE02, 'utf8');
+		const xml = writeFdx(parseFdx(source).script);
+		expect(xml).toContain('<OmittedScene>');
+		expect(xml).toContain(OMITTED_HEADING);
+		expect(xml).toContain('TagNumber="317"');
+	});
+
+	it('the real file: a no-edit preserving save is still byte-identical', () => {
+		const source = readFileSync(SAMPLE02, 'utf8');
+		const reading = parseFdx(source).script;
+		expect(openFdx(source).rewrite(reading, { unedited: reading }).xml).toBe(source);
+	});
+
+	it('a script with no omission carries no record, and writes exactly as before', () => {
+		const plain = OMIT_LAB.replace(/<OmittedScene>[\s\S]*<\/OmittedScene>/, '');
+		const script = parseFdx(plain).script;
+		expect(script.omissions).toBeUndefined();
+		expect('omissions' in script).toBe(false);
+	});
+
+	it('two omitted scenes are two records, each over its own span', () => {
+		const two = OMIT_LAB.replace(
+			'<Paragraph Type="Action"><Text>She waits.</Text></Paragraph>',
+			[
+				'<Paragraph Number="22" Type="Scene Heading">',
+				'<Text>OMITTED</Text>',
+				'<OmittedScene>',
+				'<Paragraph Type="Scene Heading"><Text>INT. THE HALL - DAY</Text></Paragraph>',
+				'</OmittedScene>',
+				'</Paragraph>',
+				'<Paragraph Type="Action"><Text>She waits.</Text></Paragraph>'
+			].join('\n')
+		);
+		const script = parseFdx(two).script;
+		expect(script.omissions).toHaveLength(2);
+		const [first, second] = script.omissions!;
+		expect(script.elements[first.start].text).toBe('EXT. THE YARD - DUSK');
+		expect(script.elements[second.start].text).toBe('INT. THE HALL - DAY');
+		expect(second.start).toBeGreaterThanOrEqual(first.end);
+		expect(parseFdx(writeFdx(script)).script).toEqual(script);
+	});
+
+	it('an empty wrapper records no omission and loses nothing', () => {
+		const empty = OMIT_LAB.replace(/<OmittedScene>[\s\S]*<\/OmittedScene>/, '<OmittedScene></OmittedScene>');
+		const script = parseFdx(empty).script;
+		expect(script.omissions).toBeUndefined();
+		expect(openFdx(empty).rewrite(script, { unedited: script }).xml).toBe(empty);
+	});
+
+	it('editing an omitted line keeps the file\'s bytes, and the save says so', () => {
+		const reading = parseFdx(OMIT_LAB).script;
+		const omission = reading.omissions![0];
+		const edited = {
+			...reading,
+			elements: reading.elements.map((element, index) =>
+				index === omission.start ? { ...element, text: 'EXT. SOMEWHERE ELSE - DAWN' } : element
+			)
+		};
+		const saved = openFdx(OMIT_LAB).rewrite(edited, { unedited: reading });
+		/* The omitted body is the file's, not the editor's (§7.3, "Preserved
+		   on splice") — and the writer is told, never left to guess. */
+		expect(saved.xml).toBe(OMIT_LAB);
+		expect(saved.diagnostics.map((d) => d.code)).toContain('FDX_REWRITE_OMITTED_SCENE_KEPT');
+		expect(saved.diagnostics.find((d) => d.code === 'FDX_REWRITE_OMITTED_SCENE_KEPT')?.severity).toBe('info');
+	});
+
+	it('an omitted body the save cannot find is reported, not guessed at', () => {
+		const reading = parseFdx(OMIT_LAB).script;
+		const omission = reading.omissions![0];
+		/* The whole body gone from the script being saved. */
+		const without = {
+			...reading,
+			elements: reading.elements.filter((_, index) => index < omission.start || index >= omission.end),
+			omissions: undefined
+		};
+		const saved = openFdx(OMIT_LAB).rewrite(without, { unedited: without });
+		expect(saved.diagnostics.map((d) => d.code)).toContain('FDX_REWRITE_OMITTED_SCENE_UNPLACED');
+		expect(saved.xml).toContain('<OmittedScene>');
+	});
+
+	it('an edit outside the omission is written, and the block is untouched', () => {
+		const reading = parseFdx(OMIT_LAB).script;
+		const edited = {
+			...reading,
+			elements: reading.elements.map((element) =>
+				element.text === 'She waits.' ? { ...element, text: 'She waited.' } : element
+			)
+		};
+		const saved = openFdx(OMIT_LAB).rewrite(edited, { unedited: reading });
+		expect(saved.xml).toContain('She waited.');
+		expect(saved.xml).toContain('<OmittedScene>');
+		expect(saved.xml).toContain('TagNumber="317"');
+		expect(saved.xml.split('EXT. THE YARD - DUSK').length - 1).toBe(1);
+	});
+
+	it('the Range space does not move: a note after an omitted scene keeps its offsets', () => {
+		const source = readFileSync(SAMPLE02, 'utf8');
+		const { scriptNotes } = parseFdx(source);
+		/* The file's Range values are what Final Draft measured; reading the
+		   omitted body into the model must not touch them. */
+		const ranges = scriptNotes.map((note) => note.range && `${note.range.start},${note.range.end}`);
+		const inFile = [...source.matchAll(/<ScriptNote[^>]*\sRange="([^"]*)"/g)].map((m) => m[1]);
+		expect(ranges.filter(Boolean)).toEqual(inFile);
+		/* And every anchor still lands on whole words, none mid-word. */
+		expect(scriptNotes.filter((note) => note.anchor === undefined)).toEqual([]);
+	});
+
+	it('unknown nested structure still follows the embedded-blocks rule', () => {
+		const withUnknown = OMIT_LAB.replace(
+			'<Paragraph Type="Action"><Text TagNumber="213">Mara</Text><Text> waits.</Text></Paragraph>',
+			'<Paragraph Type="Action"><SomeFutureThing><Inner>x</Inner></SomeFutureThing><Text TagNumber="213">Mara</Text><Text> waits.</Text></Paragraph>'
+		);
+		const script = parseFdx(withUnknown).script;
+		/* The unknown wrapper is metadata, skipped whole; the text stands. */
+		expect(script.elements.map((e) => e.text)).toContain('Mara waits.');
+		expect(openFdx(withUnknown).rewrite(script, { unedited: script }).xml).toBe(withUnknown);
 	});
 });

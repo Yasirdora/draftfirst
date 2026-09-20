@@ -347,6 +347,9 @@ public enum Fdx {
         /// Each <DualDialogue> directly inside it, as UTF-16 source offsets
         /// (TypeScript `FdxParagraph.dialogues`).
         var dialogues: [(start: Int, end: Int)] = []
+        /// Each <OmittedScene> directly inside it, as UTF-16 source offsets
+        /// (TypeScript `FdxParagraph.omissions`).
+        var omissions: [(start: Int, end: Int)] = []
 
         func attribute(_ name: String) -> String? {
             attributes.last { $0.name == name }?.value
@@ -459,6 +462,7 @@ public enum Fdx {
             if metadataDepth == 0, Fdx.embeddedBlocks.contains(tag.name), let place = current?.text.utf16.count {
                 current?.blocks.append(place)
                 if tag.name == "dualdialogue" { current?.dialogues.append((start: offset, end: -1)) }
+                if tag.name == "omittedscene" { current?.omissions.append((start: offset, end: -1)) }
             }
             // Inside a paragraph, anything that is not its own <Text> is
             // metadata — including nested paragraphs. Skipped whole.
@@ -515,6 +519,9 @@ public enum Fdx {
             if open.last == name { open.removeLast() }
 
             if current != nil && metadataDepth > 0 {
+                if name == "omittedscene", metadataDepth == 1, let count = current?.omissions.count, count > 0 {
+                    current?.omissions[count - 1].end = tagEnd(offset)
+                }
                 if name == "dualdialogue", metadataDepth == 1, let count = current?.dialogues.count, count > 0 {
                     current?.dialogues[count - 1].end = tagEnd(offset)
                 }
@@ -659,7 +666,11 @@ public enum Fdx {
         /* Every body paragraph as a ScriptNote Range counts it — absorbed ones
            included, because Final Draft's text still holds them. */
         var layout: [ParagraphLayout] = []
-        let sourceUnits: [UInt16] = parsed.body.contains { !$0.dialogues.isEmpty } ? Array(source.utf16) : []
+        let sourceUnits: [UInt16] = parsed.body.contains { !$0.dialogues.isEmpty || !$0.omissions.isEmpty }
+            ? Array(source.utf16)
+            : []
+        /* Scenes the production has omitted (§7.3), as spans over `elements`. */
+        var omissions: [Omission] = []
         for paragraph in parsed.body {
             let fdxType = paragraph.attribute("type") ?? ""
             let key = fdxType.jsTrimmed.lowercased()
@@ -711,17 +722,39 @@ public enum Fdx {
                     paragraphIndex: paragraph.paragraphIndex
                 ))
             }
+            /* An omitted scene is nested inside the Scene Heading that shows
+               its OMITTED card (§7.3). The card stays the element it always
+               was — its index, its number, its Range unchanged — and the body
+               follows it, with the omission naming the span. Skipped as
+               metadata before this, the whole scene was lost on any export
+               that did not keep the file's own bytes. */
             elements.append(importedElement(paragraph, kind: kind))
+            if !paragraph.omissions.isEmpty,
+               let omitted = omittedScene(of: paragraph, in: sourceUnits, limits: limits) {
+                let start = elements.count
+                for line in omitted {
+                    elements.append(importedElement(
+                        line, kind: fdxElementKind((line.attribute("type") ?? "").jsTrimmed.lowercased())
+                    ))
+                }
+                omissions.append(Omission(start: start, end: elements.count))
+            }
         }
 
         /* The title page reads verbatim — it reports no diagnostics, so the
            collector's snapshot needs no particular order against it. */
         let title = titlePageLines(of: parsed.title)
         let read = scriptNotes(in: source, layout: layout, limits: limits, diagnostics: diagnostics)
-        let (withOwn, notes) = withOwnedNotes(elements, read.notes, read.ownership)
+        let (withOwn, notes, movedTo) = withOwnedNotes(elements, read.notes, read.ownership)
         let items = diagnostics.result()
         return ImportResult(
-            script: Screenplay(titlePage: title, elements: withOwn),
+            script: Screenplay(
+                titlePage: title,
+                elements: withOwn,
+                /* Notes read in front of their line shift the elements after
+                   them, so a span recorded during the read moves with them. */
+                omissions: omissions.isEmpty ? nil : movedOmissions(omissions, movedTo, withOwn.count)
+            ),
             warnings: items.map(\.message),
             diagnostics: items,
             scriptNotes: notes
@@ -786,6 +819,36 @@ public enum Fdx {
     ) -> [CollectedParagraph]? {
         guard paragraph.text.isEmpty, paragraph.dialogues.count == 1,
               let block = paragraph.dialogues.first, block.end != -1 else { return nil }
+        let shift = block.start - dualDialogueFrame.count
+        let wrapped = dualDialogueFrame + Array(units[block.start..<block.end]) + dualDialogueFrameEnd
+        let lines = collectParagraphs(
+            from: String(decoding: wrapped, as: UTF16.self),
+            limits: limits,
+            diagnostics: DiagnosticCollector(limit: 1)
+        ).body
+        guard !lines.isEmpty else { return nil }
+        return lines.map { line in
+            var line = line
+            line.start += shift
+            line.end += shift
+            if line.textStart != -1 { line.textStart += shift }
+            if line.textEnd != -1 { line.textEnd += shift }
+            return line
+        }
+    }
+
+    /// The paragraphs of the <OmittedScene> a paragraph holds, or nil when it
+    /// holds none (RFC-DRAFT-PRODUCTION §7.3, TypeScript `omittedSceneOf`).
+    ///
+    /// Final Draft nests an omitted scene INSIDE the Scene Heading paragraph
+    /// that shows the OMITTED card, so unlike a dual dialogue the holding
+    /// paragraph has text of its own — the card's. Read like a dual dialogue:
+    /// the block is a script of its own.
+    private static func omittedScene(
+        of paragraph: CollectedParagraph, in units: [UInt16], limits: Limits
+    ) -> [CollectedParagraph]? {
+        guard paragraph.omissions.count == 1,
+              let block = paragraph.omissions.first, block.end != -1 else { return nil }
         let shift = block.start - dualDialogueFrame.count
         let wrapped = dualDialogueFrame + Array(units[block.start..<block.end]) + dualDialogueFrameEnd
         let lines = collectParagraphs(
@@ -872,6 +935,37 @@ public enum Fdx {
             let aligned = spans.filter { !$0.absorbed }
             var elements = script.elements
 
+            /* An omitted scene's body is the file's own bytes, inside its
+               card's paragraph (§7.3). Those elements have no paragraph of
+               their own here, so they are taken out of the alignment before
+               anything is paired — otherwise each would be written a second
+               time, as a live paragraph, which is the resurrection this work
+               exists to prevent. Matched against the file rather than against
+               `script.omissions`, because Fountain has no spelling for an
+               omission and the app's own save path goes through it. */
+            let omittedRuns = Fdx.omittedRuns(in: elements, spans: spans)
+            var unedited = unedited?.elements
+            /* Located in each reading on its own terms: an edit that adds or
+               removes a line moves everything after it. */
+            let omittedBefore = unedited.map { Fdx.omittedRuns(in: $0, spans: spans) }
+            /* TypeScript reports here — how many bodies were kept as the
+               file had them, and any the save could not find. This port's
+               `rewrite` returns bytes with no diagnostic sink, so the
+               behaviour is the same and the telling is the other port's. */
+            if !omittedRuns.isEmpty {
+                func dropped(_ runs: [(start: Int, body: [String])]) -> Set<Int> {
+                    var drop = Set<Int>()
+                    for run in runs { for k in 0..<run.body.count { drop.insert(run.start + k) } }
+                    return drop
+                }
+                let drop = dropped(omittedRuns)
+                elements = elements.enumerated().filter { !drop.contains($0.offset) }.map(\.element)
+                if let before = unedited, let omittedBefore {
+                    let gone = dropped(omittedBefore)
+                    unedited = before.enumerated().filter { !gone.contains($0.offset) }.map(\.element)
+                }
+            }
+
             /* A paragraph the writer did not edit is written as its original
                bytes. With the caller's unedited reading, "did not edit" is asked
                in the caller's own terms: the paragraph's element — or the run of
@@ -881,7 +975,7 @@ public enum Fdx {
             var verbatim: [Int: Span] = [:]
             var merged: [Int: (span: Span, bytes: [UInt16])] = [:]
             var consumed = Set<Int>()
-            if let reading = unedited?.elements {
+            if let reading = unedited {
                 let ranges = Fdx.correspondence(aligned, reading)
                 let matches = Fdx.unchangedFrom(elements, reading)
                 var savedAt: [Int: Int] = [:]
@@ -1274,6 +1368,79 @@ public enum Fdx {
     fileprivate static let fountainFlattens: Set<ElementKind> = [.general, .shot]
 
     /// One paragraph as it sits in the original file.
+    /// Where each omitted scene's body sits in the elements being saved
+    /// (TypeScript `omittedRunsIn`).
+    ///
+    /// The file says which paragraphs are inside an <OmittedScene> and which
+    /// Scene Heading holds them; this finds that run in the script being
+    /// saved. Found by the body's own words, not by the card's: a round trip
+    /// through Fountain gives a scene heading its canonical casing, so the
+    /// card and the body's first line come back in different letters from
+    /// the ones the file holds. Everything else comes back exactly, so the
+    /// run is the window that matches most of them.
+    fileprivate static func omittedRuns(
+        in elements: [ScreenplayElement], spans: [Span]
+    ) -> [(start: Int, body: [String])] {
+        var runs: [(start: Int, body: [String])] = []
+        /* Compared without casing: a round trip through Fountain gives a
+           scene heading its canonical capitals, so the card and the body's
+           first line come back in different letters from the file's. */
+        func key(_ text: String) -> String { text.jsTrimmed.uppercased() }
+        var from = 0
+        for span in spans {
+            guard let body = span.omittedBody, !body.isEmpty else { continue }
+            func score(at: Int) -> Int {
+                var matched = 0
+                for k in 0..<body.count where at + k < elements.count && elements[at + k].text == body[k] {
+                    matched += 1
+                }
+                return matched
+            }
+            /* The card holds the body: its own paragraph is the one the
+               block is nested in, so the run begins after it. */
+            var best = -1
+            var found = -1
+            let cardKey = key(span.text)
+            var at = from
+            while at + body.count <= elements.count {
+                if key(elements[at].text) == cardKey {
+                    let matched = score(at: at + 1)
+                    if matched > found {
+                        found = matched
+                        best = at + 1
+                        if matched == body.count { break }
+                    }
+                }
+                at += 1
+            }
+            /* A card with nothing of its body left under it is not evidence:
+               the scene may have been edited, or deleted, and taking the
+               elements that follow would swallow live paragraphs. At least
+               one line must stand. */
+            if found < 1 { best = -1 }
+            /* No card to hang it on — its words were changed too. The body
+               itself is then the only evidence, and must be unmistakable. */
+            if best == -1 {
+                let needed = max(1, Int((Double(body.count) * 0.6).rounded(.up)))
+                found = -1
+                var at = from
+                while at + body.count <= elements.count {
+                    let matched = score(at: at)
+                    if matched >= needed && matched > found {
+                        found = matched
+                        best = at
+                        if matched == body.count { break }
+                    }
+                    at += 1
+                }
+                if best == -1 { continue }
+            }
+            runs.append((start: best, body: body))
+            from = best + body.count
+        }
+        return runs
+    }
+
     fileprivate struct Span: Sendable {
         let type: ElementKind
         let text: String
@@ -1295,6 +1462,12 @@ public enum Fdx {
         /// that no element will ever stand for it. The rewrite writes these
         /// back itself and never lets the alignment see them.
         let absorbed: Bool
+        /// For the Scene Heading that holds an <OmittedScene> (§7.3): the
+        /// words of the paragraphs nested inside it, in order. The block's
+        /// bytes belong to this paragraph, so a preserving save writes them
+        /// back untouched and the body's elements take no part in the
+        /// alignment (TypeScript `OriginParagraph.omittedBody`).
+        var omittedBody: [String]?
         /// The dual dialogue this paragraph is a line of: an index into the
         /// document's blocks.
         var block: Int? = nil
@@ -1537,7 +1710,17 @@ public enum Fdx {
             let endOfAct = (paragraph.attribute("type") ?? "").jsTrimmed.lowercased() == "end of act"
             guard !endOfAct, !paragraph.dialogues.isEmpty,
                   let lines = dualDialogue(of: paragraph, in: units, limits: limits) else {
-                spans.append(span(of: paragraph, lead: lead))
+                var only = span(of: paragraph, lead: lead)
+                /* An omitted scene's paragraphs live inside this one, so this
+                   paragraph's bytes already carry them: the save writes it
+                   whole and the body is preserved exactly (§7.3, "Preserved
+                   on splice"). Recorded so the alignment can leave those
+                   elements out — they have no paragraph of their own. */
+                if !endOfAct, !paragraph.omissions.isEmpty,
+                   let omitted = omittedScene(of: paragraph, in: units, limits: limits) {
+                    only.omittedBody = omitted.map(\.text)
+                }
+                spans.append(only)
                 continue
             }
             let index = blocks.count
@@ -2469,7 +2652,38 @@ public enum Fdx {
            Act can name the act the way the act names itself */
         var previousActCard: String?
 
+        /* Omitted scenes (§7.3): the card each one hangs under, and every
+           element inside a span — written inside its card, never on its own. */
+        var omissionAfter: [Int: Omission] = [:]
+        var omittedBody = Set<Int>()
+        for omission in script.omissions ?? [] where omission.start > 0 && omission.end > omission.start {
+            omissionAfter[omission.start - 1] = omission
+            for at in omission.start..<omission.end { omittedBody.insert(at) }
+        }
+        func paragraphAttributes(_ element: ScreenplayElement, _ fdxType: String, _ index: Int) -> [String] {
+            var attributes = ["Type=\"\(fdxType)\""]
+            if element.type == .centered || element.type == .actbreak {
+                attributes.append("Alignment=\"Center\"")
+            }
+            if element.type == .lyrics { attributes.append("\(extensionPrefix):ElementType=\"lyrics\"") }
+            if element.type == .character && element.dual == true { attributes.append("Dual=\"Yes\"") }
+            if element.type == .scene, let sceneNumber = element.sceneNumber, !sceneNumber.isEmpty {
+                attributes.append(
+                    "Number=\"\(encodeXmlValue(sceneNumber, diagnostics: diagnostics, context: "scene number", elementIndex: index))\""
+                )
+            }
+            return attributes
+        }
+        /// One element of an omitted body, as the paragraph it was.
+        func paragraphMarkup(_ element: ScreenplayElement, _ index: Int) -> String {
+            let fdxType = Fdx.fdxType(of: element) ?? "Action"
+            let attributes = paragraphAttributes(element, fdxType, index).joined(separator: " ")
+            return "<Paragraph \(attributes)>\(textRunsMarkup(text: element.text, runs: element.runs))</Paragraph>"
+        }
+
         for (index, element) in script.elements.enumerated() {
+            /* Inside an omitted scene: written with its card, not here. */
+            if omittedBody.contains(index) { continue }
             /* A note is a ScriptNote (RFC-NOTES-SYSTEM §4.2), never a
                paragraph: Final Draft shows a body Note paragraph as a line of
                the script. */
@@ -2504,25 +2718,29 @@ public enum Fdx {
                 previousActCard = element.text
             }
 
-            var attributes = ["Type=\"\(fdxType)\""]
-            if element.type == .centered || element.type == .actbreak {
-                attributes.append("Alignment=\"Center\"")
-            }
-            if element.type == .lyrics { attributes.append("\(extensionPrefix):ElementType=\"lyrics\"") }
-            if element.type == .character && element.dual == true { attributes.append("Dual=\"Yes\"") }
-            if element.type == .scene, let sceneNumber = element.sceneNumber, !sceneNumber.isEmpty {
-                attributes.append(
-                    "Number=\"\(encodeXmlValue(sceneNumber, diagnostics: diagnostics, context: "scene number", elementIndex: index))\""
-                )
-            }
+            let attributes = paragraphAttributes(element, fdxType, index)
             /* encodeXmlValue is the diagnostics path (illegal code points
                are reported and repaired); the markup below re-encodes for
                the actual bytes. */
             _ = encodeXmlValue(
                 element.text, diagnostics: diagnostics, context: "paragraph text", elementIndex: index
             )
-            body.append("<Paragraph \(attributes.joined(separator: " "))>\(textRunsMarkup(text: element.text, runs: element.runs))</Paragraph>")
-            lengths.append(element.text.utf16.count)
+            /* An omitted scene is written back where Final Draft keeps it:
+               inside the Scene Heading that shows its OMITTED card (§7.3).
+               Its body is not also written as live paragraphs — that is the
+               resurrection this work exists to prevent. */
+            let omission = omissionAfter[index]
+            let block = omission.map { omission in
+                "<OmittedScene>" + script.elements[omission.start..<omission.end]
+                    .enumerated()
+                    .map { paragraphMarkup($0.element, omission.start + $0.offset) }
+                    .joined() + "</OmittedScene>"
+            } ?? ""
+            body.append("<Paragraph \(attributes.joined(separator: " "))>\(textRunsMarkup(text: element.text, runs: element.runs))\(block)</Paragraph>")
+            /* A ScriptNote Range counts an embedded block as two units,
+               wherever it sits — so a file this writer produces reads back
+               with the same Range space it was written from. */
+            lengths.append(element.text.utf16.count + (omission != nil ? Fdx.blockUnits : 0))
             paragraphTexts.append(element.text)
             for note in waiting { notes.append((note, body.count - 1)) }
             waiting = []

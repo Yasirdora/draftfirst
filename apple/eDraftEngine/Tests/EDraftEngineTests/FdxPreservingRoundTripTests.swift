@@ -172,7 +172,8 @@ struct FdxEndOfActRoundTripTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.rewriteCases.count == 69)
+        /* 69 before the omitted-scene cases (§7.3). */
+        #expect(Self.corpus.rewriteCases.count == 71)
     }
 
     @Test("rewrite", arguments: Self.corpus.rewriteCases)
@@ -389,9 +390,13 @@ struct FdxFinalDraftWrittenTests {
 
     static let required: [String: Hazards] = {
         var sample02 = Hazards()
-        sample02.taggedRuns = 394; sample02.revisionRuns = 98; sample02.adornmentSplits = 10
+        /* taggedRuns and trailingSpaces count the model, and the model now
+           holds the omitted scene's body (§7.3): its five tagged runs and two
+           trailing-space paragraphs were invisible before. The file has not
+           changed — more of it is read. */
+        sample02.taggedRuns = 399; sample02.revisionRuns = 98; sample02.adornmentSplits = 10
         sample02.dualDialogue = 6; sample02.omittedScenes = 1; sample02.endOfAct = 1
-        sample02.emphasisedHeadings = 1; sample02.italicParentheticals = 2; sample02.trailingSpaces = 9
+        sample02.emphasisedHeadings = 1; sample02.italicParentheticals = 2; sample02.trailingSpaces = 11
         var sample01 = Hazards()
         sample01.revisionRuns = 2; sample01.adornmentSplits = 3; sample01.dualDialogue = 6
         sample01.endOfAct = 1; sample01.emphasisedHeadings = 1; sample01.italicParentheticals = 2
