@@ -523,13 +523,22 @@ final class PageCanvasView: NSView {
         // that they fan closer together like a dealt hand rather than walking
         // off the sheet — every one still says "there are more here", and the
         // card's own pager reaches the ones that overlap.
+        let drawn: CGFloat
+        if layoutMode == .pages, arrangement == .grid, let card = pageViews.first {
+            let scale = card.frame.width / max(PageFormat.current.pageRect.width, 1)
+            drawn = max(10, (NoteMarker.size.height * scale).rounded())
+        } else {
+            drawn = NoteMarker.size.height
+        }
         for (marker, placement) in zip(noteMarkers, placements) {
             marker.noteIDs = placement.noteIDs
             marker.authorSlot = placement.authorSlot
             marker.isActive = active.map(placement.noteIDs.contains) ?? false
             marker.onOpen = onOpen
+            marker.drawnSize = drawn
             // Centred on the line rather than sitting on its baseline: a mark
-            // beside a line should look level with it.
+            // beside a line should look level with it. The frame stays the
+            // life-size hit target; Grid only shrinks what is drawn.
             marker.frame = CGRect(
                 x: (placement.marginX ?? x).rounded(),
                 y: (placement.lineTop + (placement.lineHeight - NoteMarker.size.height) / 2).rounded(),
@@ -652,7 +661,7 @@ final class PageCanvasView: NSView {
         while gridLabels.count < pageViews.count {
             let label = NSTextField(labelWithString: "")
             label.alignment = .center
-            label.font = .systemFont(ofSize: 11, weight: .medium)
+            label.font = .systemFont(ofSize: 9, weight: .medium)
             label.isBordered = false
             label.drawsBackground = false
             label.isSelectable = false
@@ -689,6 +698,10 @@ final class PageCanvasView: NSView {
         zip(gridLabels, pageViews).compactMap { label, _ in
             label.isHidden ? nil : label.textColor
         }
+    }
+
+    var gridPageNumberPointSize: CGFloat? {
+        gridLabels.first { !$0.isHidden }?.font?.pointSize
     }
 
     /// The miniature last assigned to that card, if this card has been painted.

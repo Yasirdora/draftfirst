@@ -743,7 +743,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     /// Single, two-page or the bird's-eye. Two-page and Grid are sheets;
     /// asking for them from Continuous switches to Pages first.
-    func setArrangement(_ mode: PageArrangement) {
+    func setArrangement(_ mode: PageArrangement, restoringAnchor: Bool = true) {
         if mode != .single, canvas.layoutMode == .continuous {
             setLayoutMode(.pages)
         }
@@ -757,24 +757,34 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         textView.isEditable = mode != .grid
         textView.isSelectable = mode != .grid
         layOut()
-        if mode != .grid { scrollBack(to: anchor) }
+        // Grid coordinates are not Single's. `showPage` owns the landing
+        // when leaving the map for a picked sheet.
+        if restoringAnchor, mode != .grid { scrollBack(to: anchor) }
         updateGhost()
     }
 
     /// Grid → Single on that sheet, with the caret on its first line.
+    ///
+    /// The page is centred horizontally when the canvas is wider than the
+    /// window — `x: 0` was the document origin, so a zoomed Single opened
+    /// pinned to the left edge. Vertical is the sheet's top, as before.
+    /// The caret is placed last and does not scroll: `scrollRangeToVisible`
+    /// would pull the clip back to the type's left.
     func showPage(_ index: Int) {
-        setArrangement(.single)
+        setArrangement(.single, restoringAnchor: false)
         guard index < canvas.pageViews.count else { return }
         let frame = canvas.pageViews[index].frame
         let clip = scrollView.contentView
-        clip.scroll(to: NSPoint(x: 0, y: max(0, frame.minY - 12)))
+        let vis = clip.bounds.size
+        let maxX = max(0, canvas.frame.width - vis.width)
+        let maxY = max(0, canvas.frame.height - vis.height)
+        let x = min(max(0, frame.midX - vis.width / 2), maxX)
+        let y = min(max(0, frame.minY - 12), maxY)
+        clip.scroll(to: NSPoint(x: x, y: y))
         scrollView.reflectScrolledClipView(clip)
         let locations = pagination(for: lastLaidElements).locations
         if index < locations.count {
-            let location = locations[index]
-            let range = NSRange(location: location, length: 0)
-            textView.setSelectedRange(range)
-            textView.scrollRangeToVisible(range)
+            textView.setSelectedRange(NSRange(location: locations[index], length: 0))
         }
         scrollView.window?.makeFirstResponder(textView)
     }

@@ -1,0 +1,167 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0072-20260920-202102.json",
+  "baselineSha256": "7f9cffe5877aa05cfe901385f134f7707cb34e0ce9f74eba7ddeec1466c68956",
+  "budget": {
+    "filesChanged": 4,
+    "linesChanged": 127,
+    "maxFiles": 5,
+    "maxLines": 800
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/NoteMarker.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/GridMapTests.swift",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T202032306",
+    "createdAt": "2026-09-20T20:20:32.650Z",
+    "dirty": true,
+    "id": "ckpt-20260920T202032306",
+    "ref": "7b814555abff7a9c489621c8266ca305d8f99773",
+    "statusHash": "7f140d5b56faeb5c7e7c1b30e245254df97f8efa8e4a7e178a44bc76453ce6a5",
+    "tag": "cdir/ckpt-20260920T202032306"
+  },
+  "command": [
+    "python3",
+    "/tmp/il0072/apply.py"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T20:21:02.699Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "no commit and no co-author trailers — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "Single and Two-page marker draw sizes stay unchanged — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "never stage eDraft.xcscheme mcp.log IL-0071 lock or repo-root png files — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "grid remains a map single click selects double click opens the sheet — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0072",
+  "startedAt": "2026-09-20T20:21:02.536Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0072-20260920-202102.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 4
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0072-20260920-202102.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0072-20260920-202102.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftMacSurface\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftMacSurface",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftMacSurface",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no commit and no co-author trailers",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · Single and Two-page marker draw sizes stay unchanged",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · never stage eDraft.xcscheme mcp.log IL-0071 lock or repo-root png files",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · grid remains a map single click selects double click opens the sheet",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0072",
+    "verifiedAt": "2026-09-20T20:22:40.678Z",
+    "violations": []
+  },
+  "violations": []
+}

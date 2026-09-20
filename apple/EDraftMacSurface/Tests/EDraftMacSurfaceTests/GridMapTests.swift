@@ -241,6 +241,63 @@ final class GridMapTests: XCTestCase {
         XCTAssertEqual(picked, 0)
     }
 
+    func testShowPageCentresThePickedSheetHorizontally() throws {
+        let surface = ScriptSurface(measure: 500)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 400, height: 700)
+        surface.render(script(scenes: 40))
+        surface.setArrangement(.grid)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        XCTAssertGreaterThan(surface.pageFrames.count, 3)
+
+        surface.showPage(3)
+        surface.scrollView.layoutSubtreeIfNeeded()
+
+        XCTAssertEqual(surface.canvas.arrangement, .single)
+        let page = surface.canvas.pageViews[3].frame
+        let clip = surface.scrollView.contentView.bounds
+        XCTAssertGreaterThan(
+            surface.canvas.frame.width, clip.width,
+            "the canvas must be wider than the clip or left-edge pinning cannot be seen"
+        )
+        XCTAssertEqual(
+            page.midX, clip.midX, accuracy: 2,
+            "the picked page sat at x=\(clip.minX) in a clip mid=\(clip.midX), page mid=\(page.midX)"
+        )
+        XCTAssertEqual(clip.minY, max(0, page.minY - 12), accuracy: 2)
+        XCTAssertEqual(surface.textView.selectedRange().length, 0)
+        XCTAssertGreaterThan(
+            surface.textView.selectedRange().location, 0,
+            "the caret should be on the picked sheet's first line, not the document origin"
+        )
+    }
+
+    func testGridMarkersDrawSmallerThanSingleAndKeepTheHitArea() throws {
+        let elements = script(scenes: 25)
+        let (editor, surface) = ScriptSurfaceHarness.bound(elements)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1400, height: 900)
+        editor.addNote("A note on the first sheet.", to: elements[0].id)
+        surface.renderIfNeeded(editor)
+
+        let id = try XCTUnwrap(editor.notes.first?.id)
+        let single = try XCTUnwrap(surface.canvas.noteMarker(for: id) as? NoteMarker)
+        XCTAssertEqual(single.drawnSize, NoteMarker.size.height)
+        XCTAssertEqual(single.frame.size, NoteMarker.size)
+
+        surface.setArrangement(.grid)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        let grid = try XCTUnwrap(surface.canvas.noteMarker(for: id) as? NoteMarker)
+        XCTAssertLessThan(grid.drawnSize, NoteMarker.size.height)
+        XCTAssertGreaterThanOrEqual(grid.drawnSize, 10)
+        XCTAssertEqual(grid.frame.size, NoteMarker.size, "the hit area must stay life-size")
+        XCTAssertEqual(surface.canvas.gridPageNumberPointSize, 9)
+
+        surface.setArrangement(.single)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        let restored = try XCTUnwrap(surface.canvas.noteMarker(for: id) as? NoteMarker)
+        XCTAssertEqual(restored.drawnSize, NoteMarker.size.height)
+        XCTAssertEqual(restored.frame.size, NoteMarker.size)
+    }
+
     /// A stopwatch, not a gate. `EDRAFT_GRID_BENCH=1 swift test --filter testGridOpenTime`.
     func testGridOpenTimeOnAHundredPageScript() throws {
         try XCTSkipUnless(

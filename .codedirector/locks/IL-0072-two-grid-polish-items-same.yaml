@@ -1,0 +1,64 @@
+schemaVersion: 1
+id: IL-0072
+status: verified
+utterance: |-
+  Two grid polish items, same discipline as IL-0070 (lock_draft → Vibe Check → wait for my yes → run_locked only → report; no commits, no co-author trailers). Tree is at 7b81455, your grid commit — clean apart from the usual unstaged files.
+  1. Double-click landing — real bug, mechanism already located. In grid, double-click a sheet: it opens in Single pinned to the LEFT edge of the canvas whenever the canvas is wider than the window (zoom in a little to reproduce). ScriptSurface.showPage scrolls the clip to NSPoint(x: 0, y: …) — document origin, not the picked page. It should centre the picked page horizontally: x = frame.midX - clip.bounds.width / 2, clamped to the document. Also check the ordering: setArrangement(.single) fires scrollBack(to: anchor) with an anchor measured in grid coordinates before showPage scrolls again — two competing scrolls; make the final resting position deterministic: picked page centred horizontally, its top near the viewport top as now, caret on its first line. Pin it with a test: canvas wider than the clip, showPage(3), assert the page's frame is horizontally centred in the visible rect.
+  2. Marker and number scale at grid size — taste fix, measured. NoteMarker.size is 16pt, designed for a life-size sheet; at grid scale (~0.4×) the bubbles dominate the card. Scale the drawn marker with the card scale (floor around 10–11pt) while keeping a 16pt hit area so they stay clickable — hit-test padding, not a bigger draw. Drop the foot number a step with them (it should read as a caption, not a headline). Single and Two-page marker sizes must not change. Extend GridMapTests: marker draw size shrinks in grid and does not in single; the contrast test keeps passing.
+  Budget: PageCanvasView.swift, ScriptSurface.swift, NoteMarker.swift (only if the hit-area needs it), GridMapTests.swift, DiscreteSheetsTests.swift only if an existing test encodes the old landing. Deny: everything else, as before. Proof: surface suite green (302, 6 skipped), macOS Debug build with your private DerivedData, and report both before/after behavior in the Change Report. No commit.
+goal: Grid double-click lands on the picked page centred horizontally with its top near the viewport top and the caret on its first line. Grid markers draw smaller with a full-size hit area; page numbers drop a step. Single and Two-page marker sizes stay unchanged. No commit.
+interpretation: Grid double-click opens Single with the picked page centred horizontally and its top near the viewport top caret on the first line. Grid note marks draw smaller with a 16pt hit area. Grid page numbers drop a step. Single and Two-page marker sizes stay 16pt. No commit.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no commit and no co-author trailers
+  - kind: custom
+    text: Single and Two-page marker draw sizes stay unchanged
+  - kind: custom
+    text: never stage eDraft.xcscheme mcp.log IL-0071 lock or repo-root png files
+  - kind: custom
+    text: grid remains a map single click selects double click opens the sheet
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/eDraft/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/EDraftUI/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraft.xcodeproj/**
+  - packages/**
+  - src/**
+  - "**/Package.swift"
+change: Centre Grid double-click landing and shrink Grid marker draw size.
+verifyCommand: swift test --package-path apple/EDraftMacSurface
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/NoteMarker.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/GridMapTests.swift
+  symbols: []
+  maxFiles: 5
+  maxLines: 800
+accept: []
+assumptions:
+  - text: DiscreteSheetsTests does not encode the x=0 landing so it stays out of budget unless a test actually breaks. NoteMarker is in budget because draw size vs 16pt hit area lives there. Foot number drops from 11pt to a caption size. Marker floor is 10pt.
+    source: user
+    confirmed: true
+  - text: Tree HEAD 7b81455 on rename/edraft. Leave eDraft.xcscheme mcp.log IL-0071 lock and repo-root pngs unstaged. No commit.
+    source: user
+    confirmed: true
+createdAt: 2026-09-20T19:57:55.131Z
+createdBy: Yasirdora

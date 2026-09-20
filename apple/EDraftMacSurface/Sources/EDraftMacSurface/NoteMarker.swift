@@ -46,6 +46,19 @@ final class NoteMarker: NSView {
     /// is the size Pages draws its comment marker at.
     static let size = CGSize(width: 16, height: 16)
 
+    /// How large the bubble is drawn. The view's frame stays `size` so the
+    /// click target does not shrink with the drawing — Grid scales the
+    /// symbol down; Single and Two-page leave this at 16.
+    var drawnSize: CGFloat = size.height {
+        didSet {
+            let next = max(1, drawnSize)
+            guard next != oldValue else { return }
+            symbolWidth.constant = next
+            symbolHeight.constant = next
+            applySymbol()
+        }
+    }
+
     /// An `NSImageView` rather than `draw(_:)` with a colour set on the
     /// context: an SF Symbol arrives as a template image, and a template
     /// takes its colour from the view that hosts it — `NSColor.set()` before
@@ -53,6 +66,8 @@ final class NoteMarker: NSView {
     /// `contentTintColor` is the mechanism AppKit provides, and it re-resolves
     /// the colour on an appearance change without being asked.
     private let symbol = NSImageView()
+    private var symbolWidth: NSLayoutConstraint!
+    private var symbolHeight: NSLayoutConstraint!
     private var cursorArea: NSTrackingArea?
 
     override init(frame frameRect: NSRect) {
@@ -68,11 +83,13 @@ final class NoteMarker: NSView {
         symbol.isEditable = false
         symbol.translatesAutoresizingMaskIntoConstraints = false
         addSubview(symbol)
+        symbolWidth = symbol.widthAnchor.constraint(equalToConstant: Self.size.width)
+        symbolHeight = symbol.heightAnchor.constraint(equalToConstant: Self.size.height)
         NSLayoutConstraint.activate([
-            symbol.leadingAnchor.constraint(equalTo: leadingAnchor),
-            symbol.trailingAnchor.constraint(equalTo: trailingAnchor),
-            symbol.topAnchor.constraint(equalTo: topAnchor),
-            symbol.bottomAnchor.constraint(equalTo: bottomAnchor)
+            symbol.centerXAnchor.constraint(equalTo: centerXAnchor),
+            symbol.centerYAnchor.constraint(equalTo: centerYAnchor),
+            symbolWidth,
+            symbolHeight
         ])
         applySymbol()
     }
@@ -92,7 +109,7 @@ final class NoteMarker: NSView {
             systemSymbolName: isActive ? "bubble.fill" : "bubble",
             accessibilityDescription: nil
         )?.withSymbolConfiguration(
-            NSImage.SymbolConfiguration(pointSize: Self.size.height, weight: .regular)
+            NSImage.SymbolConfiguration(pointSize: drawnSize, weight: .regular)
         )
         // Said rather than assumed: `withSymbolConfiguration` returns a fresh
         // image, and a configured symbol does not always come back templated.
