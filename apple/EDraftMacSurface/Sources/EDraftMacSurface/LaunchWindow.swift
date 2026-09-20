@@ -123,7 +123,10 @@ public struct LaunchActions {
     public var openInNewWindow: (URL) -> Void
     public var rename: (URL, String) -> Void
     public var duplicate: (URL) -> Void
-    public var trash: (URL) -> Void
+    /// Moves the file to Trash and returns where it landed, or nil on failure.
+    public var trash: (URL) -> URL?
+    /// The list should show the script again after a successful Undo.
+    public var restored: (URL) -> Void
     public var toggleFavorite: (URL) -> Void
 
     public init(
@@ -133,7 +136,8 @@ public struct LaunchActions {
         openInNewWindow: @escaping (URL) -> Void,
         rename: @escaping (URL, String) -> Void,
         duplicate: @escaping (URL) -> Void,
-        trash: @escaping (URL) -> Void,
+        trash: @escaping (URL) -> URL?,
+        restored: @escaping (URL) -> Void,
         toggleFavorite: @escaping (URL) -> Void
     ) {
         self.new = new
@@ -143,6 +147,7 @@ public struct LaunchActions {
         self.rename = rename
         self.duplicate = duplicate
         self.trash = trash
+        self.restored = restored
         self.toggleFavorite = toggleFavorite
     }
 }
@@ -164,6 +169,7 @@ public struct LaunchWindow: View {
 
     @State private var renaming: RecentScript?
     @State private var newName = ""
+    @State private var trashUndo: LaunchTrashUndo?
 
     public init(recents: [RecentScript], query: String, showsGrid: Bool, actions: LaunchActions) {
         self.recents = recents
@@ -191,12 +197,50 @@ public struct LaunchWindow: View {
         // colour here made the launch window the one place in the app still
         // painting its own dark grey.
         .frame(minWidth: 640, minHeight: 420)
+        .overlay(alignment: .bottom) {
+            if let trashUndo {
+                LaunchTrashBanner(
+                    item: trashUndo,
+                    onUndo: undoTrash,
+                    onDismiss: { dismissTrashBanner(trashUndo) }
+                )
+                .padding(.horizontal, 24)
+                .padding(.bottom, 20)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.22), value: trashUndo?.trashURL)
+        .onExitCommand {
+            if trashUndo != nil { trashUndo = nil }
+        }
         .alert("Rename Screenplay", isPresented: isRenaming, presenting: renaming) { script in
             TextField("Name", text: $newName)
             Button("Rename") { actions.rename(script.url, newName) }
             Button("Cancel", role: .cancel) {}
         } message: { _ in
             Text("The file keeps its place; only its name changes.")
+        }
+    }
+
+    private func moveToTrash(_ script: RecentScript) {
+        guard let trashURL = actions.trash(script.url) else { return }
+        trashUndo = LaunchTrashUndo(
+            name: script.name,
+            originalURL: script.url,
+            trashURL: trashURL
+        )
+    }
+
+    private func undoTrash() {
+        guard let item = trashUndo else { return }
+        guard item.putBack() else { return }
+        actions.restored(item.originalURL)
+        trashUndo = nil
+    }
+
+    private func dismissTrashBanner(_ item: LaunchTrashUndo) {
+        if trashUndo?.trashURL == item.trashURL {
+            trashUndo = nil
         }
     }
 
@@ -344,7 +388,7 @@ public struct LaunchWindow: View {
             Button("Duplicate") { actions.duplicate(script.url) }
             Button(script.isFavorite ? "Unfavorite" : "Favorite") { actions.toggleFavorite(script.url) }
             Divider()
-            Button("Move to Trash", role: .destructive) { actions.trash(script.url) }
+            Button("Move to Trash", role: .destructive) { moveToTrash(script) }
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 13, weight: .bold))

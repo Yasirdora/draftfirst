@@ -1,0 +1,57 @@
+schemaVersion: 1
+id: IL-0069
+status: verified
+utterance: "Launch window: a quiet undo banner after Move to Trash (macOS). After trash, a banner \"'Name' moved to Trash\" with Undo, auto-dismiss ~6s. Undo puts the file back via trashItem resultingItemURL. Latest delete replaces the banner. apple/macOS/EDraftMacApp.swift is required for one change: capture resultingItemURL and return it from trash (LaunchActions.trash currently returns Void and the app passes nil). Without that, undo cannot be real. Also LaunchWindow.swift, optional banner sibling, and EDraftMacSurface tests."
+goal: After Move to Trash the launch window shows a quiet undo banner. Undo restores the file. If Trash was emptied, Undo disables with no dialog. Latest delete replaces the banner.
+interpretation: Undo banner on the Mac launch window after Move to Trash. LaunchActions.trash returns the Trash URL. EDraftMacApp.trash captures resultingItemURL. Banner replaces on a later delete. Undo moves the file back; if it is gone Undo disables with no dialog. No Recently Deleted UI.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no Recently Deleted section; no Trash viewer; no settings; no modal; no sound; no focus steal; no commit
+  - kind: custom
+    text: if the file is gone from Trash Undo disables with no dialog
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/eDraft/**
+  - apple/EDraftUI/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/eDraft.xcodeproj/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+change: Quiet undo banner after Move to Trash, with a real put-back.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && swift build --package-path apple/EDraftMacSurface
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchTrashBanner.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/LaunchTrashUndoTests.swift
+    - apple/macOS/EDraftMacApp.swift
+  symbols: []
+  maxFiles: 4
+  maxLines: 800
+accept: []
+assumptions:
+  - text: Anchors defended — FdxSaveBackTests.file — apple/EDraftCore/Tests/EDraftCoreTests/FdxSaveBackTests.swift (Swift); "file" is its whole name · LaunchActions — apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift (Swift); "launchactions" is its whole name · LaunchWindow — apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift (Swift); "launchwindow" is its whole name · PageSheetInteractionTests.window — apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/PageSheetInteractionTests.swift (Swift); "window" is its whole name · EDraftMacApp — apple/macOS/EDraftMacApp.swift (Swift); "edraftmacapp" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: FdxSaveBackTests.file, LaunchActions, LaunchWindow, PageSheetInteractionTests.window, EDraftMacApp (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T12:04:51.788Z
+createdBy: Yasirdora

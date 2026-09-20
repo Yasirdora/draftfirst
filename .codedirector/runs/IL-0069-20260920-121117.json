@@ -1,0 +1,140 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0069-20260920-121117.json",
+  "baselineSha256": "97da1d0192c5eef309e3fe64383324d80bfe067be2e68e0067f694d91e814296",
+  "budget": {
+    "filesChanged": 4,
+    "linesChanged": 204,
+    "maxFiles": 4,
+    "maxLines": 800
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchTrashBanner.swift",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/LaunchTrashUndoTests.swift",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/macOS/EDraftMacApp.swift",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T121110797",
+    "createdAt": "2026-09-20T12:11:11.035Z",
+    "dirty": true,
+    "id": "ckpt-20260920T121110797",
+    "ref": "acf7673bff9ca33f965d58f726dc187e5b566e7e",
+    "statusHash": "b18bd7b29c84ab7c1299667ba9179d303fc5a6b8296e8bfc3102946d3f60ee91",
+    "tag": "cdir/ckpt-20260920T121110797"
+  },
+  "command": [
+    "python3",
+    "-c",
+    "import shutil, pathlib; src=pathlib.Path('/tmp/edraft-launch-trash'); root=pathlib.Path('.'); shutil.copy(src/'LaunchWindow.swift', root/'apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift'); shutil.copy(src/'LaunchTrashBanner.swift', root/'apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchTrashBanner.swift'); shutil.copy(src/'LaunchTrashUndoTests.swift', root/'apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/LaunchTrashUndoTests.swift'); shutil.copy(src/'EDraftMacApp.swift', root/'apple/macOS/EDraftMacApp.swift')"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T12:11:17.759Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "no Recently Deleted section; no Trash viewer; no settings; no modal; no sound; no focus steal; no commit — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "if the file is gone from Trash Undo disables with no dialog — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0069",
+  "startedAt": "2026-09-20T12:11:17.702Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0069-20260920-121117.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 2
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0069-20260920-121117.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0069-20260920-121117.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftMacSurface && swift build --package-path apple/EDraftMacSurface\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftMacSurface && swift build --package-path apple/EDraftMacSurface",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftMacSurface && swift build --package-path apple/EDraftMacSurface",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no Recently Deleted section; no Trash viewer; no settings; no modal; no sound; no focus steal; no commit",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · if the file is gone from Trash Undo disables with no dialog",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0069",
+    "verifiedAt": "2026-09-20T12:12:05.016Z",
+    "violations": []
+  },
+  "violations": []
+}

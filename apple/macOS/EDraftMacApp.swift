@@ -84,7 +84,7 @@ final class MacAppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidatio
     /// launching: show the window that says what this is.
     func applicationShouldHandleReopen(
         _ sender: NSApplication, hasVisibleWindows flag: Bool
-    ) -> Bool {
+      ) -> Bool {
         if flag { return true }
         showLaunchWindow()
         return false
@@ -254,6 +254,7 @@ final class LaunchWindowController: NSWindowController, NSSearchFieldDelegate {
             rename: { [weak self] url, name in self?.rename(url, to: name) },
             duplicate: { [weak self] url in self?.duplicate(url) },
             trash: { [weak self] url in self?.trash(url) },
+            restored: { [weak self] url in self?.restored(url) },
             toggleFavorite: { [weak self] url in self?.toggleFavorite(url) }
         )
     }
@@ -363,10 +364,24 @@ final class LaunchWindowController: NSWindowController, NSSearchFieldDelegate {
     }
 
     /// The Trash, never a delete: a writer's script is recoverable or it is
-    /// not touched.
-    func trash(_ url: URL) {
+    /// not touched. Returns where the file landed so the launch window can
+    /// offer Undo.
+    func trash(_ url: URL) -> URL? {
         NSDocumentController.shared.document(for: url)?.close()
-        attempt { try FileManager.default.trashItem(at: url, resultingItemURL: nil) }
+        var resulting: NSURL?
+        do {
+            try FileManager.default.trashItem(at: url, resultingItemURL: &resulting)
+            finish(nil)
+            return resulting as URL?
+        } catch {
+            finish(error)
+            return nil
+        }
+    }
+
+    func restored(_ url: URL) {
+        NSDocumentController.shared.noteNewRecentDocumentURL(url)
+        reload()
     }
 
     func toggleFavorite(_ url: URL) {
