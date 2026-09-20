@@ -54,6 +54,29 @@ final class PdfSignalTests: XCTestCase {
         XCTAssertEqual(PdfSignal.extract(from: fakePdf(keywordsHex: hex)), fountain)
     }
 
+    /// macOS 27's Quartz writes the value as an indirect object —
+    /// `/Keywords 6 0 R` with the literal inside object 6 — and PDFKit's
+    /// rewrite keeps the indirection. Measured 2026-09-19.
+    func testAnIndirectKeywordsReferenceIsFollowed() {
+        let hex = PdfSignal.encode(fountain)
+        let pdf = Data((
+            "%PDF-1.4\n5 0 obj\n<< /Producer (macOS Quartz) /Keywords 6 0 R >>\nendobj\n" +
+            "6 0 obj\n(\(hex))\nendobj\ntrailer\n<< /Info 5 0 R >>\n%%EOF"
+        ).utf8)
+        XCTAssertEqual(PdfSignal.extract(from: pdf), fountain)
+    }
+
+    /// "6 0 obj" is a suffix of "26 0 obj"; the digit boundary must hold.
+    func testObject26DoesNotAnswerAReferenceToObject6() {
+        let hex = PdfSignal.encode(fountain)
+        let pdf = Data((
+            "%PDF-1.4\n26 0 obj\n(zz)\nendobj\n" +
+            "5 0 obj\n<< /Keywords 6 0 R >>\nendobj\n" +
+            "6 0 obj\n<\(hex)>\nendobj\n%%EOF"
+        ).utf8)
+        XCTAssertEqual(PdfSignal.extract(from: pdf), fountain)
+    }
+
     /// PDFs exported during the brief window that stamped `<hex>` after
     /// `%%EOF` are writers' files. We do not write that way; we still read it.
     func testATrailingHexStampFromAnOlderExportStillExtracts() {
@@ -66,11 +89,19 @@ final class PdfSignalTests: XCTestCase {
     /// The rename compatibility contract, on the Swift side of the same
     /// prefix the TypeScript engine still reads.
     func testAPreRenamePrefixStillRecoversTheSource() {
-        let payload = hex("EDRAFT_FOUNTAIN:1\nINT. KITCHEN - DAY\n")
+        let payload = hex("DRAFT_FIRST_FOUNTAIN:1\nINT. KITCHEN - DAY\n")
         XCTAssertEqual(
             PdfSignal.extract(from: fakePdf(keywordsHex: payload)),
             "INT. KITCHEN - DAY\n"
         )
+    }
+
+    /// The pin the TypeScript suite already carries: a blanket
+    /// find-and-replace once rewrote this list to the CURRENT prefix, and
+    /// pre-rename PDFs silently stopped opening. Pin both halves.
+    func testTheLegacyListKeepsTheOldMarkerAndNeverTheCurrentOne() {
+        XCTAssertTrue(PdfSignal.legacyMarkerPrefixes.contains("DRAFT_FIRST_FOUNTAIN"))
+        XCTAssertFalse(PdfSignal.legacyMarkerPrefixes.contains(PdfSignal.markerPrefix))
     }
 
     func testEncodeWritesTheCurrentPrefixAndLowercaseHex() {

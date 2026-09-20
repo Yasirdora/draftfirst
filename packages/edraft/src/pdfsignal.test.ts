@@ -71,6 +71,30 @@ describe('encodePdfPayload / extractPdfPayload', () => {
 		expect(extractPdfPayload(asLiteral)).toBe(fountain);
 		expect(extractPdfPayload(fakePdfWithKeywords(hex))).toBe(fountain);
 	});
+
+	/* macOS 27's Quartz writes the value as an indirect object —
+	   `/Keywords 6 0 R` with the literal inside object 6 — and PDFKit's
+	   rewrite keeps the indirection. Measured 2026-09-19. */
+	it('follows an indirect /Keywords reference (the macOS 27 Quartz spelling)', () => {
+		const fountain = 'INT. CAFÉ - DAY\n\nMolly’s kettle screams.\n';
+		const hex = encodePdfPayload(fountain);
+		const pdf = encodeUtf8(
+			`%PDF-1.4\n5 0 obj\n<< /Producer (macOS Quartz) /Keywords 6 0 R >>\nendobj\n` +
+			`6 0 obj\n(${hex})\nendobj\ntrailer\n<< /Info 5 0 R >>\n%%EOF`
+		);
+		expect(extractPdfPayload(pdf)).toBe(fountain);
+	});
+
+	it('does not let object 26 answer a reference to object 6', () => {
+		const fountain = 'INT. ROOM - DAY\n';
+		const hex = encodePdfPayload(fountain);
+		const pdf = encodeUtf8(
+			`%PDF-1.4\n26 0 obj\n(zz)\nendobj\n` +
+			`5 0 obj\n<< /Keywords 6 0 R >>\nendobj\n` +
+			`6 0 obj\n<${hex}>\nendobj\n%%EOF`
+		);
+		expect(extractPdfPayload(pdf)).toBe(fountain);
+	});
 });
 
 /**

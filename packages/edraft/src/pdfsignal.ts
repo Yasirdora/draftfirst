@@ -55,16 +55,75 @@ const HEX_DIGIT = /^[0-9a-fA-F]$/;
 
 /** Hex digits of a `/Keywords` value starting at `from`, or null.
  *
- *  Two spellings are legal: a PDF hex string `<…>` (what the web exporter
- *  writes into the Info dict) and a PDF literal `(…)` (what Core Graphics
- *  writes for `kCGPDFContextKeywords`). The payload is hex either way —
- *  `[0-9a-fA-F]` needs no escaping inside a literal — so both survive a
- *  viewer re-save. Trailing bytes after `%%EOF` do not. */
+ *  Three spellings are legal: a PDF hex string `<…>` (what the web exporter
+ *  writes into the Info dict), a PDF literal `(…)` (Core Graphics before
+ *  macOS 27), and an indirect reference `N G R` naming an object that holds
+ *  the string (Core Graphics on macOS 27, measured 2026-09-19: Quartz
+ *  writes `/Keywords 6 0 R` with the literal in object 6, and PDFKit's
+ *  rewrite keeps the indirection). The payload is hex either way —
+ *  `[0-9a-fA-F]` needs no escaping inside a literal — so all three survive
+ *  a viewer re-save. Trailing bytes after `%%EOF` do not. */
 function readKeywordsHex(source: Uint8Array, from: number): string | null {
-	let at = from + KEYWORD_FIELD.length;
+	const at = skipWhitespace(source, from + KEYWORD_FIELD.length);
+	if (at >= source.length) return null;
+	const opener = source[at]!;
+	if (opener === 0x3c /* '<' */ || opener === 0x28 /* '(' */) {
+		return readStringHex(source, at);
+	}
+	if (opener >= 0x30 && opener <= 0x39 /* '0'..'9' */) {
+		return readIndirectStringHex(source, at);
+	}
+	return null;
+}
+
+function skipWhitespace(source: Uint8Array, from: number): number {
+	let at = from;
 	while (at < source.length && (source[at] === 0x20 || source[at] === 0x09 || source[at] === 0x0a || source[at] === 0x0d)) {
 		at++;
 	}
+	return at;
+}
+
+/** Follows one level of indirection: `N G R` resolves to the string inside
+ *  `N G obj`. One level only — a reference to a reference is not a shape we
+ *  write, and chasing one risks a loop. */
+function readIndirectStringHex(source: Uint8Array, at: number): string | null {
+	const objectNumber = readInteger(source, at);
+	if (objectNumber === null) return null;
+	const generation = readInteger(source, skipWhitespace(source, objectNumber.end));
+	if (generation === null) return null;
+	const rAt = skipWhitespace(source, generation.end);
+	if (rAt >= source.length || source[rAt] !== 0x52 /* 'R' */) return null;
+
+	const needle = encodeUtf8(`${objectNumber.value} ${generation.value} obj`);
+	for (let i = 0; i + needle.length <= source.length; i++) {
+		let match = true;
+		for (let n = 0; n < needle.length; n++) {
+			if (source[i + n] !== needle[n]) { match = false; break; }
+		}
+		if (!match) continue;
+		// "6 0 obj" is a suffix of "26 0 obj" — the byte before the match
+		// must not be a digit, or object 26 answers for object 6.
+		if (i > 0 && source[i - 1]! >= 0x30 && source[i - 1]! <= 0x39) continue;
+		const hex = readStringHex(source, skipWhitespace(source, i + needle.length));
+		if (hex !== null) return hex;
+	}
+	return null;
+}
+
+function readInteger(source: Uint8Array, at: number): { value: number; end: number } | null {
+	let value = 0;
+	let end = at;
+	while (end < source.length && source[end]! >= 0x30 && source[end]! <= 0x39) {
+		value = value * 10 + (source[end]! - 0x30);
+		end++;
+	}
+	return end > at ? { value, end } : null;
+}
+
+/** Hex digits inside a PDF hex string `<…>` or literal `(…)` starting at
+ *  `at`. `<<` is a dictionary, not a hex string. */
+function readStringHex(source: Uint8Array, at: number): string | null {
 	const opener = source[at];
 	let closer: number;
 	if (opener === 0x3c /* '<' */) {
@@ -75,15 +134,15 @@ function readKeywordsHex(source: Uint8Array, from: number): string | null {
 	} else {
 		return null;
 	}
-	at++;
+	let i = at + 1;
 	let hex = '';
-	while (at < source.length && source[at] !== closer) {
-		const ch = String.fromCharCode(source[at]!);
+	while (i < source.length && source[i] !== closer) {
+		const ch = String.fromCharCode(source[i]!);
 		if (!HEX_DIGIT.test(ch)) return null;
 		hex += ch;
-		at++;
+		i++;
 	}
-	if (at >= source.length || hex.length === 0 || hex.length % 2 !== 0) return null;
+	if (i >= source.length || hex.length === 0 || hex.length % 2 !== 0) return null;
 	return hex;
 }
 
