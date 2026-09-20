@@ -1,0 +1,30 @@
+Suggested task
+Two-page mode, Stage 3: make the sheet array interactive — clicks, caret, selection, and every coordinate consumer
+
+In the eDraft repo at /Users/x/Documents/edraft (branch rename/edraft, HEAD acf7673), implement Stage 3 of docs/RFC-MULTI-CONTAINER-PAGES.md: migrate interaction onto the Stage 2 PageSheet array so Two-page mode becomes genuinely editable. Stage 2 (committed as 3de7df0) built one NSTextStorage, one NSLayoutManager, and one forced-break NSTextContainer + NSTextView per engine page, behind a default-OFF flag, with the sheet views read-only. Your stage removes the read-only guard and moves every coordinate consumer onto the sheets.
+
+Follow the repo's CLAUDE.md exactly: this project uses Code Director (cdir) for every code change — draft a lock with lock_draft, show the human the Vibe Check (goal, budget, deny list) and wait for their yes, then lock_check + lock_activate, apply every change through run_locked only, and finish with report. Never edit project files directly while a lock is active. Commit only when the human asks, by explicit paths only, and never add AI co-author trailers (a .githooks/commit-msg hook rejects them).
+
+The bug you are killing, measured 2026-09-16: in Two-page mode, clicking the right-hand sheet and typing inserts into the LEFT sheet at the same height (repro: /tmp/caret-test.fountain, "Marker 2 reads normal" became "Marker 2 redfafadfaads normal"). Same defect, six more faces: selection, format bar off-viewport, find rectangles in column coordinates, reveal highlight mis-painted, ghost overlay mis-framed. Under the sheet architecture nothing transforms anything — each consumer reads geometry from the sheet's own view in that view's own coordinates.
+
+Read first, in this order:
+1. docs/RFC-MULTI-CONTAINER-PAGES.md — especially §4 (what it buys), §6 (risks still unproven), §7 (the superseded IL-0022 consumers are your acceptance criteria), and §2.2's API wrinkle: NSLayoutManager offers textViewForBeginningOfSelection but no end accessor; the end resolves via textContainer(forGlyphAt:effectiveRange:)?.textView. The format bar needs exactly this.
+2. apple/EDraftMacSurface/Sources/EDraftMacSurface/PageSheet.swift and the Stage 2 diff of ScriptSurface.swift (git show 3de7df0) — how sheets are built, forced breaks, and the invalidation contract.
+3. The consumers to migrate: apple/EDraftMacSurface/Sources/EDraftMacSurface/FindBarClient.swift (contentView(at:) currently returns the same view for every index — NSTextFinderClient is multi-view by design; stop lying to it), SelectionFormatBar.swift (reposition via textViewForBeginningOfSelection), GhostTextOverlay.swift (frame from the sheet's own line rect), plus the reveal highlight and screenOffsetForTesting in ScriptSurface.swift / PageCanvasView.swift.
+
+Rules for this stage:
+- Sheet views become editable and selectable ONLY on the flagged spread path. Legacy path (PageGapContainer + SpreadFold + ArrangedTextView) stays compiled, live, byte-for-byte behaviourally identical with the flag OFF. Default flag state: OFF — flipping the default is a human decision after on-screen testing, not part of this lock.
+- No coordinate transforms anywhere. If you find yourself writing fold/unfold arithmetic for the sheet path, stop — that is the old bug in a new coat.
+- NSTextViewDelegate, shouldChangeTextIn, typing attributes and the edit planner currently assume one view (RFC §6.4). Route them through whichever sheet holds the selection, and prove an edit through the right-hand sheet mutates the model correctly.
+- Answer the §2.4/§6 open questions with measurements, not vibes: drag-select as a gesture across the view boundary; first responder and tab order across N views; view churn when page count changes mid-edit. Each gets either a test or an explicit named entry in the Unchecked bucket.
+- Working-tree warning: apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme and apple/macOS/EDraftMacApp.swift carry foreign cosmetic changes — do not touch, stage, or revert them. Same for .codedirector/mcp.log, repo-root "edraft logo.png" and screenshot.png.
+
+Proof bar, all must hold in the real repo before report:
+- swift test --package-path apple/EDraftMacSurface — including the equivalence harness on BOTH paths and NEW tests proving: (a) a click at a point on the right-hand sheet inserts text at that sheet's words, not the left sheet's — automate the /tmp/caret-test.fountain repro; (b) a selection spanning a page break reports one selection whose ends live in different sheet views; (c) the format bar's frame lands inside the visible canvas for a selection on page 2+; (d) find-bar rectangles for a phrase on the right sheet are in that sheet's coordinates.
+- swift test --package-path apple/EDraftCore and swift test --package-path apple/eDraftEngine — untouched and green (currently 350 and 222+10).
+- cd apple && xcodebuild -project eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug build succeeds.
+- With the flag OFF, everything behaves byte-for-byte as before.
+
+Finish with the Change Report: what changed, what was run, and an Unchecked bucket naming anything unproven (IME across sheets, tab order, drag-select feel, performance at feature length) — named, not smoothed over.
+
+continue with professionalism

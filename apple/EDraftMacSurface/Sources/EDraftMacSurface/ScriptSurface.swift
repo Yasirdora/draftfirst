@@ -30,8 +30,8 @@ import SwiftUI
 public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegate {
 
     public let scrollView: NSScrollView
-    /// The legacy column view only. Detached while the Stage 2 spread preview
-    /// is active; never an alias for the first sheet. Stage 3 migrates consumers.
+    /// The legacy column view only, detached while the flagged spread editor
+    /// is active. Selection and character geometry resolve their owning sheet.
     public let textView: NSTextView
     public let textStorage: NSTextStorage
     public let layoutManager: NSLayoutManager
@@ -40,7 +40,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private var legacySelection: NSRange?
     private let multiContainerSpreadEnabled: Bool
 
-    /// Opt-in for manual layout inspection; absent (and in Release) means OFF.
+    /// Opt-in for manual sheet editing; absent (and in Release) means OFF.
     static var debugMultiContainerSpreadEnabled: Bool {
         #if DEBUG
         ProcessInfo.processInfo.environment["EDRAFT_MULTI_CONTAINER_SPREAD"] == "1"
@@ -50,6 +50,39 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     }
 
     var usesPageSheets: Bool { !sheets.isEmpty }
+
+    /// Selection belongs to the shared layout manager, not page one. The
+    /// legacy view remains a separate, explicitly selected architecture.
+    var selectionTextView: NSTextView {
+        guard usesPageSheets else { return textView }
+        if let view = layoutManager.textViewForBeginningOfSelection,
+           sheets.contains(where: { $0.textView === view }) { return view }
+        return textView(atCharacter: legacySelection?.location ?? 0)
+    }
+
+    func textView(atCharacter requested: Int) -> NSTextView {
+        guard usesPageSheets else { return textView }
+        let location = min(max(0, requested), textStorage.length)
+        // Engine starts are also valid during repagination, before TextKit
+        // has finished laying out the replacement text, and at empty EOF.
+        let index = sheets.lastIndex(where: { $0.startLocation <= location }) ?? 0
+        return sheets[index].textView
+    }
+
+    private func sheetRect(for range: NSRange) -> (view: NSTextView, rect: CGRect)? {
+        let view = textView(atCharacter: range.location)
+        guard let rect = ScriptLayout.sheetBoundingRect(of: range, in: view) else { return nil }
+        return (view, rect)
+    }
+
+    private func characterCanvasRect(_ location: Int) -> CGRect? {
+        if usesPageSheets {
+            let clamped = min(max(0, location), textStorage.length)
+            guard let geometry = sheetRect(for: NSRange(location: clamped, length: 0)) else { return nil }
+            return canvas.convert(geometry.rect, from: geometry.view)
+        }
+        return boundingRect(atCharacter: location).map { canvasRect(fromTextRect: $0) }
+    }
     /// Bold, italic, underline and centre, over whatever is selected.
     private let formatBar = SelectionFormatBar()
     let canvas: PageCanvasView
@@ -147,6 +180,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// System find bar, Replace disabled. See `FindBarClient`.
     private let textFinder = NSTextFinder()
     private let findClient: FindBarClient
+    private lazy var sheetFindClient = PageSheetFindBarClient(surface: self)
 
     /// The note whose card is open, and the popover showing it. One at a
     /// time, which is what a `.transient` popover enforces anyway — clicking
@@ -410,11 +444,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         editor.onZoomTo = { [weak self] size in self?.applyChosenSize(size) }
         editor.onThreadColumn = { [weak self] opened in self?.threadColumn(opened: opened) }
         editor.onSetEditing = { [weak self] editing in
-            guard let self, !self.usesPageSheets else { return }
+            guard let self else { return }
             if editing {
                 self.placeCaretForEditing()
-                self.scrollView.window?.makeFirstResponder(self.textView)
-            } else if self.scrollView.window?.firstResponder === self.textView {
+                self.scrollView.window?.makeFirstResponder(self.selectionTextView)
+            } else if self.scrollView.window?.firstResponder === self.selectionTextView {
                 self.scrollView.window?.makeFirstResponder(nil)
             }
         }
@@ -468,11 +502,17 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let shouldHoldPage = editor != nil && renderedRevision >= 0
         let preserved = scrollView.contentView.bounds.origin
 
+        let sheetSelection = usesPageSheets ? selectionTextView.selectedRange() : nil
         applyingModel = true
         let script = ScriptLayout.attributedScript(elements, measure: measure)
         ranges = script.ranges
         lastLaidElements = elements
         textStorage.setAttributedString(script.text)
+        if let saved = sheetSelection {
+            let location = min(saved.location, textStorage.length)
+            selectionTextView.setSelectedRange(NSRange(location: location,
+                length: min(saved.length, textStorage.length - location)))
+        }
         layOut()
         applyingModel = false
 
@@ -576,10 +616,14 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// the existing views; a changed page count adds/removes only the tail.
     private func layOutPageSheets(_ pagination: Pagination) {
         let wasApplying = applyingModel
+        let savedSelection = selectionTextView.selectedRange()
+        let hadFocus = scrollView.window?.firstResponder is NSTextView
+            && (scrollView.window?.firstResponder === textView
+                || sheets.contains(where: { $0.textView === scrollView.window?.firstResponder }))
         applyingModel = true
         defer { applyingModel = wasApplying }
         if !usesPageSheets {
-            legacySelection = textView.selectedRange()
+            legacySelection = selectionTextView.selectedRange()
             if scrollView.window?.firstResponder === textView {
                 scrollView.window?.makeFirstResponder(nil)
             }
@@ -588,10 +632,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             textView.isSelectable = false
             (textView as? ArrangedTextView)?.fold = nil
             layoutManager.removeTextContainer(at: 0)
-            // These still belong to the column. Rehosting them is Stage 3.
+            // Retire chrome while its previous host leaves the hierarchy.
             formatBar.hostView.isHidden = true
             hideGhost()
             textFinder.performAction(.hideFindInterface)
+            textFinder.client = sheetFindClient
             canvas.showNotes([], active: nil, onOpen: { _ in })
         }
         let starts = pagination.locations.isEmpty ? [0] : pagination.locations
@@ -611,14 +656,37 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 sheets[page].update(startLocation: starts[page], endLocation: end, measure: measure)
             }
         }
-        for sheet in sheets { layoutManager.ensureLayout(for: sheet.textContainer) }
+        for sheet in sheets {
+            sheet.textView.delegate = self
+            sheet.textView.isEditable = true
+            sheet.textView.isSelectable = true
+            sheet.textView.allowsUndo = true
+            layoutManager.ensureLayout(for: sheet.textContainer)
+        }
         canvas.layoutSheets(sheets, viewport: visibleViewport())
+        hideGhost()
         canvas.showBreaks(at: [])
+        let location = min(savedSelection.location, textStorage.length)
+        let selection = NSRange(location: location,
+            length: min(savedSelection.length, textStorage.length - location))
+        let owner = textView(atCharacter: location)
+        owner.setSelectedRange(selection)
+        legacySelection = nil
+        if hadFocus { scrollView.window?.makeFirstResponder(owner) }
+        placeNoteMarkers()
+        washNotedLines()
+        updateTypingAttributes()
         scrollView.layoutSubtreeIfNeeded()
     }
 
     private func restoreLegacyContainerIfNeeded() {
         guard usesPageSheets else { return }
+        legacySelection = selectionTextView.selectedRange()
+        textFinder.performAction(.hideFindInterface)
+        textFinder.client = findClient
+        let hadFocus = sheets.contains { $0.textView === scrollView.window?.firstResponder }
+        hideGhost()
+        highlight.removeFromSuperview()
         let wasApplying = applyingModel
         applyingModel = true
         defer { applyingModel = wasApplying }
@@ -639,6 +707,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             ))
             legacySelection = nil
         }
+        if hadFocus { scrollView.window?.makeFirstResponder(textView) }
     }
 
     /// Draws the script as sheets or as one column.
@@ -720,6 +789,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// the first line whose fragment reaches the edge — the first words
     /// actually on the glass.
     private func anchoredLine() -> (location: Int, offset: CGFloat)? {
+        if usesPageSheets {
+            let visible = scrollView.contentView.bounds
+            guard let sheet = sheets.first(where: { $0.textView.frame.intersects(visible) }) else { return nil }
+            let view = sheet.textView
+            let point = view.convert(NSPoint(x: view.frame.minX, y: visible.minY), from: canvas)
+            let location = view.characterIndexForInsertion(at: point)
+            guard let rect = characterCanvasRect(location) else { return nil }
+            return (location, rect.minY - visible.minY)
+        }
         guard let layoutManager = textView.layoutManager,
               let container = textView.textContainer else { return nil }
         let visible = scrollView.contentView.bounds
@@ -763,8 +841,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     }
 
     private func scrollBack(to anchor: (location: Int, offset: CGFloat)?) {
-        guard let anchor, let rect = boundingRect(atCharacter: anchor.location) else { return }
-        let y = canvasRect(fromTextRect: rect).minY - anchor.offset
+        guard let anchor, let rect = characterCanvasRect(anchor.location) else { return }
+        let y = rect.minY - anchor.offset
         let clip = scrollView.contentView
         clip.scroll(to: NSPoint(
             x: clip.bounds.origin.x,
@@ -1510,7 +1588,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // model would bring back only the caret — the model tracks an
         // element and an offset, not a range — and a selected word would
         // come back unselected.
-        let selection = textView.selectedRange()
+        let selection = selectionTextView.selectedRange()
         renderedRevision = -1
         render(editor.screenplay.elements) { [self] in
             restoreSelection(selection)
@@ -1584,10 +1662,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// Navigator or the scene filter should not be undone by the page
     /// snatching it back on the next layout pass.
     func takeInitialFocus() {
-        guard !usesPageSheets, !hasTakenInitialFocus, let window = scrollView.window else { return }
+        guard !hasTakenInitialFocus, let window = scrollView.window else { return }
         hasTakenInitialFocus = true
         placeCaretForEditing()
-        window.makeFirstResponder(textView)
+        window.makeFirstResponder(selectionTextView)
         pinOpeningViewportIfNeeded()
     }
 
@@ -1642,6 +1720,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// stillness test can measure the writer's own line rather than
     /// whichever line happens to be first.
     public func screenOffsetForTesting(atCharacter location: Int) -> CGFloat? {
+        if usesPageSheets {
+            return characterCanvasRect(location).map { $0.minY - scrollView.contentView.bounds.minY }
+        }
         guard let rect = boundingRect(atCharacter: location) else { return nil }
         return canvas.convert(rect, from: textView).minY - scrollView.contentView.bounds.minY
     }
@@ -1709,7 +1790,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// live on the layout manager, which is exactly the distinction — how
     /// this text is drawn right now, not what it is.
     private func washNotedLines() {
-        guard let layoutManager = textView.layoutManager else { return }
+        let layoutManager = self.layoutManager
         let whole = NSRange(location: 0, length: textStorage.length)
         layoutManager.removeTemporaryAttribute(.backgroundColor, forCharacterRange: whole)
         guard let editor else { return }
@@ -1806,22 +1887,35 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // toward the edge of the sheet, and their words readable only one at
         // a time. The line is what the writer is looking at, so the line
         // carries one mark and its card holds everything left on it.
-        var order: [Int] = []
-        var byLine: [Int: (top: CGFloat, height: CGFloat, ids: [UUID])] = [:]
+        var order: [String] = []
+        var byLine: [String: (top: CGFloat, height: CGFloat, ids: [UUID], marginX: CGFloat?)] = [:]
         for note in notedLines(editor) {
             // A note anchored to nothing trails the script, and belongs
             // beside its last line — which is where the writer left it.
             let range = note.anchor.flatMap { byElement[$0] } ?? ranges.last?.range
-            guard let range, let rect = boundingRect(atCharacter: range.location) else { continue }
-            let drawn = (textView as? ArrangedTextView)?.fold?.spreadRect(fromVertical: rect) ?? rect
-            let inCanvas = canvas.convert(drawn, from: textView)
-            let line = Int(inCanvas.minY.rounded())
+            guard let range else { continue }
+            let inCanvas: CGRect
+            let marginX: CGFloat?
+            let page: Int
+            if usesPageSheets {
+                guard let geometry = sheetRect(for: NSRange(location: range.location, length: 0)) else { continue }
+                inCanvas = canvas.convert(geometry.rect, from: geometry.view)
+                marginX = canvas.convert(geometry.view.bounds, from: geometry.view).maxX + PageCanvasView.noteMarkerGap
+                page = pageIndex(containing: range.location)
+            } else {
+                guard let rect = boundingRect(atCharacter: range.location) else { continue }
+                let drawn = (textView as? ArrangedTextView)?.fold?.spreadRect(fromVertical: rect) ?? rect
+                inCanvas = canvas.convert(drawn, from: textView)
+                marginX = nil
+                page = 0
+            }
+            let line = "\(page):\(Int(inCanvas.minY.rounded()))"
             if var existing = byLine[line] {
                 existing.ids.append(note.id)
                 byLine[line] = existing
             } else {
                 order.append(line)
-                byLine[line] = (inCanvas.minY, inCanvas.height, [note.id])
+                byLine[line] = (inCanvas.minY, inCanvas.height, [note.id], marginX)
             }
         }
         return order.compactMap { line in
@@ -1834,7 +1928,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             }.count ? agreed.first : nil
             return PageCanvasView.NotePlacement(
                 noteIDs: group.ids, authorSlot: shared,
-                lineTop: group.top, lineHeight: group.height
+                lineTop: group.top, lineHeight: group.height, marginX: group.marginX
             )
         }
     }
@@ -2061,6 +2155,14 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             return true
         }
 
+        if usesPageSheets {
+            guard let geometry = sheetRect(for: mapped.range) else { return false }
+            geometry.view.setSelectedRange(NSRange(location: mapped.range.location, length: 0))
+            updateSelection()
+            geometry.view.scrollRangeToVisible(mapped.range)
+            highlight.mark(geometry.rect, in: geometry.view, reduceMotion: reduceMotion)
+            return true
+        }
         guard let rect = ScriptLayout.boundingRect(of: mapped.range, in: textView)
         else { return false }
 
@@ -2155,7 +2257,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// Whether a mark is currently on the page — the surface's own answer to
     /// "did that reveal say anything?", and what a test asks.
     public var isMarking: Bool {
-        highlight.superview === textView && highlight.frame.height > 0
+        (highlight.superview === textView || sheets.contains { highlight.superview === $0.textView })
+            && highlight.frame.height > 0
     }
 
     /// Which element the insertion point is in, if any.
@@ -2479,7 +2582,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         retireSelectionPaint()
         updateSelection()
         updateTypingAttributes()
-        refreshFormatBar(selection: textView.selectedRange())
+        refreshFormatBar(selection: selectionTextView.selectedRange())
         updateGhost()
     }
 
@@ -2491,10 +2594,23 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// of what TextKit's own invalidation dirties, so the two are the
     /// difference between the paint coming down and most of it coming down.
     private func retireSelectionPaint() {
+        if usesPageSheets {
+            let incoming = selectionTextView.selectedRange()
+            for (index, sheet) in sheets.enumerated() {
+                let end = index + 1 < sheets.count ? sheets[index + 1].startLocation : textStorage.length
+                let owned = NSRange(location: sheet.startLocation, length: max(0, end - sheet.startLocation))
+                if NSIntersectionRange(owned, paintedSelection).length > 0
+                    || NSIntersectionRange(owned, incoming).length > 0 {
+                    sheet.textView.needsDisplay = true
+                }
+            }
+            paintedSelection = incoming
+            return
+        }
         if paintedSelection.length > 0, let dirty = selectionPaintRect(for: paintedSelection) {
             textView.setNeedsDisplay(dirty)
         }
-        paintedSelection = textView.selectedRange()
+        paintedSelection = selectionTextView.selectedRange()
     }
 
     /// The rectangle a selection's highlight actually paints, in the text
@@ -2540,15 +2656,14 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// What is lit on the bar, and where it floats.
     private func refreshFormatBar(selection: NSRange) {
         formatBar.update(
-            selection: selection, in: textView, active: styleCoverage(at: selection)
+            selection: selection, in: selectionTextView, active: styleCoverage(at: selection)
         )
     }
 
     /// Moves the bar to the selection's current screen position — the clip
     /// view's bounds changes are scroll, resize and zoom in one signal.
     private func repositionFormatBar() {
-        guard !usesPageSheets else { return }
-        formatBar.reposition(selection: textView.selectedRange(), in: textView)
+        formatBar.reposition(selection: selectionTextView.selectedRange(), in: selectionTextView)
     }
 
     /// The bar's frame in the scroll view's coordinates, for tests; nil
@@ -2584,7 +2699,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // refuse expanding case mappings (ß → SS) to keep its range arithmetic,
         // which left the view lowercase while the model normalised to caps.
         let text = storage.attributedSubstring(from: updatedRange).string
-        let selected = textView.selectedRange()
+        let selected = selectionTextView.selectedRange()
         let offset = max(
             0,
             min(updatedRange.length, selected.location - updatedRange.location)
@@ -2631,7 +2746,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             if applyIncrementalEdit(edit) { return }
         }
 
-        let nativeSelection = textView.selectedRange()
+        let nativeSelection = selectionTextView.selectedRange()
         guard let plan = ScreenplayEditPlanner.plan(
             elements: editor.screenplay.elements,
             replacing: difference.0,
@@ -2725,7 +2840,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             elements: editor.screenplay.elements,
             activeElementID: editor.activeElementID,
             selectionOffset: editor.selectionOffset,
-            selection: textView.selectedRange()
+            selection: selectionTextView.selectedRange()
         )
         editor.replaceAllElements(
             elements,
@@ -2759,7 +2874,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// multi-element selection belong to no element and carry no style.
     func toggleStyle(_ style: StyleSet, named actionName: String) {
         guard let editor else { return }
-        let selection = textView.selectedRange()
+        let selection = selectionTextView.selectedRange()
         guard selection.length > 0 else { return }
 
         var touched: [(index: Int, range: NSRange)] = []
@@ -2820,7 +2935,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// all. One yellow — v1 has no other color to decide (RFC HIGHLIGHTER D1).
     func toggleHighlight(named actionName: String) {
         guard let editor else { return }
-        let selection = textView.selectedRange()
+        let selection = selectionTextView.selectedRange()
         guard selection.length > 0 else { return }
 
         var touched: [(index: Int, range: NSRange)] = []
@@ -2878,7 +2993,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// `applyModelEdit`, exactly like a style.
     func toggleCentered(named actionName: String) {
         guard let editor else { return }
-        let selection = textView.selectedRange()
+        let selection = selectionTextView.selectedRange()
 
         var touched: [Int] = []
         if selection.length == 0 {
@@ -2997,7 +3112,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             elements: editor.screenplay.elements,
             activeElementID: editor.activeElementID,
             selectionOffset: editor.selectionOffset,
-            selection: textView.selectedRange()
+            selection: selectionTextView.selectedRange()
         )
         registerModelUndo(inverse, actionName: actionName)
         editor.replaceAllElements(
@@ -3034,6 +3149,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     var ghostBaseline: CGFloat? { ghost.baselineForTests }
 
     func updateGhost() {
+        let textView = selectionTextView
+        if ghost.superview !== textView { hideGhost() }
         guard let editor else {
             hideGhost()
             return
@@ -3043,15 +3160,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // writer who is typing, not for a page sitting in the background.
         let focused = textView.window == nil
             || textView.window?.firstResponder === textView
-        guard canvas.arrangement == .single,
+        guard canvas.arrangement == .single || usesPageSheets,
               focused,
               !scrollView.isFindBarVisible,
               !textView.hasMarkedText(),
               let suffix = editor.currentSuggestionSuffix,
               !suffix.isEmpty,
-              textView.selectedRange().length == 0,
-              let mapped = elementRange(at: textView.selectedRange().location),
-              textView.selectedRange().location == NSMaxRange(mapped.range),
+              selectionTextView.selectedRange().length == 0,
+              let mapped = elementRange(at: selectionTextView.selectedRange().location),
+              selectionTextView.selectedRange().location == NSMaxRange(mapped.range),
               editor.activeKind != .transition,
               editor.activeKind != .centered,
               let storage = textView.textStorage else {
@@ -3068,7 +3185,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             in: textView,
             base: NSAttributedString(attributedString: storage),
             suffix: suffix,
-            insertionLocation: textView.selectedRange().location,
+            insertionLocation: selectionTextView.selectedRange().location,
             paragraphRange: mapped.range,
             attributes: suggestionAttributes,
             revision: editor.revision
@@ -3086,13 +3203,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     /// Edit → Find. The system bar, with Replace disabled.
     public func showFind() {
-        guard !usesPageSheets else { return }
         textFinder.performAction(.showFindInterface)
         updateGhost()
     }
 
     public func find(next: Bool) {
-        guard !usesPageSheets else { return }
         textFinder.performAction(next ? .nextMatch : .previousMatch)
     }
 
@@ -3109,7 +3224,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         range: NSRange,
         replacement: String
     ) -> Bool {
-        let selected = textView.selectedRange()
+        let selected = selectionTextView.selectedRange()
         guard replacement == " ",
               range.length == 0,
               selected.length == 0,
@@ -3296,7 +3411,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             elements,
             activeID: activeID,
             offset: editor.selectionOffset,
-            selection: textView.selectedRange(),
+            selection: selectionTextView.selectedRange(),
             actionName: actionName
         )
     }
@@ -3388,14 +3503,14 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     // MARK: - Selection and typing attributes
 
     private func updateSelection() {
-        guard !usesPageSheets, let editor, let mapped = elementRange(at: textView.selectedRange().location) else {
+        guard let editor, let mapped = elementRange(at: selectionTextView.selectedRange().location) else {
             return
         }
         editor.selectionChanged(
             elementID: mapped.id,
             offset: min(
                 mapped.range.length,
-                max(0, textView.selectedRange().location - mapped.range.location)
+                max(0, selectionTextView.selectedRange().location - mapped.range.location)
             )
         )
         updateTypingAttributes()
@@ -3424,19 +3539,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 attributes.merge(ScriptLayout.styleAttributes(for: donor.styles)) { _, new in new }
             }
         }
-        textView.typingAttributes = attributes
+        selectionTextView.typingAttributes = attributes
     }
 
     private func restoreSelection(_ requestedRange: NSRange) {
         let length = textStorage.length
         let location = min(max(0, requestedRange.location), length)
         let selectionLength = min(max(0, requestedRange.length), length - location)
-        if usesPageSheets {
-            legacySelection = NSRange(location: location, length: selectionLength)
-            return
-        }
         applyingModel = true
-        textView.setSelectedRange(NSRange(location: location, length: selectionLength))
+        textView(atCharacter: location).setSelectedRange(NSRange(location: location, length: selectionLength))
         applyingModel = false
         // The delegate is muted above, so the paint bookkeeping the writer's
         // own selection changes get must happen here by hand: a render may
@@ -3497,7 +3608,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     /// The caret's line, top to bottom, in the canvas's coordinates.
     private func caretContentLine() -> ClosedRange<CGFloat>? {
-        let location = textView.selectedRange().location
+        let location = selectionTextView.selectedRange().location
+        if usesPageSheets {
+            guard let rect = characterCanvasRect(location) else { return nil }
+            return rect.minY...max(rect.minY + 1, rect.maxY)
+        }
         let probe = NSRange(location: location, length: 0)
         var caret = ScriptLayout.boundingRect(of: probe, in: textView)
         if caret == nil || caret?.height == 0 {

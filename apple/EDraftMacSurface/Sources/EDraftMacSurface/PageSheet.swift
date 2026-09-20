@@ -1,7 +1,7 @@
 import AppKit
 import EDraftCore
 
-/// One engine page in the Stage 2 spread preview. All sheets share the
+/// One engine page in the flagged spread editor. All sheets share the
 /// surface's storage and layout manager; neither pagination nor text is copied.
 @MainActor
 public final class PageSheet {
@@ -38,8 +38,7 @@ public final class PageSheet {
         view.isAutomaticQuoteSubstitutionEnabled = false
         view.isAutomaticDashSubstitutionEnabled = false
         view.isAutomaticTextReplacementEnabled = false
-        // Stage 3 owns editing, selection and the consumers of their geometry.
-        // A debug preview must not accept edits the model cannot yet observe.
+        // ScriptSurface enables interaction after connecting its edit delegate.
         view.isEditable = false
         view.isSelectable = false
         container.widthTracksTextView = false

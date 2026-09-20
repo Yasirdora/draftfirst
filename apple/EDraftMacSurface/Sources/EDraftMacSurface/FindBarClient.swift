@@ -44,3 +44,55 @@ final class FindBarClient: NSObject, NSTextFinderClient {
         return [NSValue(rect: rect)]
     }
 }
+
+/// NSTextFinder's multi-view contract for the flagged sheet architecture.
+/// The legacy client above deliberately retains its original implementation.
+@MainActor
+final class PageSheetFindBarClient: NSObject, NSTextFinderClient {
+    private weak var surface: ScriptSurface?
+
+    init(surface: ScriptSurface) {
+        self.surface = surface
+        super.init()
+    }
+
+    var isEditable: Bool { false } // Replace must not bypass the edit planner.
+    var isSelectable: Bool { true }
+    var allowsMultipleSelection: Bool { false }
+    var string: String { surface?.textStorage.string ?? "" }
+    var firstSelectedRange: NSRange {
+        surface?.selectionTextView.selectedRange() ?? NSRange(location: NSNotFound, length: 0)
+    }
+    var selectedRanges: [NSValue] {
+        get { surface?.selectionTextView.selectedRanges ?? [] }
+        set {
+            guard let surface, let first = newValue.first else { return }
+            surface.textView(atCharacter: first.rangeValue.location).selectedRanges = newValue
+        }
+    }
+
+    func scrollRangeToVisible(_ range: NSRange) {
+        surface?.textView(atCharacter: range.location).scrollRangeToVisible(range)
+    }
+
+    func contentView(at index: Int, effectiveCharacterRange outRange: NSRangePointer) -> NSView {
+        guard let surface else {
+            outRange.pointee = NSRange(location: 0, length: 0)
+            return NSView()
+        }
+        let view = surface.textView(atCharacter: index)
+        if let layout = view.layoutManager, let container = view.textContainer {
+            layout.ensureLayout(for: container)
+            outRange.pointee = layout.characterRange(
+                forGlyphRange: layout.glyphRange(for: container), actualGlyphRange: nil)
+        }
+        return view
+    }
+
+    func rects(forCharacterRange range: NSRange) -> [NSValue]? {
+        guard let view = surface?.textView(atCharacter: range.location),
+              let rect = ScriptLayout.sheetBoundingRect(of: range, in: view) else { return nil }
+        // NSTextFinder guarantees this range belongs to one content view.
+        return [NSValue(rect: rect)]
+    }
+}

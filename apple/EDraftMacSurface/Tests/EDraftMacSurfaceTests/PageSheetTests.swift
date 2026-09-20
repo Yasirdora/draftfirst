@@ -69,8 +69,8 @@ final class PageSheetTests: XCTestCase {
             XCTAssertTrue(sheet.textContainer.textView === sheet.textView)
             XCTAssertTrue(sheet.textView.textStorage === surface.textStorage)
             XCTAssertTrue(sheet.textView.superview === surface.canvas)
-            XCTAssertFalse(sheet.textView.isEditable, "Stage 3 must connect the planner before accepting edits")
-            XCTAssertFalse(sheet.textView.isSelectable)
+            XCTAssertTrue(sheet.textView.isEditable)
+            XCTAssertTrue(sheet.textView.isSelectable)
         }
     }
 

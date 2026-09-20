@@ -257,6 +257,9 @@ be asked.
 
 ## 9. Stage 2 implementation — 2026-09-19
 
+This section records the Stage 2 state. Section 10 supersedes its read-only
+preview restriction for the opt-in spread path.
+
 `ScriptSurface` now owns one `NSTextStorage` and one `NSLayoutManager`.
 With the flag enabled **and** the arrangement set to Two-page, its `sheets`
 array holds one `PageSheet` (container and ordinary `NSTextView`) for each
@@ -335,3 +338,89 @@ directory (`Operation not permitted`). The core and engine were not edited
 by this stage, and the corpus tests were not skipped or pointed at an empty
 directory to make the verification command pass. An accessible copy can be
 supplied through the tests' existing `EDRAFT_SCRIPT_CORPUS` setting.
+
+
+## 10. Stage 3 implementation — 2026-09-20
+
+The opt-in spread path now accepts editing and selection. The flag still
+defaults **OFF**; the Debug environment switch in §9 is unchanged. There
+is no new settings UI, no single-page migration and no removal of the
+legacy fold. The legacy finder implementation is retained verbatim, with
+a separate `PageSheetFindBarClient` installed only while sheets are active.
+
+Each sheet is connected to the surface's existing edit delegate before it
+becomes editable. The delegate's event view handles native input; model
+edits, formatting and undo read the shared layout manager's selection.
+`selectionTextView` resolves the beginning-of-selection view, and character
+lookups resolve the owning engine page, including an empty trailing page.
+The stored `textView` remains the detached legacy column, not a page-one
+compatibility alias. Container break invalidation remains unchanged.
+
+Geometry consumers now use each sheet's native view coordinates. Finder
+reports both the actual content view and its effective character range.
+The format bar resolves the selection's end through its glyph container,
+measures each intersected view, and positions against the visible portions.
+Reveal highlights and predictions are hosted by the owning sheet. Viewport
+anchors, caret visibility, screen offsets and note margins use native view
+conversion, without fold/unfold arithmetic on the sheet path. Notes at the
+same height on different pages remain separate.
+
+Repagination reuses existing sheets, restores the shared selection, and
+moves the first responder when the caret's owning page changes. Replacing
+the document preserves and clamps the selection before relayout. Selection
+repainting invalidates affected sheets rather than the whole document.
+
+### Measured evidence
+
+`PageSheetInteractionTests` adds 13 tests covering:
+
+- A native mouse click on the right sheet followed by insertion at that
+  location, with exact storage and bound-model agreement; a double-click
+  selecting the word under that pointer. A permanent generated fixture of
+  numbered “Marker … reads normal.” paragraphs replaces the unavailable
+  `/tmp/caret-test.fountain` reproduction file.
+- One shared cross-page selection with endpoints in different views, and
+  native arrow movement across a page boundary.
+- Format-bar placement on the right sheet and for a selection whose
+  beginning is above the viewport; right-sheet formatting and undo.
+- Finder content-view identity, effective range, local match rectangles
+  and shared selection, with Replace still disabled.
+- Reveal highlight and screen-offset geometry on the right sheet;
+  prediction placement on a later sheet without modifying document text.
+- Return through the planner and undo; growth and shrinkage of the sheet
+  array during native edits, with selection, model and responder checks.
+- Separate note markers for left/right pages at the same vertical position.
+
+The mouse tests hit-test the actual canvas and deliver native mouse events
+to the hit text view. They explicitly focus that view: the package test
+host could not become a key application in this session. They do not set
+a character selection to simulate the click, and they do not prove
+foreground-window activation by a physical click.
+
+On this checkout, the full Mac surface suite passed **291 tests**, with
+**zero failures** and **five existing opt-in benchmark skips**. This
+includes the unmodified four-test equivalence harness exercising both
+architectures, exact engine page starts, complete character coverage, and
+every character's canvas rectangle within 0.5 points across resizes.
+The engine passed **10 XCTest tests plus 222 Swift Testing tests**. The
+exact requested macOS Debug build succeeded, including signing, without
+changing signing settings or adding command-line signing overrides.
+
+**Acceptance blocker:** the full Core suite ran 350 tests; seven
+`PasteCorpusGateTests` failed with `NSCocoaErrorDomain Code=257` / POSIX
+`Operation not permitted` reading the external `scripts-corpus` directory.
+An elevated direct read in this Codex process failed too. The other 343
+Core tests passed. Core and engine sources were not changed, and no corpus
+test was skipped or weakened. Full acceptance requires rerunning with
+access to the same complete corpus, using the existing
+`EDRAFT_SCRIPT_CORPUS` override if it is supplied at another readable path.
+
+### Unchecked
+
+Cross-view drag-selection as a physical gesture and its feel; complete
+first-responder/tab traversal across all views; physical foreground-window
+activation; IME composition spanning or repaginating sheets; accessibility
+and visual inspection with real input; feature-length editing performance.
+The responder and churn tests above establish their specific native-edit
+cases, not all combinations of those interactions. The default flag must
+remain off pending the separate human decision after on-screen testing.

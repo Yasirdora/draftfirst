@@ -316,6 +316,21 @@ public enum ScriptLayout {
         return rect.offsetBy(dx: origin.x, dy: origin.y)
     }
 
+    /// A range may cross containers. Measure only the part drawn by this
+    /// view; querying another container's glyphs produces unrelated rects.
+    static func sheetBoundingRect(of range: NSRange, in view: NSTextView) -> CGRect? {
+        guard let layout = view.layoutManager, let container = view.textContainer else { return nil }
+        layout.ensureLayout(for: container)
+        let owned = layout.characterRange(forGlyphRange: layout.glyphRange(for: container), actualGlyphRange: nil)
+        if range.length == 0 {
+            guard range.location >= owned.location, range.location <= NSMaxRange(owned) else { return nil }
+            return boundingRect(of: range, in: view)
+        }
+        let intersection = NSIntersectionRange(range, owned)
+        guard intersection.length > 0 else { return nil }
+        return boundingRect(of: intersection, in: view)
+    }
+
     public static func boundingRect(of range: NSRange, in view: NSTextView) -> CGRect? {
         if let layoutManager = view.layoutManager, let container = view.textContainer {
             // TextKit 1: the same arithmetic the iPhone's surface uses.

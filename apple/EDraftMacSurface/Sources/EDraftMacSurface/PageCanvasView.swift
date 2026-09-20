@@ -474,6 +474,7 @@ final class PageCanvasView: NSView {
         var authorSlot: Int?
         let lineTop: CGFloat
         let lineHeight: CGFloat
+        var marginX: CGFloat? = nil
     }
 
     /// Puts a marker in the right margin beside each note's line.
@@ -519,7 +520,7 @@ final class PageCanvasView: NSView {
             // Centred on the line rather than sitting on its baseline: a mark
             // beside a line should look level with it.
             marker.frame = CGRect(
-                x: x.rounded(),
+                x: (placement.marginX ?? x).rounded(),
                 y: (placement.lineTop + (placement.lineHeight - NoteMarker.size.height) / 2).rounded(),
                 width: NoteMarker.size.width,
                 height: NoteMarker.size.height
@@ -547,7 +548,7 @@ final class PageCanvasView: NSView {
 
     /// Air between the last column of type and the mark, so the two read as
     /// text and margin rather than as a run-on.
-    private static let noteMarkerGap: CGFloat = 8
+    static let noteMarkerGap: CGFloat = 8
 
     /// Back-compat for the one-card layout callers. Prefer `layoutPages`.
     func layoutPage(textHeight: CGFloat, viewport: CGSize) {

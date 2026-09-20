@@ -1,0 +1,140 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0054-20260920-113147.json",
+  "baselineSha256": "6f0ca1d0dcbb44b9443461ed3fc9caecafbc69cbf91ba9d5ea8d0767c35d39c5",
+  "budget": {
+    "filesChanged": 6,
+    "linesChanged": 229,
+    "maxFiles": 18,
+    "maxLines": 4000
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/FindBarClient.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/PageSheet.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptLayout.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/SelectionFormatBar.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/PageSheetTests.swift",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T113140504",
+    "createdAt": "2026-09-20T11:31:40.646Z",
+    "dirty": true,
+    "id": "ckpt-20260920T113140504",
+    "ref": "acf7673bff9ca33f965d58f726dc187e5b566e7e",
+    "statusHash": "4177604a3ab9dcd93c86fac366b85b9a44c04ddf1f1693a313bd5b3b834f4b49",
+    "tag": "cdir/ckpt-20260920T113140504"
+  },
+  "command": [
+    "/bin/sh",
+    "-c",
+    "python3 /tmp/edraft-stage3-edit.py && swift test --package-path apple/EDraftMacSurface --filter PageSheetTests > /tmp/edraft-stage3-focused.log 2>&1"
+  ],
+  "exitCode": 1,
+  "finishedAt": "2026-09-20T11:32:04.360Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "Default flag remains OFF. Legacy behavior, Single-page and Grid remain unchanged. No sheet-first compatibility shim or fold/unfold arithmetic on the sheet path. No foreign-file edits or commits. — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0054",
+  "startedAt": "2026-09-20T11:31:47.692Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0054-20260920-113147.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 1
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0054-20260920-113147.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0054-20260920-113147.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftCore && swift test --package-path apple/eDraftEngine && (cd apple && xcodebuild -project eDraft.xcodeproj -scheme \\\"eDraft (macOS)\\\" -configuration Debug build)\" → exit 1",
+        "detail": "verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftCore && swift test --package-path apple/eDraftEngine && (cd apple && xcodebuild -project eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug build)",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftCore && swift test --package-path apple/eDraftEngine && (cd apple && xcodebuild -project eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug build)",
+        "verdict": "violated"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · Default flag remains OFF. Legacy behavior, Single-page and Grid remain unchanged. No sheet-first compatibility shim or fold/unfold arithmetic on the sheet path. No foreign-file edits or commits.",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0054",
+    "verifiedAt": "2026-09-20T11:32:46.336Z",
+    "violations": [
+      "VERIFY verify-command: verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftCore && swift test --package-path apple/eDraftEngine && (cd apple && xcodebuild -project eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug build)"
+    ]
+  },
+  "violations": [
+    "VERIFY verify-command: verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftCore && swift test --package-path apple/eDraftEngine && (cd apple && xcodebuild -project eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug build)"
+  ]
+}

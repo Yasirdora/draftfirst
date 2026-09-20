@@ -198,14 +198,40 @@ final class SelectionFormatBar {
     /// a size would not, which is exactly how the bar would end up
     /// magnified again.
     func reposition(selection: NSRange, in textView: NSTextView) {
-        guard let scrollView, let canvas,
-              selection.length > 0,
-              let rect = ScriptLayout.boundingRect(of: selection, in: textView) else {
+        guard let scrollView, let canvas, selection.length > 0 else {
             host.isHidden = true
             return
         }
-        let placed = canvas.convert(rect, from: textView)
         let viewport = scrollView.contentView.bounds
+        let placed: CGRect
+        if textView.textContainer is PageSheetContainer, let layout = textView.layoutManager {
+            // AppKit exposes only the beginning-of-selection view. Resolve
+            // the other end through its glyph's container, then measure the
+            // visible pieces independently in their native view coordinates.
+            let beginning = layout.textViewForBeginningOfSelection ?? textView
+            let lastCharacter = min(NSMaxRange(selection) - 1, max(0, textView.string.utf16.count - 1))
+            let glyph = layout.glyphIndexForCharacter(at: lastCharacter)
+            let ending = layout.textContainer(forGlyphAt: glyph, effectiveRange: nil)?.textView
+            guard let first = layout.textContainers.firstIndex(where: { $0.textView === beginning }),
+                  let last = layout.textContainers.firstIndex(where: { $0.textView === ending }) else {
+                host.isHidden = true
+                return
+            }
+            var visible = CGRect.null
+            for container in layout.textContainers[min(first, last)...max(first, last)] {
+                guard let view = container.textView,
+                      let local = ScriptLayout.sheetBoundingRect(of: selection, in: view) else { continue }
+                let rect = canvas.convert(local, from: view).intersection(viewport)
+                if !rect.isNull { visible = visible.union(rect) }
+            }
+            placed = visible
+        } else {
+            guard let rect = ScriptLayout.boundingRect(of: selection, in: textView) else {
+                host.isHidden = true
+                return
+            }
+            placed = canvas.convert(rect, from: textView)
+        }
         // A selection scrolled out of sight has no bar: the bar speaks for
         // text on screen, and hovering over the desk would point at nothing.
         guard placed.intersects(viewport) else {
