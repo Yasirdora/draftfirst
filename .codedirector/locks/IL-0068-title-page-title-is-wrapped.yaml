@@ -1,0 +1,53 @@
+schemaVersion: 1
+id: IL-0068
+status: verified
+utterance: Title Page title is wrapped in a capsule. Done overlaps the form with no bar. Make the title a plain scrolling header and put Done in a real bottom bar below the list. TitlePageSheet.swift only.
+goal: macOS Title Page title is not in a capsule and scrolls. Done sits in an opaque bar below the form, not on top of rows.
+interpretation: Title is a Form section header not a row so it is not a capsule and still scrolls. Bottom Back/Done move from safeAreaInset overlay into a VStack bar with an opaque background so they do not cover Options.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no commit; iOS unchanged
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/macOS/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+change: Un-capsule the Title Page title and give Done a real bar below the form.
+verifyCommand: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — ElementModeButton.capsule — apple/eDraft/Views/ElementModeControl.swift (Swift); "capsule" is its whole name · LaunchWindow.title — apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift (Swift); "title" is its whole name · MultiContainerEquivalenceTests.page — apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MultiContainerEquivalenceTests.swift (Swift); "page" is its whole name · TitlePageSheet — apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift (Swift); "titlepagesheet" is its whole name · RecentDocumentsMenu.make — apple/macOS/MainMenu.swift (Swift); "make" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: ElementModeButton.capsule, LaunchWindow.title, MultiContainerEquivalenceTests.page, TitlePageSheet, RecentDocumentsMenu.make (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T10:53:18.412Z
+createdBy: Yasirdora

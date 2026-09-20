@@ -1,0 +1,53 @@
+schemaVersion: 1
+id: IL-0066
+status: verified
+utterance: "Match Apple Manage Payments chrome on the macOS Title Page sheet: large leading title, no header back chevron, Back and Done at the bottom trailing. TitlePageSheet.swift only. iOS keeps the existing nav bar."
+goal: macOS Title Page uses a large title and a bottom Back plus Done pair. iOS navigation is unchanged.
+interpretation: macOS Title Page sheet uses NavigationPath, a large leading title, hidden back chevron, and a bottom trailing Back plus prominent Done. iOS keeps compact titles and the nav-bar Done. All in TitlePageSheet.swift.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: pickers commit on tap; text writes on close; first writer field remains; no commit
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/macOS/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+change: Large title and bottom Back/Done on the macOS Title Page sheet.
+verifyCommand: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — Emphasis.match — apple/eDraftEngine/Sources/EDraftEngine/Fountain/Emphasis.swift (Swift); "match" is its whole name · LaunchWindow.title — apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift (Swift); "title" is its whole name · MultiContainerEquivalenceTests.page — apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MultiContainerEquivalenceTests.swift (Swift); "page" is its whole name · TitlePageSheet — apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift (Swift); "titlepagesheet" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: Emphasis.match, LaunchWindow.title, MultiContainerEquivalenceTests.page, TitlePageSheet (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T10:31:22.960Z
+createdBy: Yasirdora

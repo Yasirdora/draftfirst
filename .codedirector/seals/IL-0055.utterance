@@ -1,0 +1,20 @@
+Suggested task
+Make the Title Page sheet look native on macOS
+
+In the eDraft repo at /Users/x/Documents/edraft (branch rename/edraft, HEAD acf7673), fix the macOS presentation of apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift. Current state (verified on macOS 27): the sheet renders a plain SwiftUI Form, which on macOS collapses into centered floating pills — section headers centered, every row a centered capsule, Done floating alone at the bottom right. It should look like a modern macOS settings panel (System Settings / Apple's pro apps): grouped form style, leading-aligned content, right-aligned values, a sensible fixed-ish width, and a proper confirmation button placement.
+
+Follow the repo's CLAUDE.md exactly: this project uses Code Director (cdir) for every code change — draft a lock with lock_draft, show the human the Vibe Check (goal, budget, deny list) and wait for their yes, then lock_check + lock_activate, apply every change through run_locked only, and finish with report. Never edit project files directly while a lock is active. Commit only when the human asks, by explicit paths only, and never add AI co-author trailers (a .githooks/commit-msg hook rejects them).
+
+Scope and boundaries — another agent is actively working in apple/EDraftMacSurface right now:
+- Budget: apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift, plus a test file under apple/EDraftUI/Tests/EDraftUITests/ only if you add tests. Nothing else.
+- Deny: apple/EDraftMacSurface/**, apple/eDraft/**, apple/eDraft.xcodeproj/**, apple/EDraftCore/**, apple/eDraftEngine/**, packages/**, src/**, docs/**, all manifests. You may NOT touch the sheet's callers (ScriptWindowController.swift, EditorView.swift) — if a fix seems to require it, stop and report instead.
+- Preserve every documented behaviour in the file's header comment: pickers commit on tap and return; text editors hold a local draft and write once on close (exactly one undoable step per change); the document model is the only source of truth; the sheet always reopens to the completed state. This is a presentation fix, not an interaction redesign.
+- iOS must not regress: any macOS-only styling goes behind #if os(macOS) or uses APIs that degrade gracefully on iOS. The iOS Form already looks right.
+- Respect the repo's docs/HIG work if present (search docs/ for interface guidelines) and macOS 27 conventions.
+- For verification prefer swift build / swift test --package-path apple/EDraftUI over full xcodebuild (the other agent is building too; don't fight over DerivedData). If a full-app visual check is needed, say so in the report instead of forcing it.
+- Working-tree warning: apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme and apple/macOS/EDraftMacApp.swift carry foreign cosmetic changes — do not touch, stage, or revert them.
+
+Proof bar:
+- swift test --package-path apple/EDraftUI green (existing suites must not change behaviour).
+- swift build --package-path apple/EDraftUI for both macOS and iOS destinations if feasible (-destination 'generic/platform=iOS' for compile only).
+- In the report, describe in words exactly what a first-time user now sees on macOS: alignment, grouping, widths, button placement — since pixel proof needs the running app, offer the human a one-line way to eyeball it.

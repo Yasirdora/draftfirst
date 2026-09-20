@@ -1,0 +1,53 @@
+schemaVersion: 1
+id: IL-0061
+status: verified
+utterance: Restore a visible Done button so the Title Page sheet can be closed. Stop repeating the field name as a placeholder next to the same label. TitlePageSheet.swift only.
+goal: Title Page sheet has a visible Done control. Field prompts do not repeat the row label. Fields still focus on open.
+interpretation: Restore a visible Done button at confirmationAction (the placement that actually appears on this macOS sheet). Remove prompt strings that duplicate the TextField label. Keep focus-on-appear.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: pickers commit on tap; text fields write once on close; first writer field remains; no commit
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/macOS/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+change: Restore visible Done and stop repeating field names as placeholders.
+verifyCommand: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — RevisionDiff.same — apple/eDraftEngine/Sources/EDraftEngine/Editor/Revisions.swift (Swift); "same" is its whole name · LaunchWindow.title — apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift (Swift); "title" is its whole name · MultiContainerEquivalenceTests.page — apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MultiContainerEquivalenceTests.swift (Swift); "page" is its whole name · TitlePageSheet — apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift (Swift); "titlepagesheet" is its whole name · ToolbarItems.button — apple/SplitWindowKit/Sources/SplitWindowKit/SplitWindowController.swift (Swift); "button" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: RevisionDiff.same, LaunchWindow.title, MultiContainerEquivalenceTests.page, TitlePageSheet, ToolbarItems.button (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T10:03:46.424Z
+createdBy: Yasirdora

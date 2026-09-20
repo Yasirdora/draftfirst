@@ -1,0 +1,125 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0057-20260920-092026.json",
+  "baselineSha256": "47a34eb9a903f83550fd7cef82c035f758fe4b59338dbeb7ff5a814a21052373",
+  "budget": {
+    "filesChanged": 1,
+    "linesChanged": 32,
+    "maxFiles": 1,
+    "maxLines": 400
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T092020343",
+    "createdAt": "2026-09-20T09:20:20.494Z",
+    "dirty": true,
+    "id": "ckpt-20260920T092020343",
+    "ref": "acf7673bff9ca33f965d58f726dc187e5b566e7e",
+    "statusHash": "927614e0d380c00db13cf60dd43dbd19eb6b3613a27dd4ffeb93bcfa5098ff7f",
+    "tag": "cdir/ckpt-20260920T092020343"
+  },
+  "command": [
+    "python3",
+    "-c",
+    "import shutil; shutil.copy('/tmp/edraft-titlepage/TitlePageSheet.swift', 'apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift')"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T09:20:27.063Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "pickers commit on tap and return; writers still write once on close as one undoable step — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "do not edit callers or foreign dirty files; no commit — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0057",
+  "startedAt": "2026-09-20T09:20:27.019Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0057-20260920-092026.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 2
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0057-20260920-092026.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0057-20260920-092026.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · pickers commit on tap and return; writers still write once on close as one undoable step",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · do not edit callers or foreign dirty files; no commit",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0057",
+    "verifiedAt": "2026-09-20T09:20:52.182Z",
+    "violations": []
+  },
+  "violations": []
+}

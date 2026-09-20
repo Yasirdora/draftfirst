@@ -1,0 +1,1 @@
+Match Apple Manage Payments chrome on the macOS Title Page sheet: large leading title, no header back chevron, Back and Done at the bottom trailing. TitlePageSheet.swift only. iOS keeps the existing nav bar.

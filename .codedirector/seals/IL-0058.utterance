@@ -1,0 +1,1 @@
+Undo the Title Page paper canvas and the List restyle. Make the Title Page sheet look like Apple Account Settings: grouped form, leading labels, trailing values, full-width rounded groups, Done bottom-right. Keep the first writer name field. iOS Form stays. Only TitlePageSheet.swift plus delete TitlePageCanvas.swift and its geometry tests if the canvas goes.

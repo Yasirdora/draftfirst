@@ -1,0 +1,133 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0056-20260920-090241.json",
+  "baselineSha256": "8a3974ae6880cfe10c914b14a9904e81560fc1ae1d1b88ce74db5ddbbcabd007",
+  "budget": {
+    "filesChanged": 0,
+    "linesChanged": 0,
+    "maxFiles": 3,
+    "maxLines": 1500
+  },
+  "changed": [],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T090235134",
+    "createdAt": "2026-09-20T09:02:35.286Z",
+    "dirty": true,
+    "id": "ckpt-20260920T090235134",
+    "ref": "acf7673bff9ca33f965d58f726dc187e5b566e7e",
+    "statusHash": "927614e0d380c00db13cf60dd43dbd19eb6b3613a27dd4ffeb93bcfa5098ff7f",
+    "tag": "cdir/ckpt-20260920T090235134"
+  },
+  "command": [
+    "bash",
+    "-lc",
+    "cd apple/EDraftUI && xcodebuild -scheme EDraftUI -destination 'generic/platform=iOS' -derivedDataPath /tmp/edraft-ui-ios-dd -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=NO build"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T09:02:45.263Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "document model is the only source of truth; sheet reopens to the completed state; each region writes once on focus loss or close as one undoable step — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "iOS Form is unchanged; macOS-only chrome is behind #if os(macOS) — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "do not edit callers or foreign dirty files; no commit; sheet layout matches ScreenplayPageLayout.titlePageRuns / TitlePage template not a reinvented geometry — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0056",
+  "startedAt": "2026-09-20T09:02:41.460Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0056-20260920-090241.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 3
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0056-20260920-090241.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0056-20260920-090241.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · document model is the only source of truth; sheet reopens to the completed state; each region writes once on focus loss or close as one undoable step",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · iOS Form is unchanged; macOS-only chrome is behind #if os(macOS)",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · do not edit callers or foreign dirty files; no commit; sheet layout matches ScreenplayPageLayout.titlePageRuns / TitlePage template not a reinvented geometry",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0056",
+    "verifiedAt": "2026-09-20T09:03:07.460Z",
+    "violations": []
+  },
+  "violations": []
+}

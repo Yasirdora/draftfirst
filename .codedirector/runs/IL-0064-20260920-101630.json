@@ -1,0 +1,111 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0064-20260920-101630.json",
+  "baselineSha256": "72b447ffd5e58c1fb6d028caaa70a3d7e0f80f43d27dbcbd2b34fd92ffa06e3e",
+  "budget": {
+    "filesChanged": 1,
+    "linesChanged": 17,
+    "maxFiles": 1,
+    "maxLines": 400
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T101624647",
+    "createdAt": "2026-09-20T10:16:24.757Z",
+    "dirty": true,
+    "id": "ckpt-20260920T101624647",
+    "ref": "acf7673bff9ca33f965d58f726dc187e5b566e7e",
+    "statusHash": "4177604a3ab9dcd93c86fac366b85b9a44c04ddf1f1693a313bd5b3b834f4b49",
+    "tag": "cdir/ckpt-20260920T101624647"
+  },
+  "command": [
+    "python3",
+    "-c",
+    "from pathlib import Path\np=Path('apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift')\nt=p.read_text()\nold='''            .toolbar {\n                #if os(macOS)\n                ToolbarItem(placement: .topBarTrailing) {\n                    Button(\"Done\") { dismiss() }\n                        .keyboardShortcut(.defaultAction)\n                }\n                #else\n                ToolbarItem(placement: .confirmationAction) {\n                    Button(\"Done\") { dismiss() }\n                }\n                #endif\n            }\n        }\n        #if os(macOS)\n        .formStyle(.grouped)\n        .frame(minWidth: 480, idealWidth: 520, minHeight: 480)\n        .presentationSizing(.form)\n        #endif'''\nnew='''            #if os(iOS)\n            .toolbar {\n                ToolbarItem(placement: .confirmationAction) {\n                    Button(\"Done\") { dismiss() }\n                }\n            }\n            #endif\n        }\n        #if os(macOS)\n        .overlay(alignment: .topTrailing) {\n            Button(\"Done\") { dismiss() }\n                .buttonStyle(.borderless)\n                .foregroundStyle(.tint)\n                .keyboardShortcut(.defaultAction)\n                .padding(.top, 12)\n                .padding(.trailing, 16)\n        }\n        .formStyle(.grouped)\n        .frame(minWidth: 480, idealWidth: 520, minHeight: 480)\n        .presentationSizing(.form)\n        #endif'''\nassert old in t, 'block missing'\np.write_text(t.replace(old,new,1))"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T10:16:30.983Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "no commit; iOS Form still has a dismiss control; pickers and write-on-close unchanged — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0064",
+  "startedAt": "2026-09-20T10:16:30.929Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0064-20260920-101630.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 1
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0064-20260920-101630.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0064-20260920-101630.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no commit; iOS Form still has a dismiss control; pickers and write-on-close unchanged",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0064",
+    "verifiedAt": "2026-09-20T10:17:21.678Z",
+    "violations": []
+  },
+  "violations": []
+}

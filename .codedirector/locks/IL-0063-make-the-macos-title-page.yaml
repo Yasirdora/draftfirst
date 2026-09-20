@@ -1,0 +1,53 @@
+schemaVersion: 1
+id: IL-0063
+status: verified
+utterance: Make the macOS Title Page sheet a bit taller so Options and Done are not cramped. TitlePageSheet.swift only.
+goal: macOS Title Page sheet is taller. Width and grouped chrome unchanged. iOS unchanged.
+interpretation: Add a minHeight to the macOS Title Page sheet frame so the popup is taller. No other chrome or iOS changes.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no commit; iOS Form unchanged
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/macOS/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+change: Make the macOS Title Page sheet taller with a minHeight on the grouped form.
+verifyCommand: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — LaunchWindow.title — apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift (Swift); "title" is its whole name · MultiContainerEquivalenceTests.page — apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MultiContainerEquivalenceTests.swift (Swift); "page" is its whole name · TitlePageSheet — apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift (Swift); "titlepagesheet" is its whole name · RecentDocumentsMenu.make — apple/macOS/MainMenu.swift (Swift); "make" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: LaunchWindow.title, MultiContainerEquivalenceTests.page, TitlePageSheet, RecentDocumentsMenu.make (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T10:10:28.529Z
+createdBy: Yasirdora

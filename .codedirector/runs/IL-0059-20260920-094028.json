@@ -1,0 +1,111 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0059-20260920-094028.json",
+  "baselineSha256": "dc8babee7d3af51610ae7d583cc1ccaf51f5f574f81896ebc6662c270146178d",
+  "budget": {
+    "filesChanged": 1,
+    "linesChanged": 39,
+    "maxFiles": 1,
+    "maxLines": 400
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T094019969",
+    "createdAt": "2026-09-20T09:40:20.105Z",
+    "dirty": true,
+    "id": "ckpt-20260920T094019969",
+    "ref": "acf7673bff9ca33f965d58f726dc187e5b566e7e",
+    "statusHash": "4177604a3ab9dcd93c86fac366b85b9a44c04ddf1f1693a313bd5b3b834f4b49",
+    "tag": "cdir/ckpt-20260920T094019969"
+  },
+  "command": [
+    "python3",
+    "-c",
+    "import shutil; shutil.copy('/tmp/edraft-titlepage/TitlePageSheet.swift', 'apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift')"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T09:40:28.476Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "pickers commit on tap; text fields write once on close; first writer field remains; no commit — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0059",
+  "startedAt": "2026-09-20T09:40:28.413Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0059-20260920-094028.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 1
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0059-20260920-094028.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0059-20260920-094028.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · pickers commit on tap; text fields write once on close; first writer field remains; no commit",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0059",
+    "verifiedAt": "2026-09-20T09:40:59.976Z",
+    "violations": []
+  },
+  "violations": []
+}

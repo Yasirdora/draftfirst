@@ -1,0 +1,133 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0055-20260920-072547.json",
+  "baselineSha256": "b9195829412e7448c8744d78114c94c874170c7eacb3f34581dbb363ef9feba1",
+  "budget": {
+    "filesChanged": 0,
+    "linesChanged": 0,
+    "maxFiles": 1,
+    "maxLines": 400
+  },
+  "changed": [],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T072543578",
+    "createdAt": "2026-09-20T07:25:43.664Z",
+    "dirty": true,
+    "id": "ckpt-20260920T072543578",
+    "ref": "acf7673bff9ca33f965d58f726dc187e5b566e7e",
+    "statusHash": "4177604a3ab9dcd93c86fac366b85b9a44c04ddf1f1693a313bd5b3b834f4b49",
+    "tag": "cdir/ckpt-20260920T072543578"
+  },
+  "command": [
+    "bash",
+    "-lc",
+    "cd apple/EDraftUI && xcodebuild -scheme EDraftUI -destination 'generic/platform=iOS' -derivedDataPath /tmp/edraft-ui-ios-dd -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=NO build"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T07:25:58.401Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "pickers commit on tap and return; text editors hold a local draft and write once on close; the document model is the only source of truth; the sheet always reopens to the completed state — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "iOS Form appearance is unchanged; macOS-only styling is behind #if os(macOS) or degrades on iOS — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "do not edit TitlePageSheet callers ScriptWindowController.swift or EditorView.swift; do not touch stage or revert foreign dirty files eDraft.xcscheme and EDraftMacApp.swift; no commit — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0055",
+  "startedAt": "2026-09-20T07:25:47.986Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0055-20260920-072547.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 3
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0055-20260920-072547.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0055-20260920-072547.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · pickers commit on tap and return; text editors hold a local draft and write once on close; the document model is the only source of truth; the sheet always reopens to the completed state",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · iOS Form appearance is unchanged; macOS-only styling is behind #if os(macOS) or degrades on iOS",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · do not edit TitlePageSheet callers ScriptWindowController.swift or EditorView.swift; do not touch stage or revert foreign dirty files eDraft.xcscheme and EDraftMacApp.swift; no commit",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0055",
+    "verifiedAt": "2026-09-20T07:26:12.088Z",
+    "violations": []
+  },
+  "violations": []
+}

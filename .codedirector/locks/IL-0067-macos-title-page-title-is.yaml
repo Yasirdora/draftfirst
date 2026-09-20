@@ -1,0 +1,53 @@
+schemaVersion: 1
+id: IL-0067
+status: verified
+utterance: macOS Title Page title is too big and does not scroll. Use a smaller title and put it in the form so it scrolls with the content. TitlePageSheet.swift only.
+goal: macOS Title Page titles are smaller and scroll away with the form. Bottom Back and Done unchanged.
+interpretation: Put the macOS Title Page title inside the Form as a smaller bold title row so it scrolls with content. Remove the pinned VStack header. Bottom Back/Done stay.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no commit; iOS navigation unchanged
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/macOS/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+change: Smaller scrolling title on the macOS Title Page sheet.
+verifyCommand: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — LaunchWindow.title — apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift (Swift); "title" is its whole name · ScriptSurface.scroll — apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift (Swift); "scroll" is its whole name · LayoutModeStillnessTests.scroll — apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/LayoutModeStillnessTests.swift (Swift); "scroll" is its whole name · MultiContainerEquivalenceTests.page — apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MultiContainerEquivalenceTests.swift (Swift); "page" is its whole name · TitlePageSheet — apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift (Swift); "titlepagesheet" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: LaunchWindow.title, ScriptSurface.scroll, LayoutModeStillnessTests.scroll, MultiContainerEquivalenceTests.page, TitlePageSheet (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T10:43:09.920Z
+createdBy: Yasirdora

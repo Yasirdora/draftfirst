@@ -1,0 +1,111 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0063-20260920-101139.json",
+  "baselineSha256": "a506d9632bbfaaf8980cae28af101deaa3c89ec8d697e2e71439086d37d6292b",
+  "budget": {
+    "filesChanged": 1,
+    "linesChanged": 2,
+    "maxFiles": 1,
+    "maxLines": 400
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T101133150",
+    "createdAt": "2026-09-20T10:11:33.267Z",
+    "dirty": true,
+    "id": "ckpt-20260920T101133150",
+    "ref": "acf7673bff9ca33f965d58f726dc187e5b566e7e",
+    "statusHash": "4177604a3ab9dcd93c86fac366b85b9a44c04ddf1f1693a313bd5b3b834f4b49",
+    "tag": "cdir/ckpt-20260920T101133150"
+  },
+  "command": [
+    "python3",
+    "-c",
+    "from pathlib import Path; p=Path('apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift'); t=p.read_text(); old='.frame(minWidth: 480, idealWidth: 520)'; new='.frame(minWidth: 480, idealWidth: 520, minHeight: 620)';\nassert old in t; p.write_text(t.replace(old,new,1))"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T10:11:40.057Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "no commit; iOS Form unchanged — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0063",
+  "startedAt": "2026-09-20T10:11:39.997Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0063-20260920-101139.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 1
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0063-20260920-101139.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0063-20260920-101139.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no commit; iOS Form unchanged",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0063",
+    "verifiedAt": "2026-09-20T10:11:59.426Z",
+    "violations": []
+  },
+  "violations": []
+}

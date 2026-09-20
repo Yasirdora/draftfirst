@@ -1,0 +1,93 @@
+schemaVersion: 1
+id: IL-0056
+status: verified
+utterance: |-
+  Suggested task
+  Title Page sheet, take two: make the sheet BE the page — on-page editing like Arqo
+
+  In the eDraft repo at /Users/x/Documents/edraft (branch rename/edraft), redesign the macOS Title Page sheet. The first pass (uncommitted, in the working tree — you may build on it or discard it) turned the Form into a grouped settings panel. The human has rejected the form metaphor entirely: a title page is a PAGE, not settings. The reference is Arqo: the sheet renders the actual title page as it will print — white paper, Courier, real layout — and the writer clicks directly on the title, "written by", the writer names, or the contact block and types in place. Placeholder regions show grey italic hints (Arqo shows "Add source material…" where a source credit would go). Notes.app Settings is the reference for any remaining real controls (checkboxes, buttons) — no capsules anywhere.
+
+  Follow the repo's CLAUDE.md exactly: Code Director (cdir) for every change — lock_draft, show the Vibe Check, wait for the human's yes, lock_check + lock_activate, all edits through run_locked, finish with report. Never edit outside the lock. Commit only when the human asks, explicit paths, no AI co-author trailers (.githooks/commit-msg hook rejects them).
+
+  Scope and boundaries — another agent is actively working in apple/EDraftMacSurface right now (IL-0054 active):
+  - Budget: apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift, plus ONE new sibling file in the same folder if the canvas needs its own view (e.g. TitlePageCanvas.swift), plus a test file under apple/EDraftUI/Tests/EDraftUITests/ only if a logic pin is genuinely useful.
+  - Deny: apple/EDraftMacSurface/**, apple/eDraft/**, apple/macOS/**, apple/eDraft.xcodeproj/**, apple/EDraftCore/**, apple/eDraftEngine/**, packages/**, src/**, docs/**, all manifests, and the callers ScriptWindowController.swift / EditorView.swift. If the design seems to need a caller change, stop and report instead.
+  - Foreign dirt, untouched: eDraft.xcscheme, EDraftMacApp.swift, .codedirector/mcp.log, repo-root images.
+
+  Design requirements (macOS only — iOS keeps the existing Form untouched behind #if os(macOS)):
+  1. The sheet shows a white paper page at screenplay proportions, centered on a neutral backdrop, sized generously (this is a page preview, not a 440pt form). Use the app's own screenplay layout constants where reachable (EDraftCore/EDraftEngine export title-page layout knowledge — check TitleCreditsTests and the exporter before hardcoding geometry).
+  2. Real title page composition: TITLE centered in the upper-middle, credit line ("written by" or the chosen credit) under it, writer names under that, extra credits below, contact block bottom-left, date bottom-right — matching what the PDF export actually prints. The sheet and the PDF must agree; if the export layout lives in the engine, read it, don't re-invent it.
+  3. Click a region → edit it in place, in the page's own Courier, in position. Empty regions show grey italic placeholders. Tab cycles regions in reading order; Return commits a line; the credit line keeps its picker semantics if choosing among standard credits (a small popup menu styled to sit quietly on the page is fine — see how it feels, and say which you chose in the report).
+  4. Preserve the file's documented behaviour contract: the document model is the only source of truth; the sheet reopens to the completed state; edits write once per region as a single undoable step (local draft per region, commit on focus loss/close — do not switch to live-write-per-keystroke unless you can keep undo granularity sane, and if you do, say so explicitly in the report).
+  5. "Include in PDF Export" survives: a quiet bottom bar under the paper with the checkbox leading and Done trailing (Return = Done, Escape = close). Notes Settings is the taste reference for the checkbox.
+  6. Light and Dark mode both correct: the paper stays paper-white in Dark mode, the backdrop adapts.
+
+  Proof bar:
+  - swift test --package-path apple/EDraftUI green; swift build --package-path apple/EDraftUI (macOS); iOS compile-only via xcodebuild on the EDraftUI package scheme with a PRIVATE -derivedDataPath (never the shared DerivedData — the other agent is building).
+  - In the Change Report: describe exactly what a first-time user sees and where each region sits; name as Unchecked anything only a running app can prove (focus rings, caret placement inside the page, Light/Dark pixels).
+  - Offer the human this eyeball: File → Title Page… → click the title, type, click the contact block, type, press Tab, close, reopen — text persists, one undo step per region, PDF export shows the same layout.
+goal: "macOS Title Page sheet is the printed page: Courier on white paper using engine layout constants; click-to-edit regions with local draft and one undo step each; iOS Form unchanged."
+interpretation: Discard the macOS grouped-form pass. On macOS the sheet is a paper canvas (TitlePageCanvas) using TitlePage.stackLeadingBlanks contactLastLine and ScreenplayPageLayout.titlePageRuns; click-to-edit regions with local drafts committed on focus loss. iOS keeps the existing Form. No caller or engine edits. No invented date field — the engine template has none.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: document model is the only source of truth; sheet reopens to the completed state; each region writes once on focus loss or close as one undoable step
+  - kind: custom
+    text: "iOS Form is unchanged; macOS-only chrome is behind #if os(macOS)"
+  - kind: custom
+    text: do not edit callers or foreign dirty files; no commit; sheet layout matches ScreenplayPageLayout.titlePageRuns / TitlePage template not a reinvented geometry
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/macOS/**
+  - apple/EDraftUIKitSurface/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+  - "**/Package.resolved"
+  - package.json
+  - package-lock.json
+  - .codedirector/mcp.log
+  - edraft logo.png
+  - screenshot.png
+change: Replace the macOS Title Page form with an on-page Courier canvas that matches PDF layout.
+verifyCommand: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageCanvas.swift
+    - apple/EDraftUI/Tests/EDraftUITests/TitlePageSheetTests.swift
+  symbols: []
+  maxFiles: 3
+  maxLines: 1500
+accept: []
+assumptions:
+  - text: Auto-anchors on EditorView/import/scan are denied and ignored. Budget is the three EDraftUI paths named in the request.
+    source: system
+    confirmed: false
+  - text: The engine classic template and PDF path have no date region (TitlePage.lines / spliced write Title Credit Author extras and left-aligned Contact). A bottom-right date would need an engine splice change which is denied so the sheet will not invent one.
+    source: system
+    confirmed: false
+  - text: Credit is a quiet SwiftUI Menu of TitleCredits.StandardCredit on the credit line. Writers are one in-place printed line parsed on commit. iOS keeps the existing Form including the joiner list.
+    source: system
+    confirmed: false
+  - text: 1500-line ceiling is a tripwire for a new canvas plus sheet plus optional geometry tests not a target.
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T08:22:22.872Z
+createdBy: Yasirdora

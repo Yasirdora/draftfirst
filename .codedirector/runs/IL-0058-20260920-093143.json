@@ -1,0 +1,125 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0058-20260920-093143.json",
+  "baselineSha256": "a5cfcf35cc9e38845bc15ca2f233f9245f79c303e7d00a40adfe9ff46c969b97",
+  "budget": {
+    "filesChanged": 1,
+    "linesChanged": 98,
+    "maxFiles": 3,
+    "maxLines": 1500
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T093137510",
+    "createdAt": "2026-09-20T09:31:37.660Z",
+    "dirty": true,
+    "id": "ckpt-20260920T093137510",
+    "ref": "acf7673bff9ca33f965d58f726dc187e5b566e7e",
+    "statusHash": "927614e0d380c00db13cf60dd43dbd19eb6b3613a27dd4ffeb93bcfa5098ff7f",
+    "tag": "cdir/ckpt-20260920T093137510"
+  },
+  "command": [
+    "python3",
+    "-c",
+    "import shutil, pathlib; root=pathlib.Path('.'); shutil.copy('/tmp/edraft-titlepage/TitlePageSheet.swift', root/'apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift'); (root/'apple/EDraftUI/Sources/EDraftUI/TitlePageCanvas.swift').unlink(missing_ok=True); (root/'apple/EDraftUI/Tests/EDraftUITests/TitlePageSheetTests.swift').unlink(missing_ok=True)"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T09:31:43.676Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "pickers commit on tap and return; text editors write once on close; document is source of truth — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "iOS Form stays; first writer name field remains; no commit; no caller edits — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0058",
+  "startedAt": "2026-09-20T09:31:43.612Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0058-20260920-093143.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 2
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0058-20260920-093143.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0058-20260920-093143.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · pickers commit on tap and return; text editors write once on close; document is source of truth",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · iOS Form stays; first writer name field remains; no commit; no caller edits",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0058",
+    "verifiedAt": "2026-09-20T09:32:08.188Z",
+    "violations": []
+  },
+  "violations": []
+}

@@ -1,0 +1,1 @@
+The Writing Credit picker looks ugly (capsule rows) and the Writers screen has no name field until you tap Add Writer. Fix both in TitlePageSheet.swift: credit list should be a normal checkmark list, not floating pills; Writers should open with a name field for the first writer. Do not touch callers, engine, or the Mac surface.

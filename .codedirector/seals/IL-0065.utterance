@@ -1,0 +1,1 @@
+Remove the custom top-right Done overlay. Restore Apple-native confirmation Done on the Title Page sheet. TitlePageSheet.swift only.

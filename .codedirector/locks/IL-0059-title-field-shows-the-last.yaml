@@ -1,0 +1,53 @@
+schemaVersion: 1
+id: IL-0059
+status: verified
+utterance: Title field shows 'The Last Station' as a label next to UNTITLED SCREENPLAY. Writing Credit is still separate capsules. Source field shows 'the novel by John Smith'. Remove dummy sample copy; use real field names. Make Writing Credit one grouped settings list like Account Settings. TitlePageSheet.swift only.
+goal: No dummy sample titles in Title Page fields. Writing Credit is one grouped checkmark list. Source is labeled Source.
+interpretation: In TitlePageSheet.swift only. Dummy sample strings are not field labels. Title is labeled Title. Source is labeled Source. Writing Credit is a grouped Form of plain rows with checkmarks not bordered capsules. Apply grouped form style on every Form so pushed pages inherit it.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: pickers commit on tap; text fields write once on close; first writer field remains; no commit
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/macOS/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+change: Replace dummy Title/Source labels and make Writing Credit a grouped checkmark list.
+verifyCommand: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — ScreenplayImport.source — apple/eDraft/Document/ScreenplayImport.swift (Swift); "source" is its whole name · Screenplay — apple/EDraftCore/Sources/EDraftCore/ScreenplayModels.swift (Swift); "screenplay" is its whole name · ScreenplayTranscription.separate — apple/eDraftEngine/Sources/EDraftEngine/Fountain/ScreenplayTranscription.swift (Swift); "separate" is its whole name · Screenplay — apple/eDraftEngine/Sources/EDraftEngine/Model/Types.swift (Swift); "screenplay" is its whole name · FountainReading.source — apple/eDraftEngine/Tests/EDraftEngineTests/FdxPreservingRoundTripTests.swift (Swift); "source" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: ScreenplayImport.source, Screenplay, ScreenplayTranscription.separate, Screenplay, FountainReading.source (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T09:38:17.890Z
+createdBy: Yasirdora

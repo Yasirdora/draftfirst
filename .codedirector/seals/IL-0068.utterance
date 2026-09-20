@@ -1,0 +1,1 @@
+Title Page title is wrapped in a capsule. Done overlaps the form with no bar. Make the title a plain scrolling header and put Done in a real bottom bar below the list. TitlePageSheet.swift only.

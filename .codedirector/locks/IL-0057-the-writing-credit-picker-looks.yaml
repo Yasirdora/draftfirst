@@ -1,0 +1,55 @@
+schemaVersion: 1
+id: IL-0057
+status: verified
+utterance: "The Writing Credit picker looks ugly (capsule rows) and the Writers screen has no name field until you tap Add Writer. Fix both in TitlePageSheet.swift: credit list should be a normal checkmark list, not floating pills; Writers should open with a name field for the first writer. Do not touch callers, engine, or the Mac surface."
+goal: Writing Credit is a checkmark list without capsule rows. Writers always shows a name field for the first writer. Pickers still commit on tap.
+interpretation: In TitlePageSheet.swift only. CreditPickerView becomes a List checkmark picker instead of a Form of capsule rows. WritersEditorView seeds one empty WriterCredit so the first name field is present. Commit-on-tap and write-on-close stay. Callers untouched.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: pickers commit on tap and return; writers still write once on close as one undoable step
+  - kind: custom
+    text: do not edit callers or foreign dirty files; no commit
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/macOS/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+change: Replace capsule Form rows on Writing Credit and seed a first writer name field.
+verifyCommand: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — ElementModeButton.capsule — apple/eDraft/Views/ElementModeControl.swift (Swift); "capsule" is its whole name · ScreenplayFile.open — apple/EDraftCore/Sources/EDraftCore/ScreenplayFile.swift (Swift); "open" is its whole name · JSONObject.has — apple/eDraftEngine/Sources/EDraftEngine/Export/CanonicalJSON.swift (Swift); "has" is its whole name · Fdx.open — apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift (Swift); "open" is its whole name · NoteWritingSpec.writing — apple/eDraftEngine/Tests/EDraftEngineTests/FixtureStore.swift (Swift); "writing" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: ElementModeButton.capsule, ScreenplayFile.open, JSONObject.has, Fdx.open, NoteWritingSpec.writing (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T09:18:30.454Z
+createdBy: Yasirdora

@@ -10,17 +10,125 @@ import EDraftEngine
 /// hold a local draft and write once when they close, so every change is
 /// exactly one undoable step. The document model is the only source of
 /// truth — the sheet always reopens to the completed state.
+///
+/// On macOS the sheet follows Apple settings sheets: a scrolling title,
+/// no header back chevron, Back and Done at the bottom trailing edge.
+/// iOS keeps the existing Form and navigation bar.
 public struct TitlePageSheet: View {
     let editor: EditorState
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage(ScreenplayExportPreference.includeTitlePageKey) private var includeInPDF = true
+    @State private var path: [TitlePageRoute] = []
 
     public init(editor: EditorState) {
         self.editor = editor
     }
 
     public var body: some View {
+        #if os(macOS)
+        macSheet
+        #else
+        iosSheet
+        #endif
+    }
+
+    #if os(macOS)
+    private var macSheet: some View {
+        VStack(spacing: 0) {
+            NavigationStack(path: $path) {
+                macRootForm
+                    .navigationBarBackButtonHidden(true)
+                    .navigationDestination(for: TitlePageRoute.self) { route in
+                        macPage(route)
+                            .navigationBarBackButtonHidden(true)
+                    }
+            }
+            .formStyle(.grouped)
+            macButtonBar
+        }
+        .frame(minWidth: 480, idealWidth: 520, minHeight: 480)
+        .presentationSizing(.form)
+    }
+
+    private var macRootForm: some View {
+        Form {
+            Section {
+                NavigationLink(value: TitlePageRoute.title) {
+                    LabeledContent("Title", value: title.isEmpty ? "Untitled Screenplay" : title)
+                }
+                NavigationLink(value: TitlePageRoute.credit) {
+                    LabeledContent("Credit", value: creditDisplay)
+                }
+                NavigationLink(value: TitlePageRoute.writers) {
+                    LabeledContent("Writers", value: writers.isEmpty ? "Not Set" : writers)
+                }
+                additionalCreditRows
+                NavigationLink(value: TitlePageRoute.addCredit) {
+                    Text("Add Credit")
+                }
+            } header: {
+                titlePageSectionHeader("Title Page", section: "Content")
+            }
+            Section("Contact") {
+                NavigationLink(value: TitlePageRoute.contact) {
+                    LabeledContent("Contact Information", value: contactSummary)
+                }
+            }
+            Section("Options") {
+                Toggle("Include in PDF Export", isOn: $includeInPDF)
+            }
+        }
+        .titlePageFormChrome()
+    }
+
+    @ViewBuilder
+    private func macPage(_ route: TitlePageRoute) -> some View {
+        switch route {
+        case .title:
+            TitleFieldView(editor: editor)
+        case .credit:
+            CreditPickerView(editor: editor)
+        case .writers:
+            WritersEditorView(editor: editor)
+        case .addCredit:
+            AddCreditView(editor: editor)
+        case .contact:
+            ContactEditorView(editor: editor)
+        case .extra(let key):
+            CreditEntryEditor(editor: editor, key: key)
+        case .creditCustom:
+            CreditEntryEditor(editor: editor, key: "Credit")
+        case .source:
+            CreditEntryEditor(editor: editor, key: "Source")
+        case .additionalWriting:
+            CreditEntryEditor(editor: editor, key: "Additional writing by")
+        case .customCredit:
+            CustomCreditEditor(editor: editor)
+        }
+    }
+
+    private var macButtonBar: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(spacing: 12) {
+                Spacer()
+                if !path.isEmpty {
+                    Button("Back") { path.removeLast() }
+                }
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+        }
+        .background(.bar)
+    }
+    #endif
+
+    #if os(iOS)
+    private var iosSheet: some View {
         NavigationStack {
             Form {
                 Section("Content") {
@@ -46,7 +154,6 @@ public struct TitlePageSheet: View {
                         Text("Add Credit")
                     }
                 }
-
                 Section("Contact") {
                     NavigationLink {
                         ContactEditorView(editor: editor)
@@ -54,7 +161,6 @@ public struct TitlePageSheet: View {
                         LabeledContent("Contact Information", value: contactSummary)
                     }
                 }
-
                 Section("Options") {
                     Toggle("Include in PDF Export", isOn: $includeInPDF)
                 }
@@ -68,6 +174,7 @@ public struct TitlePageSheet: View {
             }
         }
     }
+    #endif
 
     // MARK: Row values
 
@@ -97,20 +204,74 @@ public struct TitlePageSheet: View {
             },
             id: \.key
         ) { entry in
+            #if os(macOS)
+            NavigationLink(value: TitlePageRoute.extra(entry.key)) {
+                LabeledContent(entry.key, value: entry.values.joined(separator: " "))
+            }
+            #else
             NavigationLink {
-                CreditEntryEditor(editor: editor, key: entry.key, prompt: entry.key)
+                CreditEntryEditor(editor: editor, key: entry.key)
             } label: {
                 LabeledContent(entry.key, value: entry.values.joined(separator: " "))
             }
+            #endif
         }
     }
 }
+
+private enum TitlePageRoute: Hashable {
+    case title
+    case credit
+    case writers
+    case addCredit
+    case contact
+    case extra(String)
+    case creditCustom
+    case source
+    case additionalWriting
+    case customCredit
+
+    var title: String {
+        switch self {
+        case .title: "Title"
+        case .credit: "Writing Credit"
+        case .writers: "Writers"
+        case .addCredit: "Add Credit"
+        case .contact: "Contact"
+        case .extra(let key): key
+        case .creditCustom: "Credit"
+        case .source: "Source"
+        case .additionalWriting: "Additional writing by"
+        case .customCredit: "Custom Credit"
+        }
+    }
+}
+
+#if os(macOS)
+@ViewBuilder
+func titlePageSectionHeader(_ title: String, section: String? = nil) -> some View {
+    VStack(alignment: .leading, spacing: 14) {
+        Text(title)
+            .font(.title.weight(.bold))
+            .foregroundStyle(.primary)
+            .textCase(nil)
+        if let section {
+            Text(section)
+                .foregroundStyle(.secondary)
+                .textCase(nil)
+        }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.bottom, 2)
+}
+#endif
 
 // MARK: - Title
 
 /// One focused question, keyboard already up: "What is your screenplay
 /// called?" The page stores the title in its printed form — capitals, as
 /// screenplay convention demands — so the field shows and commits capitals.
+/// On macOS the same draft is a grouped field, still written once on close.
 private struct TitleFieldView: View {
     let editor: EditorState
     @State private var draft: String
@@ -122,12 +283,35 @@ private struct TitleFieldView: View {
     }
 
     public var body: some View {
+        titleField
+            .titlePageNavTitle("Title")
+            .onAppear { focused = true }
+            .onDisappear {
+                editor.setTitlePageEntry("Title", values: [draft])
+            }
+    }
+
+    @ViewBuilder
+    private var titleField: some View {
+        #if os(macOS)
+        Form {
+            Section {
+                TextField("Title", text: $draft)
+                    .titleCasedInput()
+                    .focused($focused)
+                    .submitsAsDone()
+            } header: {
+                titlePageSectionHeader("Title")
+            }
+        }
+        .titlePageFormChrome()
+        #else
         VStack(spacing: 20) {
             Spacer()
             Text("What is your screenplay called?")
                 .font(.title3)
                 .foregroundStyle(.secondary)
-            TextField("The Last Station", text: $draft)
+            TextField("Title", text: $draft)
                 .font(.title2)
                 .multilineTextAlignment(.center)
                 .titleCasedInput()
@@ -137,12 +321,7 @@ private struct TitleFieldView: View {
             Spacer()
             Spacer()
         }
-        .navigationTitle("Title")
-        .compactTitle()
-        .onAppear { focused = true }
-        .onDisappear {
-            editor.setTitlePageEntry("Title", values: [draft])
-        }
+        #endif
     }
 }
 
@@ -157,7 +336,7 @@ private struct CreditPickerView: View {
 
     public var body: some View {
         Form {
-            Section("Standard") {
+            Section {
                 ForEach(TitleCredits.StandardCredit.allCases, id: \.rawValue) { option in
                     Button {
                         editor.setTitlePageEntry("Credit", values: [option.rawValue])
@@ -173,16 +352,29 @@ private struct CreditPickerView: View {
                             }
                         }
                     }
+                    .buttonStyle(.plain)
                 }
+            } header: {
+                #if os(macOS)
+                titlePageSectionHeader("Writing Credit", section: "Standard")
+                #else
+                Text("Standard")
+                #endif
             }
             Section {
-                NavigationLink("Custom") {
-                    CreditEntryEditor(editor: editor, key: "Credit", prompt: "screenplay by")
+                #if os(macOS)
+                NavigationLink(value: TitlePageRoute.creditCustom) {
+                    Text("Custom")
                 }
+                #else
+                NavigationLink("Custom") {
+                    CreditEntryEditor(editor: editor, key: "Credit")
+                }
+                #endif
             }
         }
-        .navigationTitle("Writing Credit")
-        .compactTitle()
+        .titlePageFormChrome()
+        .titlePageNavTitle("Writing Credit")
     }
 
     private func isCurrent(_ option: TitleCredits.StandardCredit) -> Bool {
@@ -202,39 +394,61 @@ private struct WritersEditorView: View {
     public init(editor: EditorState) {
         self.editor = editor
         let stored = editor.titlePageValue(for: "Author") ?? ""
-        _writers = State(initialValue: TitleCredits.parseAuthors(stored))
+        let parsed = TitleCredits.parseAuthors(stored)
+        _writers = State(initialValue: parsed.isEmpty
+            ? [WriterCredit(name: "", joiner: .team)]
+            : parsed)
     }
 
+    @FocusState private var focusedWriter: Int?
+
     public var body: some View {
-        Form {
-            Section {
-                ForEach(Array(writers.indices), id: \.self) { index in
-                    HStack(spacing: 12) {
-                        if index > 0 {
-                            Picker("Joiner", selection: $writers[index].joiner) {
-                                Text("&").tag(WriterJoiner.team)
-                                Text("and").tag(WriterJoiner.separate)
+        VStack(spacing: 0) {
+            Form {
+                Section {
+                    ForEach(Array(writers.indices), id: \.self) { index in
+                        HStack(spacing: 12) {
+                            if index > 0 {
+                                Picker("Joiner", selection: $writers[index].joiner) {
+                                    Text("&").tag(WriterJoiner.team)
+                                    Text("and").tag(WriterJoiner.separate)
+                                }
+                                .pickerStyle(.segmented)
+                                .frame(width: 96)
+                                .labelsHidden()
                             }
-                            .pickerStyle(.segmented)
-                            .frame(width: 96)
-                            .labelsHidden()
+                            TextField("Writer Name", text: $writers[index].name)
+                                .textContentType(.name)
+                                .focused($focusedWriter, equals: index)
                         }
-                        TextField("Writer Name", text: $writers[index].name)
-                            .textContentType(.name)
+                    }
+                    .onDelete { offsets in
+                        writers.remove(atOffsets: offsets)
+                        if writers.isEmpty {
+                            writers = [WriterCredit(name: "", joiner: .team)]
+                        }
+                    }
+                } header: {
+                    #if os(macOS)
+                    titlePageSectionHeader("Writers")
+                    #endif
+                } footer: {
+                    if writers.count > 1 {
+                        Text("& joins a writing team; \"and\" joins writers of separate drafts.")
                     }
                 }
-                .onDelete { writers.remove(atOffsets: $0) }
-            } footer: {
-                Text("& joins a writing team; \"and\" joins writers of separate drafts.")
             }
-            Section {
-                Button("Add Writer") {
-                    writers.append(WriterCredit(name: "", joiner: writers.isEmpty ? .team : .separate))
-                }
+            .titlePageFormChrome()
+
+            Button("Add Writer") {
+                writers.append(WriterCredit(name: "", joiner: .separate))
+                focusedWriter = writers.count - 1
             }
+            .buttonStyle(.bordered)
+            .padding(.vertical, 12)
         }
-        .navigationTitle("Writers")
-        .compactTitle()
+        .titlePageNavTitle("Writers")
+        .onAppear { focusedWriter = 0 }
         .onDisappear {
             editor.setTitlePageEntry("Author", values: [TitleCredits.renderAuthors(writers)])
         }
@@ -251,19 +465,35 @@ private struct AddCreditView: View {
     public var body: some View {
         Form {
             Section {
+                #if os(macOS)
+                NavigationLink(value: TitlePageRoute.source) {
+                    Text("Based On")
+                }
+                NavigationLink(value: TitlePageRoute.additionalWriting) {
+                    Text("Additional Writing By")
+                }
+                NavigationLink(value: TitlePageRoute.customCredit) {
+                    Text("Custom")
+                }
+                #else
                 NavigationLink("Based On") {
-                    CreditEntryEditor(editor: editor, key: "Source", prompt: "the novel by John Smith")
+                    CreditEntryEditor(editor: editor, key: "Source")
                 }
                 NavigationLink("Additional Writing By") {
-                    CreditEntryEditor(editor: editor, key: "Additional writing by", prompt: "Writer Name")
+                    CreditEntryEditor(editor: editor, key: "Additional writing by")
                 }
                 NavigationLink("Custom") {
                     CustomCreditEditor(editor: editor)
                 }
+                #endif
+            } header: {
+                #if os(macOS)
+                titlePageSectionHeader("Add Credit")
+                #endif
             }
         }
-        .navigationTitle("Add Credit")
-        .compactTitle()
+        .titlePageFormChrome()
+        .titlePageNavTitle("Add Credit")
     }
 }
 
@@ -271,24 +501,29 @@ private struct AddCreditView: View {
 private struct CreditEntryEditor: View {
     let editor: EditorState
     let key: String
-    let prompt: String
     @State private var draft: String
+    @FocusState private var focused: Bool
 
-    public init(editor: EditorState, key: String, prompt: String) {
+    public init(editor: EditorState, key: String) {
         self.editor = editor
         self.key = key
-        self.prompt = prompt
         _draft = State(initialValue: editor.titlePageValues(for: key).joined(separator: " "))
     }
 
     public var body: some View {
         Form {
             Section {
-                TextField(prompt, text: $draft)
+                TextField(key, text: $draft)
+                    .focused($focused)
+            } header: {
+                #if os(macOS)
+                titlePageSectionHeader(key)
+                #endif
             }
         }
-        .navigationTitle(key)
-        .compactTitle()
+        .titlePageFormChrome()
+        .titlePageNavTitle(key)
+        .onAppear { focused = true }
         .onDisappear {
             editor.setTitlePageEntry(key, values: [draft])
         }
@@ -301,16 +536,23 @@ private struct CustomCreditEditor: View {
     let editor: EditorState
     @State private var label = ""
     @State private var text = ""
+    @FocusState private var focused: Bool
 
     public var body: some View {
         Form {
             Section {
-                TextField("Label (e.g. Story by)", text: $label)
+                TextField("Label", text: $label)
+                    .focused($focused)
                 TextField("Text", text: $text)
+            } header: {
+                #if os(macOS)
+                titlePageSectionHeader("Custom Credit")
+                #endif
             }
         }
-        .navigationTitle("Custom Credit")
-        .compactTitle()
+        .titlePageFormChrome()
+        .titlePageNavTitle("Custom Credit")
+        .onAppear { focused = true }
         .onDisappear {
             let key = label.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !key.isEmpty else { return }
@@ -329,6 +571,7 @@ private struct ContactEditorView: View {
     @State private var email: String
     @State private var phone: String
     @State private var address: String
+    @FocusState private var focused: Bool
 
     public init(editor: EditorState) {
         self.editor = editor
@@ -341,9 +584,10 @@ private struct ContactEditorView: View {
 
     public var body: some View {
         Form {
-            Section("Contact Details") {
+            Section {
                 TextField("Name", text: $name)
                     .textContentType(.name)
+                    .focused($focused)
                 TextField("Email", text: $email)
                     .textContentType(.emailAddress)
                     .softKeyboard(.email)
@@ -352,12 +596,37 @@ private struct ContactEditorView: View {
                     .softKeyboard(.phone)
                 TextField("Address", text: $address)
                     .textContentType(.fullStreetAddress)
+            } header: {
+                #if os(macOS)
+                titlePageSectionHeader("Contact", section: "Contact Details")
+                #else
+                Text("Contact Details")
+                #endif
             }
         }
-        .navigationTitle("Contact")
-        .compactTitle()
+        .titlePageFormChrome()
+        .titlePageNavTitle("Contact")
+        .onAppear { focused = true }
         .onDisappear {
             editor.setTitlePageEntry("Contact", values: [name, email, phone, address])
         }
+    }
+}
+
+private extension View {
+    func titlePageFormChrome() -> some View {
+        #if os(macOS)
+        formStyle(.grouped)
+        #else
+        self
+        #endif
+    }
+
+    func titlePageNavTitle(_ title: String) -> some View {
+        #if os(macOS)
+        self
+        #else
+        navigationTitle(title).compactTitle()
+        #endif
     }
 }

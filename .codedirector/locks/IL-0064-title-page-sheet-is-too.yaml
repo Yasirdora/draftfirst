@@ -1,0 +1,53 @@
+schemaVersion: 1
+id: IL-0064
+status: verified
+utterance: Title Page sheet is too tall. Put Done in the top-right of the sheet using a placement that actually appears. Lower the height. TitlePageSheet.swift only.
+goal: macOS Title Page sheet is shorter and has a visible Done in the top-right. iOS still dismisses from the nav bar.
+interpretation: Lower macOS Title Page minHeight from 620 to 480. Place Done with topBarTrailing on macOS so it sits in the header trailing edge not confirmationAction at the bottom. iOS keeps confirmationAction.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no commit; iOS Form still has a dismiss control; pickers and write-on-close unchanged
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/macOS/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+change: Shorter Title Page sheet with Done in the top-right on macOS.
+verifyCommand: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — LaunchWindow.title — apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift (Swift); "title" is its whole name · MultiContainerEquivalenceTests.page — apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MultiContainerEquivalenceTests.swift (Swift); "page" is its whole name · TitlePageSheet — apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift (Swift); "titlepagesheet" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: LaunchWindow.title, MultiContainerEquivalenceTests.page, TitlePageSheet (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T10:13:26.933Z
+createdBy: Yasirdora

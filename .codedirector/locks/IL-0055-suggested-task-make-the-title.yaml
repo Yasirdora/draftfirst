@@ -1,0 +1,84 @@
+schemaVersion: 1
+id: IL-0055
+status: verified
+utterance: |-
+  Suggested task
+  Make the Title Page sheet look native on macOS
+
+  In the eDraft repo at /Users/x/Documents/edraft (branch rename/edraft, HEAD acf7673), fix the macOS presentation of apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift. Current state (verified on macOS 27): the sheet renders a plain SwiftUI Form, which on macOS collapses into centered floating pills — section headers centered, every row a centered capsule, Done floating alone at the bottom right. It should look like a modern macOS settings panel (System Settings / Apple's pro apps): grouped form style, leading-aligned content, right-aligned values, a sensible fixed-ish width, and a proper confirmation button placement.
+
+  Follow the repo's CLAUDE.md exactly: this project uses Code Director (cdir) for every code change — draft a lock with lock_draft, show the human the Vibe Check (goal, budget, deny list) and wait for their yes, then lock_check + lock_activate, apply every change through run_locked only, and finish with report. Never edit project files directly while a lock is active. Commit only when the human asks, by explicit paths only, and never add AI co-author trailers (a .githooks/commit-msg hook rejects them).
+
+  Scope and boundaries — another agent is actively working in apple/EDraftMacSurface right now:
+  - Budget: apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift, plus a test file under apple/EDraftUI/Tests/EDraftUITests/ only if you add tests. Nothing else.
+  - Deny: apple/EDraftMacSurface/**, apple/eDraft/**, apple/eDraft.xcodeproj/**, apple/EDraftCore/**, apple/eDraftEngine/**, packages/**, src/**, docs/**, all manifests. You may NOT touch the sheet's callers (ScriptWindowController.swift, EditorView.swift) — if a fix seems to require it, stop and report instead.
+  - Preserve every documented behaviour in the file's header comment: pickers commit on tap and return; text editors hold a local draft and write once on close (exactly one undoable step per change); the document model is the only source of truth; the sheet always reopens to the completed state. This is a presentation fix, not an interaction redesign.
+  - iOS must not regress: any macOS-only styling goes behind #if os(macOS) or uses APIs that degrade gracefully on iOS. The iOS Form already looks right.
+  - Respect the repo's docs/HIG work if present (search docs/ for interface guidelines) and macOS 27 conventions.
+  - For verification prefer swift build / swift test --package-path apple/EDraftUI over full xcodebuild (the other agent is building too; don't fight over DerivedData). If a full-app visual check is needed, say so in the report instead of forcing it.
+  - Working-tree warning: apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme and apple/macOS/EDraftMacApp.swift carry foreign cosmetic changes — do not touch, stage, or revert them.
+
+  Proof bar:
+  - swift test --package-path apple/EDraftUI green (existing suites must not change behaviour).
+  - swift build --package-path apple/EDraftUI for both macOS and iOS destinations if feasible (-destination 'generic/platform=iOS' for compile only).
+  - In the report, describe in words exactly what a first-time user now sees on macOS: alignment, grouping, widths, button placement — since pixel proof needs the running app, offer the human a one-line way to eyeball it.
+goal: "Title Page sheet on macOS reads as a grouped settings panel: leading sections trailing values ~440pt width and Done in a proper confirmation bar. iOS unchanged. Header-comment edit/commit behaviour preserved."
+interpretation: Presentation-only chrome on TitlePageSheet.swift. On macOS apply grouped form style, a 440pt form-sized sheet, and a bottom trailing Done bar; restyle TitleFieldView as a grouped field. iOS Form and all header-comment commit/dismiss behaviour stay as they are. Callers and the Mac surface are out of budget. Auto-anchors on EditorView/import/scan are denied and ignored.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: pickers commit on tap and return; text editors hold a local draft and write once on close; the document model is the only source of truth; the sheet always reopens to the completed state
+  - kind: custom
+    text: "iOS Form appearance is unchanged; macOS-only styling is behind #if os(macOS) or degrades on iOS"
+  - kind: custom
+    text: do not edit TitlePageSheet callers ScriptWindowController.swift or EditorView.swift; do not touch stage or revert foreign dirty files eDraft.xcscheme and EDraftMacApp.swift; no commit
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - apple/EDraftMacSurface/**
+  - apple/eDraft/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftCore/**
+  - apple/eDraftEngine/**
+  - apple/macOS/**
+  - apple/EDraftUIKitSurface/**
+  - packages/**
+  - src/**
+  - docs/**
+  - "**/Package.swift"
+  - "**/Package.resolved"
+  - package.json
+  - package-lock.json
+  - .codedirector/mcp.log
+  - edraft logo.png
+  - screenshot.png
+change: Make the Title Page sheet a grouped macOS settings panel without changing iOS or edit/commit behaviour.
+verifyCommand: swift test --package-path apple/EDraftUI && swift build --package-path apple/EDraftUI
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  symbols: []
+  maxFiles: 1
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — ScanCreation.write — apple/eDraft/Document/ScanCreation.swift (Swift); "write" is its whole name · ScreenplayImport.document — apple/eDraft/Document/ScreenplayImport.swift (Swift); "document" is its whole name · ScreenplayImport.source — apple/eDraft/Document/ScreenplayImport.swift (Swift); "source" is its whole name · EditorView — apple/eDraft/Views/EditorView.swift (Swift); "editorview" is its whole name · EditorView.present — apple/eDraft/Views/EditorView.swift (Swift); "present" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: ScanCreation.write, ScreenplayImport.document, ScreenplayImport.source, EditorView, EditorView.present (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T07:20:00.112Z
+createdBy: Yasirdora
