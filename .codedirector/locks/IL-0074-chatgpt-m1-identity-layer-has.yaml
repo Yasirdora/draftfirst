@@ -1,0 +1,120 @@
+schemaVersion: 1
+id: IL-0074
+status: verified
+utterance: ChatGPT's M1 identity layer has since landed (348a38d) — every element now carries a DraftElementID, so where your omission record is an index span, you may note in the RFC's Open Questions that migrating it to ids is a later stage. Do not do that migration in this lock.
+goal: docs/RFC-DRAFT-PRODUCTION.md §13 carries a numbered open question recording that the engine's omission record ships as a span of element indices while §7.3 addresses its span by DraftElementID, and that migrating it onto M1's identities is a later stage; §7.3 itself points a reader at that question, so the section cannot be read as describing the shipped engine. The RFC only; no engine, app or fixture file is touched and no migration is built.
+interpretation: |
+  MEASURED FIRST, and most of this is already written down. The note the
+  request asks for exists in three places at HEAD (348a38d):
+
+    - packages/edraft/src/types.ts, on `Omission`: "§7.3 addresses its span
+      by DraftElementID; the legacy omission API still uses element indices;
+      migration to persistent identity is a separate production milestone."
+    - apple/eDraftEngine/Sources/EDraftEngine/Model/Types.swift, the same
+      note on the Swift `Omission`.
+    - The RFC itself, §13 Q12, which closes: "No omission-by-ID migration or
+      application `.draft` save wiring is implied."
+
+  Both model comments are ChatGPT's, written with M1 (IL-0073). So this lock
+  does not repeat them. What is missing is a *tracked* question: Q12 is
+  marked "Resolved for M1" and mentions the migration only as something M1
+  does not imply. A reader scanning §13 for work still to do does not find
+  it, and a reader of §7.3 alone sees `elements` described as
+  DraftElementIDs with nothing saying the shipped engine uses indices.
+
+  WHAT IT ADDS. One row, Q13, in §13's table, recording:
+
+    - §7.3 addresses an omission's span by DraftElementID. The engine that
+      shipped in cdcc477 (IL-0071) records `Screenplay.omissions` as
+      `{ start, end }` over the elements array, because no element carried
+      an identity when it was written.
+    - M1 (348a38d, IL-0073) gave every element a `DraftElementID`, in both
+      ports' `ScreenplayElement`, so the migration is now possible.
+    - The two representations are separate today, measured: `.draft`'s
+      production.json carries §7.3's record by id (`id`, `number`,
+      `elements`, `issued` — IL-0052), while the engine's index span is
+      FDX-facing and derived at read. script.json's members are
+      `titlePage`, `elements`, `nextId`: the index span is never written to
+      a file.
+    - Why it is open rather than done: it changes the model, both ports'
+      fixtures and every consumer that reads a span, and an index span is
+      invalidated by an edit that inserts or deletes elements before it,
+      so the migration wants its own lock and its own proofs.
+
+  AND THE POINTER IN §7.3 (approved 2026-09-21). §7.3's table says an
+  omission's `elements` are DraftElementIDs, which is the contract but not
+  the shipped engine. One sentence after its FDX paragraph — where the
+  section already describes what the engine does — records that the engine
+  keeps the span as element indices, that `.draft`'s production.json
+  carries the id-shaped record, and that Q13 is where the migration is
+  tracked. Nothing in the table or the rules changes: the contract is not
+  being weakened to match the code, only cross-referenced.
+
+  WHAT IT DOES NOT DO. No migration. No engine, app, surface, fixture or
+  test file is touched — every one of them is denied. §7.3's table, its
+  rendering rule, its Blocked rule and every other section stand unchanged.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no file outside docs/RFC-DRAFT-PRODUCTION.md changes — no engine, app, surface, fixture, test or script file, and the foreign working-tree changes are left exactly as found
+  - kind: custom
+    text: nothing in the RFC changes but §13's table and one sentence after §7.3's FDX paragraph; §7.3's table, its rendering rule and its Blocked rule, and every other section, stand as they are
+  - kind: custom
+    text: no existing open question is renumbered, reworded or resolved; Q13 is added after Q12
+  - kind: custom
+    text: the note states only what was measured at HEAD — the commits, the two representations, and script.json's members — and claims no behaviour that is not in the tree
+deny:
+  - packages/**
+  - apple/**
+  - src/**
+  - scripts/**
+  - docs/RFC-DRAFT-FORMAT.md
+  - docs/RFC-NOTES-SYSTEM.md
+  - docs/RFC-HIGHLIGHTER.md
+  - docs/RFC-ACT-BREAK.md
+  - docs/RFC-TITLE-PAGE.md
+  - docs/RFC-MULTI-CONTAINER-PAGES.md
+  - docs/IOS-PLAN.md
+  - docs/APPLE-PLATFORM-GUIDE.md
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: One open question in docs/RFC-DRAFT-PRODUCTION.md §13 — the omission record ships as an index span, M1 made ids available, migrating it is a later stage — and a sentence in §7.3 pointing there.
+verifyCommand: grep -q '^| Q13 |' docs/RFC-DRAFT-PRODUCTION.md && ! awk '/^## 13\./,/^## 14\./' docs/RFC-DRAFT-PRODUCTION.md | grep '^| Q' | grep -qvE '^\| Q[0-9]+ \|.+\|.+\|$' && git diff --quiet -- packages scripts src apple ':!apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme'
+verifyTimeoutMs: 120000
+budget:
+  files:
+    - docs/RFC-DRAFT-PRODUCTION.md
+  symbols: []
+  maxFiles: 1
+  maxLines: 40
+accept:
+  - §13 carries a Q13 row, after Q12, naming the index-span-to-DraftElementID migration as a later stage.
+  - "The row names its evidence: cdcc477 (IL-0071) for the index span, 348a38d (IL-0073) for the identities, and IL-0052's production.json record as the id-shaped carrier that already exists."
+  - Every other question keeps its number and its words; no question is marked resolved by this lock.
+  - §13's table is still well-formed — every Q row has the table's three cells.
+  - §7.3 carries one sentence, after its FDX paragraph, saying the engine keeps the span as element indices, that production.json carries the id-shaped record, and that Q13 tracks the migration.
+  - Nothing outside docs/RFC-DRAFT-PRODUCTION.md changes, and no migration is built.
+assumptions:
+  - text: 'HEAD is 348a38d ("engine+core: M1 — every element carries a DraftElementID (IL-0073)"); the tree is clean but for the four foreign items the human named earlier: apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme, .codedirector/mcp.log, "edraft logo.png", screenshot.png. Never touched, staged or reverted.'
+    source: user
+    confirmed: true
+  - text: The human's instruction is explicit that the migration itself is not in this lock.
+    source: user
+    confirmed: true
+  - text: "MEASURED: the substance of the note already exists on `Omission` in both ports (ChatGPT's, with M1) and in §13 Q12's closing sentence. This lock adds the tracked question, not a fourth copy of the prose. Needs the human's yes."
+    source: system
+    confirmed: false
+  - text: "MEASURED: `Screenplay.omissions` never reaches a file — script.json's members are titlePage, elements, nextId, and .draft's omissions live in production.json by DraftElementID (IL-0052). So the two representations coexist without a conflict today, which is why this is a question rather than a defect."
+    source: system
+    confirmed: false
+  - text: "The human approved the §7.3 pointer (2026-09-21) into this same lock, alongside Q13: §7.3 described the span as DraftElementIDs with nothing telling a reader of that section what the engine ships."
+    source: user
+    confirmed: true
+  - text: The verify command excludes the pre-existing foreign xcscheme change from its "nothing else moved" check — Code Director 0.4.5 would otherwise read that dirt as this run's doing.
+    source: system
+    confirmed: false
+createdAt: 2026-09-21T09:00:00.000Z
+createdBy: Yasirdora

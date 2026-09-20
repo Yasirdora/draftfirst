@@ -1,0 +1,1 @@
+ChatGPT's M1 identity layer has since landed (348a38d) — every element now carries a DraftElementID, so where your omission record is an index span, you may note in the RFC's Open Questions that migrating it to ids is a later stage. Do not do that migration in this lock.

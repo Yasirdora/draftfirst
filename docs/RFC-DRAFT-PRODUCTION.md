@@ -431,6 +431,14 @@ inside the FDX block is **Preserved** on splice; eDraft's body is
 `script.json`. On native export, write `<OmittedScene>` wrapping the
 retained heading as today's tests do (`fdx.test.ts`).
 
+*Shipped, and not yet this record:* the engine reads an FDX
+`<OmittedScene>` into `Screenplay.omissions` as a span of **element
+indices** (`{ start, end }`), not DraftElementIDs — IL-0071 (`cdcc477`),
+written before an element carried an identity. `.draft` is unaffected:
+`production.json` carries the id-shaped record above, and `script.json`
+holds `titlePage`, `elements` and `nextId` only, so the index span is
+never written to a file. Migrating it onto M1's identities is **Q13**.
+
 ### 7.4 Tags
 
 `tags` is the definition list (`id`, `label`). Marks on words stay
@@ -695,6 +703,7 @@ Named, not guessed. None blocks encoding P1–P5.
 | Q10 | Deleted-text marks as a first-class span in `script.json` | Preserved in origin only. Modeling them would be a new run kind. |
 | Q11 | Identity lifetime for Fountain and undo counter ownership | **Resolved for M1:** FORMAT O8–O9. One document allocator owns `nextId` outside both undo timelines. Restoring a snapshot revives its IDs without rewinding the counter; paste/import adopts new destination IDs. Fountain identities last for the editing session. |
 | Q12 | Existing parser fixtures and UI UUIDs | **Resolved for M1:** raw parse/import projections remain identity-free; adoption produces the identity-bearing document model. Every live script element in Core has a `DraftElementID`, including nonprinting script structure. Notes keep their separate namespace. UI UUIDs remain transient surface handles; the planner assigns persistent split/merge ownership independently. No omission-by-ID migration or application `.draft` save wiring is implied. |
+| Q13 | The engine's omission span is element indices, not DraftElementIDs | §7.3 addresses an omission by DraftElementID. The engine ships `Screenplay.omissions` as `{ start, end }` over the elements array (IL-0071, `cdcc477`), written before any element carried an identity; M1 (IL-0073, `348a38d`) has since given every element one, in both ports, so the migration is now possible. The two coexist today: `production.json` carries the id-shaped record, the index span is FDX-facing and derived at read, and `script.json` never stores it. Open because it changes the model, both ports' fixtures and every consumer that reads a span — and because an index span is invalidated by any edit that inserts or deletes elements before it, which is a reason to move it rather than to keep it. |
 
 ---
 

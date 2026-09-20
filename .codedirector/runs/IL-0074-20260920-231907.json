@@ -1,0 +1,152 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0074-20260920-231907.json",
+  "baselineSha256": "22cf4094c1027e00079ca3291e6e1c0f00036be3a274ef6f5101e799312c76d9",
+  "budget": {
+    "filesChanged": 1,
+    "linesChanged": 9,
+    "maxFiles": 1,
+    "maxLines": 40
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "docs/RFC-DRAFT-PRODUCTION.md",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T231901276",
+    "createdAt": "2026-09-20T23:19:01.349Z",
+    "dirty": true,
+    "id": "ckpt-20260920T231901276",
+    "ref": "348a38d04e77fe3f0e092c11e94f075fda33993d",
+    "statusHash": "7f140d5b56faeb5c7e7c1b30e245254df97f8efa8e4a7e178a44bc76453ce6a5",
+    "tag": "cdir/ckpt-20260920T231901276"
+  },
+  "command": [
+    "bash",
+    "/private/tmp/claude-501/-Users-x-Documents-edraft/723d4c0a-b9b0-499f-97f6-620bdeac65dc/scratchpad/apply-IL-0074.sh"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T23:19:07.316Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "no file outside docs/RFC-DRAFT-PRODUCTION.md changes — no engine, app, surface, fixture, test or script file, and the foreign working-tree changes are left exactly as found — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "nothing in the RFC changes but §13's table and one sentence after §7.3's FDX paragraph; §7.3's table, its rendering rule and its Blocked rule, and every other section, stand as they are — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "no existing open question is renumbered, reworded or resolved; Q13 is added after Q12 — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the note states only what was measured at HEAD — the commits, the two representations, and script.json's members — and claims no behaviour that is not in the tree — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0074",
+  "startedAt": "2026-09-20T23:19:07.310Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0074-20260920-231907.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 4
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0074-20260920-231907.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0074-20260920-231907.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"grep -q '^| Q13 |' docs/RFC-DRAFT-PRODUCTION.md && ! awk '/^## 13\\\\./,/^## 14\\\\./' docs/RFC-DRAFT-PRODUCTION.md | grep '^| Q' | grep -qvE '^\\\\| Q[0-9]+ \\\\|.+\\\\|.+\\\\|$' && git diff --quiet -- packages scripts src apple ':!apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme'\" → exit 0",
+        "detail": "verifyCommand passed: grep -q '^| Q13 |' docs/RFC-DRAFT-PRODUCTION.md && ! awk '/^## 13\\./,/^## 14\\./' docs/RFC-DRAFT-PRODUCTION.md | grep '^| Q' | grep -qvE '^\\| Q[0-9]+ \\|.+\\|.+\\|$' && git diff --quiet -- packages scripts src apple ':!apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme'",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · grep -q '^| Q13 |' docs/RFC-DRAFT-PRODUCTION.md && ! awk '/^## 13\\./,/^## 14\\./' docs/RFC-DRAFT-PRODUCTION.md | grep '^| Q' | grep -qvE '^\\| Q[0-9]+ \\|.+\\|.+\\|$' && git diff --quiet -- packages scripts src apple ':!apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme'",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no file outside docs/RFC-DRAFT-PRODUCTION.md changes — no engine, app, surface, fixture, test or script file, and the foreign working-tree changes are left exactly as found",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · nothing in the RFC changes but §13's table and one sentence after §7.3's FDX paragraph; §7.3's table, its rendering rule and its Blocked rule, and every other section, stand as they are",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no existing open question is renumbered, reworded or resolved; Q13 is added after Q12",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the note states only what was measured at HEAD — the commits, the two representations, and script.json's members — and claims no behaviour that is not in the tree",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0074",
+    "verifiedAt": "2026-09-20T23:19:22.292Z",
+    "violations": []
+  },
+  "violations": []
+}
