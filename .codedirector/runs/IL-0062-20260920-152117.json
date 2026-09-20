@@ -1,0 +1,274 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0062-20260920-152116.json",
+  "baselineSha256": "7d0e0618a4a95e435b3315c8b13d5b6d9a624fa775935d908f5f617ecd2d08e6",
+  "budget": {
+    "filesChanged": 17,
+    "linesChanged": 3370,
+    "maxFiles": 25,
+    "maxLines": 3400
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Fixtures/noteanchor.json",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Fountain/Parse.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Fountain/Serialise.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Model/NoteAnchor.swift",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Model/Types.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Tests/EDraftEngineTests/NoteAnchorConformanceTests.swift",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/fdx.test.ts",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/fdx.ts",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/index.ts",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/noteanchor.test.ts",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/noteanchor.ts",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/parse.ts",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/serialise.ts",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/types.ts",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "scripts/engine-conformance-export.mjs",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T152025507",
+    "createdAt": "2026-09-20T15:20:25.854Z",
+    "dirty": true,
+    "id": "ckpt-20260920T152025507",
+    "ref": "acf7673bff9ca33f965d58f726dc187e5b566e7e",
+    "statusHash": "05baff1f9e6fe0a46b36b2dd73a3d8d26b1e7dac8cf4428172c69770f949c844",
+    "tag": "cdir/ckpt-20260920T152025507"
+  },
+  "command": [
+    "bash",
+    "/private/tmp/claude-501/-Users-x-Documents-edraft/723d4c0a-b9b0-499f-97f6-620bdeac65dc/scratchpad/apply-IL-0062.sh"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T15:21:19.075Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "every conformance fixture except the four this lock regenerates on purpose (fdx.json, parse.json, serialise.json, the new noteanchor.json) is byte-identical after `node scripts/engine-conformance-export.mjs` — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "a save with no edit stays byte-identical on the Final Draft-written fixtures — the IL-0027/IL-0041 keep — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "no `EDraft:` namespaced attribute, and no xmlns:EDraft, is written into any FDX file by either port — the probe measured them stripped by Final Draft's first save — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "a note with no word anchor keeps today's whole-paragraph Range exactly, in both ports — anchoring is additive — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the two ports agree byte for byte on every notes conformance case, and read every case to the same document — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "Final Draft's own notes keep every byte but their Ranges; a body Note paragraph stays a body paragraph; a note ending in `]` still round-trips (IL-0038) — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the apps are unchanged — no file under EDraftMacSurface, EDraftUI, the app targets, the Xcode project or docs/ is touched, and the foreign working-tree changes are left exactly as found — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0062",
+  "startedAt": "2026-09-20T15:21:17.528Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0062-20260920-152116.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 7
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0062-20260920-152116.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0062-20260920-152116.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && git diff --quiet -- apple/eDraftEngine/Fixtures ':!apple/eDraftEngine/Fixtures/fdx.json' ':!apple/eDraftEngine/Fixtures/parse.json' ':!apple/eDraftEngine/Fixtures/serialise.json' ':!apple/eDraftEngine/Fixtures/noteanchor.json' && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore\" → exit 0",
+        "detail": "verifyCommand passed: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && git diff --quiet -- apple/eDraftEngine/Fixtures ':!apple/eDraftEngine/Fixtures/fdx.json' ':!apple/eDraftEngine/Fixtures/parse.json' ':!apple/eDraftEngine/Fixtures/serialise.json' ':!apple/eDraftEngine/Fixtures/noteanchor.json' && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && git diff --quiet -- apple/eDraftEngine/Fixtures ':!apple/eDraftEngine/Fixtures/fdx.json' ':!apple/eDraftEngine/Fixtures/parse.json' ':!apple/eDraftEngine/Fixtures/serialise.json' ':!apple/eDraftEngine/Fixtures/noteanchor.json' && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · every conformance fixture except the four this lock regenerates on purpose (fdx.json, parse.json, serialise.json, the new noteanchor.json) is byte-identical after `node scripts/engine-conformance-export.mjs`",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · a save with no edit stays byte-identical on the Final Draft-written fixtures — the IL-0027/IL-0041 keep",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no `EDraft:` namespaced attribute, and no xmlns:EDraft, is written into any FDX file by either port — the probe measured them stripped by Final Draft's first save",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · a note with no word anchor keeps today's whole-paragraph Range exactly, in both ports — anchoring is additive",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the two ports agree byte for byte on every notes conformance case, and read every case to the same document",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · Final Draft's own notes keep every byte but their Ranges; a body Note paragraph stays a body paragraph; a note ending in `]` still round-trips (IL-0038)",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the apps are unchanged — no file under EDraftMacSurface, EDraftUI, the app targets, the Xcode project or docs/ is touched, and the foreign working-tree changes are left exactly as found",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0062",
+    "verifiedAt": "2026-09-20T15:45:59.558Z",
+    "violations": []
+  },
+  "violations": []
+}

@@ -63,15 +63,20 @@ public struct ScreenplayElement: Codable, Equatable, Sendable {
     public var sceneNumber: String?
     /// Section depth (section elements).
     public var depth: Int?
+    /// Notes only: the words this note is pinned to, within the paragraph
+    /// that follows it (RFC-NOTES-SYSTEM §5.2). Absent means the whole
+    /// paragraph (TypeScript `ScreenplayElement.anchor`).
+    public var anchor: NoteAnchor?
 
     public init(type: ElementKind, text: String, runs: [StyleRun]? = nil, dual: Bool? = nil,
-                sceneNumber: String? = nil, depth: Int? = nil) {
+                sceneNumber: String? = nil, depth: Int? = nil, anchor: NoteAnchor? = nil) {
         self.type = type
         self.text = text
         self.runs = runs
         self.dual = dual
         self.sceneNumber = sceneNumber
         self.depth = depth
+        self.anchor = anchor
     }
 }
 

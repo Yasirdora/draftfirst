@@ -14,6 +14,7 @@
  */
 
 import type { AnyElementType, Screenplay, ScreenplayElement } from './types.js';
+import { writeNoteHeader } from './noteanchor.js';
 import { deriveTitlePage } from './titlepage.js';
 import { synthesiseEmphasis } from './style.js';
 
@@ -87,7 +88,11 @@ function placeAsides(elements: readonly ScreenplayElement[]): AsidePlacement {
 			blockStart !== null && next !== undefined && (next.type === 'parenthetical' || next.type === 'dialogue');
 		if (inside) {
 			const run = Array.from({ length: end - index }, (_, k) => index + k);
-			const oneLineNotes = run.every((k) => elements[k].type === 'note' && !elements[k].text.includes('\n'));
+			/* A header line must stand alone (§4.1), so an anchored note is
+			   never written inline at the end of another line. */
+			const oneLineNotes = run.every(
+				(k) => elements[k].type === 'note' && !elements[k].text.includes('\n') && elements[k].anchor === undefined
+			);
 			const firstLine = elementToFountain(next).split('\n')[0];
 			const target = oneLineNotes && firstLine.trim() !== '' ? placement.inline : placement.hoisted;
 			const key = target === placement.inline ? end : (blockStart as number);
@@ -196,8 +201,14 @@ export function elementToFountain(el: ScreenplayElement): string {
 				/^={3,}$/.test(classified);
 			return risky ? `!${text}` : text;
 		}
-		case 'note':
-			return `[[${noteBody(body)}]]`;
+		case 'note': {
+			/* An anchored note opens with its header line (§4.1, §5.2). The
+			   escaping runs over the whole note, header included, so a `]]`
+			   inside quoted words cannot close the note early — the reader
+			   undoes it on every line (§4.4). */
+			const anchored = el.anchor ? `${writeNoteHeader(el.anchor)}\n${body}` : body;
+			return `[[${noteBody(anchored)}]]`;
+		}
 		case 'section': {
 			const depth = Math.max(1, el.depth ?? 1);
 			return `${'#'.repeat(depth)} ${body}`;

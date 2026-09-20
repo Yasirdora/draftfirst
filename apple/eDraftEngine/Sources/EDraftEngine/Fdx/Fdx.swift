@@ -13,6 +13,11 @@ public enum Fdx {
     // MARK: - Diagnostics
 
     public enum Severity: String, Codable, Sendable {
+        /// What a save did on the writer's behalf; never a warning. The
+        /// TypeScript engine has always had it (`FdxDiagnosticSeverity`);
+        /// no conformance case reached one until notes gained anchors, so
+        /// the gap sat unnoticed. Decoding a TypeScript diagnostic needs it.
+        case info
         case warning
         case error
     }
@@ -1189,7 +1194,14 @@ public enum Fdx {
                             id: id,
                             author: authorship.author,
                             message: authorship.message,
-                            range: Fdx.paragraphRange(lengths, at: note.at),
+                            range: Fdx.noteRange(
+                                Fdx.paragraphRange(lengths, at: note.at),
+                                paragraph: note.at >= 0 && note.at < after.count
+                                    ? (text: after[note.at].text, blocks: after[note.at].blocks)
+                                    : nil,
+                                anchor: note.element.anchor,
+                                diagnostics: diagnostics
+                            ),
                             writing: writing,
                             diagnostics: diagnostics
                         )
@@ -2442,6 +2454,11 @@ public enum Fdx {
         var body: [String] = []
         /* Each paragraph's length as a ScriptNote Range counts it. */
         var lengths: [Int] = []
+        /* And each paragraph's words, so a note anchored to some of them
+           finds them (§5.1). A fresh write has no embedded blocks: dual
+           dialogue is written as Dual="Yes" on the cue, never as a
+           <DualDialogue> block (TypeScript `paragraphTexts`). */
+        var paragraphTexts: [String] = []
         /* The writer's notes, and the paragraph each sits in front of. */
         var notes: [(element: ScreenplayElement, at: Int)] = []
         var waiting: [ScreenplayElement] = []
@@ -2482,6 +2499,7 @@ public enum Fdx {
                         "<Paragraph Type=\"End of Act\" Alignment=\"Center\"><Text>\(encodeXmlValue(endText, diagnostics: diagnostics, context: "end-of-act card", elementIndex: index))</Text></Paragraph>"
                     )
                     lengths.append(endText.utf16.count)
+                    paragraphTexts.append(endText)
                 }
                 previousActCard = element.text
             }
@@ -2505,6 +2523,7 @@ public enum Fdx {
             )
             body.append("<Paragraph \(attributes.joined(separator: " "))>\(textRunsMarkup(text: element.text, runs: element.runs))</Paragraph>")
             lengths.append(element.text.utf16.count)
+            paragraphTexts.append(element.text)
             for note in waiting { notes.append((note, body.count - 1)) }
             waiting = []
         }
@@ -2577,7 +2596,14 @@ public enum Fdx {
                     id: index + 1,
                     author: authorship.author,
                     message: authorship.message,
-                    range: paragraphRange(lengths, at: note.at),
+                    range: noteRange(
+                        paragraphRange(lengths, at: note.at),
+                        paragraph: note.at >= 0 && note.at < paragraphTexts.count
+                            ? (text: paragraphTexts[note.at], blocks: [])
+                            : nil,
+                        anchor: note.element.anchor,
+                        diagnostics: diagnostics
+                    ),
                     writing: writing,
                     diagnostics: diagnostics
                 ).map(\.text)

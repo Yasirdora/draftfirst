@@ -1,6 +1,6 @@
 schemaVersion: 1
 id: IL-0047
-status: active
+status: abandoned
 utterance: "run the app and commit as well after that proceed with professionalism — [next: RFC-DRAFT-FORMAT stage S1, the engine]"
 goal: Both engines read and write the .draft 1.0 container of RFC-DRAFT-FORMAT §4–§11 — the ISO/IEC 21320-1 ZIP profile, the manifest with per-part SHA-256 and RFC 8785 fingerprints, script.json with stable counter ids, notes.json threads, the Fountain rendition, origin/ parts, must-preserve of unknown parts and members, the recovery ladder, the limits, and legacy detection by first bytes — byte-identical across TypeScript and Swift, with entries stored (deflate writing waits for O1/O2); the apps are unchanged.
 interpretation: |
@@ -146,5 +146,8 @@ assumptions:
   - text: "maxLines 5,000: two ports of a container, SHA-256, canonical JSON and recovery (~2,000), tests and fuzzing in both (~1,800), the generated fixture (~800), the export script and changelog (~200)."
     source: system
     confirmed: false
+  - text: "CLOSED 2026-09-20 — superseded, not dropped. Code Director has no 'superseded' status (valid: draft, active, verified, failed, abandoned), so the terminal status is abandoned and the supersession is recorded here. This lock's goal — the .draft 1.0 container in both engines, RFC-DRAFT-FORMAT S1 — was achieved under IL-0050 (verified) and committed in 90dbe0d 'engine: .draft 1.0 container in TypeScript and Swift (S1)', then extended under IL-0052 (verified) in 53c8e73 'engine: revisions.json and production.json in both ports'. apple/eDraftEngine/Fixtures/draft.json exists and both suites are green. The unapplied handoff patch at ~/.claude/projects/-Users-x-Documents-edraft/handoff/IL-0047.patch is kept as history and must not be applied — its goal is already in committed history."
+    source: user
+    confirmed: true
 createdAt: 2026-09-18T21:45:02.016Z
 createdBy: Yasirdora

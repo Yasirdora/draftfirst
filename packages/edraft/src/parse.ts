@@ -21,6 +21,7 @@
  */
 
 import type { AnyElementType, Screenplay, ScreenplayElement } from './types.js';
+import { readNoteHeader } from './noteanchor.js';
 import type { LegacyTitlePageEntry } from './titlepage.js';
 import { titlePageLinesFromEntries } from './titlepage.js';
 import { parseEmphasis } from './style.js';
@@ -357,7 +358,14 @@ export function parseFountain(source: string, options: FountainParseOptions = {}
 
 	for (; i < rawLines.length; i++) {
 		const notes = noteQueue[i - consumed] ?? [];
-		for (const n of notes) push('note', n);
+		for (const n of notes) {
+			/* A header line this stage owns is the note's anchor, not its
+			   words (RFC-NOTES-SYSTEM §4.1, §5.2). Taken off before the
+			   emphasis pass, so a quoted `on:` is never read as markup. */
+			const header = readNoteHeader(n);
+			if (header) push('note', header.body, { anchor: header.anchor });
+			else push('note', n);
+		}
 
 		const raw = rawLines[i];
 		const line = raw.trim();

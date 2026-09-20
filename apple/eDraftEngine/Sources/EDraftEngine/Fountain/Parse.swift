@@ -341,20 +341,20 @@ public enum Fountain {
            through, AFTER the type-specific transforms (uppercasing, trims,
            dual carets), so runs always index the final content text. */
         func push(_ type: ElementKind, _ text: String, dual: Bool = false,
-                  sceneNumber: String? = nil, depth: Int? = nil) {
+                  sceneNumber: String? = nil, depth: Int? = nil, anchor: NoteAnchor? = nil) {
             if emphasis == .runs {
                 let parsed = Emphasis.parse(text)
                 elements.append(ScreenplayElement(
                     type: type, text: parsed.text,
                     runs: parsed.runs.isEmpty ? nil : parsed.runs,
                     dual: dual ? true : nil,
-                    sceneNumber: sceneNumber, depth: depth
+                    sceneNumber: sceneNumber, depth: depth, anchor: anchor
                 ))
             } else {
                 elements.append(ScreenplayElement(
                     type: type, text: text,
                     dual: dual ? true : nil,
-                    sceneNumber: sceneNumber, depth: depth
+                    sceneNumber: sceneNumber, depth: depth, anchor: anchor
                 ))
             }
         }
@@ -385,7 +385,17 @@ public enum Fountain {
 
         while i < rawLines.count {
             let notes = (i - consumed) < noteQueue.count ? noteQueue[i - consumed] : []
-            for note in notes { push(.note, note) }
+            for note in notes {
+                /* A header line this stage owns is the note's anchor, not
+                   its words (RFC-NOTES-SYSTEM §4.1, §5.2). Taken off before
+                   the emphasis pass, so a quoted `on:` is never read as
+                   markup. */
+                if let header = NoteAnchor.readHeader(note) {
+                    push(.note, header.body, anchor: header.anchor)
+                } else {
+                    push(.note, note)
+                }
+            }
 
             let raw = rawLines[i]
             let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)

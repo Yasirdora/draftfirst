@@ -5,6 +5,7 @@ export type {
 	ContentIndex,
 	ElementType,
 	FountainIndex,
+	NoteAnchor,
 	Screenplay,
 	ScreenplayElement,
 	StructuralType,
@@ -14,6 +15,10 @@ export type {
 	TitlePageLine
 } from './types.js';
 export { contentIndex, fountainIndex, isPrinting } from './types.js';
+
+/** Notes pinned to words — RFC-NOTES-SYSTEM §5 (stage 4). */
+export type { AnchorSpan, NoteHeaderReading } from './noteanchor.js';
+export { anchorFor, quoteAnchorWords, readNoteHeader, resolveAnchor, writeNoteHeader } from './noteanchor.js';
 
 export {
 	deriveTitlePage,

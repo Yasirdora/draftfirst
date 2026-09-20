@@ -14,7 +14,14 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseFountain, serialiseFountain } from '../packages/edraft/dist/index.js';
+import {
+	anchorFor,
+	parseFountain,
+	readNoteHeader,
+	resolveAnchor,
+	serialiseFountain,
+	writeNoteHeader
+} from '../packages/edraft/dist/index.js';
 import {
 	actOrdinal,
 	isActCard,
@@ -1665,6 +1672,220 @@ writeFixture('fdx.json', {
 	export: fdxExport,
 	scriptNotes: fdxScriptNotes,
 	rewrite: fdxRewrite
+});
+
+/* ------------------------------------------------------------------ */
+/* noteanchor.json — notes pinned to words (RFC-NOTES-SYSTEM §5)       */
+/* ------------------------------------------------------------------ */
+
+/* §5.3 case by case, and the header grammar of §4.1 this stage owns. The
+   two ports share every case, so an ordinal always means the same place. */
+const ANCHOR_PARAGRAPHS = [
+	"The kettle screams. Mara doesn't move.",
+	'one two one two',
+	'aaa',
+	'Mara and MARA',
+	''
+];
+const ANCHOR_SPECS = [
+	{ on: 'kettle' },
+	{ on: "doesn't move" },
+	{ on: 'one' },
+	{ on: 'one', nth: 2 },
+	{ on: 'one', nth: 3 },
+	{ on: 'two', nth: 2 },
+	{ on: 'aa' },
+	{ on: 'aa', nth: 2 },
+	{ on: 'aa', nth: 3 },
+	{ on: 'MARA' },
+	{ on: 'Mara' },
+	{ on: 'the samovar' },
+	{ on: '' },
+	{ on: 'kettle', nth: 0 }
+];
+const noteAnchorResolve = [];
+for (const paragraph of ANCHOR_PARAGRAPHS) {
+	for (const anchor of ANCHOR_SPECS) {
+		noteAnchorResolve.push({ paragraph, anchor, expected: resolveAnchor(paragraph, anchor) });
+	}
+}
+/* Every span of every paragraph: the anchor written for it, and the span
+   that anchor resolves back to. The inverse property, exhaustively. */
+const noteAnchorForSpan = [];
+/* Exhaustive over the short paragraphs that carry the rule's edges —
+   overlap (`aaa`, `abab`), ordinals (`abab`), casing (`aA`) and the empty
+   one. Real sentences get the spans that matter, below; the exhaustive
+   sweep over a long paragraph runs as a property in noteanchor.test.ts,
+   where it costs nothing to carry. */
+const SPAN_SWEEP = ['abab', 'aaa', 'aA', ''];
+for (const paragraph of SPAN_SWEEP) {
+	for (let start = 0; start <= paragraph.length; start++) {
+		for (let end = start; end <= paragraph.length; end++) {
+			const anchor = anchorFor(paragraph, start, end);
+			noteAnchorForSpan.push({
+				paragraph,
+				start,
+				end,
+				expected: anchor,
+				resolved: anchor === null ? null : resolveAnchor(paragraph, anchor)
+			});
+		}
+	}
+}
+for (const [paragraph, start, end] of [
+	["The kettle screams. Mara doesn't move.", 4, 10],
+	["The kettle screams. Mara doesn't move.", 25, 37],
+	["The kettle screams. Mara doesn't move.", 0, 38],
+	["The kettle screams. Mara doesn't move.", 20, 37],
+	['Mara and MARA', 0, 4],
+	['Mara and MARA', 9, 13],
+	['Mara and MARA', 5, 8],
+	['one two one two', 0, 3],
+	['one two one two', 8, 11],
+	['one two one two', 4, 7],
+	['one two one two', 12, 15],
+	['one two one two', 0, 15]
+]) {
+	const anchor = anchorFor(paragraph, start, end);
+	noteAnchorForSpan.push({
+		paragraph,
+		start,
+		end,
+		expected: anchor,
+		resolved: anchor === null ? null : resolveAnchor(paragraph, anchor)
+	});
+}
+const HEADER_TEXTS = [
+	'[eDraft on:"a"]\nx',
+	'[eDraft on:"one" nth:2]\nDana Reyes (Director): Too still?',
+	'[EDRAFT ON:"a"]\nx',
+	'[eDraft on:"a \\"b\\" c"]\nx',
+	'[eDraft on:"a]b"]\nx',
+	'[eDraft on:"a"]',
+	'[eDraft on:"a" nth:1]\nx',
+	'[eDraft thread:t4k9qz status:open]\nx',
+	'[eDraft on:"a" thread:t4k9qz]\nx',
+	'[eDraft from:"Dana Reyes (Director)"]\nx',
+	'[eDraft on:"a"\nx',
+	'[eDraft on:"a"] trailing\nx',
+	'[eDraft on:"a" nth:0]\nx',
+	'[eDraft on:"a" nth:two]\nx',
+	'[eDraft on:"a" nth:01]\nx',
+	'[eDraft on:"a" on:"b"]\nx',
+	'[eDraft on:""]\nx',
+	'[eDraft]\nx',
+	'[eDraft ]\nx',
+	'Dana: just a note',
+	'',
+	`[eDraft ${'a:b '.repeat(200)}!]\nx`
+];
+const noteAnchorHeader = HEADER_TEXTS.map((text) => ({ text, expected: readNoteHeader(text) }));
+const noteAnchorWriteHeader = [
+	{ on: "doesn't move" },
+	{ on: 'one', nth: 2 },
+	{ on: 'a "b" c' },
+	{ on: 'back\\slash' },
+	{ on: 'a]b' }
+].map((anchor) => ({ anchor, expected: writeNoteHeader(anchor) }));
+
+/* The Fountain round trip (§5.2, §4.4), kept in this lock's own fixture so
+   the shared parse corpus — and draft.json with it — stays byte-identical. */
+const NOTE_ANCHOR_FOUNTAIN = [
+	[
+		'INT. KITCHEN - NIGHT',
+		'',
+		'[[[eDraft on:"doesn\'t move"]',
+		'Dana Reyes (Director): Too still? She should flinch.]]',
+		'',
+		"The kettle screams. Mara doesn't move.",
+		''
+	].join('\n'),
+	['[[[eDraft on:"one" nth:2]', 'Sam Okafor (Writer): Which one?]]', '', 'one two one two', ''].join('\n'),
+	/* A header stage 4 does not own stays the note's own words, byte for byte. */
+	['[[[eDraft thread:t4k9qz status:open]', 'Not this stage.]]', '', 'She waits.', ''].join('\n'),
+	/* A legacy note with no header at all, unchanged since before stage 4. */
+	['[[Dana (Director): no header at all]]', '', 'She waits.', ''].join('\n'),
+	/* An anchored note inside a dialogue block is never written inline. */
+	['MARA', '[[[eDraft on:"same"]', 'Too flat?]]', "It's the same lab.", ''].join('\n'),
+	/* Words holding `]]`: the writer spaces them, the reader closes them up. */
+	['[[[eDraft on:"a]] b"]', 'Why?]]', '', 'a]] b stands here', ''].join('\n')
+];
+const noteAnchorFountain = NOTE_ANCHOR_FOUNTAIN.map((source) => {
+	const screenplay = parseFountain(source);
+	const written = serialiseFountain(screenplay);
+	return { source, expected: screenplay, written, reparsed: parseFountain(written) };
+});
+
+/* The FDX half (§5.1, §5.4), in this lock's own fixture so the shared
+   fdx.json — whose case counts other suites assert — stays byte-identical.
+   The same public API the corpus uses, the same pinned note writing. */
+const anchoredNoteBefore = (text, line, anchor) => (elements) => {
+	const at = elements.findIndex((element) => element.text === line);
+	if (at === -1) throw new Error(`no line ${JSON.stringify(line)}`);
+	return [...elements.slice(0, at), { type: 'note', text, anchor }, ...elements.slice(at)];
+};
+const noteAnchorRewrite = [];
+function addAnchoredRewrite(name, source, edit) {
+	const unedited = fountainReading(source);
+	const screenplay = throughFountain({ ...unedited, elements: edit(unedited.elements) });
+	const xml = openFdx(source).rewrite(screenplay, { unedited, notes: noteWriting(NOTE_WRITING) }).xml;
+	noteAnchorRewrite.push({ name, source, screenplay, unedited, notes: NOTE_WRITING, expected: { xml } });
+	return xml;
+}
+const anchoredSaved = addAnchoredRewrite(
+	'anchored-to-words',
+	NOTES_LAB,
+	anchoredNoteBefore('Dana Reyes (Director): Too loud?', 'The kettle screams.', { on: 'kettle' })
+);
+addAnchoredRewrite(
+	'anchored-words-gone',
+	NOTES_LAB,
+	anchoredNoteBefore('Dana Reyes (Director): Too loud?', 'The kettle screams.', { on: 'the samovar' })
+);
+addAnchoredRewrite(
+	'anchored-nth',
+	NOTES_LAB,
+	anchoredNoteBefore('Dana Reyes (Director): Which?', 'The kettle screams.', { on: 'e', nth: 3 })
+);
+/* NAMED DEGRADATION. Fountain cannot carry a word anchor on a speech line:
+   a note there is one the serialiser must hoist in front of its block
+   (IL-0040 — written between a cue and its speech, it ended the block), and
+   §5.2 says a note's paragraph is the one that follows it. After the hoist
+   that paragraph is the cue, the words are not in it, and §5.3 rule 5
+   applies: the note falls back to the whole cue and the save says so. Pinned
+   here so the loss is a recorded fact, not a surprise. */
+addAnchoredRewrite(
+	'anchored-in-dialogue-degrades-to-the-cue',
+	NOTES_LAB,
+	anchoredNoteBefore('Dana Reyes (Director): Too flat?', "It's the same lab.", { on: 'same lab' })
+);
+/* Reopened: the file the save above wrote, saved again with no edit. */
+{
+	const reading = fountainReading(anchoredSaved);
+	const xml = openFdx(anchoredSaved).rewrite(reading, { unedited: reading, notes: noteWriting(NOTE_WRITING) }).xml;
+	noteAnchorRewrite.push({
+		name: 'anchored-reopened-no-edit',
+		source: anchoredSaved,
+		screenplay: reading,
+		unedited: reading,
+		notes: NOTE_WRITING,
+		expected: { xml, identical: xml === anchoredSaved }
+	});
+}
+/* And read: the anchor derived from the Range it comes back on. */
+const noteAnchorRead = [{ name: 'anchored-read-back', source: anchoredSaved }].map(({ name, source }) => {
+	const result = parseFdx(source);
+	return { name, source, expected: { script: result.script, scriptNotes: result.scriptNotes, diagnostics: result.diagnostics } };
+});
+
+writeFixture('noteanchor.json', {
+	fountain: noteAnchorFountain,
+	rewrite: noteAnchorRewrite,
+	read: noteAnchorRead,
+	resolve: noteAnchorResolve,
+	forSpan: noteAnchorForSpan,
+	header: noteAnchorHeader,
+	writeHeader: noteAnchorWriteHeader
 });
 
 /* ------------------------------------------------------------------ */

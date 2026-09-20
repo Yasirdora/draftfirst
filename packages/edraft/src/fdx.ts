@@ -15,12 +15,13 @@ import { actOrdinal, isCanonicalActCard } from './acts.js';
 import { canonicalCasing } from './normalize.js';
 import { normaliseRuns, STYLE_ORDER } from './style.js';
 import { isPrinting } from './types.js';
+import { anchorFor, quoteAnchorWords, resolveAnchor } from './noteanchor.js';
 import type {
 	AnyElementType,
 	ElementType,
 	Screenplay,
 	ScreenplayElement,
-	TitlePageLine, StyleRun, StyleToken } from './types.js';
+	TitlePageLine, StyleRun, StyleToken, NoteAnchor } from './types.js';
 
 /* ---- diagnostics and limits -------------------------------------------- */
 
@@ -1521,7 +1522,13 @@ function withOwnedNotes(
 			return;
 		}
 		const at = note.anchor?.start.element ?? elements.length;
-		inFront.set(at, [...(inFront.get(at) ?? []), { type: 'note', text: ownedNoteText(owned) }]);
+		/* The words its Range covers, back as the anchor the editor holds
+		   (§5.4). A Range over the whole paragraph carries no anchor. */
+		const anchor = note.anchor ? anchorOfRange(elements, note.anchor) : undefined;
+		inFront.set(at, [
+			...(inFront.get(at) ?? []),
+			{ type: 'note', text: ownedNoteText(owned), ...(anchor ? { anchor } : {}) }
+		]);
 	});
 	if (inFront.size === 0) return { elements, scriptNotes: notes };
 	const result: ScreenplayElement[] = [];
@@ -2855,7 +2862,11 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 					let id = places.notes.reduce((highest, note) => (Number.isFinite(note.id) ? Math.max(highest, note.id) : highest), 0);
 					const lines = fresh.flatMap(({ element, at }) =>
 						scriptNoteLines(
-							{ id: ++id, ...noteAuthorship(element.text, names, writing.writer), range: paragraphRange(lengths, at) },
+							{
+							id: ++id,
+							...noteAuthorship(element.text, names, writing.writer),
+							range: noteRange(paragraphRange(lengths, at), after[at], element.anchor, diagnostics)
+						},
 							writing,
 							diagnostics
 						)
@@ -3250,6 +3261,68 @@ function paragraphRange(lengths: number[], at: number): { start: number; end: nu
 	return { start, end: start + lengths[at] };
 }
 
+/**
+ * A text offset inside one paragraph, as a ScriptNote Range counts it — the
+ * inverse of `textOffsetIn`. An embedded block's two units sit where the
+ * block sits, so an offset at a block's own position is the text after it
+ * (`inclusive`), while a span ending there stops in front of it.
+ */
+function unitOffsetIn(blocks: readonly number[], offset: number, inclusive: boolean): number {
+	let units = offset;
+	for (const at of blocks) {
+		if (inclusive ? at <= offset : at < offset) units += BLOCK_UNITS;
+	}
+	return units;
+}
+
+/**
+ * The Range one of the writer's notes takes (RFC-NOTES-SYSTEM §5.1):
+ * its anchored words when it has an anchor and those words are still in the
+ * paragraph, and the whole paragraph otherwise.
+ *
+ * §5.3 rule 5, said out loud: words that are gone do not move the note to
+ * another paragraph and are never guessed at. The note falls back to its
+ * paragraph and the save says so.
+ */
+function noteRange(
+	whole: { start: number; end: number },
+	paragraph: { text: string; blocks: readonly number[] } | undefined,
+	anchor: NoteAnchor | undefined,
+	diagnostics: DiagnosticCollector
+): { start: number; end: number } {
+	if (anchor === undefined || paragraph === undefined) return whole;
+	const span = resolveAnchor(paragraph.text, anchor);
+	if (span === null) {
+		diagnostics.add({
+			code: 'FDX_NOTE_ANCHOR_WORDS_CHANGED',
+			severity: 'info',
+			message: `A note anchored to ${quoteAnchorWords(anchor.on)} was written on its whole paragraph: those words are no longer in it.`
+		});
+		return whole;
+	}
+	return {
+		start: whole.start + unitOffsetIn(paragraph.blocks, span.start, true),
+		end: whole.start + unitOffsetIn(paragraph.blocks, span.end, false)
+	};
+}
+
+/**
+ * The anchor a Range carries, for a note eDraft owns (§5.4).
+ *
+ * A Range over the whole paragraph is no anchor at all — that is every note
+ * written before stage 4. A Range that spans paragraphs anchors to the words
+ * it covers in the first (§5.3 rule 6); FDX keeps its full span.
+ */
+function anchorOfRange(
+	elements: readonly ScreenplayElement[],
+	anchor: NonNullable<FdxScriptNote['anchor']>
+): NoteAnchor | undefined {
+	const element = elements[anchor.start.element];
+	if (element === undefined) return undefined;
+	const end = anchor.end.element === anchor.start.element ? anchor.end.offset : element.text.length;
+	return anchorFor(element.text, anchor.start.offset, end) ?? undefined;
+}
+
 const NOTE_PARAGRAPH_ATTRIBUTES =
 	'Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="0.00" OutlineLevel="1" RightIndent="1.39" SpaceBefore="0" Spacing="1" StartsNewPage="No"';
 const NOTE_TEXT_ATTRIBUTES = 'AdornmentStyle="0" Font="Arial" RevisionID="0" Size="12" Style=""';
@@ -3370,6 +3443,10 @@ export function writeFdxWithDiagnostics(
 	const body: string[] = [];
 	/* Each paragraph's length as a ScriptNote Range counts it. */
 	const lengths: number[] = [];
+	/* And its words, so a note anchored to some of them finds them (§5.1).
+	   A fresh write has no embedded blocks: dual dialogue is written as
+	   Dual="Yes" on the cue, never as a <DualDialogue> block. */
+	const paragraphTexts: { text: string; blocks: readonly number[] }[] = [];
 	/* The writer's notes, and the paragraph each sits in front of. */
 	const notes: { element: ScreenplayElement; at: number }[] = [];
 	let waiting: ScreenplayElement[] = [];
@@ -3415,6 +3492,7 @@ export function writeFdxWithDiagnostics(
 					`<Paragraph Type="End of Act" Alignment="Center"><Text>${encodeXmlValue(endText, diagnostics, 'end-of-act card', index)}</Text></Paragraph>`
 				);
 				lengths.push(endText.length);
+				paragraphTexts.push({ text: endText, blocks: [] });
 			}
 			previousActCard = element.text;
 		}
@@ -3432,6 +3510,7 @@ export function writeFdxWithDiagnostics(
 		}
 		body.push(`<Paragraph ${attributes.join(' ')}>${textRunsMarkup(element, diagnostics, index)}</Paragraph>`);
 		lengths.push(element.text.length);
+		paragraphTexts.push({ text: element.text, blocks: [] });
 		for (const note of waiting) notes.push({ element: note, at: body.length - 1 });
 		waiting = [];
 	}
@@ -3487,7 +3566,11 @@ export function writeFdxWithDiagnostics(
 		out.push('<ScriptNotes>');
 		notes.forEach(({ element, at }, index) => {
 			const lines = scriptNoteLines(
-				{ id: index + 1, ...noteAuthorship(element.text, names, writing.writer), range: paragraphRange(lengths, at) },
+				{
+					id: index + 1,
+					...noteAuthorship(element.text, names, writing.writer),
+					range: noteRange(paragraphRange(lengths, at), paragraphTexts[at], element.anchor, diagnostics)
+				},
 				writing,
 				diagnostics
 			);

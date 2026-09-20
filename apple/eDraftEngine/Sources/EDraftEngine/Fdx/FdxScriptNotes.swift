@@ -620,7 +620,12 @@ extension Fdx {
                 continue
             }
             let at = note.anchor?.start.element ?? elements.count
-            inFront[at, default: []].append(ScreenplayElement(type: .note, text: ownedNoteText(owned)))
+            /* The words its Range covers, back as the anchor the editor
+               holds (§5.4). A Range over the whole paragraph carries none. */
+            let anchor = note.anchor.flatMap { anchorOfRange(elements, $0) }
+            inFront[at, default: []].append(
+                ScreenplayElement(type: .note, text: ownedNoteText(owned), anchor: anchor)
+            )
         }
         guard !inFront.isEmpty else { return (elements, notes) }
         var result: [ScreenplayElement] = []
@@ -690,6 +695,64 @@ extension Fdx {
         var start = 0
         for index in 0..<at { start += lengths[index] + 1 }
         return ScriptNote.Range(start: start, end: start + lengths[at])
+    }
+
+    /// A text offset inside one paragraph, as a ScriptNote Range counts it —
+    /// the inverse of `ParagraphLayout.textOffset`. An embedded block's two
+    /// units sit where the block sits, so an offset at a block's own position
+    /// is the text after it (`inclusive`), while a span ending there stops in
+    /// front of it (TypeScript `unitOffsetIn`).
+    static func unitOffset(_ blocks: [Int], _ offset: Int, inclusive: Bool) -> Int {
+        var units = offset
+        for at in blocks where inclusive ? at <= offset : at < offset { units += Fdx.blockUnits }
+        return units
+    }
+
+    /// The Range one of the writer's notes takes (RFC-NOTES-SYSTEM §5.1):
+    /// its anchored words when it has an anchor and those words are still in
+    /// the paragraph, and the whole paragraph otherwise.
+    ///
+    /// §5.3 rule 5, said out loud: words that are gone do not move the note
+    /// to another paragraph and are never guessed at. The note falls back to
+    /// its paragraph and the save says so (TypeScript `noteRange`).
+    static func noteRange(
+        _ whole: ScriptNote.Range,
+        paragraph: (text: String, blocks: [Int])?,
+        anchor: NoteAnchor?,
+        diagnostics: DiagnosticCollector
+    ) -> ScriptNote.Range {
+        guard let anchor, let paragraph else { return whole }
+        guard let span = NoteAnchor.resolve(paragraph.text, anchor) else {
+            diagnostics.add(Diagnostic(
+                code: "FDX_NOTE_ANCHOR_WORDS_CHANGED",
+                severity: .info,
+                message: "A note anchored to \(NoteAnchor.quoteWords(anchor.on)) was written on its "
+                    + "whole paragraph: those words are no longer in it."
+            ))
+            return whole
+        }
+        return ScriptNote.Range(
+            start: whole.start + unitOffset(paragraph.blocks, span.start, inclusive: true),
+            end: whole.start + unitOffset(paragraph.blocks, span.end, inclusive: false)
+        )
+    }
+
+    /// The anchor a Range carries, for a note eDraft owns (§5.4).
+    ///
+    /// A Range over the whole paragraph is no anchor at all — that is every
+    /// note written before stage 4. A Range that spans paragraphs anchors to
+    /// the words it covers in the first (§5.3 rule 6); FDX keeps its full
+    /// span (TypeScript `anchorOfRange`).
+    static func anchorOfRange(
+        _ elements: [ScreenplayElement],
+        _ anchor: ScriptNote.Anchor
+    ) -> NoteAnchor? {
+        guard anchor.start.element >= 0, anchor.start.element < elements.count else { return nil }
+        let element = elements[anchor.start.element]
+        let end = anchor.end.element == anchor.start.element
+            ? anchor.end.offset
+            : element.text.utf16.count
+        return NoteAnchor.forSpan(element.text, start: anchor.start.offset, end: end)
     }
 
     private static let noteParagraphAttributes =

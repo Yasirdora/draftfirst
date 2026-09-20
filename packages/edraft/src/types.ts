@@ -81,6 +81,17 @@ export interface StyleRun {
 	highlight?: HighlightColor;
 }
 
+/** A note pinned to words inside its paragraph — RFC-NOTES-SYSTEM §5
+    (stage 4). `on` is the words exactly as they stand in the paragraph the
+    note is about; `nth` selects which occurrence, and is present exactly
+    when the words occur more than once (§5.3). Absent from a note means the
+    note is about its whole paragraph, which is every note before stage 4.
+    The rule that turns one into the other lives in noteanchor.ts. */
+export interface NoteAnchor {
+	on: string;
+	nth?: number;
+}
+
 export interface ScreenplayElement {
 	type: AnyElementType;
 	/** Plain text of the element — marker-free content when `runs` is
@@ -96,6 +107,9 @@ export interface ScreenplayElement {
 	sceneNumber?: string;
 	/** Outline depth for sections (# = 1, ## = 2…). */
 	depth?: number;
+	/** Notes only: the words this note is pinned to, within the paragraph
+	    that follows it (§5.2). Absent means the whole paragraph. */
+	anchor?: NoteAnchor;
 }
 
 /** Where a title-page line sits across the measure. Absent means centred. */

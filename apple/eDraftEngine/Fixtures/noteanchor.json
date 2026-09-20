@@ -1,0 +1,1926 @@
+{
+  "fountain": [
+    {
+      "source": "INT. KITCHEN - NIGHT\n\n[[[eDraft on:\"doesn't move\"]\nDana Reyes (Director): Too still? She should flinch.]]\n\nThe kettle screams. Mara doesn't move.\n",
+      "expected": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "note",
+            "text": "Dana Reyes (Director): Too still? She should flinch.",
+            "anchor": {
+              "on": "doesn't move"
+            }
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams. Mara doesn't move."
+          }
+        ]
+      },
+      "written": "INT. KITCHEN - NIGHT\n\n[[[eDraft on:\"doesn't move\"]\nDana Reyes (Director): Too still? She should flinch.]]\n\nThe kettle screams. Mara doesn't move.",
+      "reparsed": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "note",
+            "text": "Dana Reyes (Director): Too still? She should flinch.",
+            "anchor": {
+              "on": "doesn't move"
+            }
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams. Mara doesn't move."
+          }
+        ]
+      }
+    },
+    {
+      "source": "[[[eDraft on:\"one\" nth:2]\nSam Okafor (Writer): Which one?]]\n\none two one two\n",
+      "expected": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "note",
+            "text": "Sam Okafor (Writer): Which one?",
+            "anchor": {
+              "on": "one",
+              "nth": 2
+            }
+          },
+          {
+            "type": "action",
+            "text": "one two one two"
+          }
+        ]
+      },
+      "written": "[[[eDraft on:\"one\" nth:2]\nSam Okafor (Writer): Which one?]]\n\none two one two",
+      "reparsed": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "note",
+            "text": "Sam Okafor (Writer): Which one?",
+            "anchor": {
+              "on": "one",
+              "nth": 2
+            }
+          },
+          {
+            "type": "action",
+            "text": "one two one two"
+          }
+        ]
+      }
+    },
+    {
+      "source": "[[[eDraft thread:t4k9qz status:open]\nNot this stage.]]\n\nShe waits.\n",
+      "expected": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "note",
+            "text": "[eDraft thread:t4k9qz status:open]\nNot this stage."
+          },
+          {
+            "type": "action",
+            "text": "She waits."
+          }
+        ]
+      },
+      "written": "[[[eDraft thread:t4k9qz status:open]\nNot this stage.]]\n\nShe waits.",
+      "reparsed": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "note",
+            "text": "[eDraft thread:t4k9qz status:open]\nNot this stage."
+          },
+          {
+            "type": "action",
+            "text": "She waits."
+          }
+        ]
+      }
+    },
+    {
+      "source": "[[Dana (Director): no header at all]]\n\nShe waits.\n",
+      "expected": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "note",
+            "text": "Dana (Director): no header at all"
+          },
+          {
+            "type": "action",
+            "text": "She waits."
+          }
+        ]
+      },
+      "written": "[[Dana (Director): no header at all]]\n\nShe waits.",
+      "reparsed": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "note",
+            "text": "Dana (Director): no header at all"
+          },
+          {
+            "type": "action",
+            "text": "She waits."
+          }
+        ]
+      }
+    },
+    {
+      "source": "MARA\n[[[eDraft on:\"same\"]\nToo flat?]]\nIt's the same lab.\n",
+      "expected": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "MARA"
+          },
+          {
+            "type": "note",
+            "text": "Too flat?",
+            "anchor": {
+              "on": "same"
+            }
+          },
+          {
+            "type": "action",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "written": "!MARA\n\n[[[eDraft on:\"same\"]\nToo flat?]]\n\nIt's the same lab.",
+      "reparsed": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "action",
+            "text": "MARA"
+          },
+          {
+            "type": "note",
+            "text": "Too flat?",
+            "anchor": {
+              "on": "same"
+            }
+          },
+          {
+            "type": "action",
+            "text": "It's the same lab."
+          }
+        ]
+      }
+    },
+    {
+      "source": "[[[eDraft on:\"a]] b\"]\nWhy?]]\n\na]] b stands here\n",
+      "expected": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "note",
+            "text": "[eDraft on:\"a"
+          },
+          {
+            "type": "action",
+            "text": " b\"]"
+          },
+          {
+            "type": "action",
+            "text": "Why?]]"
+          },
+          {
+            "type": "action",
+            "text": "a]] b stands here"
+          }
+        ]
+      },
+      "written": "[[[eDraft on:\"a]]\n\n b\"]\n\nWhy?]]\n\na]] b stands here",
+      "reparsed": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "note",
+            "text": "[eDraft on:\"a"
+          },
+          {
+            "type": "action",
+            "text": " b\"]"
+          },
+          {
+            "type": "action",
+            "text": "Why?]]"
+          },
+          {
+            "type": "action",
+            "text": "a]] b stands here"
+          }
+        ]
+      }
+    }
+  ],
+  "rewrite": [
+    {
+      "name": "anchored-to-words",
+      "source": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <Navigator/>\n</FinalDraft>\n",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "note",
+            "text": "Dana Reyes (Director): Too loud?",
+            "anchor": {
+              "on": "kettle"
+            }
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "note",
+            "text": "A note the file already has."
+          },
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "note",
+            "text": "A note the file already has."
+          },
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "notes": {
+        "writer": "Dana Reyes (Director)",
+        "now": "20260918T120000",
+        "ids": [
+          "00000000-0000-4000-8000-000000000001",
+          "00000000-0000-4000-8000-000000000002",
+          "00000000-0000-4000-8000-000000000003",
+          "00000000-0000-4000-8000-000000000004",
+          "00000000-0000-4000-8000-000000000005",
+          "00000000-0000-4000-8000-000000000006",
+          "00000000-0000-4000-8000-000000000007",
+          "00000000-0000-4000-8000-000000000008",
+          "00000000-0000-4000-8000-000000000009",
+          "00000000-0000-4000-8000-00000000000a",
+          "00000000-0000-4000-8000-00000000000b",
+          "00000000-0000-4000-8000-00000000000c",
+          "00000000-0000-4000-8000-00000000000d",
+          "00000000-0000-4000-8000-00000000000e",
+          "00000000-0000-4000-8000-00000000000f",
+          "00000000-0000-4000-8000-000000000010",
+          "00000000-0000-4000-8000-000000000011",
+          "00000000-0000-4000-8000-000000000012",
+          "00000000-0000-4000-8000-000000000013",
+          "00000000-0000-4000-8000-000000000014",
+          "00000000-0000-4000-8000-000000000015",
+          "00000000-0000-4000-8000-000000000016",
+          "00000000-0000-4000-8000-000000000017",
+          "00000000-0000-4000-8000-000000000018"
+        ]
+      },
+      "expected": {
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <ScriptNotes>\n    <ScriptNote Color=\"#000000000000\" DateModified=\"20260918T120000\" DateTime=\"20260918T120000\" Id=\"1\" Name=\"[eDraft]\" Range=\"25,31\" RefId=\"00000000-0000-4000-8000-000000000001\" Type=\"Director\" WriterID=\"00000000-0000-4000-8000-000000000001\" WriterName=\"Dana Reyes\">\n      <Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"0.00\" OutlineLevel=\"1\" RightIndent=\"1.39\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\" id=\"00000000-0000-4000-8000-000000000002\">\n        <Text AdornmentStyle=\"0\" Font=\"Arial\" RevisionID=\"0\" Size=\"12\" Style=\"\">Too loud?</Text>\n      </Paragraph>\n    </ScriptNote>\n  </ScriptNotes>\n\n  <Navigator/>\n</FinalDraft>\n"
+      }
+    },
+    {
+      "name": "anchored-words-gone",
+      "source": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <Navigator/>\n</FinalDraft>\n",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "note",
+            "text": "Dana Reyes (Director): Too loud?",
+            "anchor": {
+              "on": "the samovar"
+            }
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "note",
+            "text": "A note the file already has."
+          },
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "note",
+            "text": "A note the file already has."
+          },
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "notes": {
+        "writer": "Dana Reyes (Director)",
+        "now": "20260918T120000",
+        "ids": [
+          "00000000-0000-4000-8000-000000000001",
+          "00000000-0000-4000-8000-000000000002",
+          "00000000-0000-4000-8000-000000000003",
+          "00000000-0000-4000-8000-000000000004",
+          "00000000-0000-4000-8000-000000000005",
+          "00000000-0000-4000-8000-000000000006",
+          "00000000-0000-4000-8000-000000000007",
+          "00000000-0000-4000-8000-000000000008",
+          "00000000-0000-4000-8000-000000000009",
+          "00000000-0000-4000-8000-00000000000a",
+          "00000000-0000-4000-8000-00000000000b",
+          "00000000-0000-4000-8000-00000000000c",
+          "00000000-0000-4000-8000-00000000000d",
+          "00000000-0000-4000-8000-00000000000e",
+          "00000000-0000-4000-8000-00000000000f",
+          "00000000-0000-4000-8000-000000000010",
+          "00000000-0000-4000-8000-000000000011",
+          "00000000-0000-4000-8000-000000000012",
+          "00000000-0000-4000-8000-000000000013",
+          "00000000-0000-4000-8000-000000000014",
+          "00000000-0000-4000-8000-000000000015",
+          "00000000-0000-4000-8000-000000000016",
+          "00000000-0000-4000-8000-000000000017",
+          "00000000-0000-4000-8000-000000000018"
+        ]
+      },
+      "expected": {
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <ScriptNotes>\n    <ScriptNote Color=\"#000000000000\" DateModified=\"20260918T120000\" DateTime=\"20260918T120000\" Id=\"1\" Name=\"[eDraft]\" Range=\"21,40\" RefId=\"00000000-0000-4000-8000-000000000001\" Type=\"Director\" WriterID=\"00000000-0000-4000-8000-000000000001\" WriterName=\"Dana Reyes\">\n      <Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"0.00\" OutlineLevel=\"1\" RightIndent=\"1.39\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\" id=\"00000000-0000-4000-8000-000000000002\">\n        <Text AdornmentStyle=\"0\" Font=\"Arial\" RevisionID=\"0\" Size=\"12\" Style=\"\">Too loud?</Text>\n      </Paragraph>\n    </ScriptNote>\n  </ScriptNotes>\n\n  <Navigator/>\n</FinalDraft>\n"
+      }
+    },
+    {
+      "name": "anchored-nth",
+      "source": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <Navigator/>\n</FinalDraft>\n",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "note",
+            "text": "Dana Reyes (Director): Which?",
+            "anchor": {
+              "on": "e",
+              "nth": 3
+            }
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "note",
+            "text": "A note the file already has."
+          },
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "note",
+            "text": "A note the file already has."
+          },
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "notes": {
+        "writer": "Dana Reyes (Director)",
+        "now": "20260918T120000",
+        "ids": [
+          "00000000-0000-4000-8000-000000000001",
+          "00000000-0000-4000-8000-000000000002",
+          "00000000-0000-4000-8000-000000000003",
+          "00000000-0000-4000-8000-000000000004",
+          "00000000-0000-4000-8000-000000000005",
+          "00000000-0000-4000-8000-000000000006",
+          "00000000-0000-4000-8000-000000000007",
+          "00000000-0000-4000-8000-000000000008",
+          "00000000-0000-4000-8000-000000000009",
+          "00000000-0000-4000-8000-00000000000a",
+          "00000000-0000-4000-8000-00000000000b",
+          "00000000-0000-4000-8000-00000000000c",
+          "00000000-0000-4000-8000-00000000000d",
+          "00000000-0000-4000-8000-00000000000e",
+          "00000000-0000-4000-8000-00000000000f",
+          "00000000-0000-4000-8000-000000000010",
+          "00000000-0000-4000-8000-000000000011",
+          "00000000-0000-4000-8000-000000000012",
+          "00000000-0000-4000-8000-000000000013",
+          "00000000-0000-4000-8000-000000000014",
+          "00000000-0000-4000-8000-000000000015",
+          "00000000-0000-4000-8000-000000000016",
+          "00000000-0000-4000-8000-000000000017",
+          "00000000-0000-4000-8000-000000000018"
+        ]
+      },
+      "expected": {
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <ScriptNotes>\n    <ScriptNote Color=\"#000000000000\" DateModified=\"20260918T120000\" DateTime=\"20260918T120000\" Id=\"1\" Name=\"[eDraft]\" Range=\"30,31\" RefId=\"00000000-0000-4000-8000-000000000001\" Type=\"Director\" WriterID=\"00000000-0000-4000-8000-000000000001\" WriterName=\"Dana Reyes\">\n      <Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"0.00\" OutlineLevel=\"1\" RightIndent=\"1.39\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\" id=\"00000000-0000-4000-8000-000000000002\">\n        <Text AdornmentStyle=\"0\" Font=\"Arial\" RevisionID=\"0\" Size=\"12\" Style=\"\">Which?</Text>\n      </Paragraph>\n    </ScriptNote>\n  </ScriptNotes>\n\n  <Navigator/>\n</FinalDraft>\n"
+      }
+    },
+    {
+      "name": "anchored-in-dialogue-degrades-to-the-cue",
+      "source": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <Navigator/>\n</FinalDraft>\n",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "note",
+            "text": "A note the file already has."
+          },
+          {
+            "type": "note",
+            "text": "Dana Reyes (Director): Too flat?",
+            "anchor": {
+              "on": "same lab"
+            }
+          },
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "note",
+            "text": "A note the file already has."
+          },
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "notes": {
+        "writer": "Dana Reyes (Director)",
+        "now": "20260918T120000",
+        "ids": [
+          "00000000-0000-4000-8000-000000000001",
+          "00000000-0000-4000-8000-000000000002",
+          "00000000-0000-4000-8000-000000000003",
+          "00000000-0000-4000-8000-000000000004",
+          "00000000-0000-4000-8000-000000000005",
+          "00000000-0000-4000-8000-000000000006",
+          "00000000-0000-4000-8000-000000000007",
+          "00000000-0000-4000-8000-000000000008",
+          "00000000-0000-4000-8000-000000000009",
+          "00000000-0000-4000-8000-00000000000a",
+          "00000000-0000-4000-8000-00000000000b",
+          "00000000-0000-4000-8000-00000000000c",
+          "00000000-0000-4000-8000-00000000000d",
+          "00000000-0000-4000-8000-00000000000e",
+          "00000000-0000-4000-8000-00000000000f",
+          "00000000-0000-4000-8000-000000000010",
+          "00000000-0000-4000-8000-000000000011",
+          "00000000-0000-4000-8000-000000000012",
+          "00000000-0000-4000-8000-000000000013",
+          "00000000-0000-4000-8000-000000000014",
+          "00000000-0000-4000-8000-000000000015",
+          "00000000-0000-4000-8000-000000000016",
+          "00000000-0000-4000-8000-000000000017",
+          "00000000-0000-4000-8000-000000000018"
+        ]
+      },
+      "expected": {
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <ScriptNotes>\n    <ScriptNote Color=\"#000000000000\" DateModified=\"20260918T120000\" DateTime=\"20260918T120000\" Id=\"1\" Name=\"[eDraft]\" Range=\"70,74\" RefId=\"00000000-0000-4000-8000-000000000001\" Type=\"Director\" WriterID=\"00000000-0000-4000-8000-000000000001\" WriterName=\"Dana Reyes\">\n      <Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"0.00\" OutlineLevel=\"1\" RightIndent=\"1.39\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\" id=\"00000000-0000-4000-8000-000000000002\">\n        <Text AdornmentStyle=\"0\" Font=\"Arial\" RevisionID=\"0\" Size=\"12\" Style=\"\">Too flat?</Text>\n      </Paragraph>\n    </ScriptNote>\n  </ScriptNotes>\n\n  <Navigator/>\n</FinalDraft>\n"
+      }
+    },
+    {
+      "name": "anchored-reopened-no-edit",
+      "source": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <ScriptNotes>\n    <ScriptNote Color=\"#000000000000\" DateModified=\"20260918T120000\" DateTime=\"20260918T120000\" Id=\"1\" Name=\"[eDraft]\" Range=\"25,31\" RefId=\"00000000-0000-4000-8000-000000000001\" Type=\"Director\" WriterID=\"00000000-0000-4000-8000-000000000001\" WriterName=\"Dana Reyes\">\n      <Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"0.00\" OutlineLevel=\"1\" RightIndent=\"1.39\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\" id=\"00000000-0000-4000-8000-000000000002\">\n        <Text AdornmentStyle=\"0\" Font=\"Arial\" RevisionID=\"0\" Size=\"12\" Style=\"\">Too loud?</Text>\n      </Paragraph>\n    </ScriptNote>\n  </ScriptNotes>\n\n  <Navigator/>\n</FinalDraft>\n",
+      "screenplay": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "note",
+            "text": "Dana Reyes (Director): Too loud?",
+            "anchor": {
+              "on": "kettle"
+            }
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "note",
+            "text": "A note the file already has."
+          },
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "unedited": {
+        "titlePage": [],
+        "elements": [
+          {
+            "type": "scene",
+            "text": "INT. KITCHEN - NIGHT"
+          },
+          {
+            "type": "note",
+            "text": "Dana Reyes (Director): Too loud?",
+            "anchor": {
+              "on": "kettle"
+            }
+          },
+          {
+            "type": "action",
+            "text": "The kettle screams."
+          },
+          {
+            "type": "note",
+            "text": "A note the file already has."
+          },
+          {
+            "type": "character",
+            "text": "MARA"
+          },
+          {
+            "type": "dialogue",
+            "text": "It's the same lab."
+          }
+        ]
+      },
+      "notes": {
+        "writer": "Dana Reyes (Director)",
+        "now": "20260918T120000",
+        "ids": [
+          "00000000-0000-4000-8000-000000000001",
+          "00000000-0000-4000-8000-000000000002",
+          "00000000-0000-4000-8000-000000000003",
+          "00000000-0000-4000-8000-000000000004",
+          "00000000-0000-4000-8000-000000000005",
+          "00000000-0000-4000-8000-000000000006",
+          "00000000-0000-4000-8000-000000000007",
+          "00000000-0000-4000-8000-000000000008",
+          "00000000-0000-4000-8000-000000000009",
+          "00000000-0000-4000-8000-00000000000a",
+          "00000000-0000-4000-8000-00000000000b",
+          "00000000-0000-4000-8000-00000000000c",
+          "00000000-0000-4000-8000-00000000000d",
+          "00000000-0000-4000-8000-00000000000e",
+          "00000000-0000-4000-8000-00000000000f",
+          "00000000-0000-4000-8000-000000000010",
+          "00000000-0000-4000-8000-000000000011",
+          "00000000-0000-4000-8000-000000000012",
+          "00000000-0000-4000-8000-000000000013",
+          "00000000-0000-4000-8000-000000000014",
+          "00000000-0000-4000-8000-000000000015",
+          "00000000-0000-4000-8000-000000000016",
+          "00000000-0000-4000-8000-000000000017",
+          "00000000-0000-4000-8000-000000000018"
+        ]
+      },
+      "expected": {
+        "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <ScriptNotes>\n    <ScriptNote Color=\"#000000000000\" DateModified=\"20260918T120000\" DateTime=\"20260918T120000\" Id=\"1\" Name=\"[eDraft]\" Range=\"25,31\" RefId=\"00000000-0000-4000-8000-000000000001\" Type=\"Director\" WriterID=\"00000000-0000-4000-8000-000000000001\" WriterName=\"Dana Reyes\">\n      <Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"0.00\" OutlineLevel=\"1\" RightIndent=\"1.39\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\" id=\"00000000-0000-4000-8000-000000000002\">\n        <Text AdornmentStyle=\"0\" Font=\"Arial\" RevisionID=\"0\" Size=\"12\" Style=\"\">Too loud?</Text>\n      </Paragraph>\n    </ScriptNote>\n  </ScriptNotes>\n\n  <Navigator/>\n</FinalDraft>\n",
+        "identical": true
+      }
+    }
+  ],
+  "read": [
+    {
+      "name": "anchored-read-back",
+      "source": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">\n\n  <Content>\n    <Paragraph Type=\"Scene Heading\">\n      <Text>INT. KITCHEN - NIGHT</Text>\n    </Paragraph>\n    <Paragraph Type=\"Action\">\n      <Text>The kettle screams.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Note\">\n      <Text>A note the file already has.</Text>\n    </Paragraph>\n    <Paragraph Type=\"Character\">\n      <Text>MARA</Text>\n    </Paragraph>\n    <Paragraph Type=\"Dialogue\">\n      <Text>It's the same lab.</Text>\n    </Paragraph>\n  </Content>\n\n  <Characters>\n    <Character>MARA</Character>\n  </Characters>\n\n  <ScriptNotes>\n    <ScriptNote Color=\"#000000000000\" DateModified=\"20260918T120000\" DateTime=\"20260918T120000\" Id=\"1\" Name=\"[eDraft]\" Range=\"25,31\" RefId=\"00000000-0000-4000-8000-000000000001\" Type=\"Director\" WriterID=\"00000000-0000-4000-8000-000000000001\" WriterName=\"Dana Reyes\">\n      <Paragraph Alignment=\"Left\" FirstIndent=\"0.00\" Leading=\"Regular\" LeftIndent=\"0.00\" OutlineLevel=\"1\" RightIndent=\"1.39\" SpaceBefore=\"0\" Spacing=\"1\" StartsNewPage=\"No\" id=\"00000000-0000-4000-8000-000000000002\">\n        <Text AdornmentStyle=\"0\" Font=\"Arial\" RevisionID=\"0\" Size=\"12\" Style=\"\">Too loud?</Text>\n      </Paragraph>\n    </ScriptNote>\n  </ScriptNotes>\n\n  <Navigator/>\n</FinalDraft>\n",
+      "expected": {
+        "script": {
+          "titlePage": [],
+          "elements": [
+            {
+              "type": "scene",
+              "text": "INT. KITCHEN - NIGHT"
+            },
+            {
+              "type": "note",
+              "text": "Dana Reyes (Director): Too loud?",
+              "anchor": {
+                "on": "kettle"
+              }
+            },
+            {
+              "type": "action",
+              "text": "The kettle screams."
+            },
+            {
+              "type": "note",
+              "text": "A note the file already has."
+            },
+            {
+              "type": "character",
+              "text": "MARA"
+            },
+            {
+              "type": "dialogue",
+              "text": "It's the same lab."
+            }
+          ]
+        },
+        "scriptNotes": [],
+        "diagnostics": []
+      }
+    }
+  ],
+  "resolve": [
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "kettle"
+      },
+      "expected": {
+        "start": 4,
+        "end": 10
+      }
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "doesn't move"
+      },
+      "expected": {
+        "start": 25,
+        "end": 37
+      }
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "one"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "one",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "one",
+        "nth": 3
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "two",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "aa"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "aa",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "aa",
+        "nth": 3
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "MARA"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "Mara"
+      },
+      "expected": {
+        "start": 20,
+        "end": 24
+      }
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "the samovar"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": ""
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "anchor": {
+        "on": "kettle",
+        "nth": 0
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "kettle"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "doesn't move"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "one"
+      },
+      "expected": {
+        "start": 0,
+        "end": 3
+      }
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "one",
+        "nth": 2
+      },
+      "expected": {
+        "start": 8,
+        "end": 11
+      }
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "one",
+        "nth": 3
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "two",
+        "nth": 2
+      },
+      "expected": {
+        "start": 12,
+        "end": 15
+      }
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "aa"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "aa",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "aa",
+        "nth": 3
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "MARA"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "Mara"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "the samovar"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": ""
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "one two one two",
+      "anchor": {
+        "on": "kettle",
+        "nth": 0
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "kettle"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "doesn't move"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "one"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "one",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "one",
+        "nth": 3
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "two",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "aa"
+      },
+      "expected": {
+        "start": 0,
+        "end": 2
+      }
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "aa",
+        "nth": 2
+      },
+      "expected": {
+        "start": 1,
+        "end": 3
+      }
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "aa",
+        "nth": 3
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "MARA"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "Mara"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "the samovar"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": ""
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "aaa",
+      "anchor": {
+        "on": "kettle",
+        "nth": 0
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "kettle"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "doesn't move"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "one"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "one",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "one",
+        "nth": 3
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "two",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "aa"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "aa",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "aa",
+        "nth": 3
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "MARA"
+      },
+      "expected": {
+        "start": 9,
+        "end": 13
+      }
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "Mara"
+      },
+      "expected": {
+        "start": 0,
+        "end": 4
+      }
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "the samovar"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": ""
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "anchor": {
+        "on": "kettle",
+        "nth": 0
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "kettle"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "doesn't move"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "one"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "one",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "one",
+        "nth": 3
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "two",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "aa"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "aa",
+        "nth": 2
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "aa",
+        "nth": 3
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "MARA"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "Mara"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "the samovar"
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": ""
+      },
+      "expected": null
+    },
+    {
+      "paragraph": "",
+      "anchor": {
+        "on": "kettle",
+        "nth": 0
+      },
+      "expected": null
+    }
+  ],
+  "forSpan": [
+    {
+      "paragraph": "abab",
+      "start": 0,
+      "end": 0,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "abab",
+      "start": 0,
+      "end": 1,
+      "expected": {
+        "on": "a",
+        "nth": 1
+      },
+      "resolved": {
+        "start": 0,
+        "end": 1
+      }
+    },
+    {
+      "paragraph": "abab",
+      "start": 0,
+      "end": 2,
+      "expected": {
+        "on": "ab",
+        "nth": 1
+      },
+      "resolved": {
+        "start": 0,
+        "end": 2
+      }
+    },
+    {
+      "paragraph": "abab",
+      "start": 0,
+      "end": 3,
+      "expected": {
+        "on": "aba"
+      },
+      "resolved": {
+        "start": 0,
+        "end": 3
+      }
+    },
+    {
+      "paragraph": "abab",
+      "start": 0,
+      "end": 4,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "abab",
+      "start": 1,
+      "end": 1,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "abab",
+      "start": 1,
+      "end": 2,
+      "expected": {
+        "on": "b",
+        "nth": 1
+      },
+      "resolved": {
+        "start": 1,
+        "end": 2
+      }
+    },
+    {
+      "paragraph": "abab",
+      "start": 1,
+      "end": 3,
+      "expected": {
+        "on": "ba"
+      },
+      "resolved": {
+        "start": 1,
+        "end": 3
+      }
+    },
+    {
+      "paragraph": "abab",
+      "start": 1,
+      "end": 4,
+      "expected": {
+        "on": "bab"
+      },
+      "resolved": {
+        "start": 1,
+        "end": 4
+      }
+    },
+    {
+      "paragraph": "abab",
+      "start": 2,
+      "end": 2,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "abab",
+      "start": 2,
+      "end": 3,
+      "expected": {
+        "on": "a",
+        "nth": 2
+      },
+      "resolved": {
+        "start": 2,
+        "end": 3
+      }
+    },
+    {
+      "paragraph": "abab",
+      "start": 2,
+      "end": 4,
+      "expected": {
+        "on": "ab",
+        "nth": 2
+      },
+      "resolved": {
+        "start": 2,
+        "end": 4
+      }
+    },
+    {
+      "paragraph": "abab",
+      "start": 3,
+      "end": 3,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "abab",
+      "start": 3,
+      "end": 4,
+      "expected": {
+        "on": "b",
+        "nth": 2
+      },
+      "resolved": {
+        "start": 3,
+        "end": 4
+      }
+    },
+    {
+      "paragraph": "abab",
+      "start": 4,
+      "end": 4,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "aaa",
+      "start": 0,
+      "end": 0,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "aaa",
+      "start": 0,
+      "end": 1,
+      "expected": {
+        "on": "a",
+        "nth": 1
+      },
+      "resolved": {
+        "start": 0,
+        "end": 1
+      }
+    },
+    {
+      "paragraph": "aaa",
+      "start": 0,
+      "end": 2,
+      "expected": {
+        "on": "aa",
+        "nth": 1
+      },
+      "resolved": {
+        "start": 0,
+        "end": 2
+      }
+    },
+    {
+      "paragraph": "aaa",
+      "start": 0,
+      "end": 3,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "aaa",
+      "start": 1,
+      "end": 1,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "aaa",
+      "start": 1,
+      "end": 2,
+      "expected": {
+        "on": "a",
+        "nth": 2
+      },
+      "resolved": {
+        "start": 1,
+        "end": 2
+      }
+    },
+    {
+      "paragraph": "aaa",
+      "start": 1,
+      "end": 3,
+      "expected": {
+        "on": "aa",
+        "nth": 2
+      },
+      "resolved": {
+        "start": 1,
+        "end": 3
+      }
+    },
+    {
+      "paragraph": "aaa",
+      "start": 2,
+      "end": 2,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "aaa",
+      "start": 2,
+      "end": 3,
+      "expected": {
+        "on": "a",
+        "nth": 3
+      },
+      "resolved": {
+        "start": 2,
+        "end": 3
+      }
+    },
+    {
+      "paragraph": "aaa",
+      "start": 3,
+      "end": 3,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "aA",
+      "start": 0,
+      "end": 0,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "aA",
+      "start": 0,
+      "end": 1,
+      "expected": {
+        "on": "a"
+      },
+      "resolved": {
+        "start": 0,
+        "end": 1
+      }
+    },
+    {
+      "paragraph": "aA",
+      "start": 0,
+      "end": 2,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "aA",
+      "start": 1,
+      "end": 1,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "aA",
+      "start": 1,
+      "end": 2,
+      "expected": {
+        "on": "A"
+      },
+      "resolved": {
+        "start": 1,
+        "end": 2
+      }
+    },
+    {
+      "paragraph": "aA",
+      "start": 2,
+      "end": 2,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "",
+      "start": 0,
+      "end": 0,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "start": 4,
+      "end": 10,
+      "expected": {
+        "on": "kettle"
+      },
+      "resolved": {
+        "start": 4,
+        "end": 10
+      }
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "start": 25,
+      "end": 37,
+      "expected": {
+        "on": "doesn't move"
+      },
+      "resolved": {
+        "start": 25,
+        "end": 37
+      }
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "start": 0,
+      "end": 38,
+      "expected": null,
+      "resolved": null
+    },
+    {
+      "paragraph": "The kettle screams. Mara doesn't move.",
+      "start": 20,
+      "end": 37,
+      "expected": {
+        "on": "Mara doesn't move"
+      },
+      "resolved": {
+        "start": 20,
+        "end": 37
+      }
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "start": 0,
+      "end": 4,
+      "expected": {
+        "on": "Mara"
+      },
+      "resolved": {
+        "start": 0,
+        "end": 4
+      }
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "start": 9,
+      "end": 13,
+      "expected": {
+        "on": "MARA"
+      },
+      "resolved": {
+        "start": 9,
+        "end": 13
+      }
+    },
+    {
+      "paragraph": "Mara and MARA",
+      "start": 5,
+      "end": 8,
+      "expected": {
+        "on": "and"
+      },
+      "resolved": {
+        "start": 5,
+        "end": 8
+      }
+    },
+    {
+      "paragraph": "one two one two",
+      "start": 0,
+      "end": 3,
+      "expected": {
+        "on": "one",
+        "nth": 1
+      },
+      "resolved": {
+        "start": 0,
+        "end": 3
+      }
+    },
+    {
+      "paragraph": "one two one two",
+      "start": 8,
+      "end": 11,
+      "expected": {
+        "on": "one",
+        "nth": 2
+      },
+      "resolved": {
+        "start": 8,
+        "end": 11
+      }
+    },
+    {
+      "paragraph": "one two one two",
+      "start": 4,
+      "end": 7,
+      "expected": {
+        "on": "two",
+        "nth": 1
+      },
+      "resolved": {
+        "start": 4,
+        "end": 7
+      }
+    },
+    {
+      "paragraph": "one two one two",
+      "start": 12,
+      "end": 15,
+      "expected": {
+        "on": "two",
+        "nth": 2
+      },
+      "resolved": {
+        "start": 12,
+        "end": 15
+      }
+    },
+    {
+      "paragraph": "one two one two",
+      "start": 0,
+      "end": 15,
+      "expected": null,
+      "resolved": null
+    }
+  ],
+  "header": [
+    {
+      "text": "[eDraft on:\"a\"]\nx",
+      "expected": {
+        "anchor": {
+          "on": "a"
+        },
+        "body": "x"
+      }
+    },
+    {
+      "text": "[eDraft on:\"one\" nth:2]\nDana Reyes (Director): Too still?",
+      "expected": {
+        "anchor": {
+          "on": "one",
+          "nth": 2
+        },
+        "body": "Dana Reyes (Director): Too still?"
+      }
+    },
+    {
+      "text": "[EDRAFT ON:\"a\"]\nx",
+      "expected": {
+        "anchor": {
+          "on": "a"
+        },
+        "body": "x"
+      }
+    },
+    {
+      "text": "[eDraft on:\"a \\\"b\\\" c\"]\nx",
+      "expected": {
+        "anchor": {
+          "on": "a \"b\" c"
+        },
+        "body": "x"
+      }
+    },
+    {
+      "text": "[eDraft on:\"a]b\"]\nx",
+      "expected": {
+        "anchor": {
+          "on": "a]b"
+        },
+        "body": "x"
+      }
+    },
+    {
+      "text": "[eDraft on:\"a\"]",
+      "expected": {
+        "anchor": {
+          "on": "a"
+        },
+        "body": ""
+      }
+    },
+    {
+      "text": "[eDraft on:\"a\" nth:1]\nx",
+      "expected": {
+        "anchor": {
+          "on": "a",
+          "nth": 1
+        },
+        "body": "x"
+      }
+    },
+    {
+      "text": "[eDraft thread:t4k9qz status:open]\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft on:\"a\" thread:t4k9qz]\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft from:\"Dana Reyes (Director)\"]\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft on:\"a\"\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft on:\"a\"] trailing\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft on:\"a\" nth:0]\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft on:\"a\" nth:two]\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft on:\"a\" nth:01]\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft on:\"a\" on:\"b\"]\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft on:\"\"]\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft]\nx",
+      "expected": null
+    },
+    {
+      "text": "[eDraft ]\nx",
+      "expected": null
+    },
+    {
+      "text": "Dana: just a note",
+      "expected": null
+    },
+    {
+      "text": "",
+      "expected": null
+    },
+    {
+      "text": "[eDraft a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b a:b !]\nx",
+      "expected": null
+    }
+  ],
+  "writeHeader": [
+    {
+      "anchor": {
+        "on": "doesn't move"
+      },
+      "expected": "[eDraft on:\"doesn't move\"]"
+    },
+    {
+      "anchor": {
+        "on": "one",
+        "nth": 2
+      },
+      "expected": "[eDraft on:\"one\" nth:2]"
+    },
+    {
+      "anchor": {
+        "on": "a \"b\" c"
+      },
+      "expected": "[eDraft on:\"a \\\"b\\\" c\"]"
+    },
+    {
+      "anchor": {
+        "on": "back\\slash"
+      },
+      "expected": "[eDraft on:\"back\\\\slash\"]"
+    },
+    {
+      "anchor": {
+        "on": "a]b"
+      },
+      "expected": "[eDraft on:\"a]b\"]"
+    }
+  ]
+}

@@ -2078,3 +2078,157 @@ describe('which notes are eDraft’s (RFC-NOTES-SYSTEM §4.3, IL-0043)', () => {
 		expect(read.script.elements).toEqual([{ type: 'action', text: 'Hum.' }]);
 	});
 });
+
+describe('FDX · notes pinned to words (RFC-NOTES-SYSTEM §5, stage 4)', () => {
+	const NOTES: FdxNoteWriting = {
+		writer: 'Sam Okafor',
+		now: '20260920T120000',
+		newId: () => '00000000-0000-4000-8000-000000000001'
+	};
+	const rangeOf = (xml: string) => /<ScriptNote[^>]*\sRange="([^"]*)"/.exec(xml)?.[1];
+	const wrote = (elements: ScreenplayElement[]) =>
+		writeFdxWithDiagnostics({ titlePage: [], elements }, { notes: NOTES });
+
+	it('writes an anchored note on its words, not its paragraph (§5.1)', () => {
+		const result = wrote([
+			{ type: 'action', text: "The kettle screams. Mara doesn't move." },
+			{ type: 'note', text: 'Too still?', anchor: { on: "doesn't move" } }
+		]);
+		/* "The kettle screams. Mara " is 25 units; the words run to the
+		   full stop, which they do not include. */
+		expect(rangeOf(result.xml)).toBe('25,37');
+		expect(result.diagnostics).toEqual([]);
+	});
+
+	it('writes an unanchored note on its whole paragraph, exactly as before', () => {
+		const paragraph = "The kettle screams. Mara doesn't move.";
+		const anchored = wrote([{ type: 'action', text: paragraph }, { type: 'note', text: 'Too still?' }]);
+		expect(rangeOf(anchored.xml)).toBe(`0,${paragraph.length}`);
+	});
+
+	it('nth picks the occurrence, and the Range follows it (§5.3)', () => {
+		const result = wrote([
+			{ type: 'action', text: 'one two one two' },
+			{ type: 'note', text: 'Which?', anchor: { on: 'one', nth: 2 } }
+		]);
+		expect(rangeOf(result.xml)).toBe('8,11');
+	});
+
+	it('words that are gone fall back to the paragraph and say so (§5.3 rule 5)', () => {
+		const result = wrote([
+			{ type: 'action', text: 'The kettle screams.' },
+			{ type: 'note', text: 'Too still?', anchor: { on: 'the samovar' } }
+		]);
+		expect(rangeOf(result.xml)).toBe('0,19');
+		expect(result.diagnostics.map((d) => d.code)).toContain('FDX_NOTE_ANCHOR_WORDS_CHANGED');
+	});
+
+	it('reads the words back off the Range, and round-trips the anchor (§5.4)', () => {
+		const original: Screenplay = {
+			titlePage: [],
+			/* In front of its paragraph: where the editor keeps a note, and
+			   where reading one back puts it (§5.2). */
+			elements: [
+				{ type: 'note', text: 'Sam Okafor: Too still?', anchor: { on: "doesn't move" } },
+				{ type: 'action', text: "The kettle screams. Mara doesn't move." }
+			]
+		};
+		const read = parseFdx(writeFdxWithDiagnostics(original, { notes: NOTES }).xml).script;
+		expect(read.elements.find((e) => e.type === 'note')?.anchor).toEqual({ on: "doesn't move" });
+		expect(read).toEqual(original);
+	});
+
+	it('gives a whole-paragraph Range no anchor — every note before stage 4', () => {
+		const xml = writeFdxWithDiagnostics(
+			{ titlePage: [], elements: [{ type: 'action', text: 'The kettle screams.' }, { type: 'note', text: 'Sam Okafor: Why?' }] },
+			{ notes: NOTES }
+		).xml;
+		expect(parseFdx(xml).script.elements.find((e) => e.type === 'note')?.anchor).toBeUndefined();
+	});
+
+	it('a Range that spans paragraphs anchors to the words in its first (§5.3 rule 6)', () => {
+		const xml =
+			'<FinalDraft><Content>' +
+			'<Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>' +
+			'<Paragraph Type="Action"><Text>Mara waits.</Text></Paragraph>' +
+			'</Content><ScriptNotes>' +
+			'<ScriptNote Name="[eDraft]" Range="4,25" WriterName="Sam Okafor"><Paragraph><Text>Both?</Text></Paragraph></ScriptNote>' +
+			'</ScriptNotes></FinalDraft>';
+		const note = parseFdx(xml).script.elements.find((e) => e.type === 'note');
+		expect(note?.anchor).toEqual({ on: 'kettle screams.' });
+	});
+
+	it('an anchor never reaches the file as an attribute — Final Draft strips those (§3 fact 1)', () => {
+		const xml = wrote([
+			{ type: 'action', text: "The kettle screams. Mara doesn't move." },
+			{ type: 'note', text: 'Too still?', anchor: { on: "doesn't move" } }
+		]).xml;
+		/* The root's xmlns:EDraft and the EDraft:ElementType/TitleKey
+		   attributes are the writer's own, from long before this stage. What
+		   stage 4 promises is narrower and is what is checked: the anchor
+		   itself never becomes an attribute, on a note or anywhere else. */
+		const notes = xml.slice(xml.indexOf('<ScriptNotes>'));
+		expect(notes).not.toContain('EDraft:');
+		expect(xml).not.toContain('on:');
+		expect(xml).not.toContain('nth:');
+		expect(xml).not.toContain('Anchor');
+	});
+
+	it('FDX to Fountain and back keeps the words', () => {
+		const original: Screenplay = {
+			titlePage: [],
+			elements: [
+				{ type: 'action', text: 'one two one two' },
+				{ type: 'note', text: 'Sam Okafor: Which?', anchor: { on: 'one', nth: 2 } }
+			]
+		};
+		const xml = writeFdxWithDiagnostics(original, { notes: NOTES }).xml;
+		const throughFountain = parseFountain(serialiseFountain(parseFdx(xml).script));
+		expect(throughFountain.elements.find((e) => e.type === 'note')?.anchor).toEqual({ on: 'one', nth: 2 });
+		expect(rangeOf(writeFdxWithDiagnostics(throughFountain, { notes: NOTES }).xml)).toBe('8,11');
+	});
+
+	it('Fountain cannot anchor a note on a speech line, and the save says so', () => {
+		/* A note between a cue and its speech ends the block in Fountain, so
+		   the serialiser hoists it in front of the block (IL-0040). §5.2 then
+		   makes the cue its paragraph, the words are not in it, and §5.3 rule
+		   5 falls back to the whole cue. A named degradation, not a surprise:
+		   the words are never moved to another paragraph or guessed at. */
+		const script: Screenplay = {
+			titlePage: [],
+			elements: [
+				{ type: 'character', text: 'MARA' },
+				{ type: 'note', text: 'Too flat?', anchor: { on: 'same lab' } },
+				{ type: 'dialogue', text: "It's the same lab." }
+			]
+		};
+		const reparsed = parseFountain(serialiseFountain(script));
+		expect(reparsed.elements.map((e) => e.type)).toEqual(['note', 'character', 'dialogue']);
+		const result = writeFdxWithDiagnostics(reparsed, { notes: NOTES });
+		expect(rangeOf(result.xml)).toBe('0,4');
+		expect(result.diagnostics.map((d) => d.code)).toContain('FDX_NOTE_ANCHOR_WORDS_CHANGED');
+	});
+
+	it('a save with no edit is byte-identical when the file holds an anchored note', () => {
+		const source =
+			'<FinalDraft DocumentType="Script" Template="No" Version="5">\n' +
+			'  <Content>\n' +
+			'    <Paragraph Type="Action">\n' +
+			'      <Text>The kettle screams. Mara doesn\'t move.</Text>\n' +
+			'    </Paragraph>\n' +
+			'  </Content>\n' +
+			'  <ScriptNotes>\n' +
+			'    <ScriptNote Name="[eDraft]" Range="20,37" WriterName="Sam Okafor">\n' +
+			'      <Paragraph>\n' +
+			'        <Text>Too still?</Text>\n' +
+			'      </Paragraph>\n' +
+			'    </ScriptNote>\n' +
+			'  </ScriptNotes>\n' +
+			'</FinalDraft>\n';
+		const reading = parseFdx(source).script;
+		/* 20,37 is "Mara doesn't move" — the Range is the measure, not the eye. */
+		expect(reading.elements.find((e) => e.type === 'note')?.anchor).toEqual({ on: "Mara doesn't move" });
+		const saved = openFdx(source).rewrite(reading, { unedited: reading, notes: NOTES }).xml;
+		expect(saved).toBe(source);
+	});
+});

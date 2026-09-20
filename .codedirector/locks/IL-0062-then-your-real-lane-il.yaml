@@ -1,0 +1,203 @@
+schemaVersion: 1
+id: IL-0062
+status: verified
+utterance: "Then your real lane: IL-0039 — ScriptNotes Stage 1, notes pinned to words, per docs/RFC-NOTES-SYSTEM.md. Your budget is the engines only: packages/edraft, apple/eDraftEngine, apple/EDraftCore, their fixtures and tests."
+goal: "Notes pinned to words in both engines — RFC-NOTES-SYSTEM stage 4 (range anchors), engine half only: a note carries an optional anchor of quoted words; Fountain writes and reads `on:`/`nth:` (§5.2); §5.3's disambiguation rule is pinned case by case in both ports; FDX computes an anchored note's Range from its words instead of its whole paragraph and derives `on:`/`nth:` back from a Range on read (§5.1, §5.4); FDX to Fountain and back keeps the words. Byte-identical across TypeScript and Swift, no `EDraft:` attribute written anywhere, and no surface, UI or app file touched."
+interpretation: |
+  WHAT THE USER ASKED FOR, AND WHAT THIS LOCK IS. The request names
+  "IL-0039 — ScriptNotes Stage 1, notes pinned to words". Measured in the
+  repository, those are two different stages and stage 1 is already history:
+
+    - Stage 1 (round trip: notes as real <ScriptNote>s, the name prompt,
+      the `]` fix) was built by IL-0041 and amended by IL-0042/IL-0043,
+      committed in fbd7eb9 (2026-09-18), an ancestor of HEAD. The RFC says
+      so in §11 itself. IL-0039 was the first, failed attempt at that same
+      stage; its lock reads status: failed and Code Director 0.4.5 cannot
+      re-activate a failed lock.
+    - "Notes pinned to words" is stage 4 — range anchors (§11, "Stage 4 —
+      range anchors"). The RFC is explicit that stage 1's anchor is the
+      whole paragraph: "a new thread's Range is its whole paragraph; words
+      come in stage 4."
+
+  So this lock carries the user's actual subject — notes pinned to words —
+  under its true stage number. It is a new id because IL-0039 is spent.
+
+  THE CARRIER, MEASURED, AGAINST THE BRIEF. The brief says the Final Draft
+  13.4.0 probe found that "EDraft: attributes survive Final Draft
+  round-trips, so the carrier is attributes-first with the header line as
+  fallback". The probe measured the opposite, and the probe files still say
+  so on disk today:
+
+    probe.fdx / probe-A-saved.fdx / probe-B-Edited.fdx
+    EDraft:<Attr> occurrences: 0 / 0 / 0   ScriptNotes: 14 / 14 / 16
+
+  RFC §3 fact 1: "Final Draft strips every unknown attribute on a plain Save
+  As. EDraft: occurs 9 times in the probe and 0 times in both saved copies."
+  Fact 2: the same save erases eDraft highlights. The RFC's conclusion is
+  quoted here because it decides this lock's design: "Everything a thread
+  needs must live in text Final Draft preserves. Note text does (fact 1);
+  attributes do not. There is no fallback to switch to."
+
+  Nothing attributes-first is therefore built. In FDX the anchor is the
+  Range — which Final Draft keeps and moves with its words (fact 5, and
+  IL-0033) — and the note's own fields, which survive (facts 3, 6, 9). In
+  Fountain, where there is no Range, the anchor is the quoted words in the
+  `on:`/`nth:` grammar the RFC already specifies. No `EDraft:` namespace is
+  written into any file by this lock, in either port.
+
+  WHAT IT BUILDS, both engines, TypeScript first and Swift pinned to it by
+  the shared conformance fixtures:
+
+    1. THE ANCHOR ON THE MODEL. A note element gains an optional anchor —
+       the quoted words and an optional nth. Optional and omitted when
+       absent, so every existing corpus case serialises exactly as today
+       and the untouched fixtures stay byte-identical.
+    2. THE RULE (§5.3), one implementation per port, shared by both
+       formats: search only the note's own paragraph, from its start; first
+       occurrence unless `nth:N`; write `nth` exactly when the words occur
+       more than once at the time of writing; exact UTF-16 matching, casing
+       included; words gone or fewer than N anchors to the whole paragraph
+       and is flagged "words changed", never moved, never guessed; an
+       anchor never spans paragraphs in Fountain.
+    3. FOUNTAIN (§5.2, §4.4): `on:`/`nth:` written and read, the thread's
+       paragraph being the one that follows the note. §4.4's spelling and
+       IL-0038's `]` fix hold unchanged.
+    4. FDX (§5.1, §5.4): an anchored note's Range is computed from its
+       words by IL-0031's counter instead of `paragraphRange`; on read, a
+       note eDraft owns derives `on:`/`nth:` from the words its Range covers
+       in the first paragraph it touches. A Range spanning paragraphs keeps
+       its full span in FDX and anchors to its first paragraph in Fountain
+       (§5.3 rule 6). Notes with no anchor keep today's whole-paragraph
+       behaviour byte for byte.
+    5. CONVERSION: FDX to Fountain and back keeps the words.
+
+  WHAT IS NOT IN THIS LOCK, AND WHY. Stage 4's other half is the surface:
+  capturing the writer's selection and placing a thread visually in the
+  editor. Those files are apple/EDraftMacSurface/** (ChatGPT holds active
+  lock IL-0054 over it) and apple/EDraftUI/** (Grok's title-page work).
+  Both are denied here. The engine half stands alone and is provable
+  without them: it takes an anchor and returns bytes. If the work turns out
+  to need either package, the run stops and the user is told — the budget
+  is not widened here.
+
+  Also not built: stage 2 threads and stage 3 resolve (their carrier is
+  decided for `.draft`, not FDX), the stage 5 report, and stage H's
+  highlight carrier. PdfSignal is untouched (acf7673).
+
+  FIXTURES: invented script text only — the repository is public.
+
+  FINAL DRAFT CHECK: the RFC's stage protocol requires the human to open an
+  eDraft-written probe in Final Draft before the stage is committed —
+  "a note eDraft anchored to words shows on those words in Final Draft, and
+  keeps them through a Final Draft save." This lock prepares that probe
+  file and stops. No commit is authorized.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: every conformance fixture except the four this lock regenerates on purpose (fdx.json, parse.json, serialise.json, the new noteanchor.json) is byte-identical after `node scripts/engine-conformance-export.mjs`
+  - kind: custom
+    text: a save with no edit stays byte-identical on the Final Draft-written fixtures — the IL-0027/IL-0041 keep
+  - kind: custom
+    text: no `EDraft:` namespaced attribute, and no xmlns:EDraft, is written into any FDX file by either port — the probe measured them stripped by Final Draft's first save
+  - kind: custom
+    text: a note with no word anchor keeps today's whole-paragraph Range exactly, in both ports — anchoring is additive
+  - kind: custom
+    text: the two ports agree byte for byte on every notes conformance case, and read every case to the same document
+  - kind: custom
+    text: Final Draft's own notes keep every byte but their Ranges; a body Note paragraph stays a body paragraph; a note ending in `]` still round-trips (IL-0038)
+  - kind: custom
+    text: the apps are unchanged — no file under EDraftMacSurface, EDraftUI, the app targets, the Xcode project or docs/ is touched, and the foreign working-tree changes are left exactly as found
+deny:
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - src/**
+  - docs/**
+  - package.json
+  - package-lock.json
+  - apple/eDraftEngine/Package.swift
+  - apple/EDraftCore/Package.swift
+  - packages/edraft/src/pdfsignal.ts
+  - packages/edraft/src/paginate.ts
+  - packages/edraft/src/draftfile.ts
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: Notes pinned to words in the engine layer of both ports — an optional word anchor on a note, §5.3's disambiguation rule, `on:`/`nth:` in Fountain, word-derived Ranges in FDX, and conversion that keeps the words; no surface, no UI, no attributes.
+verifyCommand: npm run typecheck --workspace=@edraft/core && npm run test:package && npm run package:build && node scripts/engine-conformance-export.mjs && git diff --quiet -- apple/eDraftEngine/Fixtures ':!apple/eDraftEngine/Fixtures/fdx.json' ':!apple/eDraftEngine/Fixtures/parse.json' ':!apple/eDraftEngine/Fixtures/serialise.json' ':!apple/eDraftEngine/Fixtures/noteanchor.json' && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - packages/edraft/src/types.ts
+    - packages/edraft/src/noteanchor.ts
+    - packages/edraft/src/noteanchor.test.ts
+    - packages/edraft/src/parse.ts
+    - packages/edraft/src/parse.test.ts
+    - packages/edraft/src/serialise.ts
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - packages/edraft/src/index.ts
+    - apple/eDraftEngine/Sources/EDraftEngine/Model/Types.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Model/NoteAnchor.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fountain/Parse.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fountain/Serialise.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/FdxScriptNotes.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/NoteAnchorConformanceTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FdxScriptNotesTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FountainConformanceTests.swift
+    - apple/eDraftEngine/Fixtures/noteanchor.json
+    - apple/eDraftEngine/Fixtures/fdx.json
+    - apple/eDraftEngine/Fixtures/parse.json
+    - apple/eDraftEngine/Fixtures/serialise.json
+    - apple/EDraftCore/Sources/EDraftCore/ImportedNotes.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/ImportedNotesTests.swift
+    - scripts/engine-conformance-export.mjs
+  symbols: []
+  maxFiles: 25
+  maxLines: 3400
+accept:
+  - "RULE: §5.3's cases each pinned in both ports — first occurrence; `nth:N`; `nth` written only when the words repeat; exact UTF-16 casing (a thread quoting MARA does not land on Mara); words gone or fewer than N anchors to the paragraph and is flagged \"words changed\"; never moved to another paragraph."
+  - "FOUNTAIN: a note with `on:` round-trips to the same words; without `on:` it anchors to the whole paragraph, exactly as today; the thread's paragraph is the one that follows the note; §4.4's spelling and the `]` fix (IL-0038) hold."
+  - "FDX WRITE: an anchored note's Range covers its words, counted by IL-0031's rule; an unanchored note's Range is its whole paragraph, byte-identical to today."
+  - "FDX READ: a note eDraft owns derives `on:`/`nth:` from the words its Range covers in the first paragraph it touches; a Range spanning paragraphs keeps its full span in FDX and anchors to its first paragraph in Fountain."
+  - "CONVERSION: FDX to Fountain and back keeps the words on every corpus case that has notes."
+  - "PORTS: TypeScript and Swift produce identical bytes for every case in noteanchor.json and read every case to the same document."
+  - "KEEPS PROVEN, not asserted: a no-edit save of each Final Draft-written fixture is byte-identical; Final Draft's own notes keep every byte but their Ranges; no `EDraft:` attribute appears in any written file; untouched fixtures byte-identical after regeneration."
+  - A probe file is prepared for the human's Final Draft check (RFC §11 stage protocol) and the lock stops there — no commit.
+assumptions:
+  - text: "Collision map, given by the user (2026-09-20) and treated as absolute: ChatGPT holds active lock IL-0054 over apple/EDraftMacSurface/**; Grok holds apple/EDraftUI/**. Both denied here. The budget is the engines only: packages/edraft, apple/eDraftEngine, apple/EDraftCore, their fixtures and tests."
+    source: user
+    confirmed: true
+  - text: 'Foreign working-tree dirt to leave untouched, named by the user: apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme, apple/macOS/EDraftMacApp.swift, apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift, .codedirector/mcp.log, .codedirector/seals.json, "edraft logo.png", screenshot.png. Never touched, staged or reverted.'
+    source: user
+    confirmed: true
+  - text: "MEASURED, and contradicts the brief: the Final Draft probe files hold zero `EDraft:` attributes in all three copies (probe.fdx, probe-A-saved.fdx, probe-B-Edited.fdx), against 9 in the original input per RFC §3 fact 1. Attributes do NOT survive a Final Draft round trip, so nothing attributes-first is built. The FDX carrier is the Range plus the note's own fields; Fountain carries `on:`/`nth:` in text. Needs the user's yes."
+    source: system
+    confirmed: false
+  - text: "MEASURED, and contradicts the brief: RFC stage 1 is already built and committed (IL-0041, amended by IL-0042/IL-0043, commit fbd7eb9, an ancestor of HEAD; the RFC records it in §11). \"Notes pinned to words\" is stage 4. This lock is stage 4's engine half. Needs the user's yes."
+    source: system
+    confirmed: false
+  - text: "IL-0039 cannot be reused: its lock reads status: failed, and Code Director 0.4.5 refuses to activate anything but a draft or an active lock. This lock takes the next free id and carries the subject."
+    source: system
+    confirmed: false
+  - text: Stage 4's surface half — capturing the writer's selection and placing a thread in the editor (§5.4) — is out of budget by the collision map and is a later lock. If the engine half turns out to need EDraftMacSurface or EDraftUI, the run stops and the user is told.
+    source: system
+    confirmed: false
+  - text: "maxLines 3,400, a tripwire and not a target: measured estimate — engine source in both ports ~1,100 (the rule, the model field, Fountain grammar, FDX Range derivation), tests in both ports ~900, generated fixtures ~1,300 (the new noteanchor.json plus the new cases added to fdx/parse/serialise; the anchor is omitted when absent so existing cases do not churn), export script ~100. If quality work hits the ceiling, the run stops and the evidence is shown rather than trimming tests."
+    source: system
+    confirmed: false
+  - text: New files sit in folders already tracked by git (packages/edraft/src, Model/, EDraftEngineTests, Fixtures, EDraftCoreTests) — Code Director 0.4.5 misjudges files in new folders.
+    source: system
+    confirmed: false
+  - text: The pre-existing untracked lock files and seals under .codedirector/ may be reported as violations by Code Director 0.4.5, as in IL-0044/IL-0046. .codedirector/** is denied here and nothing under it is touched during the run.
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T10:05:26.958Z
+createdBy: Yasirdora

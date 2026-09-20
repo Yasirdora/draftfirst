@@ -79,8 +79,11 @@ extension Fountain {
             if let start = blockStart, end < elements.count,
                elements[end].type == .parenthetical || elements[end].type == .dialogue {
                 let run = Array(index..<end)
+                /* A header line must stand alone (§4.1), so an anchored
+                   note is never written inline at the end of another line. */
                 let oneLineNotes = run.allSatisfy {
                     elements[$0].type == .note && !elements[$0].text.contains("\n")
+                        && elements[$0].anchor == nil
                 }
                 let firstLine = elementToFountain(elements[end])
                     .split(separator: "\n", omittingEmptySubsequences: false).first.map(String.init) ?? ""
@@ -178,7 +181,12 @@ extension Fountain {
             return risky ? "!" + text : text
 
         case .note:
-            return "[[\(noteBody(body))]]"
+            /* An anchored note opens with its header line (§4.1, §5.2). The
+               escaping runs over the whole note, header included, so a `]]`
+               inside quoted words cannot close the note early — the reader
+               undoes it on every line (§4.4). */
+            let anchored = element.anchor.map { "\(NoteAnchor.writeHeader($0))\n\(body)" } ?? body
+            return "[[\(noteBody(anchored))]]"
 
         case .section:
             let depth = max(1, element.depth ?? 1)
