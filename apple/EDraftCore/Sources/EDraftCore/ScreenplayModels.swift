@@ -123,6 +123,10 @@ public enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendabl
 /// what they are rather than borrowing the main actor to compare two structs.
 public nonisolated struct ScriptElement: Identifiable, Codable, Equatable, Sendable {
     public var id: UUID
+    /// Document identity, independent of the transient UUID used by the surface.
+    /// Nil only before adoption, or for notes (a separate notes.json namespace).
+    public internal(set) var draftID: DraftElementID?
+    internal var draftIdentityOwner: UUID?
     public var type: ScreenplayKind
     public var text: String
     /// Styled spans of `text` — emphasis as data, never marker characters
@@ -145,8 +149,10 @@ public nonisolated struct ScriptElement: Identifiable, Codable, Equatable, Senda
         runs: [StyleRun]? = nil,
         dual: Bool? = nil,
         sceneNumber: String? = nil,
-        depth: Int? = nil
+        depth: Int? = nil,
+        draftID: DraftElementID? = nil
     ) {
+        self.draftID = draftID
         self.id = id
         self.type = type
         self.text = text
@@ -158,11 +164,13 @@ public nonisolated struct ScriptElement: Identifiable, Codable, Equatable, Senda
 
     private enum CodingKeys: String, CodingKey {
         case type, text, runs, dual, sceneNumber, depth
+        case draftID = "id"
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = UUID()
+        draftID = try container.decodeIfPresent(DraftElementID.self, forKey: .draftID)
         type = try container.decode(ScreenplayKind.self, forKey: .type)
         text = try container.decode(String.self, forKey: .text)
         runs = try container.decodeIfPresent([StyleRun].self, forKey: .runs)
@@ -189,7 +197,8 @@ public struct DocumentIndex: Comparable, Codable, Equatable, Sendable {
 
 public struct Screenplay: Codable, Equatable, Sendable {
 
-    nonisolated public init(titlePage: [TitlePageLine] = [], elements: [ScriptElement] = []) {
+    nonisolated public init(titlePage: [TitlePageLine] = [], elements: [ScriptElement] = [], nextId: String? = nil) {
+        self.nextId = nextId
         self.titlePage = titlePage
         self.elements = elements
     }
@@ -197,6 +206,7 @@ public struct Screenplay: Codable, Equatable, Sendable {
     /// own line type, so nothing re-encodes between the page and the model.
     public var titlePage: [TitlePageLine]
     public var elements: [ScriptElement]
+    public var nextId: String?
 
     public static let blank = Screenplay(
         /* The seed entries arrive as lines through the same migration every
@@ -241,9 +251,10 @@ public struct Screenplay: Codable, Equatable, Sendable {
 // MARK: - Native engine model conversion
 
 extension Screenplay {
-    /// The engine package's identity-free model. Every field the engine
-    /// carries — style runs, dual, sceneNumber, section depth — round-trips
-    /// losslessly; the title page is the same line type on both sides.
+    /// Legacy raw projection for layout, analysis and Fountain boundaries.
+    /// Content fields round-trip; persistent identity intentionally does not.
+    /// Use identifiedEngineModel (or EditorState.identifiedDocumentModel for
+    /// the complete document including asides) for identity-aware operations.
     public var engineModel: EDraftEngine.Screenplay {
         EDraftEngine.Screenplay(
             titlePage: titlePage,
@@ -260,6 +271,13 @@ extension Screenplay {
         )
     }
 
+    public var identifiedEngineModel: EDraftEngine.Screenplay {
+        var model = engineModel
+        model.nextId = nextId
+        for i in elements.indices { model.elements[i].id = elements[i].draftID }
+        return model
+    }
+
     /// A fresh app screenplay from the engine model; elements receive new
     /// identities, exactly as a JSON decode through the old bridge did.
     nonisolated public init(engineModel: EDraftEngine.Screenplay) {
@@ -272,9 +290,11 @@ extension Screenplay {
                     runs: $0.runs,
                     dual: $0.dual,
                     sceneNumber: $0.sceneNumber,
-                    depth: $0.depth
+                    depth: $0.depth,
+                    draftID: $0.id
                 )
-            }
+            },
+            nextId: engineModel.nextId
         )
     }
 }

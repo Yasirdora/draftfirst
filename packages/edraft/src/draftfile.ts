@@ -13,6 +13,8 @@
  * (RFC-DRAFT-FORMAT §16 O1) lands. Readers accept both (§4.1).
  */
 
+import { draftElementID, restoreIdentifiedScreenplay } from './identity.js';
+import type { IdentifiedScreenplay } from './identity.js';
 import { parseFountain } from './parse.js';
 import { serialiseFountain } from './serialise.js';
 import { decodeUtf8, encodeUtf8 } from './platform.js';
@@ -895,7 +897,7 @@ export function draftFromScreenplay(screenplay: Screenplay, options: { title?: s
 			pending.push(element.text);
 			continue;
 		}
-		const id = (elements.length + 1).toString(36);
+		const id = element.id ?? (elements.length + 1).toString(36);
 		const out: JsonObject = new Map<string, JsonValue>([
 			['id', id],
 			['type', element.type],
@@ -921,7 +923,7 @@ export function draftFromScreenplay(screenplay: Screenplay, options: { title?: s
 		script: new Map<string, JsonValue>([
 			['titlePage', titlePage],
 			['elements', elements],
-			['nextId', (elements.length + 1).toString(36)]
+			['nextId', screenplay.nextId ?? (elements.length + 1).toString(36)]
 		]),
 		parts: []
 	};
@@ -936,7 +938,8 @@ export function draftFromScreenplay(screenplay: Screenplay, options: { title?: s
 }
 
 /**
- * Today's model from a document: each thread becomes a note element in
+ * Legacy identity-free projection. Use draftToIdentifiedScreenplay for editing
+ * and persistence. Each thread becomes a note element in
  * front of its element, its messages one line each as "Name (Role): text".
  * What today's model cannot hold is said: a word anchor degrades to its
  * line, a detached thread goes to the end.
@@ -1366,4 +1369,19 @@ export async function readDraft(bytes: Uint8Array): Promise<DraftReadResult> {
 		});
 	}
 	return { document, diagnostics, readOnly };
+}
+
+/** Identity-preserving document boundary. Legacy toScreenplay remains a raw projection. */
+export function draftToIdentifiedScreenplay(document: DraftDocument): { screenplay: IdentifiedScreenplay; diagnostics: DraftDiagnostic[] } {
+ const result = draftToScreenplay(document);
+ const rows = document.script.get('elements') as JsonObject[];
+ let index = 0;
+ for (const element of result.screenplay.elements) {
+  if (element.type !== 'note') element.id = draftElementID(rows[index++]!.get('id') as string);
+ }
+ result.screenplay.nextId = document.script.get('nextId') as string;
+ return { ...result, screenplay: restoreIdentifiedScreenplay(result.screenplay) };
+}
+export function draftFromIdentifiedScreenplay(screenplay: IdentifiedScreenplay, options: { title?: string } = {}): DraftDocument {
+ return draftFromScreenplay(restoreIdentifiedScreenplay(screenplay), options);
 }

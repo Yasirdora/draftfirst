@@ -2380,3 +2380,33 @@ writeFixture('draft.json', {
 });
 
 console.log('✓ conformance corpus written to apple/eDraftEngine/Fixtures/');
+
+// M1 persistent identity: byte-identical script.json and allocation traces.
+const identity = await import('../packages/edraft/dist/identity.js');
+const identityDraft = await import('../packages/edraft/dist/draft.js');
+const allocations = [
+ {name:'base36 carry', nextId:'y', reserved:[], events:[{mint:4}]},
+ {name:'undo redo then divergent edit', nextId:'1', reserved:[], events:[{mint:2},{retain:'2'},{retain:'3'},{retain:'2'},{mint:1}]},
+ {name:'retired foreign spelling never reused', nextId:'1', reserved:['Z','z','foreign-ID'], events:[{mint:2},{retain:'1'},{mint:1}]},
+ {name:'beyond IEEE safe integers', nextId:'2gosa7pa2gv', reserved:[], events:[{mint:4}]},
+ {name:'long carry', nextId:'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz', reserved:[], events:[{mint:2}]}
+].map(c => {
+ const allocator = new identity.DraftIDAllocator(c.nextId,c.reserved.map(identity.draftElementID));
+ const trace = c.events.map(e => {
+  const ids = [];
+  if (e.retain) allocator.retain(e.retain);
+  for (let i=0;i<(e.mint??0);i++) ids.push(allocator.mint());
+  return {ids,nextId:allocator.nextId};
+ });
+ return {...c,trace};
+});
+const identitySources = [
+ {name:'import remints including structural script elements', model:identity.identifyScreenplay({titlePage:[],elements:[{type:'section',text:'Act one',depth:1,id:'foreign'},{type:'action',text:'Alpha',id:'foreign'},{type:'note',text:'Remember.'},{type:'action',text:'Beta',id:'z'}]})},
+ {name:'reopen preserves retired high water', model:identity.restoreIdentifiedScreenplay({titlePage:[],elements:[{type:'action',text:'Alpha',id:'a'},{type:'action',text:'Beta',id:'z'}],nextId:'20'})},
+ {name:'foreign opaque ids', model:identity.restoreIdentifiedScreenplay({titlePage:[],elements:[{type:'action',text:'Alpha',id:'_Other-Document'},{type:'action',text:'Beta',id:'Z'}],nextId:'9'})}
+];
+const documents = identitySources.map(c => {
+ const doc=identityDraft.draftFromIdentifiedScreenplay(c.model);
+ return {...c,script:canonicalJson(doc.script),zip:Buffer.from(writeDraft(doc,{writer:{name:"identity",version:"1"}})).toString("hex")};
+});
+writeFixture('identity.json',{allocations,documents,invalidCounters:['','0','01','A','a-b','1\n','1\r','z'.repeat(65)],invalidIDs:['','has space','é','a\n','a\r','a'.repeat(65)]});

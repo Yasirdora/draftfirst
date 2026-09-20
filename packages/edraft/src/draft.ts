@@ -23,6 +23,8 @@ export {
 	draftAnchorContext,
 	draftFromScreenplay,
 	draftToScreenplay,
+	draftToIdentifiedScreenplay,
+	draftFromIdentifiedScreenplay,
 	DRAFT_FORMAT_VERSION,
 	DRAFT_MEDIA_TYPE,
 	DraftFormatError,
@@ -33,3 +35,6 @@ export {
 	writeDraft
 } from './draftfile.js';
 export { sha256, sha256Hex } from './sha256.js';
+
+export { DraftIDAllocator, draftElementID, identifyScreenplay, restoreIdentifiedScreenplay } from './identity.js';
+export type { DraftElementID, IdentifiedScreenplay, IdentifiedElement } from './identity.js';

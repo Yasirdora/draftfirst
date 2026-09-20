@@ -50,6 +50,8 @@ public enum ElementKind: String, Codable, Sendable, CaseIterable {
 }
 
 public struct ScreenplayElement: Codable, Equatable, Sendable {
+    /// Absent only on raw parser/import projections before document adoption.
+    public var id: DraftElementID?
     public var type: ElementKind
     /// Marker-free content text when `runs` is present; emphasis markers are
     /// boundary artefacts, not model text (TypeScript `ScreenplayElement.text`).
@@ -69,7 +71,8 @@ public struct ScreenplayElement: Codable, Equatable, Sendable {
     public var anchor: NoteAnchor?
 
     public init(type: ElementKind, text: String, runs: [StyleRun]? = nil, dual: Bool? = nil,
-                sceneNumber: String? = nil, depth: Int? = nil, anchor: NoteAnchor? = nil) {
+                sceneNumber: String? = nil, depth: Int? = nil, anchor: NoteAnchor? = nil, id: DraftElementID? = nil) {
+        self.id = id
         self.type = type
         self.text = text
         self.runs = runs
@@ -216,9 +219,9 @@ public struct TitlePageLine: Codable, Equatable, Sendable {
 ///
 /// `start` is inclusive and `end` exclusive, as every other span in this
 /// model is; the span begins at a scene heading. §7.3 addresses its span by
-/// DraftElementID, which this model has no equivalent for — ids are
-/// `.draft`'s script.json (RFC-DRAFT-FORMAT §6.1) — so the span is by
-/// element index, and the scene number stays on the OMITTED card element
+/// DraftElementID; the legacy omission API still uses element indices.
+/// Migrating omission references is a separate production milestone.
+/// The scene number stays on the OMITTED card element
 /// that precedes it (TypeScript `Omission`).
 public struct Omission: Codable, Equatable, Sendable {
     public var start: Int
@@ -231,6 +234,7 @@ public struct Omission: Codable, Equatable, Sendable {
 }
 
 public struct Screenplay: Codable, Equatable, Sendable {
+    public var nextId: String?
     public var titlePage: [TitlePageLine]
     public var elements: [ScreenplayElement]
     /// Scenes the production has omitted (§7.3). Absent when there are none,
@@ -238,7 +242,8 @@ public struct Screenplay: Codable, Equatable, Sendable {
     public var omissions: [Omission]?
 
     public init(titlePage: [TitlePageLine] = [], elements: [ScreenplayElement] = [],
-                omissions: [Omission]? = nil) {
+                omissions: [Omission]? = nil, nextId: String? = nil) {
+        self.nextId = nextId
         self.titlePage = titlePage
         self.elements = elements
         self.omissions = omissions

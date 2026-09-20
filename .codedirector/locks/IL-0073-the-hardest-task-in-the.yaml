@@ -1,0 +1,80 @@
+schemaVersion: 1
+id: IL-0073
+status: verified
+utterance: |-
+  The hardest task in the program: M1 — persistent element identity (DraftElementID) from engine to document model. Repo /Users/x/Documents/edraft, branch rename/edraft, HEAD cdcc477 — tree is clean except eDraft.xcscheme (Xcode churn), .codedirector/mcp.log, and two repo-root PNGs; never stage or revert those, and you are the only agent working.
+  Why you: revisions, page locks and omissions-as-ids are all specced in docs/RFC-DRAFT-PRODUCTION.md to hang off DraftElementID (FORMAT §6.1: base-36 counter, never reused within a document). Today elements have no identity at all — IL-0071's omission record is an index span precisely because ids don't exist. You are building the foundation those features stand on. Read first, in this order: docs/RFC-DRAFT-FORMAT.md (§6.1), docs/RFC-DRAFT-PRODUCTION.md (§2, §6–§8, the Open Questions that touch identity), then how elements actually live today: packages/edraft/src/types.ts, apple/eDraftEngine/Sources/EDraftEngine/Model/Types.swift, and the document model in apple/EDraftCore (EditorState and friends).
+  Follow CLAUDE.md exactly: lock_draft → show me the Vibe Check → wait for my yes → lock_check + lock_activate → every change through run_locked → report. No commits, no co-author trailers.
+  Done means, at minimum: every script element carries a DraftElementID minted from the document's counter. Typing inside an element keeps its id. Splitting an element (Return) mints exactly one new id. Merging retires one. Pasted or imported content mints fresh ids — an id never moves between documents and is never reused within one. The .draft container (script.json) stores them; a plain .fountain has no spelling for ids, so those documents get session-stable ids minted on open — say so explicitly in the RFC's Open Questions style if the spec is silent. Both engines byte-identical, pinned in the conformance corpus. The app document model (EDraftCore) holds the ids through edits — this is what makes it M1 and not just an engine type.
+  Explicitly out of scope: revision sets UI, page-lock UI, omission-by-id migration, .draft save wiring in the apps, iOS. Those are later stages that consume your foundation; do not build them.
+  Proof bar: tests that fail before the change in both ports; npm test (currently 893+29), swift test for eDraftEngine (239+10), EDraftCore (350) and EDraftMacSurface (304, 6 skipped) all green; macOS Debug build with your own private DerivedData (CODE_SIGNING_ALLOWED=NO if the keychain stalls, and say so). The corpus may gain cases; every existing expectation stays unchanged. In your Vibe Check, present the identity model before any code: where the counter lives, who mints, who copies on split, what happens on undo — undo is where identity schemes go to die, so bring measurements, not vibes.
+goal: "M1: document-owned persistent DraftElementID across both engines, script.json and EDraftCore edits including undo/redo, without changing existing corpus expectations."
+interpretation: Identity-bearing document boundary adopts raw parser/import data; every adopted script element has a persistent ID. Document allocator owns a monotonic base-36 high-water counter, serialized as nextId and excluded from undo rollback. Explicit split/merge identity rules are separate from transient UI UUID ownership. Restore snapshots reuses their original IDs; paste/import remints in the receiving document. Retain existing identity-free parser/conformance projections; add identity conformance cases. Fountain IDs last for the editing session; document this limit in RFC Open Questions.
+keep:
+  - kind: no-new-dependency
+deny:
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/eDraft.xcodeproj/**
+  - .codedirector/mcp.log
+  - edraft logo.png
+  - screenshot.png
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - apple/EDraftCore/Package.swift
+  - apple/eDraftEngine/Package.swift
+  - apple/EDraftMacSurface/Package.swift
+change: Add matching identity/document APIs and durable draft bridge in TypeScript and Swift; integrate Core allocation, planner identity rules, both undo paths and native-surface tests; document lifetime and counter rules.
+verifyCommand: python3 /tmp/edraft-m1-verify.py
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - docs/RFC-DRAFT-FORMAT.md
+    - docs/RFC-DRAFT-PRODUCTION.md
+    - packages/edraft/src/types.ts
+    - packages/edraft/src/identity.ts
+    - packages/edraft/src/identity.test.ts
+    - packages/edraft/src/draftfile.ts
+    - packages/edraft/src/draftfile.test.ts
+    - packages/edraft/src/draft.ts
+    - packages/edraft/src/index.ts
+    - packages/edraft/src/editor.ts
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Fixtures/identity.json
+    - apple/eDraftEngine/Sources/EDraftEngine/Model/Types.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Model/DraftElementID.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Export/DraftFile.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/DraftIdentityConformanceTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/DraftFileConformanceTests.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayModels.swift
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayEditPlanner.swift
+    - apple/EDraftCore/Sources/EDraftCore/DraftIdentity.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScriptAsides.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/DraftElementIdentityTests.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/ScriptSurfaceIdentityTests.swift
+  symbols: []
+  maxFiles: 25
+  maxLines: 6000
+accept:
+  - New identity regression tests demonstrate failure against the baseline in both ports before implementation.
+  - Existing corpus expectations remain byte-for-byte unchanged; new identity cases generated by exporter agree in both engines.
+  - All live document script elements have IDs; typing and styling retain them; split keeps first ID and allocates exactly one; merge retires the second.
+  - Core and native undo/redo restore IDs but never rewind the allocator; divergent edits never reuse retired IDs; transfers mint destination IDs.
+  - Draft script.json preserves IDs and nextId through document round-trips; Fountain IDs are explicitly session-stable only.
+  - npm test and all three Swift package suites pass, including the readable full external Core corpus; private DerivedData macOS Debug build succeeds, with unsigned fallback disclosed if keychain signing stalls.
+  - No commits; no UI/iOS/save wiring/omission migration, dependency changes or protected-file modifications.
+assumptions:
+  - text: Raw parser/import projections retain existing identity-free wire expectations. The new identity-bearing document boundary requires IDs for every adopted script element; Core uses it in live edits, not merely export.
+    source: system
+    confirmed: false
+  - text: Persistent IDs and transient UI UUIDs are separate. Return-at-start persistent ownership follows the first half even though current UI UUID ownership follows the second.
+    source: system
+    confirmed: false
+  - text: Fountain session identity and counter high-water undo semantics will be recorded in RFC Open Questions; serialized foreign IDs are opaque and must not collide with newly allocated IDs.
+    source: system
+    confirmed: false
+createdAt: 2026-09-20T21:19:12.582Z
+createdBy: Yasirdora

@@ -851,6 +851,8 @@ notes; that is a search result, not a proof.
 | O5 | Publishing | In this repository now; a site with schema, validator and suite at S7; IANA at 1.0 | **All three, in that order.** The specification stays in `docs/` until S7 freezes 1.0. |
 | O6 | The upgrade prompt | None; iWork's "Edit a copy / Upgrade" | **None until release; decide before release.** |
 | O7 | The Fountain rendition | Keep it in every file; leave it out | **Keep it.** *Measured:* it is 224 KB of the 575 KB compressed across the 10 real scripts — without it the file is 18.7× smaller than FDX, with it 11.4×. It is the second copy the recovery ladder (§7.2) stands on, and the part a person with no software reads (G6). Robustness over bytes. |
+| O8 | Persistent identity in plain Fountain | Fountain has no spelling for IDs. M1 resolves this as **session-stable only**: mint on open, retain through edits and undo, and mint anew in a new editing session. `.draft` persists `id` and the high-water `nextId`; application save wiring is a later stage. |
+| O9 | Counter rollback on undo and foreign counter spellings | M1 resolves this as **never rewind**: undo/redo restores the original element IDs but retains the maximum allocation counter. A divergent edit consumes a new value. Writers emit canonical lower-case base-36 counters; the identity-bearing boundary rejects a noncanonical counter and advances a stale counter beyond existing generator-compatible ID spellings. Other valid IDs remain opaque. |
 
 ---
 

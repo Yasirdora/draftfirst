@@ -609,6 +609,15 @@ public struct ScreenplayEditPlanner {
             }
             confirmPastedCues(&result, pasteStart: start.index, owners: owners, pasteSourceLines: pasteSourceLines)
         }
+        // Persistent identity is about document history, not the UI UUID/type
+        // chosen by choreography above. Return always keeps the first half's ID.
+        let affectedEnd = result.count
+        if intent == .returnKey, start.index == end.index, affectedEnd > start.index + 1 {
+            for i in start.index..<affectedEnd { result[i].clearDraftIdentity() }
+            result[start.index].inheritDraftIdentity(from: startElement)
+        } else if start.index != end.index, affectedEnd == start.index + 1 {
+            result[start.index].inheritDraftIdentity(from: startElement)
+        }
         if end.index + 1 < elements.count {
             result.append(contentsOf: elements[(end.index + 1)...])
         }

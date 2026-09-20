@@ -693,6 +693,8 @@ Named, not guessed. None blocks encoding P1–P5.
 | Q8 | `fingerprints.production` required or optional | Optional in 1.0 (§2). |
 | Q9 | How a 1.0 writer fills `pages.fingerprint.sha256` | Paginator inputs are an implementation fixture, not a hash recipe here. |
 | Q10 | Deleted-text marks as a first-class span in `script.json` | Preserved in origin only. Modeling them would be a new run kind. |
+| Q11 | Identity lifetime for Fountain and undo counter ownership | **Resolved for M1:** FORMAT O8–O9. One document allocator owns `nextId` outside both undo timelines. Restoring a snapshot revives its IDs without rewinding the counter; paste/import adopts new destination IDs. Fountain identities last for the editing session. |
+| Q12 | Existing parser fixtures and UI UUIDs | **Resolved for M1:** raw parse/import projections remain identity-free; adoption produces the identity-bearing document model. Every live script element in Core has a `DraftElementID`, including nonprinting script structure. Notes keep their separate namespace. UI UUIDs remain transient surface handles; the planner assigns persistent split/merge ownership independently. No omission-by-ID migration or application `.draft` save wiring is implied. |
 
 ---
 

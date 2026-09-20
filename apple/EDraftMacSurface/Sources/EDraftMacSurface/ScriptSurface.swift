@@ -2784,7 +2784,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             structural: false,
             recordsUndo: false
         )
-        render(plan.elements) { [self] in restoreSelection(nativeSelection) }
+        render(editor.screenplay.elements) { [self] in restoreSelection(nativeSelection) }
         renderedRevision = editor.revision
     }
 
@@ -2863,15 +2863,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             selectionOffset: editor.selectionOffset,
             selection: selectionTextView.selectedRange()
         )
-        editor.replaceAllElements(
+        guard editor.replaceAllElements(
             elements,
             activeID: activeID,
             offset: offset,
             structural: true,
             recordsUndo: false
-        )
+        ) else { return }
         registerModelUndo(previousState, actionName: actionName)
-        render(elements) { [self] in
+        render(editor.screenplay.elements) { [self] in
             restoreSelection(selection)
             refreshFormatBar(selection: selection)
         }
@@ -3143,7 +3143,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             structural: true,
             recordsUndo: false
         )
-        render(state.elements) { [self] in
+        render(editor.screenplay.elements) { [self] in
             restoreSelection(state.selection)
             refreshFormatBar(selection: state.selection)
         }
@@ -3342,7 +3342,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         )
     }
 
-    private func insertElements(_ pages: [ScriptElement]) {
+    private func insertElements(_ incoming: [ScriptElement]) {
+        let pages = incoming.map { $0.copyForInsertion() }
         guard let editor, let last = pages.last else { return }
         var elements = editor.screenplay.elements
         let index = min(

@@ -633,7 +633,7 @@ public enum DraftFile {
                 pending.append(element.text)
                 continue
             }
-            let id = String(elements.count + 1, radix: 36)
+            let id = element.id?.rawValue ?? String(elements.count + 1, radix: 36)
             var out = JSONObject([("id", .string(id)), ("type", .string(element.type.rawValue)), ("text", .string(element.text))])
             if let runs = runsToJSON(element.runs) { out["runs"] = runs }
             if let dual = element.dual { out["dual"] = .bool(dual) }
@@ -656,7 +656,7 @@ public enum DraftFile {
             script: JSONObject([
                 ("titlePage", .array(titlePage)),
                 ("elements", .array(elements)),
-                ("nextId", .string(String(elements.count + 1, radix: 36)))
+                ("nextId", .string(screenplay.nextId ?? String(elements.count + 1, radix: 36)))
             ])
         )
         if !threads.isEmpty {
@@ -665,7 +665,8 @@ public enum DraftFile {
         return document
     }
 
-    /// Today's model from a document: each thread a note element in front
+    /// Legacy identity-free projection; use toIdentifiedScreenplay for editing
+    /// and persistence. Each thread becomes a note element in front
     /// of its element, one line per message as "Name (Role): text". A word
     /// anchor degrades to its line; a detached thread goes to the end.
     public static func toScreenplay(_ document: DraftDocument) -> (screenplay: Screenplay, diagnostics: [DraftDiagnostic]) {
@@ -1136,4 +1137,24 @@ public enum SHA256Digest {
     }
 
     private static func rotr(_ x: UInt32, _ n: UInt32) -> UInt32 { (x >> n) | (x << (32 - n)) }
+}
+
+extension DraftFile {
+ /// The document boundary, distinct from the legacy identity-free projection.
+ public static func toIdentifiedScreenplay(_ document: DraftDocument) throws -> (screenplay: Screenplay, diagnostics: [DraftDiagnostic]) {
+  var result = toScreenplay(document)
+  let rows = document.script["elements"]?.arrayValue ?? []
+  var row = 0
+  for i in result.screenplay.elements.indices where result.screenplay.elements[i].type != .note {
+   guard rows.indices.contains(row), let raw = rows[row].objectValue?["id"]?.stringValue,
+         let id = DraftElementID(rawValue: raw) else { throw DraftIdentityError.invalidID }
+   result.screenplay.elements[i].id = id; row += 1
+  }
+  result.screenplay.nextId = document.script["nextId"]?.stringValue
+  result.screenplay = try DraftIdentity.restoring(result.screenplay)
+  return result
+ }
+ public static func fromIdentifiedScreenplay(_ screenplay: Screenplay, title: String? = nil) throws -> DraftDocument {
+  fromScreenplay(try DraftIdentity.restoring(screenplay), title: title)
+ }
 }

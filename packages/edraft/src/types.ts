@@ -93,6 +93,8 @@ export interface NoteAnchor {
 }
 
 export interface ScreenplayElement {
+	/** Absent only on unadopted parser/import projections. */
+	id?: import('./identity.js').DraftElementID;
 	type: AnyElementType;
 	/** Plain text of the element — marker-free content when `runs` is
 	    present; emphasis markers are boundary artefacts, not model text. */
@@ -135,8 +137,8 @@ export interface TitlePageLine {
  *
  * `start` is inclusive and `end` exclusive, as every other span in this
  * model is. The span begins at a scene heading (§7.3). §7.3 addresses its
- * span by DraftElementID; this model has no element id — ids are `.draft`'s
- * script.json (RFC-DRAFT-FORMAT §6.1) — so the span is by element index, and
+ * span by DraftElementID; the legacy omission API still uses element indices; migration to
+ * persistent identity is a separate production milestone. Accordingly,
  * the scene number stays where it already lives, on the OMITTED card element
  * that precedes the span, rather than being copied here. */
 export interface Omission {
@@ -145,6 +147,8 @@ export interface Omission {
 }
 
 export interface Screenplay {
+	/** Document allocator high-water mark; not part of raw parser projections. */
+	nextId?: string;
 	titlePage: TitlePageLine[];
 	elements: ScreenplayElement[];
 	/** Scenes the production has omitted (§7.3). Absent when there are none,

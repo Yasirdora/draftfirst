@@ -84,3 +84,6 @@ export {
 	serialiseFountain,
 	serialiseFountain as serializeFountain
 } from './serialise.js';
+
+export { DraftIDAllocator, draftElementID, identifyScreenplay, restoreIdentifiedScreenplay } from './identity.js';
+export type { DraftElementID, IdentifiedScreenplay, IdentifiedElement } from './identity.js';

@@ -1,0 +1,111 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0073-20260920-215817.json",
+  "baselineSha256": "3eec32803843004e006eb9533b5e853b5242e0d03ec55344c79e0c42eea535fa",
+  "budget": {
+    "filesChanged": 4,
+    "linesChanged": 19,
+    "maxFiles": 25,
+    "maxLines": 6000
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftCore/Sources/EDraftCore/ScreenplayModels.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Export/DraftFile.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/eDraftEngine/Sources/EDraftEngine/Model/Types.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "packages/edraft/src/draftfile.ts",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260920T215810470",
+    "createdAt": "2026-09-20T21:58:10.784Z",
+    "dirty": true,
+    "id": "ckpt-20260920T215810470",
+    "ref": "cdcc477fda37279e773aa98db770b4242e136194",
+    "statusHash": "ee27dd67929f32fae90969371c2824c60322304108afec7376b267a116beddf6",
+    "tag": "cdir/ckpt-20260920T215810470"
+  },
+  "command": [
+    "python3",
+    "/tmp/edraft-m1-boundary-docs.py"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-20T21:58:17.686Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    }
+  ],
+  "lockId": "IL-0073",
+  "startedAt": "2026-09-20T21:58:17.633Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0073-20260920-215817.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 0
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0073-20260920-215817.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0073-20260920-215817.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"python3 /tmp/edraft-m1-verify.py\" → exit 0",
+        "detail": "verifyCommand passed: python3 /tmp/edraft-m1-verify.py",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · python3 /tmp/edraft-m1-verify.py",
+        "verdict": "held"
+      }
+    ],
+    "lockId": "IL-0073",
+    "verifiedAt": "2026-09-20T22:01:05.516Z",
+    "violations": []
+  },
+  "violations": []
+}

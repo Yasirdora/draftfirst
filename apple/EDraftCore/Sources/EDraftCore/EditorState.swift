@@ -12,7 +12,11 @@ public final class EditorState {
     /// Everything that measures the script reads this, so a note or an act
     /// heading neither prints, nor paginates, nor shifts the element indices
     /// the Navigator and the prediction engine are keyed by.
-    public var screenplay: Screenplay
+    public var screenplay: Screenplay {
+        didSet { synchronizeDraftIdentity(previous: oldValue) }
+    }
+    @ObservationIgnored private var documentIdentity = DocumentIdentity()
+    @ObservationIgnored private var synchronizingIdentity = false
     /// What sits beside the page, in document order: the writer's notes and
     /// their outline.
     ///
@@ -20,7 +24,9 @@ public final class EditorState {
     /// through Final Draft — and none of it is on the page. Reading a private
     /// aside as though it were a stage direction, and counting an act heading
     /// toward the page number, is what putting them in the text stream did.
-    public private(set) var asides: [ScriptAside] = []
+    public private(set) var asides: [ScriptAside] = [] {
+        didSet { synchronizeDraftIdentity(previousAsides: oldValue) }
+    }
 
     /// The notes among them.
     public var notes: [ScriptAside] { asides.filter { $0.kind == .note } }
@@ -313,7 +319,12 @@ public final class EditorState {
            arrives as runs, never marker characters (RFC v2.1). */
         let parsed = (try? Fountain.parse(source, emphasis: .runs)).map(Screenplay.init(engineModel:))
             ?? Self.naiveParse(source)
-        let split = ScriptAsides.split(parsed.elements)
+        // A new Fountain session starts a new document-local counter.
+        // A finite in-memory parse cannot exhaust the 64-digit ID space.
+        let adopted: [ScriptElement]
+        do { adopted = try documentIdentity.reconcile(parsed.elements) }
+        catch { preconditionFailure("A fresh document exhausted its element identity space") }
+        let split = ScriptAsides.split(adopted)
         self.screenplay = Screenplay(titlePage: parsed.titlePage, elements: split.page)
         self.asides = split.asides
         if screenplay.elements.isEmpty { screenplay.elements = Screenplay.blank.elements }
@@ -336,9 +347,55 @@ public final class EditorState {
         signsNotes = UserDefaults.standard.bool(forKey: Self.signsNotesKey)
         // Never paginate synchronously at open: a cheap estimate renders
         // immediately, the debounced pass refines it off the critical path.
+        synchronizeDraftIdentity()
         stats = Self.quickStats(for: screenplay)
         scheduleStatsRefresh()
         refreshPredictions()
+    }
+
+    /// Opens the durable document model. App .draft save wiring is a later milestone.
+    public convenience init(identifiedScreenplay model: EDraftEngine.Screenplay) throws {
+        var identity = DocumentIdentity()
+        let restored = try identity.reopen(model)
+        self.init(source: "")
+        synchronizingIdentity = true
+        documentIdentity = identity
+        let split = ScriptAsides.split(restored.elements)
+        screenplay = Screenplay(titlePage: restored.titlePage, elements: split.page, nextId: restored.nextId)
+        asides = split.asides
+        if screenplay.elements.isEmpty { screenplay.elements = [ScriptElement(type: .action, text: "")] }
+        synchronizingIdentity = false
+        synchronizeDraftIdentity()
+        activeElementID = screenplay.elements.first?.id
+        revision += 1
+    }
+
+    /// Complete durable model, including nonprinting script elements. Notes remain
+    /// a legacy projection of their separate namespace; omissions remain indices.
+    public var identifiedDocumentModel: EDraftEngine.Screenplay {
+        var document = screenplay
+        document.elements = ScriptAsides.merge(page: screenplay.elements, asides: asides)
+        document.nextId = documentIdentity.allocator.nextId
+        return document.identifiedEngineModel
+    }
+
+    private func synchronizeDraftIdentity(previous: Screenplay? = nil, previousAsides: [ScriptAside]? = nil) {
+        guard !synchronizingIdentity else { return }
+        synchronizingIdentity = true
+        defer { synchronizingIdentity = false }
+        do {
+            let pageCount = screenplay.elements.count
+            let normalized = try documentIdentity.reconcile(screenplay.elements + asides.map(\.element))
+            screenplay.elements = Array(normalized.prefix(pageCount))
+            for i in asides.indices { asides[i].element = normalized[pageCount + i] }
+            screenplay.nextId = documentIdentity.allocator.nextId
+        } catch {
+            // Reject the edit atomically if the counter is exhausted. Never reuse
+            // an ID or erase the text merely to make allocation succeed.
+            if let previous { screenplay = previous }
+            if let previousAsides { asides = previousAsides }
+            showBanner("This document cannot allocate another element identity")
+        }
     }
 
     deinit {
@@ -890,19 +947,34 @@ public final class EditorState {
 
     /// Replaces the screenplay model. Native surfaces may disable snapshot
     /// recording when they register the same atomic edit with UndoManager.
+    @discardableResult
     public func replaceAllElements(
         _ elements: [ScriptElement],
         activeID: UUID?,
         offset: Int,
         structural: Bool,
         recordsUndo: Bool = true
-    ) {
+    ) -> Bool {
+        let incoming = elements.isEmpty ? [ScriptElement(type: .action, text: "")] : elements
+        var candidate = documentIdentity
+        let adopted: [ScriptElement]
+        do { adopted = try candidate.reconcile(incoming + asides.map(\.element)) }
+        catch {
+            showBanner("This document cannot allocate another element identity")
+            return false
+        }
         if recordsUndo { recordSnapshot(structural: structural) }
-        screenplay.elements = elements.isEmpty ? [ScriptElement(type: .action, text: "")] : elements
+        documentIdentity = candidate
+        synchronizingIdentity = true
+        screenplay.elements = Array(adopted.prefix(incoming.count))
+        for i in asides.indices { asides[i].element = adopted[incoming.count + i] }
+        screenplay.nextId = documentIdentity.allocator.nextId
+        synchronizingIdentity = false
         caseMemory.prune(toAlive: Set(screenplay.elements.map(\.id)))
         activeElementID = activeID ?? screenplay.elements.first?.id
         selectionOffset = max(0, offset)
         commitChange(liveTyping: !structural)
+        return true
     }
 
     public func cycleActiveKind(backwards: Bool) {
@@ -953,6 +1025,7 @@ public final class EditorState {
             while cursor < list.count && list[cursor] <= lastUsed { cursor += 1 }
             guard cursor < list.count else { continue }
             merged[list[cursor]].id = old.id
+            merged[list[cursor]].inheritDraftIdentity(from: old)
             lastUsed = list[cursor]
             offsets[key] = cursor + 1
         }
@@ -1479,8 +1552,11 @@ public final class EditorState {
     }
 
     private func restore(_ snapshot: EditorSnapshot) {
+        synchronizingIdentity = true
         screenplay = snapshot.screenplay
         asides = snapshot.asides
+        synchronizingIdentity = false
+        synchronizeDraftIdentity()
         activeElementID = snapshot.activeElementID
         selectionOffset = snapshot.selectionOffset
         revision += 1
