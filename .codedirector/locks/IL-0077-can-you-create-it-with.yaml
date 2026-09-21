@@ -1,0 +1,40 @@
+schemaVersion: 1
+id: IL-0077
+status: abandoned
+utterance: can you create it with professionalism please, you can put it inside the same edraft folder by the name of Github showcase
+goal: Prepare a polished documentation-only eDraft showcase in Github showcase, with accurate public-facing product copy and a publication checklist, without exposing implementation or publishing anything.
+interpretation: Create six original Markdown documents only. Read existing product material to substantiate public claims; never copy implementation, internal RFCs, corpus content, private links, or credentials. Keep planned features separate from demonstrated behavior. Prepare a local showcase, without initializing Git, staging, committing, creating remotes, or publishing.
+keep:
+  - kind: no-new-dependency
+deny:
+  - apple/**
+  - packages/**
+  - src/**
+  - docs/**
+  - .codedirector/mcp.log
+  - edraft logo.png
+  - screenshot.png
+  - package.json
+  - package-lock.json
+change: Create polished product documentation and a publication checklist inside the requested folder.
+budget:
+  files:
+    - Github showcase/README.md
+    - Github showcase/docs/product-overview.md
+    - Github showcase/docs/design-principles.md
+    - Github showcase/docs/roadmap.md
+    - Github showcase/docs/faq.md
+    - Github showcase/PUBLISHING.md
+  symbols: []
+  maxFiles: 6
+  maxLines: 400
+accept:
+  - All six Markdown files exist, have valid relative links and contain no placeholders presented as facts.
+  - The showcase contains no source, internal documents, research corpus, or unreviewed media.
+  - Existing project files and Git history remain untouched; nothing is published.
+assumptions:
+  - text: No approved public contact or availability link is supplied. Omit unverified links and release claims; identify any publication decisions in PUBLISHING.md. No screenshots are copied in this scope.
+    source: system
+    confirmed: false
+createdAt: 2026-09-21T11:26:21.518Z
+createdBy: Yasirdora
