@@ -1,0 +1,109 @@
+schemaVersion: 1
+id: IL-0080
+status: verified
+utterance: "The omitted-scene card is cluttered webpage chrome — a pill reading '0.3 pgs CUT', a text button reading 'View Cut Text', a dotted rule when open. Redesign it quiet, the Apple way: at rest the line is only the word OMITTED in muted ink; hovering the line reveals a small chevron at the column's trailing edge and a gentle highlight; clicking the chevron opens the cut text inline, clicking again puts it away. The cut length leaves the page — it already lives in the Navigator row's trailing column (SceneRow.cutPages), and joins the hover tooltip and the VoiceOver label. No dotted rule."
+goal: A collapsed cut scene is one quiet line — OMITTED in muted ink, nothing else — that reveals a chevron on hover and opens its cut text when the chevron is pressed. The page carries no pill and no text button; the length is read in the Navigator, the tooltip and VoiceOver.
+interpretation: |
+  THE DEFECT, AS SHIPPED. IL-0076 put three pieces of chrome on one line:
+  sepia type, a pill ("0.3 pgs CUT" — production jargon, scheduling data
+  from Final Draft's SceneProperties Length, meaningless to a writer at
+  the page), and a text button ("View Cut Text"). Expanded adds a dotted
+  rule. The human's verdict: "it looks like shit" and "what does 0.3 pgs
+  cut mean". Both correct. Final Draft itself shows nothing but the word
+  OMITTED; we out-decorated the thing we were copying.
+
+  THE REDESIGN, IN THE CODE. All of it lives in OmittedSceneRegionView;
+  the surface's placement (IL-0079's column rect) and the collapse
+  mechanics (IL-0076) do not change.
+
+    - The pill is deleted from the overlay. `OmittedScene.pillText` stays
+      in EDraftCore: the Navigator row's trailing column already shows it
+      where a page number would be (SceneRow.cutPages, IL-0075), and
+      VoiceOver speaks it. Nothing in EDraftCore or EDraftUI changes.
+    - The text-button disclosure becomes a bare chevron — chevron.right
+      collapsed, chevron.down expanded — at the column's trailing edge.
+      It is visible whenever the region is open; when collapsed it
+      appears on hover, the way Xcode's fold ribbon does.
+    - Hover also lays a quiet rounded highlight over the line, so the
+      line reads as one tappable thing. The chevron carries the
+      pointing-hand cursor.
+    - Pressing the chevron toggles the region (mouse, or VoiceOver via
+      the existing accessibilityPerformPress). Clicks elsewhere on the
+      line still belong to the text — the card is a live line and the
+      caret rules from IL-0075/IL-0076 are untouched.
+    - The dotted rule in the expanded state is deleted. The muted ink is
+      what says "cut"; the chevron on the card's line is what closes it.
+    - The tooltip speaks plainly: the scene's spoken label ("Scene 21,
+      omitted, 0.3 pages cut, collapsed"), which is also what VoiceOver
+      says.
+
+  PROOF. Tests, not prose: the overlay draws no pill and no text button;
+  collapsed and at rest the chevron is hidden; hovered or expanded it is
+  visible; pressing it toggles the region open and shut through the
+  surface's own wiring; the chevron's frame never intersects the card's
+  glyphs and stays inside the column (the IL-0079 framing tests are
+  re-pointed at the chevron and kept). The IL-0076 collapse invariants
+  and the Navigator's cut-length column are covered by their existing
+  tests staying green.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the collapse mechanics are unchanged — ranges stay parallel to elements, a collapsed element holds an empty range, caret and edit refusals and the page count behave exactly as IL-0076 left them, and the overlay still spans the text column as IL-0079 framed it
+  - kind: custom
+    text: the cut length's other homes are untouched — SceneRow.cutPages in the Navigator, OmittedScene.pillText and spoken(collapsed:) in EDraftCore; EDraftCore and EDraftUI take no edit at all
+  - kind: custom
+    text: clicking the card's text still places a caret — only the chevron toggles; the surface's hit-testing and selection paths take no change
+  - kind: custom
+    text: no file outside the three in budget changes, and the foreign working-tree changes (the xcscheme, mcp.log, the root PNGs, the IL-0078 draft) are left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - packages/**
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftMacSurface/Package.swift
+  - src/**
+  - scripts/**
+  - docs/**
+  - Github showcase/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: The omitted-scene card loses its pill, its text button and its dotted rule; a hover-revealed chevron at the column's trailing edge opens and closes the cut text, and the cut length is read in the Navigator, the tooltip and VoiceOver instead of on the page.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/OmittedSceneRegionView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift
+  symbols: []
+  maxFiles: 3
+  maxLines: 400
+accept:
+  - "REST: a collapsed card's line shows only the word OMITTED in muted ink — no pill, no text button, no rule, and no chevron until hovered."
+  - "HOVER: the pointer over the line reveals the chevron at the column's trailing edge with a quiet highlight over the line, and the pointing-hand cursor over the chevron."
+  - "TOGGLE: pressing the chevron opens the cut text inline and pressing it again closes it, through the surface's existing toggle wiring; the chevron stays visible while the region is open."
+  - "LENGTH: the cut length appears in the Navigator row (as before), in the hover tooltip, and in the VoiceOver label — and nowhere on the page."
+  - "UNCHANGED: every IL-0076 collapse invariant and IL-0079 framing guarantee, the caret and edit refusals, and the Navigator."
+  - "SUITE: EDraftMacSurface green, and the macOS Debug build succeeds."
+assumptions:
+  - text: HEAD is 85797d6 (IL-0079). The tree carries the usual foreign dirt — the xcscheme, mcp.log, the root PNGs — and the other session's drafted IL-0078. None of it is touched, staged or reverted.
+    source: system
+    confirmed: false
+  - text: The redesign was dictated by the human in conversation and approved with "yes please proceed"; it is executed by Kimi, not deferred to another model.
+    source: system
+    confirmed: false
+  - text: The Navigator already carries the cut length (SceneRow.cutPages is rendered in SceneRowLabel's trailing column and spoken), so no EDraftUI or EDraftCore edit is needed — measured by reading SceneRowLabel and EditorState.sceneRows before drafting.
+    source: system
+    confirmed: false
+createdAt: 2026-09-21T18:30:00.000Z
+createdBy: Yasirdora

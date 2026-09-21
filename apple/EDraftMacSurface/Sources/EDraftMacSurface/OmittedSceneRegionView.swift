@@ -4,10 +4,14 @@ import EDraftEngine
 
 /// The chrome of a cut scene — RFC-DRAFT-PRODUCTION §7.3.
 ///
-/// Collapsed, this sits on the card's own line and carries the two things
-/// the line cannot say by itself: how much page was cut, and that there is
-/// text behind it to read. Expanded, it closes the body with a dotted rule
-/// so the region has a foot as well as a head.
+/// Quiet, the way the page is quiet. Collapsed, the card's line is only the
+/// word OMITTED in muted ink; hovering the line lays a soft highlight over
+/// it and shows a small chevron at the column's trailing edge, the way
+/// Xcode's fold ribbon appears when the pointer asks for it. The chevron
+/// opens the cut text, and stays showing while the region is open, because
+/// it is the way back. There is no pill and no label on the page: how much
+/// was cut is production data, and it lives where production data belongs —
+/// the Navigator row, the hover tooltip, and VoiceOver.
 ///
 /// An overlay rather than a text attachment, the way the page-break marker
 /// and the reveal highlight are: the text storage stays plain text — so
@@ -20,21 +24,23 @@ final class OmittedSceneRegionView: NSView {
     /// Called when the writer asks to see the cut text, or to put it away.
     var onToggle: ((DraftElementID) -> Void)?
 
-    private let pill = NSTextField(labelWithString: "")
-    private let disclosure = NSButton()
+    /// The pointer is over the line. Set by the tracking area; readable to
+    /// the package so the reveal is proven by a test and not by an eyeball.
+    private(set) var hovered = false
+
+    private let chevron = NSButton()
 
     init(scene: OmittedScene, collapsed: Bool) {
         self.scene = scene
         self.collapsed = collapsed
         super.init(frame: .zero)
         wantsLayer = true
-        addSubview(pill)
-        addSubview(disclosure)
-        disclosure.target = self
-        disclosure.action = #selector(toggle)
-        disclosure.isBordered = false
-        disclosure.bezelStyle = .inline
-        disclosure.setButtonType(.momentaryChange)
+        addSubview(chevron)
+        chevron.target = self
+        chevron.action = #selector(toggle)
+        chevron.isBordered = false
+        chevron.bezelStyle = .inline
+        chevron.setButtonType(.momentaryChange)
         apply()
     }
 
@@ -52,92 +58,114 @@ final class OmittedSceneRegionView: NSView {
     static var ink: NSColor { NSColor.screenplayOmittedInk.usingColorSpace(.sRGB) ?? .secondaryLabelColor }
 
     private func apply() {
-        let ink = Self.ink
-        pill.stringValue = scene.pillText
-        pill.font = .systemFont(ofSize: 10, weight: .medium)
-        pill.textColor = ink
-        pill.sizeToFit()
-
-        let title = collapsed ? "View Cut Text" : "Hide Cut Text"
-        disclosure.attributedTitle = NSAttributedString(
-            string: title,
-            attributes: [
-                .font: NSFont.systemFont(ofSize: 10, weight: .medium),
-                .foregroundColor: ink
-            ]
-        )
-        disclosure.image = NSImage(
+        chevron.image = NSImage(
             systemSymbolName: collapsed ? "chevron.right" : "chevron.down",
             accessibilityDescription: nil
         )
-        disclosure.imagePosition = .imageLeading
-        disclosure.contentTintColor = ink
-        disclosure.sizeToFit()
+        chevron.imagePosition = .imageOnly
+        chevron.contentTintColor = Self.ink
+        chevron.sizeToFit()
 
-        /* Spoken, because a pill and a chevron are not. The state is in the
-           label rather than only in the chevron, so a reader hears what a
-           sighted writer sees at a glance. */
+        /* The length, said plainly, where a hover and a reader can find it
+           — never stamped on the page itself. */
+        toolTip = scene.spoken(collapsed: collapsed)
+
+        /* Spoken, because a chevron is not. The state is in the label, so a
+           reader hears what a sighted writer sees at a glance. */
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(scene.spoken(collapsed: collapsed))
+        updateChrome()
+    }
+
+    /// The chevron shows when the region is open — it is the way back — or
+    /// when the pointer is on the line. At rest there is nothing but the
+    /// word OMITTED.
+    private func updateChrome() {
+        chevron.isHidden = collapsed && !hovered
         needsLayout = true
         needsDisplay = true
+        window?.invalidateCursorRects(for: self)
     }
 
     @objc private func toggle() { onToggle?(scene.key) }
-
-    /// Where the chrome sits, in the region's own coordinates — so a test
-    /// can prove the pill and the disclosure never overprint the card's
-    /// words, rather than that being asserted in prose.
-    var controlFrames: (pill: CGRect, disclosure: CGRect) {
-        (pill.frame, disclosure.frame)
-    }
 
     override func accessibilityPerformPress() -> Bool {
         toggle()
         return true
     }
 
+    /// Where the chevron sits, in the region's own coordinates — so a test
+    /// can prove it never overprints the card's words, rather than that
+    /// being asserted in prose.
+    var chevronFrame: CGRect { chevron.frame }
+
+    /// Whether the chevron is showing — collapsed and at rest, it is not.
+    var chevronVisible: Bool { !chevron.isHidden }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        for area in trackingAreas { removeTrackingArea(area) }
+        addTrackingArea(NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        ))
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        hovered = true
+        updateChrome()
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hovered = false
+        updateChrome()
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        guard chevronVisible else { return }
+        /* A generous hand over a small mark: the glyph is ten points, the
+           click target is not. */
+        addCursorRect(chevron.frame.insetBy(dx: -6, dy: -6), cursor: .pointingHand)
+    }
+
     override func layout() {
         super.layout()
         let inset: CGFloat = 8
-        let pillSize = pill.intrinsicContentSize
-        let buttonSize = disclosure.intrinsicContentSize
-        /* Both ride the head of the region — the card's line when
-           collapsed, the body's first line when open — at the trailing
-           edge, where a page has margin rather than type. */
-        let headHeight = min(bounds.height, max(pillSize.height, buttonSize.height) + 4)
-        let top = bounds.maxY - headHeight
-        disclosure.frame = NSRect(
-            x: bounds.maxX - buttonSize.width - inset,
-            y: top + (headHeight - buttonSize.height) / 2,
-            width: buttonSize.width, height: buttonSize.height
-        )
-        pill.frame = NSRect(
-            x: disclosure.frame.minX - pillSize.width - inset,
-            y: top + (headHeight - pillSize.height) / 2,
-            width: pillSize.width, height: pillSize.height
+        let size = chevron.intrinsicContentSize
+        /* Rides the head of the region — the card's line when collapsed,
+           the body's first line when open — at the trailing edge, where a
+           page has margin rather than type. */
+        let headHeight = min(bounds.height, size.height + 6)
+        chevron.frame = NSRect(
+            x: bounds.maxX - size.width - inset,
+            y: bounds.maxY - (headHeight + size.height) / 2,
+            width: size.width, height: size.height
         )
     }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        guard !collapsed else { return }
-        /* The region's foot. Dotted, so it reads as an edge of something
-           shown rather than a rule the script itself contains. */
-        let rule = NSBezierPath()
-        rule.move(to: NSPoint(x: bounds.minX, y: bounds.minY + 0.5))
-        rule.line(to: NSPoint(x: bounds.maxX, y: bounds.minY + 0.5))
-        rule.lineWidth = 1
-        rule.setLineDash([2, 3], count: 2, phase: 0)
-        Self.ink.withAlphaComponent(0.6).setStroke()
-        rule.stroke()
+        guard hovered else { return }
+        /* The line reads as one tappable thing while the pointer is on it.
+           A breath of the same sepia, not a selection colour: nothing here
+           is selected, and nothing here is live. */
+        let head = NSRect(x: bounds.minX, y: bounds.maxY - min(bounds.height, 18),
+                          width: bounds.width, height: min(bounds.height, 18))
+        let wash = NSBezierPath(roundedRect: head.insetBy(dx: -2, dy: 0), xRadius: 4, yRadius: 4)
+        Self.ink.withAlphaComponent(0.07).setFill()
+        wash.fill()
     }
 
     /// The chrome never takes a click meant for the page, except on the
-    /// disclosure itself.
+    /// chevron itself — the card's line stays a live line the caret can
+    /// land on.
     override func hitTest(_ point: NSPoint) -> NSView? {
         let inside = convert(point, from: superview)
-        return disclosure.frame.contains(inside) ? disclosure : nil
+        let target = chevron.frame.insetBy(dx: -6, dy: -6)
+        return chevronVisible && target.contains(inside) ? chevron : nil
     }
 }

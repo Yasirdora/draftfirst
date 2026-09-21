@@ -241,13 +241,10 @@ final class OmittedSceneSurfaceTests: XCTestCase {
         XCTAssertGreaterThan(overlay.frame.width, glyphs.width * 2,
                              "the card's glyphs are one word; the column is the page", file: file, line: line)
 
-        let pill = overlay.convert(overlay.controlFrames.pill, to: host)
-        let disclosure = overlay.convert(overlay.controlFrames.disclosure, to: host)
-        XCTAssertFalse(pill.intersects(glyphs), "the pill never overprints the card's words",
+        let chevron = overlay.convert(overlay.chevronFrame, to: host)
+        XCTAssertFalse(chevron.intersects(glyphs), "the chevron never overprints the card's words",
                        file: file, line: line)
-        XCTAssertFalse(disclosure.intersects(glyphs), "nor does the disclosure",
-                       file: file, line: line)
-        XCTAssertLessThanOrEqual(disclosure.maxX, column + 1,
+        XCTAssertLessThanOrEqual(chevron.maxX, column + 1,
                                  "the chrome ends inside the page, not in the gutter",
                                  file: file, line: line)
     }
@@ -284,6 +281,90 @@ final class OmittedSceneSurfaceTests: XCTestCase {
         let host = try XCTUnwrap(surface.regionViews[region.key]?.superview as? NSTextView)
         XCTAssertTrue(surface.sheets.contains { $0.textView === host },
                       "the overlay rides the sheet that draws the card")
+    }
+
+    // MARK: - The quiet card
+
+    /// A real enter/exit event, delivered the way the window would.
+    private func hover(_ overlay: OmittedSceneRegionView, entered: Bool) {
+        let event = NSEvent.enterExitEvent(
+            with: entered ? .mouseEntered : .mouseExited,
+            location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: 0, context: nil, eventNumber: 0, trackingNumber: 0, userData: nil
+        )
+        entered ? overlay.mouseEntered(with: event!) : overlay.mouseExited(with: event!)
+    }
+
+    private func overlay(on surface: ScriptSurface) throws -> OmittedSceneRegionView {
+        let region = try XCTUnwrap(surface.omittedRegions.first)
+        return try XCTUnwrap(surface.regionViews[region.key])
+    }
+
+    /// At rest the line is the word OMITTED and nothing else — the chevron
+    /// is the whole of the chrome, and it waits for the pointer.
+    func testCollapsedAtRestThereIsNoChrome() throws {
+        let (_, surface) = try opened(fdx())
+        let view = try overlay(on: surface)
+        XCTAssertEqual(view.subviews.count, 1, "one chevron is the whole of the chrome")
+        XCTAssertFalse(view.chevronVisible, "at rest there is nothing but the word")
+    }
+
+    func testHoveringTheLineRevealsTheChevronAndLeavingHidesIt() throws {
+        let (_, surface) = try opened(fdx())
+        let view = try overlay(on: surface)
+        hover(view, entered: true)
+        XCTAssertTrue(view.chevronVisible, "the pointer asks, the chevron answers")
+        hover(view, entered: false)
+        XCTAssertFalse(view.chevronVisible, "and it goes away with the pointer")
+    }
+
+    /// An open region keeps its chevron, hovered or not — it is the way back.
+    func testAnOpenRegionKeepsItsChevron() throws {
+        let (editor, surface) = try opened(fdx())
+        surface.toggleOmission(try key(editor))
+        let view = try overlay(on: surface)
+        XCTAssertTrue(view.chevronVisible)
+        hover(view, entered: false)
+        XCTAssertTrue(view.chevronVisible, "open is open; the way back does not hide")
+    }
+
+    /// The toggle goes through the view's own button, the way a click does.
+    func testPressingTheChevronOpensAndClosesTheCutText() throws {
+        let (editor, surface) = try opened(fdx())
+        let view = try overlay(on: surface)
+        hover(view, entered: true)
+        view.accessibilityPerformPress()
+        XCTAssertTrue(laid(surface).contains("Mara waits."), "the cut text opens inline")
+        XCTAssertFalse(try overlay(on: surface).collapsed)
+        try overlay(on: surface).accessibilityPerformPress()
+        XCTAssertFalse(laid(surface).contains("Mara waits."), "and folds away again")
+    }
+
+    /// The length is production data: the tooltip and VoiceOver say it in
+    /// words, and the page never carries it.
+    func testTheLengthIsSpokenAndHoveredButNeverStamped() throws {
+        let (editor, surface) = try opened(fdx())
+        let view = try overlay(on: surface)
+        XCTAssertEqual(view.toolTip, "Scene 21, omitted, 0.3 pages cut, collapsed")
+        surface.toggleOmission(try key(editor))
+        XCTAssertEqual(try overlay(on: surface).toolTip, "Scene 21, omitted, 0.3 pages cut, expanded")
+    }
+
+    /// The chevron is the only thing on the overlay that takes a click —
+    /// the card's line stays a live line the caret can land on.
+    func testOnlyTheChevronTakesAClick() throws {
+        let (_, surface) = try opened(fdx())
+        let view = try overlay(on: surface)
+        view.frame = NSRect(x: 0, y: 0, width: 500, height: 20)
+        hover(view, entered: true)
+        view.layoutSubtreeIfNeeded()
+        /* hitTest reads a point in the superview's coordinates. */
+        let middle = view.convert(NSPoint(x: 250, y: 10), to: view.superview)
+        XCTAssertNil(view.hitTest(middle), "a click mid-line belongs to the text")
+        let onChevron = view.convert(
+            NSPoint(x: view.chevronFrame.midX, y: view.chevronFrame.midY), to: view.superview
+        )
+        XCTAssertNotNil(view.hitTest(onChevron), "a click on the chevron is the chevron's")
     }
 
     // MARK: - The sepia, on both papers
