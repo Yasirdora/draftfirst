@@ -420,7 +420,7 @@ public struct SceneRow: Identifiable, Equatable, Sendable {
 
     nonisolated public init(
         id: UUID, number: Int, page: Int?, sceneNumber: String?,
-        title: String, elementIndex: Int, omitted: Bool = false
+        title: String, elementIndex: Int, omitted: Bool = false, cutPages: String? = nil
     ) {
         self.id = id
         self.number = number
@@ -429,6 +429,7 @@ public struct SceneRow: Identifiable, Equatable, Sendable {
         self.title = title
         self.elementIndex = elementIndex
         self.omitted = omitted
+        self.cutPages = cutPages
     }
     /// Inside, outside, or crossing between — read from the heading through
     /// the engine, so a writer's spelling of `I/E` does not decide whether
@@ -470,6 +471,9 @@ public struct SceneRow: Identifiable, Equatable, Sendable {
     /// place in the Navigator — that is the point of an omission — and the
     /// body behind the card is not a second row.
     public let omitted: Bool
+    /// How much page the cut took, as the page says it — `0.3 pgs CUT`.
+    /// Nil for a live scene.
+    public let cutPages: String?
 
     /// What the Navigator shows: the production's number when there is one,
     /// otherwise where the scene falls.

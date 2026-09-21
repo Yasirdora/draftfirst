@@ -1,0 +1,268 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0076-20260921-045625.json",
+  "baselineSha256": "7d991bd2a5bfc28a6fbdd2f967a2d3e095cf013ce9b8d99959116e07ffc577da",
+  "budget": {
+    "filesChanged": 13,
+    "linesChanged": 1227,
+    "maxFiles": 13,
+    "maxLines": 2200
+  },
+  "changed": [
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftCore/Sources/EDraftCore/EditorState.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftCore/Sources/EDraftCore/Omissions.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftCore/Sources/EDraftCore/ScreenplayExporter.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftCore/Sources/EDraftCore/ScreenplayModels.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftCore/Tests/EDraftCoreTests/OmittedSceneTests.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/OmittedSceneRegionView.swift",
+      "status": "??"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/ScreenplayDesk.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptLayout.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "apple/EDraftUI/Tests/EDraftUITests/OmittedSceneNavigatorTests.swift",
+      "status": "M"
+    },
+    {
+      "class": "in-budget",
+      "path": "docs/MACOS-EXECUTION.md",
+      "status": "M"
+    }
+  ],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260921T045618226",
+    "createdAt": "2026-09-21T04:56:18.307Z",
+    "dirty": true,
+    "id": "ckpt-20260921T045618226",
+    "ref": "9939a4919be36d4384fdadab7003e55c7b5e83d5",
+    "statusHash": "7f140d5b56faeb5c7e7c1b30e245254df97f8efa8e4a7e178a44bc76453ce6a5",
+    "tag": "cdir/ckpt-20260921T045618226"
+  },
+  "command": [
+    "bash",
+    "/private/tmp/claude-501/-Users-x-Documents-edraft/723d4c0a-b9b0-499f-97f6-620bdeac65dc/scratchpad/apply-IL-0076.sh"
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-21T04:56:25.186Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "IL-0071 is untouched: no file under apple/eDraftEngine or packages/ changes, a no-edit save of finaldraft-sample01.fdx and finaldraft-sample02.fdx is still byte-identical, and FDX_REWRITE_OMITTED_SCENE_KEPT still fires exactly as its tests pin it — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the surface's `ranges` array stays parallel to `editor.screenplay.elements` — one entry per element, collapsed or not — so every positional lookup in the surface keeps meaning what it meant — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "every edit outside an omitted span behaves exactly as today, and the caret and keystroke refusals inside one hold in both the collapsed and the expanded state — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "a collapsed span never reaches the canvas, so the page canvas and the page count agree — the inconsistency IL-0075 recorded is closed, not documented again — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the sepia is derived from the screenplayInk/screenplayPaper pairing and resolved with usingColorSpace, never an appearance-dynamic label colour on paper; it is legible on both papers and a test measures the contrast in both — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "expansion is surface state only — nothing is written to the document, the file or defaults, and a close and reopen comes back collapsed — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the struck-through presentation is gone, not disabled: no strikethrough attribute is applied to an omitted element anywhere, and no flag restores it — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "no file under apple/eDraftEngine, packages/, apple/macOS, apple/iOS, apple/eDraft or the Xcode project changes; in apple/EDraftUI only StoryPanel.swift and its Navigator test change, TitlePageSheet.swift in particular is untouched; the foreign working-tree changes are left exactly as found — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0076",
+  "startedAt": "2026-09-21T04:56:25.146Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0076-20260921-045625.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 8
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0076-20260921-045625.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0076-20260921-045625.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftUI && swift test --package-path apple/eDraftEngine && xcodebuild -project apple/eDraft.xcodeproj -scheme \\\"eDraft (macOS)\\\" -configuration Debug -destination platform=macOS -quiet build\" → exit 0",
+        "detail": "verifyCommand passed: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftUI && swift test --package-path apple/eDraftEngine && xcodebuild -project apple/eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug -destination platform=macOS -quiet build",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftUI && swift test --package-path apple/eDraftEngine && xcodebuild -project apple/eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug -destination platform=macOS -quiet build",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · IL-0071 is untouched: no file under apple/eDraftEngine or packages/ changes, a no-edit save of finaldraft-sample01.fdx and finaldraft-sample02.fdx is still byte-identical, and FDX_REWRITE_OMITTED_SCENE_KEPT still fires exactly as its tests pin it",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the surface's `ranges` array stays parallel to `editor.screenplay.elements` — one entry per element, collapsed or not — so every positional lookup in the surface keeps meaning what it meant",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · every edit outside an omitted span behaves exactly as today, and the caret and keystroke refusals inside one hold in both the collapsed and the expanded state",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · a collapsed span never reaches the canvas, so the page canvas and the page count agree — the inconsistency IL-0075 recorded is closed, not documented again",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the sepia is derived from the screenplayInk/screenplayPaper pairing and resolved with usingColorSpace, never an appearance-dynamic label colour on paper; it is legible on both papers and a test measures the contrast in both",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · expansion is surface state only — nothing is written to the document, the file or defaults, and a close and reopen comes back collapsed",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the struck-through presentation is gone, not disabled: no strikethrough attribute is applied to an omitted element anywhere, and no flag restores it",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no file under apple/eDraftEngine, packages/, apple/macOS, apple/iOS, apple/eDraft or the Xcode project changes; in apple/EDraftUI only StoryPanel.swift and its Navigator test change, TitlePageSheet.swift in particular is untouched; the foreign working-tree changes are left exactly as found",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0076",
+    "verifiedAt": "2026-09-21T05:03:11.853Z",
+    "violations": []
+  },
+  "violations": []
+}

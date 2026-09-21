@@ -91,7 +91,13 @@ public final class EditorState {
         omittedScenes = Omissions.resolve(
             file.script.omissions ?? [],
             imported: file.script.elements,
-            document: document
+            document: document,
+            /* The file's own measure of each cut scene when it has one, and
+               the paginator's when it does not. */
+            recorded: Omissions.recordedEighths(inOrigin: origin),
+            measuring: { span in
+                ScreenplayExporter.pages(of: Array(document[span]))
+            }
         )
     }
 
@@ -537,7 +543,8 @@ public final class EditorState {
                 sceneNumber: element.sceneNumber,
                 title: element.text,
                 elementIndex: index,
-                omitted: omittedScenes.isCard(element)
+                omitted: omittedScenes.isCard(element),
+                cutPages: omittedScenes.scene(for: element).map(\.pillText)
             ) as SceneRow?
         }
         scenesCache = (revision, stats, rows)

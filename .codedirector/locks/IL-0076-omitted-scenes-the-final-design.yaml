@@ -1,0 +1,190 @@
+schemaVersion: 1
+id: IL-0076
+status: verified
+utterance: "Omitted scenes, the final design — collapsed, not struck. Collapsed by default: the cut scene is out of the script's flow, one calm line in its place — SCENE 21 OMITTED in a muted sepia-brown, with a pill reading the cut length and a disclosure control, \"View Cut Text\". Expanded on demand: the body renders in the same muted sepia, keeping its scene number, bounded by a dotted rule. Caret and edits still refused; selection and copy still allowed. The struck-through attribute path is replaced, not kept as a fallback."
+goal: "An omitted scene is collapsed out of the script's flow on the Mac: one sepia line in its place carrying the scene number, a cut-length pill and a disclosure that expands the body in the same sepia, bounded by a dotted rule — the span never reaching the canvas when collapsed, so the page canvas and the page count finally agree — with the caret and edits still refused, selection and copy still allowed, and IL-0075's struck-ink path removed rather than kept."
+interpretation: |
+  THE COLLAPSE MECHANICS — the design the human asked to read first.
+
+  MEASURED, and it decides the shape. The Mac surface lays the whole script
+  into one NSAttributedString and keeps `ScriptSurface.ranges:
+  [ElementRange]` beside it. That array is **parallel to
+  `editor.screenplay.elements`**, and the parallelism is load-bearing: the
+  surface walks `ranges.enumerated()` and indexes `elements[index]` off the
+  same integer (ScriptSurface, the selection sweep at ~3090 and the kind
+  change under it). So a collapsed span cannot simply be dropped from
+  `ranges` — every positional lookup after it would point at the wrong line.
+
+  THE RULE, one sentence: *a collapsed element keeps its entry in `ranges`
+  and that entry is empty, located at the placeholder line.*
+
+  From which everything follows:
+
+    - `ScriptLayout.attributedScript` is told which spans are collapsed. In
+      place of a collapsed span's elements it appends **one placeholder
+      paragraph** — `SCENE 21 OMITTED` — in the omitted sepia, and gives
+      every element of the span a zero-length `ElementRange` at that
+      paragraph's start.
+    - Coordinates stay internally consistent because the placeholder is
+      *text*. Nothing needs a coordinate transform, no view is asked to lie
+      about its geometry, and TextKit is never told about a range that is
+      not in the storage.
+    - The caret and the keystroke refusals from IL-0075 keep working by
+      construction: an empty range intersects no selection, so
+      `touchesOmitted` answers false for a collapsed span, and there is no
+      body text to put a caret in. Expanded, the ranges are real again and
+      the same refusal does the work it does today.
+    - The body never reaches the canvas when collapsed, so pagination and
+      the page canvas see the same text at last. **This is what closes the
+      inconsistency IL-0075's report recorded** — the page count and the
+      sheet stop disagreeing, and they stop disagreeing because there is
+      one text, not because two paginators were taught the same trick.
+
+  THE PILL AND THE DISCLOSURE are an overlay view anchored to the
+  placeholder line's rect, not an NSTextAttachment: the house already draws
+  page-break markers, reveal highlights and the ghost this way, the storage
+  stays plain text (so find and copy behave), and the control is a real
+  NSView that can carry the accessibility label. It reads
+  "Scene 21, omitted, 0.3 pages cut, collapsed".
+
+  EXPANDED, the span's elements lay out normally in the same sepia, keep
+  their scene number, and the same overlay closes the region with a dotted
+  rule at its foot. The state is a `Set<DraftElementID>` on the surface —
+  not in the document, not in the file, not persisted — so a close and
+  reopen comes back collapsed. A test says so rather than this paragraph.
+
+  THE STRUCK PATH GOES. `ScriptLayout.omittedInk` as a strikethrough
+  attribute and the strike in the Navigator row are removed, not kept
+  behind a flag. What stays is everything under them: the span tracked by
+  DraftElementID, `Omissions.resolve`, the caret and edit refusals, and the
+  page-count rule measured from Final Draft.
+
+  THE PILL'S NUMBER HAS A PROBLEM, AND IT IS NAMED. The brief says to use
+  `SceneProperties Length` when the file records one. Measured: the engine
+  does not model it. `Length` is paragraph metadata — preserved in the
+  origin's bytes, never read into `ScreenplayElement`, and there is no
+  `length` anywhere on the engine model. So the recorded value can only
+  reach the surface if EDraftCore reads it out of the `origin` string it
+  already holds, beside the `Fdx.parse(origin)` it already runs. That is
+  what this lock does: a narrow scan for each `<OmittedScene>`'s first
+  `<SceneProperties Length="…">`, in document order. The alternative is an
+  engine change, and the engine is denied. Both paths the brief asks for
+  are built and pinned: the recorded length when the file has one, and a
+  length computed by paginating the span when it does not.
+
+  NOT IN THIS LOCK: restore or un-omit (Production Mode, §7.3); printing
+  and PDF, whose callers are the app target and EDraftUI's document —
+  §7.3's "the body MUST NOT print" still waits on a seam this lock does not
+  own, and the collapse does not by itself change what `pdfData` emits.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: "IL-0071 is untouched: no file under apple/eDraftEngine or packages/ changes, a no-edit save of finaldraft-sample01.fdx and finaldraft-sample02.fdx is still byte-identical, and FDX_REWRITE_OMITTED_SCENE_KEPT still fires exactly as its tests pin it"
+  - kind: custom
+    text: the surface's `ranges` array stays parallel to `editor.screenplay.elements` — one entry per element, collapsed or not — so every positional lookup in the surface keeps meaning what it meant
+  - kind: custom
+    text: every edit outside an omitted span behaves exactly as today, and the caret and keystroke refusals inside one hold in both the collapsed and the expanded state
+  - kind: custom
+    text: a collapsed span never reaches the canvas, so the page canvas and the page count agree — the inconsistency IL-0075 recorded is closed, not documented again
+  - kind: custom
+    text: the sepia is derived from the screenplayInk/screenplayPaper pairing and resolved with usingColorSpace, never an appearance-dynamic label colour on paper; it is legible on both papers and a test measures the contrast in both
+  - kind: custom
+    text: expansion is surface state only — nothing is written to the document, the file or defaults, and a close and reopen comes back collapsed
+  - kind: custom
+    text: "the struck-through presentation is gone, not disabled: no strikethrough attribute is applied to an omitted element anywhere, and no flag restores it"
+  - kind: custom
+    text: no file under apple/eDraftEngine, packages/, apple/macOS, apple/iOS, apple/eDraft or the Xcode project changes; in apple/EDraftUI only StoryPanel.swift and its Navigator test change, TitlePageSheet.swift in particular is untouched; the foreign working-tree changes are left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - packages/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/EDraftUI/Sources/EDraftUI/TitlePageSheet.swift
+  - apple/EDraftUI/Sources/EDraftUI/CharacterThreadView.swift
+  - apple/EDraftUI/Sources/EDraftUI/LaunchIdentity.swift
+  - apple/EDraftUI/Sources/EDraftUI/NavigatorOutline.swift
+  - apple/EDraftUI/Sources/EDraftUI/PlatformChrome.swift
+  - apple/EDraftUI/Sources/EDraftUI/ScreenplayDocument.swift
+  - apple/EDraftUI/Sources/EDraftUI/SettingsPanel.swift
+  - apple/EDraftUI/Package.swift
+  - apple/EDraftCore/Package.swift
+  - apple/EDraftMacSurface/Package.swift
+  - src/**
+  - scripts/**
+  - docs/RFC-DRAFT-PRODUCTION.md
+  - docs/RFC-DRAFT-FORMAT.md
+  - docs/RFC-NOTES-SYSTEM.md
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: "An omitted scene collapses out of the script's flow: one sepia line with its number, a cut-length pill and a disclosure that expands the body in the same sepia — the struck presentation removed, the span, caret and page-count machinery kept."
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && swift test --package-path apple/EDraftUI && swift test --package-path apple/eDraftEngine && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftCore/Sources/EDraftCore/Omissions.swift
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayModels.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayExporter.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/OmittedSceneTests.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptLayout.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScreenplayDesk.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/OmittedSceneRegionView.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+    - apple/EDraftUI/Tests/EDraftUITests/OmittedSceneNavigatorTests.swift
+    - docs/MACOS-EXECUTION.md
+  symbols: []
+  maxFiles: 13
+  maxLines: 2200
+accept:
+  - "COLLAPSED BY DEFAULT: opening sample02 puts one line where the cut scene was — its number, the sepia, the pill and the disclosure — and none of the body's text is in the layout."
+  - "COORDINATES: `ranges` still has one entry per element; a collapsed element's entry is empty and sits at the placeholder; a test walks every element index and finds its range."
+  - "CANVAS AND COUNT AGREE: the page count and the canvas see the same text — the IL-0075 inconsistency is closed, pinned by a test that compares them."
+  - "EXPAND: the disclosure lays the body out in the same sepia, keeping the scene number, closed by a dotted rule; collapsing puts it away again."
+  - "CARET AND EDITS: refused in both states; selection across, and copy, still work in both."
+  - 'THE PILL, BOTH PATHS: the recorded `SceneProperties Length` is used when the file has one — sample02 records 2/8, so the pill reads "0.3 pgs CUT" — and a length computed by paginating the span when it does not. Both pinned, and the eighths-to-decimal conversion pinned with them.'
+  - 'VOICEOVER: the region reads "Scene 21, omitted, 0.3 pages cut, collapsed", and says expanded when it is.'
+  - "THE FOLLOW-UP IS WRITTEN DOWN: MACOS-EXECUTION.md records that reading `SceneProperties Length` in EDraftCore is a layering compromise, why it was taken, and what retires it — the engine modelling the attribute."
+  - "SEPIA: derived from the screenplayInk/screenplayPaper pairing, resolved with usingColorSpace, with a contrast test on both papers."
+  - "THE STRUCK PATH IS GONE: no strikethrough attribute is applied to an omitted element anywhere, in the script or the Navigator."
+  - "EDGE CASES, IN TESTS: an omission as the document's first element; as its last; two omissions separated by one live paragraph; and the state after close and reopen — collapsed, nothing persisted."
+  - "SUITES: EDraftCore, EDraftMacSurface, EDraftUI and the engine all green, the engine untouched, and the macOS Debug build succeeds."
+assumptions:
+  - text: 'HEAD is 9939a49 ("mac: omitted scenes look omitted — muted, struck, closed to the caret (IL-0075)"), the tree clean but for the four foreign items the human named: the xcscheme, .codedirector/mcp.log, "edraft logo.png", screenshot.png. None is touched, staged or reverted.'
+    source: user
+    confirmed: true
+  - text: The human has Final Draft 13.4 screenshots in hand and chose this design over IL-0075's struck ink; the struck path is replaced, not kept as a fallback, and the span, caret and page-count machinery under it stays.
+    source: user
+    confirmed: true
+  - text: "ANSWERED (2026-09-21): the narrow scan it is. The engine does not model `SceneProperties Length` — it is paragraph metadata, preserved in the origin's bytes and never read into the model — so EDraftCore reads it out of the origin string it already holds, beside the Fdx.parse it already runs. The layering cost is real and is recorded as a named follow-up in MACOS-EXECUTION.md: the engine is where an FDX attribute belongs, and this scan should retire when the engine models it."
+    source: user
+    confirmed: true
+  - text: "ANSWERED (2026-09-21): decimal, one place. sample02's `Length=\"2/8\"` is a quarter page and the pill reads \"0.3 pgs CUT\"; VoiceOver says \"0.3 pages cut\". Eighths stay the file's unit and are never shown."
+    source: user
+    confirmed: true
+  - text: "MEASURED: `ScriptSurface.ranges` is parallel to `editor.screenplay.elements` and the parallelism is load-bearing, which is why a collapsed element keeps an empty entry rather than being dropped."
+    source: system
+    confirmed: false
+  - text: The pill and the disclosure are an overlay view, following GhostTextOverlay, RevealHighlightViewMac and PageBreakMarker, rather than an NSTextAttachment — the storage stays plain text and the control can carry an accessibility label.
+    source: system
+    confirmed: false
+  - text: "Printing and PDF are unchanged and still include the body: §7.3's \"the body MUST NOT print\" needs ScreenplayPageRenderer's callers, which are the app target and EDraftUI's document, both denied. Named again because the collapse does not close it."
+    source: system
+    confirmed: false
+  - text: "maxLines 2,200, a tripwire and not a target: estimate — EDraftCore ~250 (the length source, the paginated fallback, the span queries), the Mac surface ~600 (placeholder layout, the region view, the collapse state), EDraftUI ~80, tests ~700 across three packages including the four edge cases, docs ~80. If quality work hits the ceiling the run stops and the evidence is shown rather than trimming tests."
+    source: system
+    confirmed: false
+  - text: New files sit in folders already tracked by git — Code Director 0.4.5 misjudges files in new folders.
+    source: system
+    confirmed: false
+createdAt: 2026-09-21T12:00:00.000Z
+createdBy: Yasirdora

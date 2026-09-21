@@ -758,11 +758,14 @@ owner's session, which §6 forbids while they are at the machine.
 ## 9. Omitted scenes on the Mac — measured, 2026-09-21
 
 RFC-DRAFT-PRODUCTION §7.3. The engine reads an FDX `<OmittedScene>` into the
-script and records the span (IL-0071, `cdcc477`); before this stage the app
-showed the body as ordinary text and the Navigator listed scene 21 twice.
+script and records the span (IL-0071, `cdcc477`). IL-0075 showed the body
+struck through; measured against Final Draft 13.4's own UI, that was the
+wrong presentation and was replaced (IL-0076). **A cut scene is collapsed
+out of the flow, not struck through it.**
 
-**What Final Draft 13.4 does, measured on `finaldraft-sample02.fdx` — the
-file Final Draft itself wrote:**
+### What Final Draft 13.4 does with the page count
+
+Measured on `finaldraft-sample02.fdx`, the file Final Draft itself wrote:
 
 | what | recorded |
 |---|---|
@@ -774,32 +777,80 @@ file Final Draft itself wrote:**
 paginated in situ. **An omitted scene does not count toward page numbers.**
 The card holds the scene's place at no measurable height.
 
-**How the marker reaches the surface.** `ScreenplayFile.open` converts FDX to
-a Fountain *string*, and Fountain has no spelling for an omission, so the
-span cannot travel that way. It comes off the origin instead, on the seam
-that already carries Final Draft's notes —
-`EditorState.attachImportedNotes(from: origin)`, which already parses the
-origin — and is converted there, once, from the engine's element *indices*
-into `DraftElementID`s (M1, IL-0073). The surface asks about elements, never
-about positions, so an edit above a cut scene cannot mis-mark it.
+### The collapse
 
-**What the app does now:**
+The card is the line. No placeholder paragraph is invented: the OMITTED
+Scene Heading is already a live element, so it stays in the layout, takes
+the omitted sepia, and carries the chrome. The body is not appended at all.
 
-- the body draws in `ScriptLayout.omittedInk` with a strike, on the page —
-  Final Draft hides it behind the card; eDraft shows it, because a writer
-  who cannot see what was cut cannot tell it from a scene never written;
-- the caret does not land inside the span (it passes to the far edge, the
-  way it was travelling) and no keystroke reaches it, while a selection
-  *across* it still works and still copies;
-- page numbers leave the body out, as Final Draft does;
-- the Navigator shows one row for the scene, struck, inked back, keeping its
-  number, and VoiceOver says "omitted" — a strike is not spoken.
+The rule that makes this safe is one sentence: **a collapsed element keeps
+its entry in `ScriptSurface.ranges`, and that entry is empty, at the card's
+foot.** That array is indexed by element index across the surface — the
+selection sweep, the kind change, the caret arithmetic all read
+`ranges[index]` against `elements[index]` — so an element may lose its text
+but never its place in the array. From that:
 
-**Not done here, and why.** Omitting or restoring a scene from the app is
-Production Mode (§7.3 blocks Omit in `development`). The page *canvas* still
-lays the struck body out, so on a page-sheet canvas a cut scene still takes
-room even though the page count no longer counts it; making the canvas agree
-means teaching the layout about omissions, which is its own stage. Printing
-and PDF still include the body: §7.3 says it must not print, but
-`ScreenplayPageRenderer`'s callers are the app target and EDraftUI, which
-this lock does not own.
+- coordinates stay consistent, because the placeholder is *text*: nothing
+  transforms a rectangle, and TextKit is never told about a range that is
+  not in the storage;
+- the caret and keystroke refusals keep working by construction — an empty
+  range intersects no selection, and there is no body to put a caret in;
+- **the canvas and the page count agree.** The layout and the pagination
+  take the same list (`ScriptSurface.laidElements`), so the sheet and the
+  number are the same script. This closes the disagreement IL-0075 had to
+  report.
+
+Expanded, the body is laid out again in the same sepia, keeps its scene
+number, and the region's foot takes a dotted rule. Expansion is a
+`Set<DraftElementID>` on the surface — not in the document, not in the
+file, not in defaults — so a close and reopen comes back collapsed.
+`OmittedSceneSurfaceTests` pins that, along with an omission first in the
+document, last in it, and two omissions separated by one live paragraph.
+
+The pill and the disclosure are an overlay view
+(`OmittedSceneRegionView`), the way the page-break marker and the reveal
+highlight are, rather than a text attachment: the storage stays plain text,
+so find, copy and the paginator see a script and not a widget, and the
+control is a real view VoiceOver can reach. It says
+"Scene 21, omitted, 0.3 pages cut, collapsed". The toggle crossfades the
+sheet rather than swapping it — a disclosure that pops reads as the page
+jumping.
+
+### Ink on paper — the standing rule
+
+**Anything drawn on the sheet takes a colour keyed to the paper, never an
+appearance-dynamic label colour.** `screenplayInk` is the caret's pairing;
+`screenplayNoteTint` is a note's; `screenplayOmittedInk` is a cut scene's —
+sepia-brown, because grey is what disabled means and a cut scene is not
+disabled. Each is an `NSColor(name:)` that reads `PagePaper.stored`, and
+each is resolved with `usingColorSpace(.sRGB)` where a concrete colour is
+needed. A `secondaryLabelColor` would follow the *app's* appearance and go
+pale on a page that had not changed. The sepia is contrast-tested against
+both papers (≥ 4.5:1) rather than dialled down until it merely looks quiet.
+
+### The cut length, and one follow-up
+
+The pill reads pages to one decimal place — `0.3 pgs CUT` — rounded half
+away from zero, because `%.1f` rounds half to even and a quarter page
+(`2/8`, the commonest cut there is) came out as "0.2". A pill that
+understates a cut is read by someone deciding whether the day still fits.
+
+Two sources, both pinned: the file's own `SceneProperties Length` when it
+records one, and the span paginated when it does not.
+
+> **Follow-up.** Reading `SceneProperties Length` happens in EDraftCore
+> (`Omissions.recordedEighths`), not in the engine, because the engine does
+> not model the attribute — it is paragraph metadata, preserved in the
+> origin's bytes and never read into `ScreenplayElement`. Rather than widen
+> the engine for a pill, the value is scanned out of the origin string the
+> document already holds and already parses. It is a layering compromise,
+> taken deliberately and narrowly (the first `Length` inside each
+> `<OmittedScene>`, nothing else), and it should retire the day the engine
+> models the attribute.
+
+### Not done here, and why
+
+Omitting or restoring a scene from the app is Production Mode (§7.3 blocks
+Omit in `development`). Printing and PDF still include the body: §7.3 says
+it must not print, but `ScreenplayPageRenderer`'s callers are the app
+target and EDraftUI's document, which these locks do not own.

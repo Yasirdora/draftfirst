@@ -174,6 +174,28 @@ extension NSColor {
         return NSColor(srgbRed: 0.98, green: 0.84, blue: 0.42, alpha: 1)      // #FAD66B
     }
 
+    /// A scene the production cut — RFC-DRAFT-PRODUCTION §7.3.
+    ///
+    /// Sepia-brown, and keyed to the paper the way `screenplayInk` and
+    /// `screenplayNoteTint` are: a light page in a dark app still takes the
+    /// ink meant for paper. A `secondaryLabelColor` would follow the *app's*
+    /// appearance instead and go pale on a page that had not changed — the
+    /// standing rule for anything drawn on the sheet.
+    ///
+    /// Brown rather than grey because grey is what disabled means, and a cut
+    /// scene is not disabled: it is a scene that was, kept where it was. It
+    /// carries type at reading weight, so it is contrast-tested against both
+    /// papers rather than dialled down until it merely looks quiet.
+    static let screenplayOmittedInk = NSColor(name: "screenplayOmittedInk") { appearance in
+        guard appearance.isDark, PagePaper.stored == .inverted else {
+            // On cream: dark enough to read a whole cut scene in, warm
+            // enough that it is plainly not the live type beside it.
+            return NSColor(srgbRed: 0.404, green: 0.329, blue: 0.239, alpha: 1) // #675440
+        }
+        // On the dark sheet, the same decision the other way up.
+        return NSColor(srgbRed: 0.722, green: 0.627, blue: 0.506, alpha: 1)     // #B8A081
+    }
+
     /// A prediction, and a hint, in the same ink at less weight — so they
     /// stay legible on either page.
     static var screenplayGhostInk: NSColor { screenplayInk.withAlphaComponent(0.45) }

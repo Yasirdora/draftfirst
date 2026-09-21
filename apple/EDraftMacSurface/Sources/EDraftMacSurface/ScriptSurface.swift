@@ -95,7 +95,18 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// is pinned by `testRangesStayParallelToElements`.
     /// Where each element sits in the laid-out text. Written here only;
     /// readable to the package so the omission rules can be measured.
+    ///
+    /// A collapsed cut scene keeps one entry per element like everything
+    /// else — empty, at its card's foot — because the surface indexes this
+    /// array by element index and the two must stay in step (§7.3).
     private(set) var ranges: [ScriptLayout.ElementRange] = []
+
+    /// Cut scenes the writer has opened. Surface state: not in the
+    /// document, not in the file, not in defaults — so a close and reopen
+    /// comes back collapsed, which is what a cut scene should be.
+    private(set) var expandedOmissions: Set<DraftElementID> = []
+    private(set) var omittedRegions: [ScriptLayout.OmittedRegion] = []
+    private var regionViews: [DraftElementID: OmittedSceneRegionView] = [:]
 
     /// The engine's reading of the text last laid out: its pages, and where
     /// each begins in the flattened text. Paginating a feature is not cheap
@@ -510,9 +521,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let sheetSelection = usesPageSheets ? selectionTextView.selectedRange() : nil
         applyingModel = true
         let script = ScriptLayout.attributedScript(
-            elements, measure: measure, omitted: editor?.omittedScenes ?? OmittedScenes()
+            elements, measure: measure,
+            omitted: editor?.omittedScenes ?? OmittedScenes(),
+            expanded: expandedOmissions
         )
         ranges = script.ranges
+        omittedRegions = script.regions
         lastLaidElements = elements
         textStorage.setAttributedString(script.text)
         if let saved = sheetSelection {
@@ -529,6 +543,80 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             restoreViewport(preserved: preserved)
         }
         updateGhost()
+        /* After the glyphs are placed, not before: a region's chrome is
+           framed on the line it sits over, and that line has no rectangle
+           until the layout has run. */
+        placeOmittedRegions()
+    }
+
+    // MARK: - Cut scenes
+
+    /// Opens a cut scene, or puts it away.
+    ///
+    /// Collapsed and expanded are two layouts of one document, so this
+    /// re-lays the script the way a revision does. The change is crossfaded
+    /// rather than swapped: a disclosure that pops reads as the page
+    /// jumping, which is exactly what a writer scanning a script must not
+    /// see. The document is not touched and nothing is written anywhere —
+    /// reopening the file brings the scene back collapsed.
+    public func toggleOmission(_ key: DraftElementID) {
+        if expandedOmissions.contains(key) {
+            expandedOmissions.remove(key)
+        } else {
+            expandedOmissions.insert(key)
+        }
+        guard let editor else { return }
+        let fade = CATransition()
+        fade.type = .fade
+        fade.duration = 0.18
+        fade.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        let views: [NSView] = sheets.isEmpty ? [textView] : sheets.map(\.textView)
+        for view in views {
+            view.wantsLayer = true
+            view.layer?.add(fade, forKey: "omission")
+        }
+        render(editor.screenplay.elements) {}
+        updateTypingAttributes()
+    }
+
+    /// Whether this cut scene is open.
+    public func isOmissionExpanded(_ key: DraftElementID) -> Bool {
+        expandedOmissions.contains(key)
+    }
+
+    /// Puts the pill and the disclosure on each cut scene, and takes away
+    /// the chrome of any that is no longer in the script.
+    func placeOmittedRegions() {
+        guard let editor, !editor.omittedScenes.isEmpty else {
+            for (_, view) in regionViews { view.removeFromSuperview() }
+            regionViews.removeAll()
+            return
+        }
+        var live: Set<DraftElementID> = []
+        for region in omittedRegions {
+            guard let scene = editor.omittedScenes.scenes.first(where: { $0.key == region.key }),
+                  let placed = sheetRect(for: region.range)
+            else { continue }
+            live.insert(region.key)
+            let view: OmittedSceneRegionView
+            if let existing = regionViews[region.key] {
+                view = existing
+            } else {
+                view = OmittedSceneRegionView(scene: scene, collapsed: region.collapsed)
+                view.onToggle = { [weak self] key in self?.toggleOmission(key) }
+                regionViews[region.key] = view
+            }
+            view.update(scene: scene, collapsed: region.collapsed)
+            if view.superview !== placed.view {
+                view.removeFromSuperview()
+                placed.view.addSubview(view, positioned: .above, relativeTo: nil)
+            }
+            view.frame = placed.rect
+        }
+        for (key, view) in regionViews where !live.contains(key) {
+            view.removeFromSuperview()
+            regionViews.removeValue(forKey: key)
+        }
     }
 
     /// Brings the view's own geometry up to date with the text in it.
@@ -921,6 +1009,21 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// The engine's reading of `elements`, computed once per version of the
     /// text. Everything else that needs it this pass — the breaks, the
     /// markers — takes it from here.
+    /// The elements the page actually holds.
+    ///
+    /// A collapsed cut scene is not among them (§7.3). The layout and the
+    /// pagination both take this list, so the text on the canvas and the
+    /// pages counted over it are the same script — the disagreement
+    /// IL-0075 had to report is not possible from here.
+    func laidElements(_ elements: [ScriptElement]) -> [ScriptElement] {
+        guard let editor, !editor.omittedScenes.isEmpty else { return elements }
+        return elements.filter { element in
+            guard let scene = editor.omittedScenes.scene(for: element),
+                  editor.omittedScenes.contains(element) else { return true }
+            return expandedOmissions.contains(scene.key)
+        }
+    }
+
     private func pagination(for elements: [ScriptElement]) -> Pagination {
         let format = PageFormat.current
         if let cached = cachedPagination, cached.format == format {
@@ -939,7 +1042,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                ) {
                 let locations: [Int]
                 if pages.count > 1 {
-                    locations = ScreenplayPageLayout.pageStartLocations(elements: elements, pages: pages)
+                    locations = ScreenplayPageLayout.pageStartLocations(elements: laidElements(elements), pages: pages)
                 } else {
                     locations = []
                 }
@@ -948,10 +1051,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 return fresh
             }
         }
-        let pages = ScreenplayExporter.paginate(Screenplay(elements: elements))
+        let pages = ScreenplayExporter.paginate(Screenplay(elements: laidElements(elements)))
         let locations: [Int]
         if let pages, pages.count > 1 {
-            locations = ScreenplayPageLayout.pageStartLocations(elements: elements, pages: pages)
+            locations = ScreenplayPageLayout.pageStartLocations(elements: laidElements(elements), pages: pages)
         } else {
             locations = []
         }

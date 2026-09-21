@@ -81,40 +81,89 @@ public enum ScriptLayout {
     /// Elements are joined by newlines exactly as `ScreenplayEditPlanner`
     /// flattens them, so a range computed here means the same characters the
     /// planner means.
-    /// Muted ink and a line through it, for a scene the production cut
-    /// (RFC-DRAFT-PRODUCTION §7.3).
-    ///
-    /// Final Draft hides an omitted scene behind its OMITTED card. eDraft
-    /// shows it, struck: a writer who cannot see what was cut cannot tell a
-    /// cut scene from a scene that was never written, and the body is still
-    /// theirs to read and copy. Muted, never hidden — and never editable,
-    /// which the surface enforces where the caret and the keystrokes are.
-    public static let omittedInk = NSColor.tertiaryLabelColor
+    /// A region of the layout a cut scene occupies (§7.3). Collapsed, it is
+    /// the card's own line and the body is not in the text at all;
+    /// expanded, it is the body, and the region's foot takes a dotted rule.
+    public struct OmittedRegion: Equatable {
+        public let key: DraftElementID
+        public let range: NSRange
+        public let collapsed: Bool
+    }
 
+    /// The script as one attributed string, and where each element sits in
+    /// it — for a caller with no cut scenes to place.
+    ///
+    /// The shape this had before §7.3: two members, no regions. Kept so the
+    /// layout's own tests and any caller that never draws a region read the
+    /// same as they did.
+    public static func attributedScript(
+        _ elements: [ScriptElement], measure: CGFloat
+    ) -> (text: NSAttributedString, ranges: [ElementRange]) {
+        let script = attributedScript(elements, measure: measure, omitted: OmittedScenes(), expanded: [])
+        return (script.text, script.ranges)
+    }
+
+    /// The script as one attributed string, and where each element sits in
+    /// it.
+    ///
+    /// **A cut scene is collapsed out of the flow (§7.3).** Its card is the
+    /// line that stands in its place; the body is not appended at all, and
+    /// every element of it takes an *empty* range at the card's end. That
+    /// keeps `ranges` parallel to `elements` — which the surface relies on,
+    /// indexing one by the other — while the text the layout, the canvas
+    /// and the paginator all see is the same text, with the cut scene out
+    /// of it. Expanded, the body is appended in the same sepia and the
+    /// ranges are real again.
     public static func attributedScript(
         _ elements: [ScriptElement], measure: CGFloat,
-        omitted: OmittedScenes = OmittedScenes()
-    ) -> (text: NSAttributedString, ranges: [ElementRange]) {
+        omitted: OmittedScenes = OmittedScenes(),
+        expanded: Set<DraftElementID> = []
+    ) -> (text: NSAttributedString, ranges: [ElementRange], regions: [OmittedRegion]) {
         let result = NSMutableAttributedString()
-        var ranges: [ElementRange] = []
+        var ranges: [ElementRange] = Array(
+            repeating: ElementRange(id: UUID(), range: NSRange(location: 0, length: 0)),
+            count: elements.count
+        )
+        var regions: [OmittedRegion] = []
 
-        for (index, element) in elements.enumerated() {
+        /* What takes a line. A collapsed span contributes none: its card,
+           which is a live element in front of it, already has one. */
+        var rows: [Int] = []
+        var hidden: [Int: OmittedScene] = [:]
+        var at = 0
+        while at < elements.count {
+            guard let scene = omitted.scene(for: elements[at]), omitted.contains(elements[at]),
+                  !expanded.contains(scene.key)
+            else {
+                rows.append(at)
+                at += 1
+                continue
+            }
+            var end = at
+            while end < elements.count, omitted.contains(elements[end]),
+                  omitted.scene(for: elements[end])?.key == scene.key {
+                hidden[end] = scene
+                end += 1
+            }
+            at = end
+        }
+
+        for (place, index) in rows.enumerated() {
+            let element = elements[index]
             let location = result.length
-            let spacingAfter = index + 1 < elements.count
-                ? ScreenplayPageLayout.spacing(before: elements[index + 1].type)
-                : 0
+            let next = place + 1 < rows.count ? elements[rows[place + 1]].type : nil
+            let spacingAfter = next.map { ScreenplayPageLayout.spacing(before: $0) } ?? 0
             let style = attributes(
                 for: element.type, measure: measure, spacingAfter: spacingAfter
             )
             result.append(NSAttributedString(string: element.text, attributes: style))
             let length = (element.text as NSString).length
+            /* A cut scene's body, when the writer has opened it: the same
+               sepia the card takes, at reading weight. Never struck — the
+               collapse is what says "cut"; the ink says "not live". */
             if omitted.contains(element), length > 0 {
                 result.addAttributes(
-                    [
-                        .foregroundColor: omittedInk,
-                        .strikethroughStyle: NSUnderlineStyle.single.rawValue,
-                        .strikethroughColor: omittedInk
-                    ],
+                    [.foregroundColor: NSColor.screenplayOmittedInk],
                     range: NSRange(location: location, length: length)
                 )
             }
@@ -137,18 +186,52 @@ public enum ScriptLayout {
                     range: NSRange(location: location + start, length: end - start)
                 )
             }
-            ranges.append(
-                ElementRange(
-                    id: element.id,
-                    range: NSRange(location: location, length: length)
-                )
+            ranges[index] = ElementRange(
+                id: element.id,
+                range: NSRange(location: location, length: length)
             )
-            if index < elements.count - 1 {
+            /* Every element of a span hidden behind this card takes an
+               empty range at the card's end: parallel, and impossible to
+               put a caret inside or to sweep a selection into. */
+            if let scene = omitted.scene(for: element), omitted.isCard(element),
+               !expanded.contains(scene.key) {
+                let foot = NSRange(location: location + length, length: 0)
+                for (hiddenIndex, behind) in hidden where behind.key == scene.key {
+                    ranges[hiddenIndex] = ElementRange(id: elements[hiddenIndex].id, range: foot)
+                }
+                regions.append(OmittedRegion(
+                    key: scene.key,
+                    range: NSRange(location: location, length: length),
+                    collapsed: true
+                ))
+            }
+            if place < rows.count - 1 {
                 result.append(NSAttributedString(string: "\n", attributes: style))
             }
         }
+
+        /* An expanded span's region is its body, from the first element to
+           the last — what the dotted rule closes. */
+        for scene in omitted.scenes where expanded.contains(scene.key) {
+            /* By identity only. `draftID ?? scene.key` would have counted
+               every element that has no identity yet as part of the span. */
+            let placed = elements.indices.filter { index in
+                guard let id = elements[index].draftID else { return false }
+                return scene.elements.contains(id)
+            }
+            guard let first = placed.first, let last = placed.last,
+                  ranges[first].range.length > 0 || ranges[last].range.length > 0 else { continue }
+            let start = ranges[first].range.location
+            let end = ranges[last].range.location + ranges[last].range.length
+            regions.append(OmittedRegion(
+                key: scene.key,
+                range: NSRange(location: start, length: max(0, end - start)),
+                collapsed: false
+            ))
+        }
+
         fitTallGlyphs(result)
-        return (result, ranges)
+        return (result, ranges, regions)
     }
 
     /// An emoji's own metrics exceed the 12pt line. Shrink the font on

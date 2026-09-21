@@ -40,7 +40,7 @@ final class OmittedSceneTests: XCTestCase {
         <Paragraph Number="21" Type="Scene Heading">
         <Text>OMITTED</Text>
         <OmittedScene>
-        <Paragraph Type="Scene Heading"><Text>EXT. THE YARD - DUSK</Text></Paragraph>
+        <Paragraph Type="Scene Heading"><SceneProperties Length="2/8" Page="1"></SceneProperties><Text>EXT. THE YARD - DUSK</Text></Paragraph>
         <Paragraph Type="Action"><Text>Mara waits.</Text></Paragraph>
         </OmittedScene>
         </Paragraph>
@@ -170,5 +170,74 @@ final class OmittedSceneTests: XCTestCase {
         )
         XCTAssertEqual(paginable.model.elements.count, model.elements.count)
         XCTAssertEqual(paginable.kept, Array(model.elements.indices))
+    }
+
+    // MARK: - How much page was cut
+
+    /// Final Draft writes a scene's length in eighths. The engine does not
+    /// model the attribute, so this is read out of the origin — the
+    /// compromise named in `Omissions.recordedEighths`.
+    func testEighthsAreReadTheWayFinalDraftWritesThem() {
+        XCTAssertEqual(Omissions.eighths(inLength: "2/8"), 2)
+        XCTAssertEqual(Omissions.eighths(inLength: "1 4/8"), 12, "a page and a half")
+        XCTAssertEqual(Omissions.eighths(inLength: "0"), 0, "a card takes no measurable height")
+        XCTAssertEqual(Omissions.eighths(inLength: "3"), 24, "three whole pages")
+        XCTAssertNil(Omissions.eighths(inLength: ""))
+        XCTAssertNil(Omissions.eighths(inLength: "about a page"))
+        XCTAssertNil(Omissions.eighths(inLength: "2/0"), "nothing is divided by nothing")
+    }
+
+    func testTheRecordedLengthIsFoundInTheOrigin() throws {
+        let origin = String(decoding: omittedFixture(), as: UTF8.self)
+        XCTAssertEqual(Omissions.recordedEighths(inOrigin: origin), [2])
+    }
+
+    func testABlockWithNoRecordedLengthReportsNone() {
+        let origin = """
+        <FinalDraft><Content>
+        <Paragraph Number="21" Type="Scene Heading"><Text>OMITTED</Text>
+        <OmittedScene><Paragraph Type="Scene Heading"><Text>EXT. THE YARD - DUSK</Text></Paragraph></OmittedScene>
+        </Paragraph>
+        </Content></FinalDraft>
+        """
+        XCTAssertEqual(Omissions.recordedEighths(inOrigin: origin), [nil])
+    }
+
+    /// Path one: the file said so.
+    func testThePillUsesTheFilesOwnMeasure() throws {
+        let editor = try opened(omittedFixture())
+        let scene = try XCTUnwrap(editor.omittedScenes.scenes.first)
+        XCTAssertEqual(scene.eighths, 2, "2/8, as the file records it")
+        XCTAssertEqual(scene.pages, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(scene.pillText, "0.3 pgs CUT", "a quarter page, rounded up rather than down")
+    }
+
+    /// Path two: it did not, so the span is paginated.
+    func testThePillFallsBackToPaginatingTheSpan() throws {
+        let withoutLength = Data(
+            String(decoding: omittedFixture(), as: UTF8.self)
+                .replacingOccurrences(of: "<SceneProperties Length=\"2/8\" Page=\"1\"></SceneProperties>", with: "")
+                .utf8
+        )
+        let editor = try opened(withoutLength)
+        let scene = try XCTUnwrap(editor.omittedScenes.scenes.first)
+        XCTAssertNil(scene.eighths, "the file recorded none")
+        XCTAssertGreaterThan(scene.pages, 0, "so the paginator measured it")
+        XCTAssertTrue(scene.pillText.hasSuffix(" pgs CUT"))
+    }
+
+    func testTheRealFileReportsItsCutScenesLength() throws {
+        let editor = try opened(try fixture("finaldraft-sample02.fdx"))
+        let scene = try XCTUnwrap(editor.omittedScenes.scenes.first)
+        XCTAssertEqual(scene.eighths, 2, "sample02 records Length=\"2/8\"")
+        XCTAssertEqual(scene.sceneNumber, "21")
+        XCTAssertEqual(scene.pillText, "0.3 pgs CUT")
+    }
+
+    func testWhatVoiceOverSays() throws {
+        let editor = try opened(omittedFixture())
+        let scene = try XCTUnwrap(editor.omittedScenes.scenes.first)
+        XCTAssertEqual(scene.spoken(collapsed: true), "Scene 21, omitted, 0.3 pages cut, collapsed")
+        XCTAssertEqual(scene.spoken(collapsed: false), "Scene 21, omitted, 0.3 pages cut, expanded")
     }
 }

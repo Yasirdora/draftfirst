@@ -107,6 +107,25 @@ public enum ScreenplayExporter {
         try? Paginator.paginate(screenplay.engineModel, linesPerPage: PageFormat.current.linesPerPage)
     }
 
+    /// How much page a run of elements takes, in pages.
+    ///
+    /// The measure behind a cut scene's pill when the file recorded no
+    /// `SceneProperties Length` — a scene eDraft omitted itself, or one
+    /// whose heading carried none. Lines rather than pages, because a
+    /// quarter-page scene and a whole one both paginate to a single page
+    /// and the pill has to tell them apart.
+    public static func pages(of elements: [ScriptElement]) -> Double {
+        guard !elements.isEmpty else { return 0 }
+        let perPage = PageFormat.current.linesPerPage
+        guard perPage > 0,
+              let pages = try? Paginator.paginate(
+                  Screenplay(elements: elements).engineModel, linesPerPage: perPage
+              )
+        else { return 0 }
+        let lines = pages.reduce(0) { $0 + $1.lines.count }
+        return Double(lines) / Double(perPage)
+    }
+
     /// The same pages at the cost of the changed region alone. The engine
     /// owns the diff and the proof (`paginateIncrementally == paginate`,
     /// fuzz-pinned in both languages); a caller with nothing cached gets the

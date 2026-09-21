@@ -1051,16 +1051,17 @@ private struct ActListRow: View {
 struct SceneRowStyle: Equatable {
     enum Ink: Equatable { case accent, omitted, secondary, primary }
     var ink: Ink
-    var struckThrough: Bool
 
-    /// RFC-DRAFT-PRODUCTION §7.3: an omitted scene keeps its number and its
-    /// place, and says what it is the way the page says it.
+    /// RFC-DRAFT-PRODUCTION §7.3: a cut scene keeps its number and its
+    /// place in the list — that is what an omission is — and reads as cut
+    /// by its ink and by the length beside it. Not struck: the page stopped
+    /// striking it when the scene was collapsed out of the flow, and a list
+    /// that strikes what the page does not is a second story.
     static func of(_ scene: SceneRow, isSelected: Bool) -> SceneRowStyle {
         SceneRowStyle(
             ink: isSelected ? .accent
                 : scene.omitted ? .omitted
-                : scene.isSecondary ? .secondary : .primary,
-            struckThrough: scene.omitted
+                : scene.isSecondary ? .secondary : .primary
         )
     }
 }
@@ -1100,7 +1101,6 @@ struct SceneRowLabel: View {
                 // for why this is emphasis and not a second element type.
                 Text(scene.title)
                     .font(scene.isSecondary ? .subheadline : .body)
-                    .strikethrough(style.struckThrough, color: .secondary)
                     // `.foreground` rather than `.primary`: it means "whatever
                     // the row's colour currently is", which is what the source
                     // list changes when the row is selected. `.primary` pins
@@ -1116,7 +1116,13 @@ struct SceneRowLabel: View {
                 // of the same pagination the PDF prints, so the two can never
                 // disagree. A scene number says which scene; a page number
                 // says where to turn.
-                if let page = scene.page {
+                // A cut scene has no page to turn to; what a reader wants
+                // to know is how much page it took (§7.3).
+                if let cut = scene.cutPages {
+                    Text(cut)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                } else if let page = scene.page {
                     Text(page.formatted())
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.tertiary)
@@ -1143,7 +1149,10 @@ struct SceneRowLabel: View {
         var label = "Scene \(scene.label), \(scene.title)"
         /* A strike through type is not spoken; an omitted scene has to say
            so out loud or a VoiceOver reader is told a cut scene is live. */
-        if scene.omitted { label += ", omitted" }
+        if scene.omitted {
+            label += ", omitted"
+            if let cut = scene.cutPages { label += ", \(cut.replacingOccurrences(of: " pgs CUT", with: " pages cut"))" }
+        }
         if let page = scene.page { label += ", page \(page)" }
         return label
     }
