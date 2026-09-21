@@ -640,8 +640,25 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         expandedOmissions.contains(key)
     }
 
-    /// Puts the pill and the disclosure on each cut scene, and takes away
-    /// the chrome of any that is no longer in the script.
+    /// The card element's own range — the line the region's chrome anchors
+    /// to. Collapsed, the region's range *is* the card; expanded, the
+    /// region is the body and the card is looked up by identity.
+    private func cardRange(for scene: OmittedScene, collapsed: Bool, region: ScriptLayout.OmittedRegion) -> NSRange? {
+        if collapsed { return region.range }
+        guard let index = editor?.screenplay.elements.firstIndex(where: { $0.draftID == scene.card }),
+              ranges.indices.contains(index) else { return nil }
+        return ranges[index].range
+    }
+
+    /// Puts the chevron on each cut scene, and takes away the chrome of
+    /// any that is no longer in the script.
+    ///
+    /// The overlay's frame is the text column (IL-0079) — hover and the
+    /// wash span the line — and it grows to cover the card's line as well
+    /// as the open body, so the region's head is the card in both states
+    /// and the chevron always rides beside the word OMITTED (IL-0082).
+    /// `OmittedRegion.range` keeps its body-only meaning; this is only
+    /// where the chrome is framed.
     func placeOmittedRegions() {
         guard let editor, !editor.omittedScenes.isEmpty else {
             for (_, view) in regionViews { view.removeFromSuperview() }
@@ -651,8 +668,22 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         var live: Set<DraftElementID> = []
         for region in omittedRegions {
             guard let scene = editor.omittedScenes.scenes.first(where: { $0.key == region.key }),
-                  let placed = sheetColumnRect(for: region.range)
+                  let card = cardRange(for: scene, collapsed: region.collapsed, region: region)
             else { continue }
+            let host = textView(atCharacter: card.location)
+            guard let headColumn = ScriptLayout.sheetColumnRect(of: card, in: host),
+                  let headGlyphs = ScriptLayout.sheetBoundingRect(of: card, in: host)
+            else { continue }
+
+            /* Expanded, the frame covers card and body when one host draws
+               both; a page break between them leaves the chrome on the
+               card's sheet, and the body reads as what it is — muted ink
+               continuing onto the next page. */
+            var frame = headColumn
+            if !region.collapsed,
+               let body = sheetColumnRect(for: region.range), body.view === host {
+                frame = frame.union(body.rect)
+            }
             live.insert(region.key)
             let view: OmittedSceneRegionView
             if let existing = regionViews[region.key] {
@@ -663,11 +694,21 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 regionViews[region.key] = view
             }
             view.update(scene: scene, collapsed: region.collapsed)
-            if view.superview !== placed.view {
+            if view.superview !== host {
                 view.removeFromSuperview()
-                placed.view.addSubview(view, positioned: .above, relativeTo: nil)
+                host.addSubview(view, positioned: .above, relativeTo: nil)
             }
-            view.frame = placed.rect
+            view.frame = frame
+            /* The line fragment carries the paragraph's trailing spacing —
+               a Scene Heading's fragment is two lines tall — so the band is
+               measured from the word itself, which is what the eye reads
+               as the line. `top` counts down from the frame's visual top
+               (the host is flipped, the overlay is not). */
+            view.headAnchor = OmittedSceneRegionView.HeadAnchor(
+                top: headGlyphs.minY - frame.minY,
+                height: headGlyphs.height,
+                glyphMaxX: headGlyphs.maxX - frame.minX
+            )
         }
         for (key, view) in regionViews where !live.contains(key) {
             view.removeFromSuperview()

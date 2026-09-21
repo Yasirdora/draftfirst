@@ -103,6 +103,31 @@ final class OmittedSceneRegionView: NSView {
     /// Whether the chevron is showing — collapsed and at rest, it is not.
     var chevronVisible: Bool { !chevron.isHidden }
 
+    /// The card line's own band and where its glyphs end — set by the
+    /// surface at placement. `top` is the distance from the frame's
+    /// *visual* top (the host text view is flipped; this view is not), and
+    /// `glyphMaxX` is measured from the frame's leading edge. The chevron
+    /// anchors here: beside the word OMITTED, where the thing it acts on
+    /// is, not at the column's far edge.
+    struct HeadAnchor: Equatable {
+        let top: CGFloat
+        let height: CGFloat
+        let glyphMaxX: CGFloat
+    }
+    var headAnchor: HeadAnchor? {
+        didSet { needsLayout = true; needsDisplay = true }
+    }
+
+    /// The line the chevron rides, in local coordinates. Unflipped: the
+    /// anchor's `top` counts down from the visual top, this view's y
+    /// counts up from the bottom.
+    private var headBand: CGRect {
+        let height = headAnchor?.height ?? min(bounds.height, 18)
+        let top = headAnchor?.top ?? 0
+        return NSRect(x: 0, y: max(0, bounds.height - top - height),
+                      width: bounds.width, height: height)
+    }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         for area in trackingAreas { removeTrackingArea(area) }
@@ -135,14 +160,23 @@ final class OmittedSceneRegionView: NSView {
     override func layout() {
         super.layout()
         let inset: CGFloat = 8
+        let gap: CGFloat = 8
         let size = chevron.intrinsicContentSize
-        /* Rides the head of the region — the card's line when collapsed,
-           the body's first line when open — at the trailing edge, where a
-           page has margin rather than type. */
-        let headHeight = min(bounds.height, size.height + 6)
+        /* Beside the word, on the card's own line — a control sits next to
+           the thing it acts on. Never past the column's edge, and never
+           back over the glyphs if a line is somehow narrower than its
+           chrome. */
+        let band = headBand
+        let trailing = bounds.maxX - size.width - inset
+        let x: CGFloat
+        if let anchor = headAnchor {
+            x = min(max(anchor.glyphMaxX + gap, 0), trailing)
+        } else {
+            x = trailing
+        }
         chevron.frame = NSRect(
-            x: bounds.maxX - size.width - inset,
-            y: bounds.maxY - (headHeight + size.height) / 2,
+            x: x,
+            y: band.midY - size.height / 2,
             width: size.width, height: size.height
         )
     }
@@ -153,9 +187,7 @@ final class OmittedSceneRegionView: NSView {
         /* The line reads as one tappable thing while the pointer is on it.
            A breath of the same sepia, not a selection colour: nothing here
            is selected, and nothing here is live. */
-        let head = NSRect(x: bounds.minX, y: bounds.maxY - min(bounds.height, 18),
-                          width: bounds.width, height: min(bounds.height, 18))
-        let wash = NSBezierPath(roundedRect: head.insetBy(dx: -2, dy: 0), xRadius: 4, yRadius: 4)
+        let wash = NSBezierPath(roundedRect: headBand.insetBy(dx: -2, dy: -3), xRadius: 4, yRadius: 4)
         Self.ink.withAlphaComponent(0.07).setFill()
         wash.fill()
     }

@@ -321,9 +321,42 @@ final class OmittedSceneSurfaceTests: XCTestCase {
         let chevron = overlay.convert(overlay.chevronFrame, to: host)
         XCTAssertFalse(chevron.intersects(glyphs), "the chevron never overprints the card's words",
                        file: file, line: line)
+        XCTAssertEqual(chevron.minX, glyphs.maxX + 8, accuracy: 2,
+                       "the chevron rides beside the word, a word gap away",
+                       file: file, line: line)
+        XCTAssertEqual(chevron.midY, glyphs.midY, accuracy: 6,
+                       "on the card's own line", file: file, line: line)
         XCTAssertLessThanOrEqual(chevron.maxX, column + 1,
                                  "the chrome ends inside the page, not in the gutter",
                                  file: file, line: line)
+    }
+
+    /// Open, the region's head is still the card: the chevron that closes
+    /// the cut text sits beside the word OMITTED, above the body it shows.
+    func testOpenTheChevronStillRidesTheCardsLine() throws {
+        let (editor, surface) = try opened(fdx())
+        surface.toggleOmission(try key(editor))
+        let region = try XCTUnwrap(surface.omittedRegions.first)
+        let overlay = try XCTUnwrap(surface.regionViews[region.key])
+        let host = try XCTUnwrap(overlay.superview as? NSTextView)
+        overlay.layoutSubtreeIfNeeded()
+
+        let text = laid(surface) as NSString
+        let cardGlyphs = try XCTUnwrap(
+            ScriptLayout.sheetBoundingRect(of: text.range(of: "OMITTED"), in: host))
+        let bodyGlyphs = try XCTUnwrap(
+            ScriptLayout.sheetBoundingRect(of: text.range(of: "Mara waits."), in: host))
+        let chevron = overlay.convert(overlay.chevronFrame, to: host)
+
+        XCTAssertEqual(chevron.midY, cardGlyphs.midY, accuracy: 6,
+                       "the way back sits beside the word OMITTED")
+        XCTAssertFalse(chevron.intersects(cardGlyphs))
+        XCTAssertLessThan(chevron.minY, bodyGlyphs.minY,
+                          "the card's line is above the body it opens")
+        XCTAssertLessThanOrEqual(overlay.frame.minY, cardGlyphs.minY + 1,
+                                 "the overlay covers the card")
+        XCTAssertGreaterThanOrEqual(overlay.frame.maxY, bodyGlyphs.maxY - 1,
+                                    "and the open body beneath it")
     }
 
     func testTheOverlaySpansTheColumnInTheSingleContainer() throws {

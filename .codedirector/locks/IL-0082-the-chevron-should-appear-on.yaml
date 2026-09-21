@@ -1,0 +1,95 @@
+schemaVersion: 1
+id: IL-0082
+status: verified
+utterance: "The chevron should appear on hover next to the word OMITTED — not at the column's far right edge. The faded ink stays: at a glance a writer sees from where to where the scene was cut. Think like a professional."
+goal: The hover chevron rides immediately after the card's own words — a small gap after OMITTED, on the card's line, in both states and both layouts — while the overlay keeps its column-wide frame and the muted ink keeps saying what is cut.
+interpretation: |
+  THE DIRECTION, FROM THE HUMAN. IL-0080 put the chevron at the column's
+  trailing edge. The human wants it beside the word — "on hover '>' next
+  to omit" — because a control belongs next to the thing it acts on, the
+  way a text field's clear button sits in the field. The faded ink is
+  affirmed: it is the glanceable signal of the cut's extent.
+
+  THE CHANGE, IN THE CODE. The overlay's frame stays the column rect
+  (IL-0079) — hover, highlight and hit-testing span the line. Only the
+  chevron's anchor changes: from `bounds.maxX` to just past the card's
+  glyphs.
+
+    - `placeOmittedRegions` already knows the card's range (the region's
+      range when collapsed; the card element — looked up by
+      `scene.card` identity in the parallel `ranges` array — when
+      expanded). It hands the view the card line's own rect in view-local
+      coordinates: the head line's band and the glyphs' trailing edge.
+    - Expanded, the overlay's frame grows to cover the card line as well
+      as the body (the union of the two column rects), so the head of the
+      region is the card in both states and the chevron always rides
+      beside OMITTED. `OmittedRegion.range` itself is NOT changed — the
+      caret and edit-refusal semantics keep their body-only meaning; this
+      is purely where the chrome is framed.
+    - `OmittedSceneRegionView.layout` places the chevron at
+      head-glyph-maxX + a word gap, vertically centred on the head line.
+      The hover wash hugs the head line as before. hitTest and the cursor
+      rect follow the chevron's frame, unchanged in kind.
+
+  PROOF. Tests: collapsed, the chevron's leading edge sits within a word
+  gap of the glyphs' trailing edge and on the card's own line, in the
+  single container and on PageSheets; expanded, the chevron is on the
+  card's line (above the body); the chevron never intersects the glyphs
+  and never leaves the column; the IL-0079/IL-0080/IL-0081 tests stay
+  green.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: OmittedRegion.range keeps its meaning — body-only when expanded — so caret rules, edit refusals and the IL-0081 preservation are untouched; only the overlay's frame grows to include the card line
+  - kind: custom
+    text: the muted ink and the rest of the quiet card are unchanged — faded at rest, chevron on hover, length in the Navigator/tooltip/VoiceOver, never on the page
+  - kind: custom
+    text: no file outside the three in budget changes, and the foreign working-tree changes are left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - packages/**
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftMacSurface/Package.swift
+  - src/**
+  - scripts/**
+  - docs/**
+  - Github showcase/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: The omitted-scene chevron rides beside the card's own words instead of the column's far edge, and the expanded overlay covers the card line so the chevron has the same anchor in both states.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/OmittedSceneRegionView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift
+  symbols: []
+  maxFiles: 3
+  maxLines: 300
+accept:
+  - "BESIDE THE WORD: collapsed, the chevron's leading edge is within a word gap (20pt) of the OMITTED glyphs' trailing edge, vertically centred on the card's line — in the single container and on PageSheets."
+  - "SAME ANCHOR OPEN: expanded, the chevron rides the card's line, above the cut body, not beside the body's first line."
+  - "CLEAR: the chevron never intersects the card's glyphs and never crosses the column's edge."
+  - "UNCHANGED: OmittedRegion.range semantics, the collapse mechanics, the column-wide frame, the caret and viewport preservation, and the Navigator."
+  - "SUITE: EDraftMacSurface green, and the macOS Debug build succeeds."
+assumptions:
+  - text: HEAD is dd30674 (IL-0081). The tree carries the usual foreign dirt — the xcscheme, mcp.log, the root PNGs, the IL-0078 draft. None of it is touched.
+    source: system
+    confirmed: false
+  - text: The faded ink is already screenplayOmittedInk and the human affirmed it ('the color should be a bit faded'), so no colour change is in scope.
+    source: system
+    confirmed: false
+createdAt: 2026-09-21T19:35:00.000Z
+createdBy: Yasirdora
