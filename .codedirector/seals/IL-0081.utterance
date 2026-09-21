@@ -1,0 +1,1 @@
+Clicking the omitted-scene chevron throws the writer to the end of the script — the caret lands at the document's end and the viewport follows it. Reproduce it in a test, find the mechanism, fix it. Toggling a cut scene open or shut must leave the caret and the viewport exactly where the writer left them, in both the single-container and the PageSheet layouts.

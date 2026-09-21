@@ -577,6 +577,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             expandedOmissions.insert(key)
         }
         guard let editor else { return }
+        /* A toggle re-lays the script, and a re-lay moves character
+           numbers: the body appears or vanishes above or below wherever
+           the caret sits. A number is the wrong address for the caret —
+           it belongs to the line it sits on. Anchor it to that element
+           before the re-lay and put it back after, and hold the line at
+           the top of the glass while we are at it: a toggle the writer
+           triggered by looking at a card must not throw them to wherever
+           the caret last was, or to the end of the script. */
+        let caret = caretAnchor(for: selectionTextView.selectedRange())
+        let line = anchoredLine()
         let fade = CATransition()
         fade.type = .fade
         fade.duration = 0.18
@@ -586,8 +596,43 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             view.wantsLayer = true
             view.layer?.add(fade, forKey: "omission")
         }
-        render(editor.screenplay.elements) {}
+        render(editor.screenplay.elements) { [weak self] in
+            self?.restoreCaret(caret)
+        }
+        scrollBack(to: line)
         updateTypingAttributes()
+    }
+
+    /// Where the caret sits, as the element it sits on and its offset
+    /// within it — an address that survives the text above it growing or
+    /// shrinking, which is exactly what a toggle does.
+    private func caretAnchor(for selection: NSRange) -> (id: UUID, offset: Int, length: Int)? {
+        guard let first = ranges.first, let last = ranges.last else { return nil }
+        let location = selection.location
+        if let hit = ranges.first(where: { NSLocationInRange(location, $0.range) }) {
+            return (hit.id, location - hit.range.location, selection.length)
+        }
+        /* A caret at a line's very end belongs to that line. */
+        if let end = ranges.first(where: { NSMaxRange($0.range) == location }) {
+            return (end.id, end.range.length, selection.length)
+        }
+        /* Above the first line or past the last: hold the nearest edge. */
+        if location <= first.range.location {
+            return (first.id, 0, selection.length)
+        }
+        return (last.id, last.range.length, selection.length)
+    }
+
+    /// Puts the caret back on its line after a re-lay. The ranges array is
+    /// parallel to the elements and keyed by identity, so an element's new
+    /// range is its old one shifted by exactly what the toggle inserted or
+    /// removed above it.
+    private func restoreCaret(_ anchor: (id: UUID, offset: Int, length: Int)?) {
+        guard let anchor, let range = ranges.first(where: { $0.id == anchor.id })?.range
+        else { return }
+        let location = range.location + min(anchor.offset, range.length)
+        let length = min(anchor.length, max(0, textStorage.length - location))
+        textView(atCharacter: location).setSelectedRange(NSRange(location: location, length: length))
     }
 
     /// Whether this cut scene is open.

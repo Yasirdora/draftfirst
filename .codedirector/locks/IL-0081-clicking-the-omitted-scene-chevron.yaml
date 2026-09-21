@@ -1,0 +1,83 @@
+schemaVersion: 1
+id: IL-0081
+status: verified
+utterance: Clicking the omitted-scene chevron throws the writer to the end of the script — the caret lands at the document's end and the viewport follows it. Reproduce it in a test, find the mechanism, fix it. Toggling a cut scene open or shut must leave the caret and the viewport exactly where the writer left them, in both the single-container and the PageSheet layouts.
+goal: "Toggling an omitted region — open or shut, by chevron or by VoiceOver — is caret- and viewport-neutral: after the toggle the selection is what it was and the scroll position is what it was, in both layout paths."
+interpretation: |
+  THE SYMPTOM, SEEN ON SCREEN. A click on the omitted card (spread mode,
+  PageSheets live) landed the caret at the end of the script and the
+  viewport followed it to the last page. Captured in a window screenshot:
+  the document sits on its final sheet after the click.
+
+  THE SUSPECT, READ IN THE CODE. `toggleOmission` re-lays the script —
+  `render(editor.screenplay.elements) {}` — with an *empty* restoring
+  closure. `render` preserves the selection only when
+  `usesPageSheets` (sheetSelection), and other callers pass real
+  restoringCaret closures; the toggle passes none. Somewhere between the
+  storage replacement, the sheet reconciliation and `restoreViewport`'s
+  caret correction, the caret ends up at the document's end and the page
+  chases it. The exact link in that chain is what the failing test will
+  name.
+
+  THE METHOD. Write the regression test first — caret mid-document,
+  toggle open, assert caret and scroll origin unchanged; toggle shut,
+  same assertion — in the single container and on PageSheets. Watch it
+  fail. Then fix the mechanism the failure names, and nothing more.
+
+  OUT OF SCOPE. The card's look (IL-0080 shipped it; taste passes come
+  from the human), the Navigator, print/PDF exclusion, and every other
+  surface behaviour.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the toggle still re-lays the document the same way — collapse mechanics (IL-0076), column framing (IL-0079) and quiet chrome (IL-0080) are unchanged; only caret and viewport preservation are added
+  - kind: custom
+    text: typing-time caret behaviour is untouched — the fix is scoped to the omission toggle, not to render's other callers
+  - kind: custom
+    text: no file outside the budget changes, and the foreign working-tree changes are left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - packages/**
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftMacSurface/Package.swift
+  - src/**
+  - scripts/**
+  - docs/**
+  - Github showcase/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: Toggling an omitted region preserves the caret and the viewport in both layout paths.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift
+  symbols: []
+  maxFiles: 2
+  maxLines: 300
+accept:
+  - "REGRESSION FIRST: a test that places the caret mid-document, toggles a region open and shut, and asserts the selection and the scroll origin survive — shown failing before the fix, passing after."
+  - "BOTH PATHS: the assertion holds in the single-container layout and on PageSheets."
+  - "UNCHANGED: every existing omission, caret and viewport test stays green."
+  - "SUITE: EDraftMacSurface green, and the macOS Debug build succeeds."
+assumptions:
+  - text: HEAD is 33be17d (IL-0080). The tree carries the usual foreign dirt — the xcscheme, mcp.log, the root PNGs, the IL-0078 draft. None of it is touched.
+    source: system
+    confirmed: false
+  - text: The user is running the multi-container spread flag, so the click that reproduced the jump went through the PageSheet path; the single-container path is held to the same standard regardless.
+    source: system
+    confirmed: false
+createdAt: 2026-09-21T19:05:00.000Z
+createdBy: Yasirdora

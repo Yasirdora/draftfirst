@@ -61,6 +61,83 @@ final class OmittedSceneSurfaceTests: XCTestCase {
         try XCTUnwrap(editor.omittedScenes.scenes.first?.key)
     }
 
+    // MARK: - The toggle moves nothing the writer was looking at
+
+    /// A file tall enough to scroll: forty live lines before and after the
+    /// cut scene, so the viewport has somewhere to be — and somewhere to be
+    /// thrown to, which is the defect under test.
+    private func tallFdx() -> Data {
+        fdx(
+            before: [("Scene Heading", "INT. LAB - DAY")]
+                + (1...40).map { ("Action", "Before line \($0).") },
+            after: (1...40).map { ("Action", "After line \($0).") }
+        )
+    }
+
+    /// Opening inserts the body *above* this caret, so the location moves by
+    /// exactly the inserted length and the caret stays on its own line.
+    /// Anything else — the document's end, say — is the bug.
+    private func assertToggleKeepsTheCaret(
+        _ editor: EditorState, _ surface: ScriptSurface,
+        file: StaticString = #filePath, line: UInt = #line
+    ) throws {
+        let caretText = "After line 20."
+        let caretAt = (surface.textStorage.string as NSString).range(of: caretText).location + 3
+        surface.selectionTextView.setSelectedRange(NSRange(location: caretAt, length: 0))
+
+        let key = try key(editor)
+        surface.toggleOmission(key)
+        let grown = surface.textStorage.length
+        let reopened = (surface.textStorage.string as NSString).range(of: caretText).location + 3
+        XCTAssertEqual(surface.selectionTextView.selectedRange().location, reopened,
+                       "open: the caret stays on its own line", file: file, line: line)
+
+        surface.toggleOmission(key)
+        XCTAssertEqual(surface.selectionTextView.selectedRange().location, caretAt,
+                       "shut: the caret comes back to the same spot", file: file, line: line)
+        _ = grown
+    }
+
+    func testTogglingKeepsTheCaretInTheSingleContainer() throws {
+        let (editor, surface) = try opened(tallFdx())
+        XCTAssertFalse(surface.usesPageSheets)
+        try assertToggleKeepsTheCaret(editor, surface)
+    }
+
+    func testTogglingKeepsTheCaretOnPageSheets() throws {
+        let arrangement = PageArrangement.stored
+        let mode = PageLayoutMode.stored
+        PageArrangement.store(.single)
+        PageLayoutMode.store(.pages)
+        defer {
+            PageArrangement.store(arrangement)
+            PageLayoutMode.store(mode)
+        }
+
+        let file = try ScreenplayFile.open(tallFdx(), as: .finalDraftScreenplay)
+        let editor = EditorState(source: file.source)
+        editor.attachImportedNotes(from: file.origin)
+        let surface = ScriptSurface(multiContainerSpreadEnabled: true)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1500, height: 1100)
+        surface.bind(to: editor)
+        surface.renderIfNeeded(editor)
+        surface.setArrangement(.spread)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        XCTAssertTrue(surface.usesPageSheets)
+
+        try assertToggleKeepsTheCaret(editor, surface)
+
+        /* The viewport, too: scrolled midway before the toggle, it must not
+           chase anything — least of all the last page. */
+        let clip = surface.scrollView.contentView
+        let midway = NSPoint(x: 0, y: max(0, surface.canvas.frame.height / 2 - clip.bounds.height / 2))
+        clip.scroll(to: midway)
+        surface.scrollView.reflectScrolledClipView(clip)
+        surface.toggleOmission(try key(editor))
+        XCTAssertEqual(clip.bounds.origin.y, midway.y, accuracy: 60,
+                       "the page the writer was reading does not move")
+    }
+
     // MARK: - Collapsed by default
 
     func testTheCutBodyIsNotInTheLayoutAtAll() throws {
