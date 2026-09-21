@@ -435,6 +435,64 @@ public enum ScriptLayout {
         return boundingRect(of: intersection, in: view)
     }
 
+    /// The text column the range's lines occupy — the fragment's full
+    /// measure, not the glyphs that happen to sit on it.
+    ///
+    /// The omitted-scene overlay is framed by this: its controls
+    /// trailing-align, and against a glyph rect "trailing" is the end of the
+    /// word OMITTED, so a pill and a disclosure wider than one word run
+    /// leftward over the card's own text and off the page into the gutter.
+    /// `boundingRect` stays the glyph answer — reveals, find and the note
+    /// wash rely on it — and this is the column answer beside it.
+    static func sheetColumnRect(of range: NSRange, in view: NSTextView) -> CGRect? {
+        guard let layout = view.layoutManager, let container = view.textContainer else {
+            // TextKit 2: a layout fragment already spans the column, so the
+            // glyph answer and the column answer are the same rect.
+            return boundingRect(of: range, in: view)
+        }
+        layout.ensureLayout(for: container)
+        // A range may cross containers. Measure only the part this view
+        // draws; querying another container's fragments produces unrelated
+        // rects — the same clip `sheetBoundingRect` applies.
+        let owned = layout.characterRange(forGlyphRange: layout.glyphRange(for: container), actualGlyphRange: nil)
+        let clipped: NSRange
+        if range.length == 0 {
+            guard range.location >= owned.location, range.location <= NSMaxRange(owned) else { return nil }
+            clipped = range
+        } else {
+            let intersection = NSIntersectionRange(range, owned)
+            guard intersection.length > 0 else { return nil }
+            clipped = intersection
+        }
+
+        // Union the fragment of every line the range touches. A fragment
+        // spans the container — the column — whatever its glyphs measure.
+        let glyphs = layout.glyphRange(forCharacterRange: clipped, actualCharacterRange: nil)
+        let count = layout.numberOfGlyphs
+        var union: CGRect?
+        var glyph = glyphs.location
+        let end = NSMaxRange(glyphs)
+        while glyph < end, glyph < count {
+            var effective = NSRange()
+            let fragment = layout.lineFragmentRect(forGlyphAt: glyph, effectiveRange: &effective)
+            if fragment.height > 0 {
+                union = union.map { $0.union(fragment) } ?? fragment
+            }
+            let next = NSMaxRange(effective)
+            glyph = next > glyph ? next : glyph + 1
+        }
+        if let union { return inView(union, view) }
+
+        // A zero-length range asks for the line it sits on. Past the end of
+        // the text there is no glyph at all, and the spot lives in the extra
+        // fragment the text system keeps for exactly that case.
+        guard count > 0 else { return nil }
+        let fragment = glyphs.location >= count
+            ? layout.extraLineFragmentRect
+            : layout.lineFragmentRect(forGlyphAt: min(glyphs.location, count - 1), effectiveRange: nil)
+        return fragment.height > 0 ? inView(fragment, view) : nil
+    }
+
     public static func boundingRect(of range: NSRange, in view: NSTextView) -> CGRect? {
         if let layoutManager = view.layoutManager, let container = view.textContainer {
             // TextKit 1: the same arithmetic the iPhone's surface uses.

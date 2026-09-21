@@ -75,6 +75,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         return (view, rect)
     }
 
+    /// The same placement, answered with the column's width instead of the
+    /// glyphs' — the omitted-scene overlay trailing-aligns its chrome, and
+    /// against a glyph rect that means "the end of the word OMITTED".
+    private func sheetColumnRect(for range: NSRange) -> (view: NSTextView, rect: CGRect)? {
+        let view = textView(atCharacter: range.location)
+        guard let rect = ScriptLayout.sheetColumnRect(of: range, in: view) else { return nil }
+        return (view, rect)
+    }
+
     private func characterCanvasRect(_ location: Int) -> CGRect? {
         if usesPageSheets {
             let clamped = min(max(0, location), textStorage.length)
@@ -106,7 +115,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// comes back collapsed, which is what a cut scene should be.
     private(set) var expandedOmissions: Set<DraftElementID> = []
     private(set) var omittedRegions: [ScriptLayout.OmittedRegion] = []
-    private var regionViews: [DraftElementID: OmittedSceneRegionView] = [:]
+    /// Written here only; readable to the package so the overlay's frame can
+    /// be measured against the text column it is meant to span.
+    private(set) var regionViews: [DraftElementID: OmittedSceneRegionView] = [:]
 
     /// The engine's reading of the text last laid out: its pages, and where
     /// each begins in the flattened text. Paginating a feature is not cheap
@@ -595,7 +606,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         var live: Set<DraftElementID> = []
         for region in omittedRegions {
             guard let scene = editor.omittedScenes.scenes.first(where: { $0.key == region.key }),
-                  let placed = sheetRect(for: region.range)
+                  let placed = sheetColumnRect(for: region.range)
             else { continue }
             live.insert(region.key)
             let view: OmittedSceneRegionView
@@ -705,6 +716,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         placeNoteMarkers()
         washNotedLines()
         scrollView.layoutSubtreeIfNeeded()
+        /* Same re-placement as the sheets path: coming back from spread or
+           grid rebuilds this host without a render. */
+        placeOmittedRegions()
     }
 
     /// The array is reconciled by page index: a resize or a moved break keeps
@@ -772,6 +786,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         washNotedLines()
         updateTypingAttributes()
         scrollView.layoutSubtreeIfNeeded()
+        /* The omitted chrome rides the sheet that draws its card, so it is
+           re-placed whenever the sheets are — an arrangement switch rebuilds
+           the hosts without a render, and without this the pill and the
+           disclosure would stay on the retired legacy view. */
+        placeOmittedRegions()
     }
 
     private func restoreLegacyContainerIfNeeded() {

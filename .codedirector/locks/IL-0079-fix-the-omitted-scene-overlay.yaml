@@ -1,0 +1,113 @@
+schemaVersion: 1
+id: IL-0079
+status: verified
+utterance: "Fix the omitted-scene overlay frame — your IL-0076 code, found by your own showcase screenshot. The fix: frame the region to the line's full text-column width — the line fragment rect for the card line at the text block's width, not the glyph bounding rect — in both the legacy container and the PageSheet paths, in grid as well if the overlay draws there. The pill and disclosure then sit at the column's right edge like the note markers do."
+goal: The omitted-scene overlay is framed to the text column, not to the glyphs of the card, in both the single-container and the PageSheet layouts — so the pill and the disclosure sit at the column's right edge, clear of the card's own words and inside the page.
+interpretation: |
+  THE DEFECT, READ IN THE CODE. `ScriptSurface.placeOmittedRegions` frames
+  each OmittedSceneRegionView to `sheetRect(for: region.range)`, which ends
+  in `ScriptLayout.boundingRect(of:in:)`. That helper does widen a rect to
+  the container — but only through `widened(_:toAtLeast:)`, which fires when
+  `rect.width < 1`: an empty line. A line with glyphs on it returns
+  `NSLayoutManager.boundingRect(forGlyphRange:)`, which hugs the glyphs. A
+  collapsed card's glyphs are the word "OMITTED", so the overlay is that
+  wide; the view trailing-aligns its controls to `bounds.maxX`, and a pill
+  plus a disclosure wider than one word run leftward over the word and off
+  the page into the gutter. Seen in the shipped build (28aaf8d) and in the
+  showcase capture.
+
+  THE FIX. A column-width rect beside the glyph one, not a change to the
+  glyph one — `boundingRect` is what reveals, find and the note wash rely
+  on, and they want the glyphs.
+
+    - `ScriptLayout.sheetColumnRect(of:in:)`: the line fragment rects of
+      the lines a range touches — `lineFragmentRect(forGlyphAt:)`, which
+      spans the text container, i.e. the column — unioned, clipped to the
+      part of the range this view's container draws (as
+      `sheetBoundingRect` already clips), in the view's own coordinates.
+      The TextKit 2 branch already answers with full-width layout-fragment
+      frames, so it is reused unchanged.
+    - `placeOmittedRegions` frames the overlay with it. One helper serves
+      both layouts: the single container is one view, and each PageSheet
+      is its own view with its own container, which the clip handles.
+    - OmittedSceneRegionView keeps trailing-aligning its controls; with a
+      column-wide frame, "trailing" is the column's right edge. The note
+      marker sits outside the column in the margin, so the two do not meet.
+    - Grid: measured before deciding. If a card's miniature snapshots the
+      sheet with its subviews, the overlay is in it and the same frame
+      fixes it; if the miniature paints glyphs only, the overlay does not
+      draw there and grid needs nothing. The report says which.
+
+  PROOF. A test, in both layout paths, that a collapsed card's overlay is
+  as wide as the text column and wider than the card's glyphs, and that
+  neither control's frame intersects the card's glyph rect. Then a reshoot
+  from a *copy* of the showcase's demo scene, with a build proven to carry
+  the fix, compared against the published example — scene 3 numbered 3.
+  The reshot image is handed over for comparison; it is not written into
+  the showcase folder.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: "`boundingRect` and `sheetBoundingRect` are unchanged — reveal, find, the note wash and the caret geometry keep the glyph rect they rely on; only the omitted-scene overlay takes the column rect"
+  - kind: custom
+    text: the collapse itself is unchanged — ranges stay parallel to elements, a collapsed element holds an empty range, the caret and edit refusals and the page count behave exactly as IL-0076 left them
+  - kind: custom
+    text: the showcase directory (~/Documents/edraft-showcase) is not written to by this lock — the reshoot is saved to the scratchpad and handed over; publishing it is the human's step
+  - kind: custom
+    text: no file outside the four in budget changes, the other session's `Github showcase/` folder and its active lock IL-0077 are left alone, and the foreign working-tree changes are left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - packages/**
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftMacSurface/Package.swift
+  - src/**
+  - scripts/**
+  - docs/**
+  - Github showcase/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: The omitted-scene overlay is framed to the text column instead of the card's glyphs, so its pill and disclosure sit at the column's right edge in both layouts.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptLayout.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/OmittedSceneRegionView.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift
+  symbols: []
+  maxFiles: 4
+  maxLines: 300
+accept:
+  - "FRAME: a collapsed card's overlay spans the text column — its width equals the container's, and exceeds the card's glyph width — in the single-container layout and in the PageSheet layout."
+  - "CONTROLS: neither the pill nor the disclosure intersects the card's glyph rect, and both lie inside the page."
+  - "GRID: measured — whether the overlay draws in a card's miniature — and handled or reported as not applicable."
+  - "UNCHANGED: boundingRect/sheetBoundingRect callers, and every IL-0076 collapse behaviour, as before."
+  - "SUITE: EDraftMacSurface green, and the macOS Debug build succeeds."
+  - "RESHOOT: from a copy of the showcase's demo-scene.fdx, with a build proven to carry the fix; the card line shows OMITTED, the pill and View Cut Text at the column's right edge, and the scene after it numbered 3 — matching the published example file."
+assumptions:
+  - text: "HEAD is 28aaf8d, and the tree is as the human described but for another session's work: an active lock IL-0077 (budget only `Github showcase/…`), a drafted IL-0078 (`docs/APP-STORE-READINESS.md`). Neither touches these four files. None of it is touched, staged or reverted."
+    source: system
+    confirmed: false
+  - text: "Cross-session hazard, named: Code Director's PreToolUse hook gates edits on the *most recent* active lock. While IL-0079 is active, a session still editing under IL-0077 would be gated against this lock's budget if that hook is wired. It was not wired in this project's settings when last measured; this run applies its changes through run_locked only and closes promptly."
+    source: system
+    confirmed: false
+  - text: The fix adds a column-rect helper rather than widening boundingRect, because boundingRect's callers — reveal, find, the note wash — want the glyph rect.
+    source: system
+    confirmed: false
+  - text: The reshoot needs a build that carries the fix, and there is no commit. The binary is proven by symbol (the new helper's name in its strings) and by a build time after the run, not by a commit time.
+    source: system
+    confirmed: false
+createdAt: 2026-09-21T15:00:00.000Z
+createdBy: Yasirdora

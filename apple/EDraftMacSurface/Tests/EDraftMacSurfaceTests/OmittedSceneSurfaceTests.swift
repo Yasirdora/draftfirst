@@ -216,6 +216,76 @@ final class OmittedSceneSurfaceTests: XCTestCase {
         XCTAssertEqual(scene.pillText, "0.3 pgs CUT")
     }
 
+    // MARK: - The overlay's frame
+
+    /// The defect the showcase capture caught: the overlay was framed to the
+    /// card's glyphs, so its trailing-aligned chrome — wider than the word
+    /// OMITTED — ran leftward over the card and off the page into the
+    /// gutter. The overlay belongs to the text column, and the glyph rect
+    /// stays what reveals, find and the note wash rely on.
+    private func assertOverlaySpansTheColumn(
+        _ editor: EditorState, _ surface: ScriptSurface, file: StaticString = #filePath, line: UInt = #line
+    ) throws {
+        let region = try XCTUnwrap(surface.omittedRegions.first, file: file, line: line)
+        let overlay = try XCTUnwrap(surface.regionViews[region.key], file: file, line: line)
+        let host = try XCTUnwrap(overlay.superview as? NSTextView, file: file, line: line)
+        overlay.layoutSubtreeIfNeeded()
+
+        let glyphs = try XCTUnwrap(
+            ScriptLayout.sheetBoundingRect(of: region.range, in: host), file: file, line: line
+        )
+        let column = try XCTUnwrap(host.textContainer, file: file, line: line).size.width
+
+        XCTAssertEqual(overlay.frame.width, column, accuracy: 1,
+                       "the overlay is the column, not the word", file: file, line: line)
+        XCTAssertGreaterThan(overlay.frame.width, glyphs.width * 2,
+                             "the card's glyphs are one word; the column is the page", file: file, line: line)
+
+        let pill = overlay.convert(overlay.controlFrames.pill, to: host)
+        let disclosure = overlay.convert(overlay.controlFrames.disclosure, to: host)
+        XCTAssertFalse(pill.intersects(glyphs), "the pill never overprints the card's words",
+                       file: file, line: line)
+        XCTAssertFalse(disclosure.intersects(glyphs), "nor does the disclosure",
+                       file: file, line: line)
+        XCTAssertLessThanOrEqual(disclosure.maxX, column + 1,
+                                 "the chrome ends inside the page, not in the gutter",
+                                 file: file, line: line)
+    }
+
+    func testTheOverlaySpansTheColumnInTheSingleContainer() throws {
+        let (editor, surface) = try opened(fdx())
+        XCTAssertFalse(surface.usesPageSheets)
+        try assertOverlaySpansTheColumn(editor, surface)
+    }
+
+    func testTheOverlaySpansTheColumnOnAPageSheet() throws {
+        let arrangement = PageArrangement.stored
+        let mode = PageLayoutMode.stored
+        PageArrangement.store(.single)
+        PageLayoutMode.store(.pages)
+        defer {
+            PageArrangement.store(arrangement)
+            PageLayoutMode.store(mode)
+        }
+
+        let file = try ScreenplayFile.open(fdx(), as: .finalDraftScreenplay)
+        let editor = EditorState(source: file.source)
+        editor.attachImportedNotes(from: file.origin)
+        let surface = ScriptSurface(multiContainerSpreadEnabled: true)
+        surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1500, height: 1100)
+        surface.bind(to: editor)
+        surface.renderIfNeeded(editor)
+        surface.setArrangement(.spread)
+        surface.scrollView.layoutSubtreeIfNeeded()
+
+        XCTAssertTrue(surface.usesPageSheets)
+        try assertOverlaySpansTheColumn(editor, surface)
+        let region = try XCTUnwrap(surface.omittedRegions.first)
+        let host = try XCTUnwrap(surface.regionViews[region.key]?.superview as? NSTextView)
+        XCTAssertTrue(surface.sheets.contains { $0.textView === host },
+                      "the overlay rides the sheet that draws the card")
+    }
+
     // MARK: - The sepia, on both papers
 
     func testTheSepiaIsLegibleOnBothPapers() {

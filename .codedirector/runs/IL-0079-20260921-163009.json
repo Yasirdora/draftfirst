@@ -1,0 +1,151 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0079-20260921-163009.json",
+  "baselineSha256": "20e7bffb07b8f0bda93e135bd39db6a3cb441d399343fb33ae9dd357afb9c08f",
+  "budget": {
+    "filesChanged": 0,
+    "linesChanged": 0,
+    "maxFiles": 4,
+    "maxLines": 300
+  },
+  "changed": [],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260921T163001215",
+    "createdAt": "2026-09-21T16:30:01.365Z",
+    "dirty": true,
+    "id": "ckpt-20260921T163001215",
+    "ref": "32b6dd891c72a1c39c75579517d9e76846228ce6",
+    "statusHash": "8fafc56615a4fdf52c7aa139ba7a3f444f28a3414a8da891407ef59a6c7482b8",
+    "tag": "cdir/ckpt-20260921T163001215"
+  },
+  "command": [
+    "bash",
+    "-c",
+    "swift test --package-path apple/EDraftMacSurface --filter OmittedSceneSurfaceTests > /tmp/il0079-test.log 2>&1; echo \"exit=$?\""
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-21T16:30:22.581Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "`boundingRect` and `sheetBoundingRect` are unchanged — reveal, find, the note wash and the caret geometry keep the glyph rect they rely on; only the omitted-scene overlay takes the column rect — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the collapse itself is unchanged — ranges stay parallel to elements, a collapsed element holds an empty range, the caret and edit refusals and the page count behave exactly as IL-0076 left them — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "the showcase directory (~/Documents/edraft-showcase) is not written to by this lock — the reshoot is saved to the scratchpad and handed over; publishing it is the human's step — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    },
+    {
+      "detail": "no file outside the four in budget changes, the other session's `Github showcase/` folder and its active lock IL-0077 are left alone, and the foreign working-tree changes are left exactly as found — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0079",
+  "startedAt": "2026-09-21T16:30:09.076Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0079-20260921-163009.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 4
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0079-20260921-163009.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0079-20260921-163009.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme \\\"eDraft (macOS)\\\" -configuration Debug -destination platform=macOS -quiet build\" → exit 1",
+        "detail": "verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug -destination platform=macOS -quiet build",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug -destination platform=macOS -quiet build",
+        "verdict": "violated"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · `boundingRect` and `sheetBoundingRect` are unchanged — reveal, find, the note wash and the caret geometry keep the glyph rect they rely on; only the omitted-scene overlay takes the column rect",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the collapse itself is unchanged — ranges stay parallel to elements, a collapsed element holds an empty range, the caret and edit refusals and the page count behave exactly as IL-0076 left them",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · the showcase directory (~/Documents/edraft-showcase) is not written to by this lock — the reshoot is saved to the scratchpad and handed over; publishing it is the human's step",
+        "verdict": "unchecked"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · no file outside the four in budget changes, the other session's `Github showcase/` folder and its active lock IL-0077 are left alone, and the foreign working-tree changes are left exactly as found",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0079",
+    "verifiedAt": "2026-09-21T16:30:56.696Z",
+    "violations": [
+      "VERIFY verify-command: verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug -destination platform=macOS -quiet build"
+    ]
+  },
+  "violations": [
+    "VERIFY verify-command: verifyCommand failed (exit 1): swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme \"eDraft (macOS)\" -configuration Debug -destination platform=macOS -quiet build"
+  ]
+}

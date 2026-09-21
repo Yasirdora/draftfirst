@@ -86,6 +86,13 @@ final class OmittedSceneRegionView: NSView {
 
     @objc private func toggle() { onToggle?(scene.key) }
 
+    /// Where the chrome sits, in the region's own coordinates — so a test
+    /// can prove the pill and the disclosure never overprint the card's
+    /// words, rather than that being asserted in prose.
+    var controlFrames: (pill: CGRect, disclosure: CGRect) {
+        (pill.frame, disclosure.frame)
+    }
+
     override func accessibilityPerformPress() -> Bool {
         toggle()
         return true
