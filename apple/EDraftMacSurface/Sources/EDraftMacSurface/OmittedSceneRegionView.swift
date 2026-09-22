@@ -115,7 +115,7 @@ final class OmittedSceneRegionView: NSView {
         let glyphMaxX: CGFloat
     }
     var headAnchor: HeadAnchor? {
-        didSet { needsLayout = true; needsDisplay = true }
+        didSet { needsLayout = true; needsDisplay = true; updateTrackingAreas() }
     }
 
     /// The line the chevron rides, in local coordinates. Unflipped: the
@@ -128,12 +128,23 @@ final class OmittedSceneRegionView: NSView {
                       width: bounds.width, height: height)
     }
 
+    /// One unbroken hover zone: the card's line band *and* the gutter the
+    /// chevron sits in, bridged into a single rect. Tracking `bounds` is
+    /// not enough — the chevron lives at a negative x, outside the frame,
+    /// so a pointer travelling from the word to the chevron would cross
+    /// the frame's edge, fire `mouseExited`, and hide the very thing it
+    /// was reaching for. Tracking rects are not clipped to bounds, so the
+    /// zone simply extends into the margin.
+    private var hoverZone: CGRect {
+        headBand.union(gutterChevronRect.insetBy(dx: -6, dy: -6))
+    }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         for area in trackingAreas { removeTrackingArea(area) }
         addTrackingArea(NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            rect: hoverZone,
+            options: [.mouseEnteredAndExited, .activeInActiveApp],
             owner: self,
             userInfo: nil
         ))
@@ -154,31 +165,33 @@ final class OmittedSceneRegionView: NSView {
         guard chevronVisible else { return }
         /* A generous hand over a small mark: the glyph is ten points, the
            click target is not. */
-        addCursorRect(chevron.frame.insetBy(dx: -6, dy: -6), cursor: .pointingHand)
+        addCursorRect(gutterChevronRect.insetBy(dx: -6, dy: -6), cursor: .pointingHand)
     }
 
-    override func layout() {
-        super.layout()
-        let inset: CGFloat = 8
-        let gap: CGFloat = 8
+    /// Where the chevron sits, computed from the anchor rather than read
+    /// back from the button — so layout, the hover zone, the cursor rect
+    /// and the hit test all agree, even before `layout()` has run.
+    private var gutterChevronRect: CGRect {
         let size = chevron.intrinsicContentSize
-        /* Beside the word, on the card's own line — a control sits next to
-           the thing it acts on. Never past the column's edge, and never
-           back over the glyphs if a line is somehow narrower than its
-           chrome. */
         let band = headBand
-        let trailing = bounds.maxX - size.width - inset
-        let x: CGFloat
-        if let anchor = headAnchor {
-            x = min(max(anchor.glyphMaxX + gap, 0), trailing)
-        } else {
-            x = trailing
-        }
-        chevron.frame = NSRect(
-            x: x,
+        return NSRect(
+            x: -(size.width + gutterGap),
             y: band.midY - size.height / 2,
             width: size.width, height: size.height
         )
+    }
+
+    private let gutterGap: CGFloat = 8
+
+    override func layout() {
+        super.layout()
+        /* The gutter, not the column: the page carries nothing but the
+           faded word, and the control lives in the margin — the way a
+           margin note does. The frame stays the column (hover is tracked
+           there); only the chevron steps out, a small gap left of the
+           text. NSView does not clip subviews, so the margin is reachable
+           from here. */
+        chevron.frame = gutterChevronRect
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -194,10 +207,13 @@ final class OmittedSceneRegionView: NSView {
 
     /// The chrome never takes a click meant for the page, except on the
     /// chevron itself — the card's line stays a live line the caret can
-    /// land on.
+    /// land on. The chevron sits in the gutter, left of the frame's
+    /// leading edge, so this override skips the bounds check the default
+    /// implementation would make; the superview asks every subview, and
+    /// we answer for the margin too.
     override func hitTest(_ point: NSPoint) -> NSView? {
         let inside = convert(point, from: superview)
-        let target = chevron.frame.insetBy(dx: -6, dy: -6)
+        let target = gutterChevronRect.insetBy(dx: -8, dy: -8)
         return chevronVisible && target.contains(inside) ? chevron : nil
     }
 }

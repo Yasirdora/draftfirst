@@ -1,0 +1,82 @@
+schemaVersion: 1
+id: IL-0083
+status: verified
+utterance: "Design B, approved: the page stays pure — the chevron moves out of the text column into the left gutter, revealed on hover, so the script itself is never touched by chrome. The faded ink stays as the glanceable signal of what was cut."
+goal: On hover, the omitted card's chevron appears in the left gutter beside the card's line — outside the text column entirely — in both states and both layouts. The column carries nothing but the faded word OMITTED.
+interpretation: |
+  THE DIRECTION. The human picked design B from a five-option mock sheet:
+  the chevron leaves the text column and lives in the left gutter, the
+  way a margin note does — the page stays a page, the UI lives in the
+  margin. IL-0082 put the chevron beside the word; this supersedes only
+  its horizontal anchor. Everything else from IL-0080/IL-0082 stands:
+  faded ink, hover reveal, chevron stays while open, tooltip and
+  VoiceOver, column-wide overlay frame for hover and hit-testing.
+
+  THE CHANGE, IN THE CODE. The overlay's frame is unchanged (the column,
+  for hover tracking). Only the chevron's x changes: from
+  `glyphMaxX + gap` to `-(width + gutter gap)` — just left of the text
+  column, in the page's generous left margin (a screenplay's 1.5-inch
+  margin has thirty points to spare). NSView does not clip subviews, and
+  neither the legacy text view nor the PageSheet text views set
+  clipsToBounds — verified before drafting — so the gutter is reachable
+  from a subview of the text view. hitTest and the cursor rect follow
+  the chevron's frame, which is already how they work. The head anchor's
+  vertical band is unchanged: the chevron rides the card's own line.
+
+  PROOF. Tests: the chevron's trailing edge sits left of the column's
+  leading edge and its frame stays on the page (left of zero by no more
+  than the margin allows); it rides the card's line in both states; the
+  IL-0079 column-frame and IL-0081 caret tests stay green.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the overlay's frame, the head anchor's vertical band, the faded ink, hover reveal, and the toggle behaviour are unchanged — only the chevron's horizontal position moves, out of the column
+  - kind: custom
+    text: no file outside the three in budget changes, and the foreign working-tree changes are left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - packages/**
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftMacSurface/Package.swift
+  - src/**
+  - scripts/**
+  - docs/**
+  - Github showcase/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: The omitted-scene chevron moves out of the text column into the left gutter, still hover-revealed, still on the card's line.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/OmittedSceneRegionView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift
+  symbols: []
+  maxFiles: 3
+  maxLines: 200
+accept:
+  - "GUTTER: the chevron's trailing edge is left of the text column's leading edge, and its leading edge stays within the page's left margin — in the single container and on PageSheets, collapsed and open."
+  - "LINE: the chevron is vertically centred on the card's own line in both states."
+  - "UNCHANGED: hover reveal, the wash, the toggle, caret and viewport preservation, the Navigator."
+  - "SUITE: EDraftMacSurface green, and the macOS Debug build succeeds."
+assumptions:
+  - text: HEAD is 432b825 (IL-0082). The tree carries the usual foreign dirt — the xcscheme, mcp.log, the root PNGs, the IL-0078 draft. None of it is touched.
+    source: system
+    confirmed: false
+  - text: The left margin is reachable from a subview of the text view because NSView.clipsToBounds defaults to false and neither text view sets it — measured by search before drafting; confirmed visually by the render check before commit.
+    source: system
+    confirmed: false
+createdAt: 2026-09-21T20:00:00.000Z
+createdBy: Yasirdora

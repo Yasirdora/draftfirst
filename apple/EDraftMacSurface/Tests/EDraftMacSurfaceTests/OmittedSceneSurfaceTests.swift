@@ -321,14 +321,14 @@ final class OmittedSceneSurfaceTests: XCTestCase {
         let chevron = overlay.convert(overlay.chevronFrame, to: host)
         XCTAssertFalse(chevron.intersects(glyphs), "the chevron never overprints the card's words",
                        file: file, line: line)
-        XCTAssertEqual(chevron.minX, glyphs.maxX + 8, accuracy: 2,
-                       "the chevron rides beside the word, a word gap away",
-                       file: file, line: line)
+        XCTAssertLessThan(chevron.maxX, glyphs.minX,
+                          "the chevron lives in the gutter — the column carries nothing but the word",
+                          file: file, line: line)
+        XCTAssertGreaterThan(chevron.minX, -60,
+                             "and stays well inside the page's generous left margin",
+                             file: file, line: line)
         XCTAssertEqual(chevron.midY, glyphs.midY, accuracy: 6,
                        "on the card's own line", file: file, line: line)
-        XCTAssertLessThanOrEqual(chevron.maxX, column + 1,
-                                 "the chrome ends inside the page, not in the gutter",
-                                 file: file, line: line)
     }
 
     /// Open, the region's head is still the card: the chevron that closes
@@ -475,6 +475,25 @@ final class OmittedSceneSurfaceTests: XCTestCase {
             NSPoint(x: view.chevronFrame.midX, y: view.chevronFrame.midY), to: view.superview
         )
         XCTAssertNotNil(view.hitTest(onChevron), "a click on the chevron is the chevron's")
+    }
+
+    /// The pointer must be able to travel from the word to the chevron
+    /// without the chevron vanishing under it: one unbroken hover zone
+    /// covers both the line and the gutter the chevron sits in. A zone
+    /// that stopped at the frame's leading edge would fire mouseExited
+    /// halfway there — the chevron would hide exactly when reached for.
+    func testTheHoverZoneReachesIntoTheGutter() throws {
+        let (_, surface) = try opened(fdx())
+        let view = try overlay(on: surface)
+        view.frame = NSRect(x: 0, y: 0, width: 500, height: 20)
+        view.layoutSubtreeIfNeeded()
+        view.updateTrackingAreas()
+        let zone = try XCTUnwrap(view.trackingAreas.map(\.rect).first)
+        XCTAssertTrue(zone.contains(NSPoint(x: view.chevronFrame.midX, y: view.chevronFrame.midY)),
+                      "the gutter is inside the hover zone")
+        XCTAssertTrue(zone.contains(NSPoint(x: 250, y: 10)), "and so is the line")
+        XCTAssertLessThan(zone.minX, view.chevronFrame.minX,
+                          "no gap between the line and the chevron — the walk is unbroken")
     }
 
     // MARK: - The sepia, on both papers
