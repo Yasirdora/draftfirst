@@ -35,6 +35,9 @@ final class OmittedSceneRegionView: NSView {
         self.collapsed = collapsed
         super.init(frame: .zero)
         wantsLayer = true
+        /* Layer-backed so the fade is a real opacity animation: the model
+           value moves to its target at once, the presentation eases. */
+        chevron.wantsLayer = true
         addSubview(chevron)
         chevron.target = self
         chevron.action = #selector(toggle)
@@ -80,9 +83,14 @@ final class OmittedSceneRegionView: NSView {
 
     /// The chevron shows when the region is open — it is the way back — or
     /// when the pointer is on the line. At rest there is nothing but the
-    /// word OMITTED.
+    /// word OMITTED. It appears and disappears with a short ease, the way
+    /// hover chrome does across macOS — never a snap.
     private func updateChrome() {
-        chevron.isHidden = collapsed && !hovered
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.18
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            chevron.animator().alphaValue = chevronVisible ? 1 : 0
+        }
         needsLayout = true
         needsDisplay = true
         window?.invalidateCursorRects(for: self)
@@ -100,22 +108,23 @@ final class OmittedSceneRegionView: NSView {
     /// being asserted in prose.
     var chevronFrame: CGRect { chevron.frame }
 
-    /// Whether the chevron is showing — collapsed and at rest, it is not.
-    var chevronVisible: Bool { !chevron.isHidden }
+    /// Whether the chevron is logically showing — collapsed and at rest,
+    /// it is not. The fade animates the alpha; this is the truth tests
+    /// and the hit test read.
+    var chevronVisible: Bool { !collapsed || hovered }
 
     /// The card line's own band and where its glyphs end — set by the
     /// surface at placement. `top` is the distance from the frame's
     /// *visual* top (the host text view is flipped; this view is not), and
     /// `glyphMaxX` is measured from the frame's leading edge. The chevron
-    /// anchors here: beside the word OMITTED, where the thing it acts on
-    /// is, not at the column's far edge.
+    /// rides this line at its trailing edge.
     struct HeadAnchor: Equatable {
         let top: CGFloat
         let height: CGFloat
         let glyphMaxX: CGFloat
     }
     var headAnchor: HeadAnchor? {
-        didSet { needsLayout = true; needsDisplay = true; updateTrackingAreas() }
+        didSet { needsLayout = true; needsDisplay = true }
     }
 
     /// The line the chevron rides, in local coordinates. Unflipped: the
@@ -128,23 +137,17 @@ final class OmittedSceneRegionView: NSView {
                       width: bounds.width, height: height)
     }
 
-    /// One unbroken hover zone: the card's line band *and* the gutter the
-    /// chevron sits in, bridged into a single rect. Tracking `bounds` is
-    /// not enough — the chevron lives at a negative x, outside the frame,
-    /// so a pointer travelling from the word to the chevron would cross
-    /// the frame's edge, fire `mouseExited`, and hide the very thing it
-    /// was reaching for. Tracking rects are not clipped to bounds, so the
-    /// zone simply extends into the margin.
-    private var hoverZone: CGRect {
-        headBand.union(gutterChevronRect.insetBy(dx: -6, dy: -6))
-    }
-
+    /// The hover zone is simply the frame: the chevron now lives inside
+    /// it, at the line's trailing edge, so the pointer's walk from the
+    /// word to the chevron never crosses an edge. (The gutter experiment
+    /// died here: a zone that ended at the frame's edge hid the chevron
+    /// exactly when it was reached for.)
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         for area in trackingAreas { removeTrackingArea(area) }
         addTrackingArea(NSTrackingArea(
-            rect: hoverZone,
-            options: [.mouseEnteredAndExited, .activeInActiveApp],
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
             owner: self,
             userInfo: nil
         ))
@@ -165,33 +168,29 @@ final class OmittedSceneRegionView: NSView {
         guard chevronVisible else { return }
         /* A generous hand over a small mark: the glyph is ten points, the
            click target is not. */
-        addCursorRect(gutterChevronRect.insetBy(dx: -6, dy: -6), cursor: .pointingHand)
+        addCursorRect(chevronHome.insetBy(dx: -6, dy: -6), cursor: .pointingHand)
     }
 
-    /// Where the chevron sits, computed from the anchor rather than read
-    /// back from the button — so layout, the hover zone, the cursor rect
-    /// and the hit test all agree, even before `layout()` has run.
-    private var gutterChevronRect: CGRect {
+    /// Where the chevron sits: the trailing edge of the card's own line,
+    /// inside the frame — computed from the anchor rather than read back
+    /// from the button, so layout, the cursor rect and the hit test all
+    /// agree, even before `layout()` has run.
+    private var chevronHome: CGRect {
         let size = chevron.intrinsicContentSize
         let band = headBand
         return NSRect(
-            x: -(size.width + gutterGap),
+            x: max(0, bounds.width - size.width - 4),
             y: band.midY - size.height / 2,
             width: size.width, height: size.height
         )
     }
 
-    private let gutterGap: CGFloat = 8
-
     override func layout() {
         super.layout()
-        /* The gutter, not the column: the page carries nothing but the
-           faded word, and the control lives in the margin — the way a
-           margin note does. The frame stays the column (hover is tracked
-           there); only the chevron steps out, a small gap left of the
-           text. NSView does not clip subviews, so the margin is reachable
-           from here. */
-        chevron.frame = gutterChevronRect
+        /* The right end of the line, inside the page: the control is
+           ordinary in-bounds chrome, so hover, cursor and click all work
+           without reaching past the frame. */
+        chevron.frame = chevronHome
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -207,13 +206,10 @@ final class OmittedSceneRegionView: NSView {
 
     /// The chrome never takes a click meant for the page, except on the
     /// chevron itself — the card's line stays a live line the caret can
-    /// land on. The chevron sits in the gutter, left of the frame's
-    /// leading edge, so this override skips the bounds check the default
-    /// implementation would make; the superview asks every subview, and
-    /// we answer for the margin too.
+    /// land on.
     override func hitTest(_ point: NSPoint) -> NSView? {
         let inside = convert(point, from: superview)
-        let target = gutterChevronRect.insetBy(dx: -8, dy: -8)
+        let target = chevronHome.insetBy(dx: -8, dy: -8)
         return chevronVisible && target.contains(inside) ? chevron : nil
     }
 }

@@ -1,0 +1,79 @@
+schemaVersion: 1
+id: IL-0085
+status: verified
+utterance: I cannot click on the > in the margin when I move my cursor it disappears. I DO NOT understand why are you trying to complicate things, it would be much easier to make it a simple way, put the > on right side and it also appear and disappear with easing.
+goal: The omitted card's chevron leaves the gutter and sits at the trailing edge of the card's line, inside the overlay's frame, fading in on hover and out on leave with a short ease. Hover and click work with ordinary in-bounds tracking and hit-testing.
+interpretation: |
+  THE DIRECTION. The gutter experiment (IL-0083) failed in the human's
+  hands: the chevron in the left margin vanishes under the pointer that
+  reaches for it. The human's call: stop being clever — the chevron goes
+  on the RIGHT side of the line, and it appears and disappears with an
+  ease, not a snap. Simple beats pure.
+
+  THE CHANGE, IN THE CODE. OmittedSceneRegionView: the chevron's home is
+  the trailing edge of the card's line band, inside bounds — x =
+  bounds.width - width - 4, vertically centred on the head band. Because
+  it lives inside the frame, hover tracking over the line and hit-testing
+  need no out-of-bounds gymnastics: the tracking zone is the overlay's
+  own bounds again. Visibility animates: NSAnimationContext, 0.18s,
+  ease-in-out, alphaValue 0 ↔ 1, driven from updateChrome; logical
+  visibility (chevronVisible) is unchanged so tests and VoiceOver read
+  the same truth. The word OMITTED keeps its faded ink; the wash, the
+  toggle, the tooltip and the spoken label are untouched.
+
+  PROOF. Tests updated: the chevron's frame is inside the overlay's
+  bounds, right of the card's glyphs, riding the line, in both states;
+  hovering sets the alpha toward 1 and leaving toward 0; the IL-0081
+  caret tests stay green. The gutter-era hover-zone test is replaced —
+  the zone it pinned no longer exists by design.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the faded ink, the wash, the toggle behaviour, the tooltip, VoiceOver, and the head anchor's vertical band are unchanged — only the chevron's position and the way it appears change
+  - kind: custom
+    text: no file outside the two in budget changes, and the foreign working-tree changes are left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - packages/**
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/iOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/EDraftMacSurface/Package.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+  - src/**
+  - scripts/**
+  - docs/**
+  - Github showcase/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: The omitted-scene chevron moves to the trailing edge of the card's line, inside the frame, and fades in and out with easing.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/OmittedSceneRegionView.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift
+  symbols: []
+  maxFiles: 2
+  maxLines: 200
+accept:
+  - "RIGHT SIDE: the chevron's frame is inside the overlay's bounds, at the trailing edge of the card's line, right of the card's glyphs — single container and PageSheets, collapsed and open."
+  - "EASING: reveal and hide animate alpha with an ease-in-out, not an instant snap."
+  - "CLICKABLE: hovering the line shows the chevron and clicking it toggles the cut text; the walk from the word to the chevron never leaves the hover zone because the zone is the frame itself."
+  - "UNCHANGED: the wash, the toggle, caret and viewport preservation, the Navigator, the spoken label."
+  - "SUITE: EDraftMacSurface green, and the macOS Debug build succeeds."
+assumptions:
+  - text: HEAD is 1087991 (IL-0083). The tree carries the usual foreign dirt — the xcscheme, mcp.log, the root PNGs, the IL-0078 draft. None of it is touched.
+    source: system
+    confirmed: false
+createdAt: 2026-09-22T04:58:00.000Z
+createdBy: Yasirdora
