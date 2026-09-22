@@ -1,0 +1,152 @@
+schemaVersion: 1
+id: IL-0078
+status: verified
+utterance: |-
+  App Store submission: be the reviewer before Apple is. Repo /Users/x/Documents/edraft, branch rename/edraft, HEAD 28aaf8d (verify git status; never stage xcscheme, mcp.log, the root PNGs). CLAUDE.md discipline: lock_draft → Vibe Check → wait for my yes → run_locked → report. No commits, no co-author trailers. This is a READ-ONLY audit: your budget is exactly one new file, docs/APP-STORE-READINESS.md. Every other path is denied. No fixes in this lock — findings only.
+  Review this app as an Apple App Reviewer would, for macOS first (iOS follows later). Work through the App Review Guidelines sections that apply to a sandboxed document app with iCloud sync and no accounts: 2.1 app completeness, 2.3 accurate metadata, 2.4 hardware compatibility, 2.5 software requirements (sandbox, entitlements, no private APIs), 3.1 business (no IAP — confirm nothing trips it), 5.1 privacy (privacy manifest, privacy policy, data-collection declarations vs what the code actually does).
+  For each finding: severity — BLOCKS SUBMISSION / SHOULD FIX / POLISH — the evidence (file:line or the measured behavior), and the concrete remedy. Verify these known suspects and find the ones we don't know:
+  docs/privacy-policy.html still carries a literal [SUPPORT EMAIL] placeholder; the support/privacy URLs for App Store Connect don't exist yet
+  MARKETING_VERSION / CURRENT_PROJECT_VERSION in apple/eDraft.xcodeproj — current values, and what 1.0 requires
+  ITSAppUsesNonExemptEncryption absent from apple/macOS/Info.plist (standard-library crypto only — say what App Store Connect needs answered)
+  apple/macOS/MainMenu.swift:34 registers "eDraft Help" → showHelp with no help book — a menu item that does nothing is a 2.1 completeness rejection risk
+  Entitlements: read apple/macOS/*.entitlements — exactly what we ask for vs what we use (iCloud container, sandbox, file access classes); flag anything requested-but-unused or used-but-unrequested
+  Document types: UTIs for .fountain/.fdx/.draft declared and consistent across Info.plist and the project
+  Signing/notarization readiness for a direct archive: DEVELOPMENT_TEAM Z77253BSS4, what a Release archive will need that Debug doesn't
+  What a reviewer sees in the first five minutes: launch → new document → type → save → open sample .fdx — note anything that reads as placeholder, broken, or unfinished (you may run swift tests and builds to verify, but do not modify)
+  Report format: a verdict line (would this pass review today? no/yes-with-notes), then findings ordered by severity, then a submission checklist in execution order. Proof: the file exists and covers every section above; zero other diffs. The value of this lock is that a second pass by a different agent finds nothing new — write it that well.
+goal: "docs/APP-STORE-READINESS.md exists and records a macOS-first App Review audit of eDraft: a verdict line, findings ordered by severity (BLOCKS SUBMISSION / SHOULD FIX / POLISH) each with evidence and a concrete remedy, covering Guidelines 2.1, 2.3, 2.4, 2.5, 3.1, 5.1, the named suspects (privacy policy placeholder and URLs, version numbers, export compliance, Help menu, entitlements, document types, signing/notarization, first-five-minutes walkthrough), and a submission checklist in execution order. No other file changes."
+interpretation: |
+  A READ-ONLY AUDIT WITH ONE WRITTEN ARTEFACT. The only file this lock
+  creates is docs/APP-STORE-READINESS.md; every finding in it is a
+  description and a remedy, never an applied fix. Nothing in apple/,
+  docs/privacy-policy.*, the Xcode project, Info.plist or the entitlements
+  is edited, even where the fix is one line.
+
+  HOW IT IS MEASURED. Evidence is read at HEAD 28aaf8d: the macOS target's
+  Info.plist, entitlements, project build settings (Debug vs Release),
+  MainMenu.swift, every API the app calls that touches the network,
+  iCloud, file access, user defaults or crypto, the privacy policy
+  sources, and any PrivacyInfo.xcprivacy. Builds and tests run with their
+  output directed to the session scratchpad (xcodebuild -derivedDataPath,
+  swift test --scratch-path), so the repo tree does not move. The built
+  app is launched by path, never with `open -a`, and the running binary's
+  build time is checked against HEAD before any screenshot is trusted.
+  An archive may be attempted to find what a Release signing path needs;
+  nothing is exported, notarised, uploaded or registered, and no
+  certificate, profile or App Store Connect record is created.
+
+  WHAT THE DOCUMENT HOLDS. A verdict line (no / yes-with-notes); findings
+  ordered BLOCKS SUBMISSION → SHOULD FIX → POLISH, each with the guideline
+  it answers to, the evidence (file:line or the command and its measured
+  result), and a concrete remedy; a per-guideline section (2.1, 2.3, 2.4,
+  2.5, 3.1, 5.1) that says what was checked even where nothing was found;
+  a verdict on each named suspect (confirmed or refuted, with evidence);
+  the answers App Store Connect will ask for (export compliance, privacy
+  nutrition label, URLs); and a submission checklist in execution order.
+  Anything that could not be measured is labelled unverified, not
+  asserted.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no file outside docs/APP-STORE-READINESS.md changes — no app, engine, project, plist, entitlement, privacy-policy or doc file — and the foreign working-tree items are left exactly as found (seals.json, the xcscheme, the IL-0077 lock and its utterance, mcp.log, the two root PNGs)
+  - kind: custom
+    text: builds, tests and any archive write only to the session scratchpad; nothing is exported, notarised or uploaded, and no signing identity, profile or App Store Connect state is created or changed
+  - kind: custom
+    text: every finding cites evidence measured at HEAD 28aaf8d; what was not measured is labelled unverified, never claimed
+  - kind: custom
+    text: the document quotes no screenplay content from fixtures or user files, and names no personal contact address — the repo is public
+deny:
+  - apple/**
+  - packages/**
+  - src/**
+  - scripts/**
+  - static/**
+  - .github/**
+  - .githooks/**
+  - .vscode/**
+  - Github showcase/**
+  - docs/privacy-policy.html
+  - docs/privacy-policy.txt
+  - docs/APPLE-PLATFORM-GUIDE.md
+  - docs/CODE-REVIEW-2026-09-12.md
+  - docs/CODE-REVIEW-2026-09.md
+  - docs/Goal support bold i.txt
+  - docs/HANDOFF.md
+  - docs/IOS-COMPLETENESS.md
+  - docs/IOS-PLAN.md
+  - docs/MACOS-DESIGN.md
+  - docs/MACOS-EXECUTION.md
+  - docs/MACOS-PLAN.md
+  - docs/REVISIONS-PLAN.md
+  - docs/RFC-ACT-BREAK.md
+  - docs/RFC-DRAFT-FORMAT.md
+  - docs/RFC-DRAFT-PRODUCTION.md
+  - docs/RFC-EDRAFT-LOCATION.md
+  - docs/RFC-HIGHLIGHTER.md
+  - docs/RFC-MULTI-CONTAINER-PAGES.md
+  - docs/RFC-NOTES-SYSTEM.md
+  - docs/RFC-SECONDARY-SLUG.md
+  - docs/RFC-TITLE-PAGE.md
+  - docs/SHARED-ARCHITECTURE.md
+  - docs/VISION.md
+  - docs/bold-italic-underline-review.md
+  - docs/evaluation-draft-format-plan.md
+  - docs/rfc-emphasis-layout-model.md
+  - docs/rfc-highlight-model.md
+  - docs/rfc-viewport-editing-model.md
+  - docs/work-package-1.txt
+  - docs/artifacts/**
+  - docs/images/**
+  - docs/tasks/**
+  - .gitignore
+  - .npmrc
+  - .nvmrc
+  - CLAUDE.md
+  - CONTRIBUTING.md
+  - GEMINI.md
+  - LICENSE
+  - README.md
+  - RELEASING.md
+  - SECURITY.md
+  - package.json
+  - package-lock.json
+  - tsconfig.json
+  - vite.config.ts
+  - wrangler.toml
+  - .codedirector/mcp.log
+  - edraft logo.png
+  - screenshot.png
+change: One new file, docs/APP-STORE-READINESS.md — a macOS-first App Review audit with a verdict, severity-ordered findings with evidence and remedies, and a submission checklist. Findings only; nothing is fixed.
+verifyCommand: "f=docs/APP-STORE-READINESS.md; test -f \"$f\" || { echo \"missing $f\"; exit 1; }; for s in 'Verdict' 'BLOCKS SUBMISSION' 'SHOULD FIX' 'POLISH' '2\\.1' '2\\.3' '2\\.4' '2\\.5' '3\\.1' '5\\.1' 'ITSAppUsesNonExemptEncryption' 'MARKETING_VERSION' 'CURRENT_PROJECT_VERSION' 'showHelp' 'entitlements' 'fountain' 'fdx' '\\.draft' 'Z77253BSS4' 'otari' 'SUPPORT EMAIL' 'PrivacyInfo' 'Submission checklist'; do grep -q \"$s\" \"$f\" || { echo \"document lacks: $s\"; exit 1; }; done; git diff --quiet HEAD -- . ':!apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme' ':!.codedirector' || { echo \"tracked files moved\"; git diff --stat HEAD -- . ':!apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme' ':!.codedirector'; exit 1; }; extra=\"$(git ls-files --others --exclude-standard -- . ':!.codedirector' ':!edraft logo.png' ':!screenshot.png' ':!docs/APP-STORE-READINESS.md')\"; test -z \"$extra\" || { echo \"new untracked files: $extra\"; exit 1; }"
+verifyTimeoutMs: 120000
+budget:
+  files:
+    - docs/APP-STORE-READINESS.md
+  symbols: []
+  maxFiles: 1
+  maxLines: 700
+accept:
+  - docs/APP-STORE-READINESS.md exists and its first substantive line is a verdict — no, or yes-with-notes — on whether the macOS app would pass review today.
+  - Findings are ordered BLOCKS SUBMISSION, then SHOULD FIX, then POLISH; each names its guideline, its evidence (file:line, or the command run and its measured result) and a concrete remedy.
+  - Guidelines 2.1, 2.3, 2.4, 2.5, 3.1 and 5.1 each have a section stating what was checked, including where nothing was found.
+  - Every named suspect is confirmed or refuted with evidence — the privacy policy placeholder and missing URLs, MARKETING_VERSION / CURRENT_PROJECT_VERSION, ITSAppUsesNonExemptEncryption and the export-compliance answer, the Help menu's showHelp, entitlements asked-vs-used, the .fountain/.fdx/.draft document types, Release signing and notarisation, and the first-five-minutes walkthrough.
+  - The document ends with a submission checklist in execution order.
+  - Nothing outside docs/APP-STORE-READINESS.md changes; nothing is committed, staged, uploaded or signed.
+assumptions:
+  - text: 'HEAD is 28aaf8d on rename/edraft (measured 2026-09-21). The working tree carries foreign items that predate this lock and are never touched, staged or reverted: .codedirector/seals.json (M), apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme (M), .codedirector/locks/IL-0077-can-you-create-it-with.yaml and .codedirector/seals/IL-0077.utterance (??), .codedirector/mcp.log, "edraft logo.png", screenshot.png.'
+    source: user
+    confirmed: true
+  - text: The human set the budget as exactly one new file, docs/APP-STORE-READINESS.md, with every other path denied. The drafter's automatic proposal (six Swift files from name-fragment anchors — write, document, fountain, report, author) was wrong and is replaced by the human's stated scope.
+    source: user
+    confirmed: true
+  - text: macOS is audited; the iOS target is mentioned only where it shares a setting with macOS (for example, version numbers in the same project) and is otherwise out of scope for this pass.
+    source: system
+    confirmed: false
+  - text: The walkthrough (launch → new document → type → save → open a sample .fdx) is driven on a scratchpad build launched by path. If UI scripting is refused (Accessibility permission), the steps that could not be driven are recorded as unverified in the document rather than asserted from reading code.
+    source: system
+    confirmed: false
+  - text: The verify command excludes the pre-existing xcscheme change and .codedirector/ from its "nothing else moved" check — Code Director 0.4.5 would otherwise read that foreign dirt as this run's doing.
+    source: system
+    confirmed: false
+createdAt: 2026-09-21T11:47:06.454Z
+createdBy: Yasirdora
