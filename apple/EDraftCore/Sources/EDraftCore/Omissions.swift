@@ -11,9 +11,9 @@ import Foundation
 /// once, into the `DraftElementID`s of the elements it covers (M1,
 /// IL-0073), and the surface asks about elements, never about positions.
 ///
-/// Nothing here decides what is omitted. That is the file's to say, and
-/// §7.3 blocks omitting from the app in `development` anyway. This is a
-/// reading of the document that was opened.
+/// The file says what was omitted when the document opens; after that the
+/// writer does, through `EditorState.omitScene` and `restoreScene` (IL-0087),
+/// and the save writes what the writer decided (`OmissionSpans`).
 /// One scene the production cut: the card that stands in for it, the body
 /// behind the card, and how much page it took.
 public nonisolated struct OmittedScene: Equatable, Sendable {
@@ -48,9 +48,20 @@ public nonisolated struct OmittedScene: Equatable, Sendable {
 
     /// What VoiceOver says about it, which a strike or a pill cannot.
     public func spoken(collapsed: Bool) -> String {
-        let scene = sceneNumber.map { "Scene \($0)" } ?? "Scene"
-        return "\(scene), omitted, \(Self.pageText(pages)) pages cut, \(collapsed ? "collapsed" : "expanded")"
+        "\(spokenName), omitted, \(Self.pageText(pages)) pages cut, \(collapsed ? "collapsed" : "expanded")"
     }
+
+    /// What VoiceOver announces the moment the writer omits or restores it —
+    /// the result, in the words the card already speaks: "Scene 21 omitted,
+    /// 0.3 pages cut", "Scene 21 restored".
+    public func announcement(for action: SceneAction) -> String {
+        switch action {
+        case .omit: return "\(spokenName) omitted, \(Self.pageText(pages)) pages cut"
+        case .restore: return "\(spokenName) restored"
+        }
+    }
+
+    private var spokenName: String { sceneNumber.map { "Scene \($0)" } ?? "Scene" }
 
     /// What names this span in the surface's expansion set. The body's
     /// first element, which always exists — a card does not.
@@ -109,7 +120,121 @@ public nonisolated struct OmittedScenes: Equatable, Sendable {
     }
 }
 
+/// A production action on one scene — what a Navigator row offers on hover,
+/// what the page's context menu and the menu bar offer where the caret is.
+///
+/// One list, so the three doors cannot disagree about what a scene allows.
+/// Only actions whose model exists are cases here: Lock Scene and Scene
+/// Status join when page locks (RFC-DRAFT-PRODUCTION §7.2) are built, and
+/// the row, the menus and VoiceOver take them from this type unchanged.
+public nonisolated enum SceneAction: String, CaseIterable, Sendable {
+    case omit
+    case restore
+
+    /// The command's name, and the name Undo gives it ("Undo Omit Scene").
+    public var title: String {
+        switch self {
+        case .omit: return "Omit Scene"
+        case .restore: return "Restore Scene"
+        }
+    }
+
+    /// The SF Symbol a row shows for it: the pill's own word is CUT.
+    public var symbol: String {
+        switch self {
+        case .omit: return "scissors"
+        case .restore: return "arrow.uturn.backward"
+        }
+    }
+}
+
+/// Where the save should write each omitted scene: spans of element indices
+/// over the document as its Fountain source reads back, and how many
+/// elements that reading must have for the spans to mean anything.
+///
+/// Published with the source, from the same model at the same moment, so the
+/// two cannot describe different documents (`EditorState.publishedOmissions`).
+public nonisolated struct OmissionSpans: Equatable, Sendable {
+    public let spans: [EDraftEngine.Omission]
+    public let elementCount: Int
+
+    public init(spans: [EDraftEngine.Omission], elementCount: Int) {
+        self.spans = spans
+        self.elementCount = elementCount
+    }
+}
+
 public nonisolated enum Omissions {
+
+    /// The words that make a heading an OMITTED card already (§7.3,
+    /// `SceneNumbering`'s own spellings). Such a line is not a scene to omit.
+    public static func isCardText(_ text: String) -> Bool {
+        let key = text.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        return key == "OMIT" || key == "OMITTED"
+    }
+
+    /// The span a scene covers, in the document (page and asides merged):
+    /// its heading through its last printing line before the next heading
+    /// or act break.
+    ///
+    /// Asides count as they are anchored. One that stands in front of a line
+    /// of the scene is inside it; one that stands in front of the next
+    /// heading belongs to that heading, and is not cut with this scene —
+    /// an act or sequence marker opening what follows must not vanish with
+    /// the scene before it.
+    public static func sceneSpan(at heading: Int, in document: [ScriptElement]) -> Range<Int> {
+        var last = heading
+        var at = heading + 1
+        while at < document.count {
+            let element = document[at]
+            if element.type.isPrinting {
+                if element.type == .scene || element.type == .actbreak { break }
+                last = at
+            }
+            at += 1
+        }
+        return heading..<(last + 1)
+    }
+
+    /// Each omitted scene as a span over the document, for the save.
+    ///
+    /// A scene whose card or body cannot be found — deleted, or broken up —
+    /// is left out rather than guessed at: the save then writes its lines
+    /// live, where nothing is lost.
+    public static func spans(of omitted: OmittedScenes, in document: [ScriptElement]) -> [EDraftEngine.Omission] {
+        var position: [DraftElementID: Int] = [:]
+        for (at, element) in document.enumerated() {
+            if let id = element.draftID { position[id] = at }
+        }
+        var spans: [EDraftEngine.Omission] = []
+        for scene in omitted.scenes {
+            guard let card = scene.card.flatMap({ position[$0] }) else { continue }
+            let body = scene.elements.compactMap { position[$0] }
+            guard body.count == scene.elements.count, let start = body.min(), let end = body.max(),
+                  start == card + 1 else { continue }
+            /* Contiguous: nothing in between but the body and the notes a
+               writer left on it, which carry no identity of their own. */
+            let members = Set(body)
+            guard (start...end).allSatisfy({ members.contains($0) || document[$0].type == .note }) else { continue }
+            spans.append(EDraftEngine.Omission(start: start, end: end + 1))
+        }
+        return spans.sorted { $0.start < $1.start }
+    }
+
+    /// The spans applied to a script parsed from the published source, when
+    /// they describe it: same element count, and each card still a heading.
+    /// Nil otherwise — the save then lets the file's structure decide.
+    public static func applying(_ published: OmissionSpans?, to script: EDraftEngine.Screenplay) -> EDraftEngine.Screenplay {
+        guard let published, script.elements.count == published.elementCount,
+              published.spans.allSatisfy({ span in
+                  span.start > 0 && span.start < span.end && span.end <= script.elements.count
+                      && script.elements[span.start - 1].type == .scene
+              })
+        else { return script }
+        var script = script
+        script.omissions = published.spans
+        return script
+    }
 
     /// The omitted spans of a Final Draft file, placed on the document as it
     /// stands at open.

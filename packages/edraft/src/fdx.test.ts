@@ -2469,3 +2469,267 @@ describe('FDX · omitted scenes (§7.3)', () => {
 		expect(openFdx(withUnknown).rewrite(script, { unedited: script }).xml).toBe(withUnknown);
 	});
 });
+
+/**
+ * A save that follows the writer's omissions — RFC-DRAFT-PRODUCTION §7.3,
+ * IL-0087. Mirrored in Swift (`OmissionRewriteTests`), with the same
+ * fixtures and the same expected bytes, so the two ports cannot drift.
+ *
+ * Before this, the preserving save found an omitted scene only by the
+ * file's own structure: a scene the writer omitted was written as a live
+ * OMITTED heading with the whole scene still live under it, and a scene the
+ * writer restored was quietly re-omitted by the next save.
+ */
+describe('openFdx · a save that follows the writer’s omissions', () => {
+	const LIVE = [
+		'<FinalDraft DocumentType="Script" Template="No" Version="5">',
+		'<Content>',
+		'<Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>',
+		'<Paragraph Number="21" Type="Scene Heading"><Text TagNumber="317">EXT. THE YARD - DUSK</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text TagNumber="213">Mara</Text><Text> waits.</Text></Paragraph>',
+		'<Paragraph Type="Transition"><Text>Cut to:</Text></Paragraph>',
+		'<Paragraph Type="Scene Heading"><Text>INT. HALL - NIGHT</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text>She waits.</Text></Paragraph>',
+		'</Content>',
+		'</FinalDraft>'
+	].join('\n');
+	const OMITTED = [
+		'<FinalDraft DocumentType="Script" Template="No" Version="5">',
+		'<Content>',
+		'<Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>',
+		'<Paragraph Number="21" Type="Scene Heading"><Text>OMITTED</Text><OmittedScene>',
+		'<Paragraph Type="Scene Heading"><Text TagNumber="317">EXT. THE YARD - DUSK</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text TagNumber="213">Mara</Text><Text> waits.</Text></Paragraph>',
+		'<Paragraph Type="Transition"><Text>Cut to:</Text></Paragraph>',
+		'</OmittedScene></Paragraph>',
+		'<Paragraph Type="Scene Heading"><Text>INT. HALL - NIGHT</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text>She waits.</Text></Paragraph>',
+		'</Content>',
+		'</FinalDraft>'
+	].join('\n');
+	/** The bytes both ports write — the same literal is asserted in Swift. */
+	const OMITTED_BY_THE_WRITER = [
+		'<FinalDraft DocumentType="Script" Template="No" Version="5">',
+		'<Content>',
+		'<Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>',
+		'<Paragraph Type="Scene Heading" Number="21"><Text>OMITTED</Text><OmittedScene>',
+		'<Paragraph Number="21" Type="Scene Heading"><Text TagNumber="317">EXT. THE YARD - DUSK</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text TagNumber="213">Mara</Text><Text> waits.</Text></Paragraph>',
+		'<Paragraph Type="Transition"><Text>Cut to:</Text></Paragraph>',
+		'</OmittedScene></Paragraph>',
+		'<Paragraph Type="Scene Heading"><Text>INT. HALL - NIGHT</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text>She waits.</Text></Paragraph>',
+		'</Content>',
+		'</FinalDraft>'
+	].join('\n');
+	const RESTORED_BY_THE_WRITER = [
+		'<FinalDraft DocumentType="Script" Template="No" Version="5">',
+		'<Content>',
+		'<Paragraph Type="Scene Heading"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text>The kettle screams.</Text></Paragraph>',
+		'<Paragraph Type="Scene Heading"><Text TagNumber="317">EXT. THE YARD - DUSK</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text TagNumber="213">Mara</Text><Text> waits.</Text></Paragraph>',
+		'<Paragraph Type="Transition"><Text>Cut to:</Text></Paragraph>',
+		'<Paragraph Type="Scene Heading"><Text>INT. HALL - NIGHT</Text></Paragraph>',
+		'<Paragraph Type="Action"><Text>She waits.</Text></Paragraph>',
+		'</Content>',
+		'</FinalDraft>'
+	].join('\n');
+	const count = (needle: string, haystack: string) => haystack.split(needle).length - 1;
+	const fixture = (name: string) =>
+		readFileSync(new URL(`../../../apple/eDraftEngine/Fixtures/${name}`, import.meta.url), 'utf8');
+	/** The script as the app holds it: carried through Fountain and read back. */
+	const fountainReading = (xml: string): Screenplay =>
+		parseFountain(serialiseFountain(parseFdx(xml).script), { emphasis: 'runs' });
+	/** The yard omitted by hand: a card carrying its number, the span behind it. */
+	const omittingTheYard = (script: Screenplay): Screenplay => {
+		const heading = script.elements.findIndex((e) => e.text === 'EXT. THE YARD - DUSK');
+		const elements = [...script.elements];
+		elements.splice(heading, 0, { type: 'scene', text: 'OMITTED', sceneNumber: '21' });
+		return { ...script, elements, omissions: [{ start: heading + 1, end: heading + 4 }] };
+	};
+	const restoringTheYard = (script: Screenplay): Screenplay => ({
+		...script,
+		elements: script.elements.filter((e) => e.text !== 'OMITTED'),
+		omissions: []
+	});
+
+	it('omit: the scene is written inside its card, once, and reads back omitted', () => {
+		const reading = parseFdx(LIVE).script;
+		const saved = omittingTheYard(reading);
+		const result = openFdx(LIVE).rewrite(saved, { unedited: reading });
+		const back = parseFdx(result.xml).script;
+		expect(back.omissions).toEqual(saved.omissions);
+		expect(back.elements.map((e) => e.text)).toEqual(saved.elements.map((e) => e.text));
+		expect(count('EXT. THE YARD - DUSK', result.xml)).toBe(1);
+		expect(result.diagnostics.map((d) => d.code)).toContain('FDX_REWRITE_SCENE_OMITTED');
+	});
+
+	it('restore: the scene comes out of its card with its bytes and tags', () => {
+		const reading = parseFdx(OMITTED).script;
+		const result = openFdx(OMITTED).rewrite(restoringTheYard(reading), { unedited: reading });
+		const back = parseFdx(result.xml).script;
+		expect(back.omissions).toBeUndefined();
+		expect(result.xml).not.toContain('<OmittedScene');
+		expect(result.xml).not.toContain('OMITTED');
+		expect(result.diagnostics.map((d) => d.code)).toContain('FDX_REWRITE_OMITTED_SCENE_RESTORED');
+	});
+
+	it('both ports write the same bytes for an omit and for a restore', () => {
+		const live = parseFdx(LIVE).script;
+		expect(openFdx(LIVE).rewrite(omittingTheYard(live), { unedited: live }).xml).toBe(OMITTED_BY_THE_WRITER);
+		const omitted = parseFdx(OMITTED).script;
+		expect(openFdx(OMITTED).rewrite(restoringTheYard(omitted), { unedited: omitted }).xml).toBe(
+			RESTORED_BY_THE_WRITER
+		);
+	});
+
+	it('restore: a heading given its card’s number gains Number and keeps its tags', () => {
+		const reading = parseFdx(OMITTED).script;
+		const saved = restoringTheYard(reading);
+		const heading = saved.elements.findIndex((e) => e.text === 'EXT. THE YARD - DUSK');
+		saved.elements[heading] = { ...saved.elements[heading], sceneNumber: '21' };
+		const xml = openFdx(OMITTED).rewrite(saved, { unedited: reading }).xml;
+		expect(xml).toContain(
+			'<Paragraph Number="21" Type="Scene Heading"><Text TagNumber="317">EXT. THE YARD - DUSK</Text></Paragraph>'
+		);
+		expect(parseFdx(xml).script.elements[heading].sceneNumber).toBe('21');
+	});
+
+	/** Final Draft's dual dialogue: a paragraph with no text of its own
+	    holding a <DualDialogue> of two speeches. */
+	const DUAL =
+		'<Paragraph Type="General"><DualDialogue>' +
+		'<Paragraph Type="Character"><Text>MARA</Text></Paragraph>' +
+		'<Paragraph Type="Dialogue"><Text TagNumber="5">Now.</Text></Paragraph>' +
+		'<Paragraph Type="Character"><Text>TOM</Text></Paragraph>' +
+		'<Paragraph Type="Dialogue"><Text>Not yet.</Text></Paragraph>' +
+		'</DualDialogue></Paragraph>';
+	const CUT = '<Paragraph Type="Transition"><Text>Cut to:</Text></Paragraph>';
+	const OMITTED_WITH_DUAL = OMITTED.replace(CUT, `${DUAL}\n${CUT}`);
+	const LIVE_WITH_DUAL = LIVE.replace(CUT, `${DUAL}\n${CUT}`);
+
+	it('an omitted scene’s dual dialogue is read as its lines, not lost', () => {
+		const script = parseFdx(OMITTED_WITH_DUAL).script;
+		const omission = script.omissions?.[0];
+		expect(omission).toBeDefined();
+		if (!omission) return;
+		const body = script.elements.slice(omission.start, omission.end);
+		expect(body.map((e) => e.text)).toEqual([
+			'EXT. THE YARD - DUSK', 'Mara waits.', 'MARA', 'Now.', 'TOM', 'Not yet.', 'Cut to:'
+		]);
+		expect(body.find((e) => e.text === 'TOM')?.dual).toBe(true);
+		expect(body.find((e) => e.text === 'Now.')?.runs?.[0]?.tagNumbers).toEqual([5]);
+		expect(openFdx(OMITTED_WITH_DUAL).rewrite(script, { unedited: script }).xml).toBe(OMITTED_WITH_DUAL);
+	});
+
+	it('restore: a dual dialogue comes out of the card whole — its frame and its bytes', () => {
+		const reading = parseFdx(OMITTED_WITH_DUAL).script;
+		const saved = restoringTheYard(reading);
+		const xml = openFdx(OMITTED_WITH_DUAL).rewrite(saved, { unedited: reading }).xml;
+		expect(xml).not.toContain('<OmittedScene');
+		expect(xml).toContain(DUAL);
+		expect(parseFdx(xml).script.elements.map((e) => e.text)).toEqual(saved.elements.map((e) => e.text));
+	});
+
+	it('omit: a scene holding dual dialogue is nested whole and reads back whole', () => {
+		const reading = parseFdx(LIVE_WITH_DUAL).script;
+		const heading = reading.elements.findIndex((e) => e.text === 'EXT. THE YARD - DUSK');
+		const elements = [...reading.elements];
+		elements.splice(heading, 0, { type: 'scene', text: 'OMITTED', sceneNumber: '21' });
+		const end = elements.findIndex((e) => e.text === 'INT. HALL - NIGHT');
+		const saved = { ...reading, elements, omissions: [{ start: heading + 1, end }] };
+		const xml = openFdx(LIVE_WITH_DUAL).rewrite(saved, { unedited: reading }).xml;
+		expect(xml).toContain(DUAL);
+		const back = parseFdx(xml).script;
+		expect(back.omissions).toEqual(saved.omissions);
+		expect(back.elements.map((e) => e.text)).toEqual(saved.elements.map((e) => e.text));
+		expect(back.elements.find((e) => e.text === 'TOM')?.dual).toBe(true);
+	});
+
+	/* The scene-number half of the fix, on its own — no omission in sight.
+	   Before it, a renumbered heading saved with the file's old number, and
+	   through Fountain lost its tags as well. */
+	it('a renumbered heading’s new Number is written, and its tags are kept', () => {
+		const reading = fountainReading(LIVE);
+		const heading = reading.elements.findIndex((e) => e.text === 'EXT. THE YARD - DUSK');
+		const elements = [...reading.elements];
+		elements[heading] = { ...elements[heading], sceneNumber: '21A' };
+		const xml = openFdx(LIVE).rewrite({ ...reading, elements }, { unedited: reading }).xml;
+		expect(xml).toContain(
+			'<Paragraph Number="21A" Type="Scene Heading"><Text TagNumber="317">EXT. THE YARD - DUSK</Text></Paragraph>'
+		);
+		expect(parseFdx(xml).script.elements[heading].sceneNumber).toBe('21A');
+	});
+
+	it('undefined omissions leave the file’s structure deciding, exactly as before', () => {
+		const reading = parseFdx(OMITTED).script;
+		const { omissions: _omissions, ...carried } = reading;
+		expect(openFdx(OMITTED).rewrite(carried, { unedited: reading }).xml).toBe(OMITTED);
+		expect(openFdx(OMITTED).rewrite(reading, { unedited: reading }).xml).toBe(OMITTED);
+	});
+
+	it('the real file: its own omission, said explicitly through Fountain, saves byte for byte', () => {
+		const source = fixture('finaldraft-sample02.fdx');
+		const parsed = parseFdx(source).script;
+		const reading = { ...fountainReading(source), omissions: parsed.omissions };
+		expect(reading.elements.length).toBe(parsed.elements.length);
+		expect(openFdx(source).rewrite(reading, { unedited: reading }).xml).toBe(source);
+	});
+
+	it('the real file: restore → save → omit again → save — the same scene omitted, every tag kept', () => {
+		const source = fixture('finaldraft-sample02.fdx');
+		const parsed = parseFdx(source).script;
+		const omission = parsed.omissions?.[0];
+		expect(omission).toBeDefined();
+		if (!omission) return;
+		const reading = fountainReading(source);
+		const tags = count('TagNumber=', source);
+
+		const elements = [...reading.elements];
+		const [card] = elements.splice(omission.start - 1, 1);
+		const saved = openFdx(source).rewrite({ ...reading, elements, omissions: [] }, { unedited: reading }).xml;
+		expect(saved).not.toContain('<OmittedScene');
+		expect(parseFdx(saved).script.omissions).toBeUndefined();
+		expect(count('TagNumber=', saved)).toBe(tags);
+
+		const again = fountainReading(saved);
+		const withCard = [...again.elements];
+		withCard.splice(omission.start - 1, 0, card);
+		const back = openFdx(saved).rewrite(
+			{ ...again, elements: withCard, omissions: [omission] },
+			{ unedited: fountainReading(saved) }
+		).xml;
+		expect(parseFdx(back).script.omissions).toEqual([omission]);
+		expect(count('TagNumber=', back)).toBe(tags);
+		const expected = parsed.elements.map((e) => e.text);
+		expected[omission.start - 1] = expected[omission.start - 1].toUpperCase();
+		expect(parseFdx(back).script.elements.map((e) => e.text)).toEqual(expected);
+	});
+
+	it('the real file: omitting a live scene nests it, every tag kept, the rest untouched', () => {
+		const source = fixture('finaldraft-sample02.fdx');
+		const parsed = parseFdx(source).script;
+		const existing = parsed.omissions?.[0];
+		expect(existing).toBeDefined();
+		if (!existing) return;
+		const unedited = fountainReading(source);
+		const heading = unedited.elements.findIndex((e, at) => at > existing.end && e.type === 'scene');
+		const after = unedited.elements.findIndex((e, at) => at > heading && e.type === 'scene');
+		const next = after === -1 ? unedited.elements.length : after;
+		const elements = [...unedited.elements];
+		elements.splice(heading, 0, { type: 'scene', text: 'OMITTED', sceneNumber: unedited.elements[heading].sceneNumber });
+		const omissions = [existing, { start: heading + 1, end: next + 1 }];
+		const xml = openFdx(source).rewrite({ ...unedited, elements, omissions }, { unedited }).xml;
+		const back = parseFdx(xml).script;
+		expect(back.omissions).toEqual(omissions);
+		const expected = parsed.elements.map((e) => e.text);
+		expected.splice(heading, 0, 'OMITTED');
+		expect(back.elements.map((e) => e.text)).toEqual(expected);
+		expect(count('<OmittedScene>', xml)).toBe(2);
+		expect(count('TagNumber=', xml)).toBe(count('TagNumber=', source));
+	});
+});

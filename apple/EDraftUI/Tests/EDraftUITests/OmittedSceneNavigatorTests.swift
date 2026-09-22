@@ -1,5 +1,10 @@
 import EDraftCore
 import XCTest
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 @testable import EDraftUI
 
 /// A cut scene in the Navigator — RFC-DRAFT-PRODUCTION §7.3.
@@ -63,5 +68,51 @@ final class OmittedSceneNavigatorTests: XCTestCase {
     func testVoiceOverDoesNotCallALiveSceneOmitted() {
         let label = SceneRowLabel(scene: row("INT. KITCHEN - NIGHT"))
         XCTAssertFalse(label.spokenLabel.contains("omitted"))
+    }
+
+    // MARK: - The row's hover actions (IL-0087)
+
+    /// The pointer on a row shows what the scene allows — and gives the
+    /// trailing column up to it, rather than crowding the title.
+    func testHoveringARowShowsItsActionsWhereThePageNumberWas() {
+        let chrome = SceneRowChrome.of(actions: [.omit], hovering: true)
+        XCTAssertTrue(chrome.showsActions)
+        XCTAssertTrue(chrome.hidesTrailing)
+    }
+
+    func testAtRestTheRowIsJustTheRow() {
+        let chrome = SceneRowChrome.of(actions: [.omit], hovering: false)
+        XCTAssertFalse(chrome.showsActions)
+        XCTAssertFalse(chrome.hidesTrailing, "the page number stays put")
+    }
+
+    /// No greyed placeholders: a row with nothing to offer — a Fountain
+    /// document, a card typed by hand — shows nothing, hovered or not.
+    func testARowWithNoActionsNeverShowsAnyChrome() {
+        let chrome = SceneRowChrome.of(actions: [], hovering: true)
+        XCTAssertFalse(chrome.showsActions)
+        XCTAssertFalse(chrome.hidesTrailing)
+    }
+
+    /// A live scene offers Omit, a cut one Restore — the same names the
+    /// menus and the Edit menu's Undo use, and marks from SF Symbols.
+    func testTheActionsSpeakTheMenusNames() {
+        XCTAssertEqual(SceneAction.omit.title, "Omit Scene")
+        XCTAssertEqual(SceneAction.restore.title, "Restore Scene")
+        #if os(macOS)
+        XCTAssertNotNil(NSImage(systemSymbolName: SceneAction.omit.symbol, accessibilityDescription: nil))
+        XCTAssertNotNil(NSImage(systemSymbolName: SceneAction.restore.symbol, accessibilityDescription: nil))
+        #else
+        XCTAssertNotNil(UIImage(systemName: SceneAction.omit.symbol))
+        XCTAssertNotNil(UIImage(systemName: SceneAction.restore.symbol))
+        #endif
+    }
+
+    /// Hiding the length to make room for the action is for the eye only:
+    /// VoiceOver still hears how much was cut.
+    func testTheCutLengthIsStillSpokenWhileTheActionShows() {
+        let cut = row("OMITTED", number: "21", omitted: true, cut: "0.3 pgs CUT")
+        let label = SceneRowLabel(scene: cut, hidesTrailing: true).spokenLabel
+        XCTAssertTrue(label.contains("0.3 pages cut"), label)
     }
 }

@@ -1038,15 +1038,18 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 			   own holding a <DualDialogue>, whose paragraphs are the two
 			   speeches. Read as metadata, all of it was invisible: each block
 			   arrived as one empty General element. Its lines are the script. */
-			const lines = dualDialogueOf(source, paragraph, limits);
-			if (lines) {
+			const dualElements = (lines: MutableFdxParagraph[]): ScreenplayElement[] => {
 				let cues = 0;
-				for (const line of lines) {
+				return lines.map((line) => {
 					const element = elementOf(line, fdxElementKind(attributeOf(line, 'type').trim().toLowerCase()));
 					// The second speaker's cue is the one Fountain marks `^`.
 					if (element.type === 'character' && ++cues === 2) element.dual = true;
-					elements.push(element);
-				}
+					return element;
+				});
+			};
+			const lines = dualDialogueOf(source, paragraph, limits);
+			if (lines) {
+				elements.push(...dualElements(lines));
 				continue;
 			}
 			if (paragraph.dialogues.length > 0) {
@@ -1068,6 +1071,13 @@ export function parseFdx(xml: string, options: FdxImportOptions = {}): FdxImport
 			if (omitted) {
 				const start = elements.length;
 				for (const line of omitted) {
+					/* An omitted scene's dual dialogue is its lines, as it is
+					   anywhere else in the script. */
+					const dual = line.dialogues.length > 0 ? dualDialogueOf(source, line, limits) : null;
+					if (dual) {
+						elements.push(...dualElements(dual));
+						continue;
+					}
 					elements.push(elementOf(line, fdxElementKind(attributeOf(line, 'type').trim().toLowerCase())));
 				}
 				omissions.push({ start, end: elements.length });
@@ -1197,7 +1207,13 @@ function omittedSceneOf(source: string, paragraph: FdxParagraph, limits: FdxLimi
 			start: held.start + shift,
 			end: held.end + shift,
 			textStart: held.textStart === -1 ? -1 : held.textStart + shift,
-			textEnd: held.textEnd === -1 ? -1 : held.textEnd + shift
+			textEnd: held.textEnd === -1 ? -1 : held.textEnd + shift,
+			/* A dual dialogue inside the omitted scene is read from the file
+			   like any other, so it has to point at the file too. */
+			dialogues: held.dialogues.map((block) => ({
+				start: block.start + shift,
+				end: block.end === -1 ? -1 : block.end + shift
+			}))
 		};
 	});
 }
@@ -1641,12 +1657,12 @@ function movedOmissions(omissions: readonly Omission[], movedTo: number[] | null
 function omittedRunsIn(
 	elements: readonly ScreenplayElement[],
 	spans: readonly OriginParagraph[]
-): { start: number; body: string[] }[] {
-	const runs: { start: number; body: string[] }[] = [];
+): OmittedRun[] {
+	const runs: OmittedRun[] = [];
 	/* Compared without casing: a round trip through Fountain gives a scene
 	   heading its canonical capitals, so the card and the body's first line
 	   come back in different letters from the ones the file holds. */
-	const key = (text: string): string => text.trim().toUpperCase();
+	const key = omissionKey;
 	let from = 0;
 	for (const span of spans) {
 		const body = span.omittedBody;
@@ -1691,10 +1707,77 @@ function omittedRunsIn(
 			}
 			if (best === -1) continue;
 		}
-		runs.push({ start: best, body });
+		runs.push({ span, start: best, body });
 		from = best + body.length;
 	}
 	return runs;
+}
+
+/** One of the file's omitted scenes, where it was found in a script: the
+    card paragraph that holds it, and the body's run. */
+interface OmittedRun {
+	span: OriginParagraph;
+	start: number;
+	body: string[];
+}
+
+/** A card's words as the search for one compares them. */
+function omissionKey(text: string): string {
+	return text.trim().toUpperCase();
+}
+
+/** How each element takes part in an omission this save writes for the
+    first time: the card that will hold it, a line of its body, or neither. */
+type NestingRole = 'none' | 'card' | 'body';
+
+/**
+ * What a save does with each omitted scene (Swift `Fdx.omissionPlan`).
+ *
+ * `kept` are the file's own omitted scenes the script still omits — written
+ * back inside their cards as the file has them. `restored` are the file's
+ * own the script no longer omits, by card paragraph: their lines are written
+ * live, and the card goes. `roles` marks each omission the file did not
+ * have — its card and its body — so the write can nest the body inside the
+ * card. `undefined` omissions are a caller that cannot say, and the file's
+ * structure decides.
+ */
+function omissionPlan(
+	omissions: readonly Omission[] | undefined,
+	runs: readonly OmittedRun[],
+	count: number
+): { kept: OmittedRun[]; restored: Set<OriginParagraph>; roles: NestingRole[] } {
+	const roles: NestingRole[] = new Array(count).fill('none');
+	if (!omissions) return { kept: [...runs], restored: new Set(), roles };
+	/* Spans in order, each inside the script and after a card, none
+	   overlapping the one before it: anything else is not a span. */
+	const spans: Omission[] = [];
+	for (const omission of [...omissions].sort((a, b) => a.start - b.start)) {
+		if (!(omission.start > 0 && omission.start < omission.end && omission.end <= count)) continue;
+		const previous = spans[spans.length - 1];
+		if (previous && omission.start - 1 < previous.end) continue;
+		spans.push(omission);
+	}
+	const kept: OmittedRun[] = [];
+	const restored = new Set<OriginParagraph>();
+	const matched = new Set<number>();
+	for (const run of runs) {
+		const at = spans.findIndex((span) => span.start === run.start && span.end === run.start + run.body.length);
+		if (at === -1) {
+			restored.add(run.span);
+		} else {
+			kept.push(run);
+			matched.add(at);
+		}
+	}
+	const keptBody = new Set<number>();
+	for (const run of kept) for (let k = 0; k < run.body.length; k++) keptBody.add(run.start + k);
+	spans.forEach((span, at) => {
+		if (matched.has(at) || keptBody.has(span.start - 1)) return;
+		for (let k = span.start; k < span.end; k++) if (keptBody.has(k)) return;
+		roles[span.start - 1] = 'card';
+		for (let k = span.start; k < span.end; k++) roles[k] = 'body';
+	});
+	return { kept, restored, roles };
 }
 
 /* ---- preserving round trip ---------------------------------------------- */
@@ -1786,6 +1869,10 @@ interface OriginParagraph {
 	    this paragraph, so a preserving save writes them back untouched and the
 	    body's elements take no part in the alignment. */
 	omittedBody?: string[];
+	/** The same paragraphs as spans of their own, for a save in which the
+	    writer restored the scene: each is written back as a live paragraph
+	    from its own bytes. */
+	omittedSpans?: OriginParagraph[];
 	/** The dual dialogue this paragraph is a line of. */
 	block?: DualDialogueBlock;
 }
@@ -1956,6 +2043,32 @@ function rewriteParagraph(
 	if (sameText && sameRuns) return head + source.slice(origin.textStart, origin.end);
 
 	return head + textRunsMarkup(element, diagnostics, index) + source.slice(origin.textEnd, origin.end);
+}
+
+/**
+ * A scene heading's paragraph with its `Number` attribute saying the
+ * element's scene number, every other byte as it was (Swift `Fdx.numbered`).
+ *
+ * The number is an attribute of the paragraph, not its words, so no text
+ * merge carries it. Without this a renumbered heading kept the file's old
+ * number — and a scene restored out of an OMITTED card, whose number Final
+ * Draft keeps on the card, came back with none. A paragraph whose number
+ * already agrees is returned untouched.
+ */
+function numberedParagraph(bytes: string, element: ScreenplayElement): string {
+	if (element.type !== 'scene' || !bytes.startsWith('<Paragraph')) return bytes;
+	const close = bytes.indexOf('>');
+	if (close === -1) return bytes;
+	const head = bytes.slice(0, close);
+	const wanted = element.sceneNumber ?? '';
+	const attribute = /\sNumber="([^"]*)"/.exec(head);
+	const current = attribute ? decodeXmlEntities(attribute[1]) : '';
+	if (current === wanted) return bytes;
+	const value = ` Number="${encodeXmlEntities(wanted)}"`;
+	const rewritten = attribute
+		? head.slice(0, attribute.index) + (wanted === '' ? '' : value) + head.slice(attribute.index + attribute[0].length)
+		: '<Paragraph' + value + head.slice('<Paragraph'.length);
+	return rewritten + bytes.slice(close);
 }
 
 /* ---- unedited paragraphs ------------------------------------------------ */
@@ -2387,7 +2500,10 @@ function mergedParagraph(
 		const now = edited[at];
 		// A dual dialogue line's `dual` is its block's, not its paragraph's.
 		if (!origin.block && (read.dual ?? false) !== (now.dual ?? false)) return null;
-		if ((read.sceneNumber ?? '') !== (now.sceneNumber ?? '')) return null;
+		/* A scene number is an attribute, not the paragraph's words: a change
+		   to it is written onto the opening tag afterwards (`numberedParagraph`),
+		   and the runs — tags, revisions — stay. */
+		if (unedited.length > 1 && (read.sceneNumber ?? '') !== (now.sceneNumber ?? '')) return null;
 		if ((read.depth ?? 0) !== (now.depth ?? 0)) return null;
 		if (unedited.length > 1 && read.type !== now.type) return null;
 	}
@@ -2650,12 +2766,6 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 	scriptNotesOf(source, [], importLimits(options), new DiagnosticCollector(1), rangeValues, places);
 	const first = spans.length > 0 ? (spans[0].block?.start ?? spans[0].start) : -1;
 	const last = spans.length > 0 ? (spans[spans.length - 1].block?.end ?? spans[spans.length - 1].end) : -1;
-	/* Only paragraphs the import turned into elements can be matched to one.
-	   An absorbed End of Act left in the alignment was deleted by every save,
-	   and — typed General when it has no Alignment — was paired with the
-	   writer's next edit and given their text. */
-	const aligned = spans.filter((span) => !span.absorbed);
-
 	return {
 		...imported,
 		rewrite(script: Screenplay, rewriteOptions: FdxRewriteOptions = {}): FdxExportResult {
@@ -2675,9 +2785,9 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 			   their own here, so they are taken out of the alignment before
 			   anything is paired — otherwise each would be written a second
 			   time, as a live paragraph, which is the resurrection this work
-			   exists to prevent. Matched against the file rather than against
-			   `script.omissions`, because Fountain has no spelling for an
-			   omission and the app's own save path goes through it. */
+			   exists to prevent. Found by the file's structure, because Fountain
+			   has no spelling for an omission and the app's own save path goes
+			   through it. */
 			const omittedRuns = omittedRunsIn(elements, spans);
 			let unedited = rewriteOptions.unedited?.elements;
 			/* Located in each reading on its own terms: an edit that adds or
@@ -2715,20 +2825,72 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 						count: edited
 					});
 				}
-				const dropFrom = (runs: { start: number; body: string[] }[]): Set<number> => {
-					const drop = new Set<number>();
-					for (const { start, body } of runs) {
-						for (let k = 0; k < body.length; k++) drop.add(start + k);
-					}
-					return drop;
-				};
-				const drop = dropFrom(omittedRuns);
-				elements = elements.filter((_, j) => !drop.has(j));
-				if (unedited && omittedBefore) {
-					const dropped = dropFrom(omittedBefore);
-					unedited = unedited.filter((_, j) => !dropped.has(j));
-				}
 			}
+			/* What `script.omissions` says, when it says anything. Undefined is
+			   a caller that cannot know — a script carried through Fountain —
+			   and the file's structure decides, as it always has. A list is the
+			   writer's word: a scene omitted since the file was read is written
+			   inside its card, and one of the file's own the writer restored
+			   comes out of its card as live paragraphs, each keeping its bytes. */
+			const plan = omissionPlan(script.omissions, omittedRuns, elements.length);
+			let nestingRole = plan.roles;
+			if (plan.restored.size > 0) {
+				diagnostics.add({
+					code: 'FDX_REWRITE_OMITTED_SCENE_RESTORED',
+					severity: 'info',
+					message: `${plan.restored.size} omitted scene(s) the writer restored were written as live paragraphs, each from its own bytes.`,
+					count: plan.restored.size
+				});
+			}
+			const nested = nestingRole.filter((role) => role === 'card').length;
+			if (nested > 0) {
+				diagnostics.add({
+					code: 'FDX_REWRITE_SCENE_OMITTED',
+					severity: 'info',
+					message: `${nested} scene(s) the writer omitted were written inside an OMITTED card, each line keeping its bytes.`,
+					count: nested
+				});
+			}
+			const dropFrom = (runs: readonly OmittedRun[]): Set<number> => {
+				const drop = new Set<number>();
+				for (const { start, body } of runs) {
+					for (let k = 0; k < body.length; k++) drop.add(start + k);
+				}
+				return drop;
+			};
+			if (plan.kept.length > 0) {
+				const drop = dropFrom(plan.kept);
+				elements = elements.filter((_, j) => !drop.has(j));
+				nestingRole = nestingRole.filter((_, j) => !drop.has(j));
+			}
+			if (omittedRuns.length > 0 && unedited && omittedBefore) {
+				/* The unedited reading loses what the save's own script lost:
+				   every body kept inside its card. A restored scene's body stays
+				   — it is live again, and pairs with the paragraphs it was — and
+				   only its card goes, which the writer removed. */
+				const before = unedited;
+				const gone = new Set<number>();
+				for (const run of omittedBefore) {
+					if (plan.restored.has(run.span)) {
+						const card = run.start - 1;
+						if (card >= 0 && omissionKey(before[card].text) === omissionKey(run.span.text)) gone.add(card);
+					} else {
+						for (let k = 0; k < run.body.length; k++) gone.add(run.start + k);
+					}
+				}
+				unedited = before.filter((_, j) => !gone.has(j));
+			}
+
+			/* Only paragraphs the import turned into elements can be matched to
+			   one. An absorbed End of Act left in the alignment was deleted by
+			   every save, and — typed General when it has no Alignment — was
+			   paired with the writer's next edit and given their text. A card
+			   whose scene the writer restored is gone; the paragraphs it held
+			   stand in its place, so the restored lines pair with the bytes
+			   they were. */
+			const aligned = spans
+				.filter((span) => !span.absorbed)
+				.flatMap((span) => (plan.restored.has(span) && span.omittedSpans ? span.omittedSpans : [span]));
 
 			/* A paragraph the writer did not edit is written as its original
 			   bytes. With the caller's unedited reading, "did not edit" is asked
@@ -2859,6 +3021,7 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 				for (const k of consumedKept) consumed.add(k);
 				paired.splice(0, paired.length, ...keep.map((j) => paired[j]));
 				elements = keep.map((j) => elements[j]);
+				nestingRole = keep.map((j) => nestingRole[j]);
 			}
 
 			/* Each absorbed paragraph goes back, verbatim, in front of the first
@@ -2909,7 +3072,7 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 				});
 			}
 
-			const out: string[] = [];
+			let out: string[] = [];
 			/* Which original paragraph each paragraph written came from, in
 			   order, so each ScriptNote's Range can follow its words. */
 			const written: WrittenParagraph[] = [];
@@ -2930,9 +3093,12 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 			const keptBytes = (index: number, origin: OriginParagraph): string =>
 				verbatim.get(index) === origin
 					? source.slice(origin.start, origin.end)
-					: merged.get(index)?.span === origin
-						? (merged.get(index) as { bytes: string }).bytes
-						: rewriteParagraph(source, origin, elements[index], diagnostics, index);
+					: numberedParagraph(
+							merged.get(index)?.span === origin
+								? (merged.get(index) as { bytes: string }).bytes
+								: rewriteParagraph(source, origin, elements[index], diagnostics, index),
+							elements[index]
+						);
 			const freshBytes = (element: ScreenplayElement): string => {
 				const fresh = writeFdxWithDiagnostics({ titlePage: [], elements: [element] }, options);
 				return fresh.xml.match(/<Paragraph[\s\S]*<\/Paragraph>/)?.[0] ?? '';
@@ -2940,7 +3106,39 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 			/* The paragraph each element was written into, as `written` counts:
 			   a note in front of an element is placed on that paragraph. */
 			const paragraphOf: number[] = new Array(elements.length).fill(-1);
+			/* A scene omitted since the file was read (§7.3) is written the way
+			   Final Draft keeps one: its paragraphs inside the card's, in an
+			   <OmittedScene>. The body is written by the same loop as
+			   everything else — so each line keeps the bytes it had as a live
+			   paragraph — into a buffer of its own, which is closed into the
+			   card when the body ends. The card is one paragraph to a
+			   ScriptNote Range, so the body's paragraphs are not counted as
+			   written; a note on one of them lands on the card. */
+			let nesting: { outer: string[]; lead: string; written: number; card: number } | null = null;
+			const openNesting = (card: number, bytes: string): void => {
+				/* Only into a paragraph that ends as a paragraph does and holds
+				   no block already; otherwise the body is written live, where
+				   nothing is lost. */
+				if (nesting || !bytes.endsWith('</Paragraph>') || bytes.includes('<OmittedScene')) return;
+				const last = out[out.length - 1];
+				out[out.length - 1] = last.slice(0, last.length - '</Paragraph>'.length);
+				nesting = { outer: out, lead, written: written.length, card };
+				out = [];
+			};
+			const closeNesting = (end: number): void => {
+				if (!nesting) return;
+				const open: { outer: string[]; lead: string; written: number; card: number } = nesting;
+				nesting = null;
+				const body = out.join('');
+				const lineLead = open.lead === '' ? '\n' : open.lead;
+				out = open.outer;
+				if (body !== '') out.push(`<OmittedScene>${lineLead}${body}${lineLead}</OmittedScene>`);
+				out.push('</Paragraph>');
+				written.splice(open.written);
+				for (let k = open.card + 1; k < end; k++) paragraphOf[k] = open.written - 1;
+			};
 			for (let index = 0; index < elements.length; index++) {
+				if (nesting && nestingRole[index] !== 'body') closeNesting(index);
 				// A line of a paragraph already written whole.
 				if (consumed.has(index)) {
 					paragraphOf[index] = written.length - 1;
@@ -2974,7 +3172,8 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 					const ownLead = origin.block ? origin.block.lead : origin.lead;
 					if (out.length > 0) out.push(ownLead === '' ? lead : ownLead);
 					if (ownLead !== '') lead = ownLead;
-					out.push(keptBytes(index, origin));
+					const bytes = keptBytes(index, origin);
+					out.push(bytes);
 					if (origin.block) {
 						// A dissolved dual dialogue: its place is its first line.
 						if (dissolvedWritten.has(origin.block)) written.push({ origin: null, kind: 'same' });
@@ -2984,13 +3183,17 @@ export function openFdx(xml: string, options: FdxImportOptions = {}): FdxDocumen
 						writtenFrom(origin.start, verbatim.get(index) === origin ? 'same' : 'text');
 					}
 					paragraphOf[index] = written.length - 1;
+					if (nestingRole[index] === 'card') openNesting(index, bytes);
 					continue;
 				}
 				if (out.length > 0) out.push(lead === '' ? '\n' : lead);
-				out.push(freshBytes(elements[index]));
+				const bytes = freshBytes(elements[index]);
+				out.push(bytes);
 				written.push({ origin: null, kind: 'same' });
 				paragraphOf[index] = written.length - 1;
+				if (nestingRole[index] === 'card') openNesting(index, bytes);
 			}
+			closeNesting(elements.length);
 			for (const span of waiting) restore(span);
 
 			/* Each ScriptNote stays on its words. Final Draft counts a Range
@@ -3205,7 +3408,42 @@ function bodySpansOf(source: string, options: FdxImportOptions): { spans: Origin
 			   splice"). Recorded so the alignment can leave those elements
 			   out — they have no paragraph of their own to be written to. */
 			const omitted = fdxType === 'end of act' ? null : omittedSceneOf(source, paragraph, limits);
-			if (omitted) span.omittedBody = omitted.map((line) => line.text);
+			if (omitted) {
+				/* Element by element, as the import reads them — a dual
+				   dialogue is its lines, framed by its block — so a restored
+				   scene's lines pair with the bytes they were. Led like the
+				   card they come out of: a restored line stands at the
+				   Content's own indent, not the block's. */
+				const held: OriginParagraph[] = [];
+				for (const line of omitted) {
+					const lineType = attributeOf(line, 'type').trim().toLowerCase();
+					const dual = line.dialogues.length > 0 ? dualDialogueOf(source, line, limits) : null;
+					if (!dual) {
+						held.push(spanOf(line, lineType, lead));
+						continue;
+					}
+					const block: DualDialogueBlock = {
+						lead,
+						start: line.start,
+						end: line.end,
+						head: source.slice(line.start, dual[0].start),
+						tail: source.slice(dual[dual.length - 1].end, line.end),
+						lines: []
+					};
+					dual.forEach((inner, at) => {
+						const innerSpan = spanOf(
+							inner,
+							attributeOf(inner, 'type').trim().toLowerCase(),
+							at === 0 ? '' : source.slice(dual[at - 1].end, inner.start)
+						);
+						innerSpan.block = block;
+						block.lines.push(innerSpan);
+						held.push(innerSpan);
+					});
+				}
+				span.omittedBody = held.map((line) => line.text);
+				span.omittedSpans = held;
+			}
 			spans.push(span);
 			continue;
 		}

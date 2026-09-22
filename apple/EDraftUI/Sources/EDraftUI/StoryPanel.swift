@@ -334,6 +334,10 @@ public struct StoryList: View {
     var onSelectCharacter: ((String) -> Void)?
     /// Which name that column is showing, so the row can read as chosen.
     var selectedCharacter: String?
+    /// A scene row's production actions — Omit Scene, Restore Scene — carried
+    /// out by the host, which owns the undo. Nil where the surface offers
+    /// none: the phone's sheet does not, yet (IL-0087).
+    var onSceneAction: ((SceneAction, UUID) -> Void)?
 
     /// The height the row of controls is built on: what `NSSearchField` makes
     /// itself, and so what the filter button has to match to sit level with it.
@@ -362,6 +366,7 @@ public struct StoryList: View {
         onFilterSubmit: ((UUID) -> Void)? = nil,
         onSelectCharacter: ((String) -> Void)? = nil,
         selectedCharacter: String? = nil,
+        onSceneAction: ((SceneAction, UUID) -> Void)? = nil,
         open: @escaping (UUID) -> Void
     ) {
         self.editor = editor
@@ -374,6 +379,7 @@ public struct StoryList: View {
         self.onFilterSubmit = onFilterSubmit
         self.onSelectCharacter = onSelectCharacter
         self.selectedCharacter = selectedCharacter
+        self.onSceneAction = onSceneAction
     }
 
     public var body: some View {
@@ -752,7 +758,10 @@ public struct StoryList: View {
                 )
             } else if filtering || editor.acts.isEmpty {
                 ForEach(visible) { scene in
-                    SceneListRow(scene: scene, isCurrent: scene.id == editor.activeSceneID) {
+                    SceneListRow(
+                        scene: scene, isCurrent: scene.id == editor.activeSceneID,
+                        actions: sceneActions(for: scene), perform: { onSceneAction?($0, scene.id) }
+                    ) {
                         open(scene.id)
                     }
                 }
@@ -767,7 +776,10 @@ public struct StoryList: View {
                             open(act.id)
                         }
                     case .scene(let scene):
-                        SceneListRow(scene: scene, isCurrent: scene.id == editor.activeSceneID) {
+                        SceneListRow(
+                            scene: scene, isCurrent: scene.id == editor.activeSceneID,
+                            actions: sceneActions(for: scene), perform: { onSceneAction?($0, scene.id) }
+                        ) {
                             open(scene.id)
                         }
                     }
@@ -830,6 +842,12 @@ public struct StoryList: View {
                 }
             }
         }
+    }
+
+    /// What a scene row offers on hover: nothing where the host carries no
+    /// actions out, and otherwise what the scene allows.
+    private func sceneActions(for scene: SceneRow) -> [SceneAction] {
+        onSceneAction == nil ? [] : editor.sceneActions(for: scene)
     }
 
     /// The note list, derived where it is read.
@@ -1071,6 +1089,9 @@ struct SceneRowLabel: View {
     /// Tints the row's own type, which is how Finder says "this one" without
     /// raising its voice: the pill carries no colour, the label does.
     var isSelected = false
+    /// Gives the trailing column up to the row's actions while they show —
+    /// faded, not removed, so the title never reflows under the pointer.
+    var hidesTrailing = false
 
     public var body: some View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -1118,15 +1139,18 @@ struct SceneRowLabel: View {
                 // says where to turn.
                 // A cut scene has no page to turn to; what a reader wants
                 // to know is how much page it took (§7.3).
-                if let cut = scene.cutPages {
-                    Text(cut)
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.tertiary)
-                } else if let page = scene.page {
-                    Text(page.formatted())
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.tertiary)
+                Group {
+                    if let cut = scene.cutPages {
+                        Text(cut)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    } else if let page = scene.page {
+                        Text(page.formatted())
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.tertiary)
+                    }
                 }
+                .opacity(hidesTrailing ? 0 : 1)
             }
     }
 
@@ -1166,19 +1190,87 @@ private struct SceneListRow: View {
     let scene: SceneRow
     /// Whether the caret sits inside this scene — the "you are here" mark.
     let isCurrent: Bool
+    /// The scene's production actions, and who carries them out.
+    var actions: [SceneAction] = []
+    var perform: (SceneAction) -> Void = { _ in }
     let open: () -> Void
 
+    @State private var hovering = false
+
     public var body: some View {
-        Button(action: open) { SceneRowLabel(scene: scene, isSelected: isCurrent) }
+        let chrome = SceneRowChrome.of(actions: actions, hovering: hovering)
+        Button(action: open) {
+            SceneRowLabel(scene: scene, isSelected: isCurrent, hidesTrailing: chrome.hidesTrailing)
+        }
         // Without this the row takes the default button style, which centres
         // its label — which is why a heading long enough to wrap came out
         // looking like a title card.
         .buttonStyle(.plain)
+        .overlay(alignment: .trailing) {
+            if chrome.showsActions {
+                SceneRowActions(actions: actions, perform: perform)
+                    .transition(.opacity)
+            }
+        }
+        .onHover { inside in
+            withAnimation(.easeInOut(duration: 0.12)) { hovering = inside }
+        }
         .listRowBackground(SelectedRowMark(isOn: isCurrent))
         .accessibilityLabel(isCurrent
             ? SceneRowLabel(scene: scene).spokenLabel + ", current scene"
             : SceneRowLabel(scene: scene).spokenLabel)
         .accessibilityHint("Moves the insertion point to this scene")
+        /* The pointer reveals them; VoiceOver lists them — the same verbs,
+           reached without a hover. */
+        .accessibilityActions {
+            ForEach(actions, id: \.self) { action in
+                Button(action.title) { perform(action) }
+            }
+        }
+    }
+}
+
+/// When a scene row shows its actions, as a value — the rule measured
+/// without rendering a view, the way `SceneRowStyle` is.
+///
+/// Only while the pointer is on the row, and only the actions the scene
+/// really has: a row with nothing to offer shows nothing, never a dimmed
+/// placeholder for a command that does not exist yet.
+struct SceneRowChrome: Equatable {
+    var showsActions: Bool
+    var hidesTrailing: Bool
+
+    static func of(actions: [SceneAction], hovering: Bool) -> SceneRowChrome {
+        let shows = hovering && !actions.isEmpty
+        return SceneRowChrome(showsActions: shows, hidesTrailing: shows)
+    }
+}
+
+/// A scene row's production actions: quiet marks at the trailing edge,
+/// where the page number sits at rest — the way Safari's tab shows its
+/// close button where the pointer already is. Omit and Restore today; Lock
+/// Scene and Scene Status join this list, not this layout, when their model
+/// lands.
+struct SceneRowActions: View {
+    let actions: [SceneAction]
+    let perform: (SceneAction) -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(actions, id: \.self) { action in
+                Button { perform(action) } label: {
+                    Image(systemName: action.symbol)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        // A generous target round a small mark.
+                        .frame(width: 20, height: 18)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(action.title)
+                .accessibilityLabel(action.title)
+            }
+        }
     }
 }
 

@@ -1,0 +1,125 @@
+schemaVersion: 1
+id: IL-0089
+status: failed
+utterance: "P1 BUG: page layout corrupts after the omit work — diagnose, then fix. Tear 1: a page sheet ends mid-scene, the scene heading \"INT. MAIDS QUARTERS, CASALINDA - DAY/CONTINUOUS (D10)\" orphaned at the page's bottom edge, and below the page faint ghost lines of script text painted on the dark canvas outside any page. Tear 2: a thick black horizontal band overprints the live line \"Is this somehow the creature?\" mid-page. Phase 1 — reproduce and name the mechanism before any fix, in both layout paths (classic single container; PageSheets via the env flag); if it is older than IL-0088, prove it at df9e670 without the patch. Phase 2 — the minimal correct fix, under its own Code Director lock, drafted after diagnosis with a budget that names the actual files; regression test that fails on the broken code: an in-session omit/restore followed by relayout, asserting no glyphs paint outside their page's frame and no heading orphans at a page bottom, in whichever layout path(s) tore; full surface suite + macOS Debug build as the check command. Do not revert, amend, or clean the uncommitted work from IL-0088, IL-0086 or the web agent's src/ files; if the fix touches a file IL-0088 touched, say so. No commit until asked, explicit paths only."
+goal: Every laid line is drawn on its own page's paper and no page ends on a scene heading cut off from its scene, in both layout paths, after an in-session omit, restore, undo, or chevron open/close, and at open with a file's own collapsed omission — because the surface counts, keys and places its pages over the one list the page holds.
+interpretation: |
+  THE MECHANISM (measured, not inferred — instrumented scratch clones,
+  2026-09-22). `ScriptSurface.pagination(for:)` is handed every element
+  (`lastLaidElements`), while the text on the page holds only
+  `laidElements(...)` — a collapsed cut scene's body is not in it (§7.3,
+  IL-0076). Three seams disagree about which list is meant:
+
+  1. The incremental branch paginates `Screenplay(elements: elements)` — the
+     UNFILTERED list — and the page starts are then read with
+     `pageStartLocations(elements: laidElements(elements), pages:)`, i.e.
+     unfiltered line indices looked up in the filtered list. Every start
+     after the cut lands as many elements late as the cut is long; an index
+     past the end falls into the helper's `guard … else { return 0 }`.
+     This branch runs on EVERY first layout of a document, because the
+     surface paginates the empty document at init and caches it (logged:
+     `full all=0`, then `incremental all=201 laid=176 maxLineElement=200`),
+     and on every edit after.
+  2. The cache is keyed on the unfiltered list (`layoutEquivalent`), so
+     opening or closing a cut scene — laid text changes, element list does
+     not — reuses pages counted for the other state (logged: `cache-hit
+     all=201 laid=201`, same 8 starts as when laid=176).
+  3. `applyPageBreaks`' own `breaksPlacement` reuse is keyed the same way.
+
+  A wrong start makes a page longer than its sheet. The single container
+  places each page's first line on the next sheet at a fixed pitch and lays
+  one paper per start, so an over-long page spills off its paper: onto the
+  desk below it (tear 1 — and a break the engine never chose, so a heading
+  can end a page) or, by one line, into the gap between two papers (tear 2).
+  Page sheets give each sheet the character range [start, end) in an
+  unbounded container, so the sheet's text view grows past its paper.
+
+  Which path tore: BOTH reproduce. Measured on finaldraft-sample02.fdx
+  with IL-0088 applied, after an in-session omit: 19 of 28 page starts
+  wrong; 9 lines off the paper in the single container (31 papers for 27
+  pages), 3 on page sheets. Hypotheses (b) the region overlay and (d) the
+  page-break view are ruled out: the ink off the paper is the text view's
+  own glyphs, and the break rule is drawn only in `continuous`.
+
+  OLDER THAN IL-0088 — case (e): at HEAD 7fae8a2 (code-identical to
+  df9e670; the commit between is docs only), without the patch, a file's
+  own collapsed omission already has 7 of 28 starts wrong at open, and
+  opening/closing its chevron puts lines — a scene heading among them —
+  off the paper in both paths. IL-0088 made collapsed omissions creatable
+  in any FDX, which is how the owner met it.
+
+  THE FIX. `pagination(for:)` takes every element and works on
+  `laidElements` throughout: it paginates it (full and incremental), reads
+  the starts off it, and caches under it; `layOut` hands
+  `pagination.elements` (the laid list) to `applyPageBreaks`, so its reuse
+  is keyed the same. Nothing else changes. +13/-5 source lines.
+
+  THE TRAP. `OmittedPageTearTests` measures what the owner saw, in both
+  paths: every laid line's ink inside a paper, no page ending on a scene
+  heading parted from its scene (an OMITTED card is a whole one-line scene
+  and may end a page, as the engine and Final Draft allow), and one paper
+  per page the engine counts in the laid text. Two cases: an in-session
+  omit → open → close → restore → undo on the real file, and a file's own
+  omission at open → edit → open → close. Fails on the torn build (all
+  four) and at HEAD (the file's-own two); passes with the fix.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the chevron, fade, caret anchoring, both layouts and every existing surface test are unchanged — the full surface suite stays green
+  - kind: custom
+    text: the working tree's uncommitted work (IL-0088's 19 files, IL-0086's plists/pbxproj/xcscheme, the web agent's src/ and static/ files) is left exactly as found; ScriptSurface.swift carries IL-0088's changes and this lock edits only the pagination seam in it
+deny:
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/eDraftEngine/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/*/Package.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/OmittedSceneRegionView.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageSheet.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptMenus.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptWindowController.swift
+  - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmitSceneCommandSurfaceTests.swift
+  - packages/**
+  - src/**
+  - static/**
+  - scripts/**
+  - docs/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - "**/DerivedData/**"
+change: The surface counts, keys and places its pages over the laid list, so a collapsed cut scene can no longer push a page's lines off its paper.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedPageTearTests.swift
+  symbols: []
+  maxFiles: 2
+  maxLines: 400
+accept:
+  - "MECHANISM: the report names the unfiltered incremental pagination read against the filtered list, the init-primed cache that sends every first layout down that branch, the collapse-blind cache keys, and the fixed-pitch / unbounded-sheet draw passes that put the over-long page's lines off the paper."
+  - "BOTH PATHS: OmittedPageTearTests passes in the single container and on page sheets — no ink off a paper, no heading parted from its scene at a page foot, one paper per counted page — after in-session omit, open, close, restore and undo, and after a file's own omission at open, an edit, open and close."
+  - "FAILS BEFORE: the same test fails on HEAD + IL-0088 (all four cases) and at HEAD alone (the file's-own two), proving the bug older than Omit Scene."
+  - "SUITE: EDraftMacSurface green; macOS Debug build succeeds."
+assumptions:
+  - text: "The tree is HEAD 7fae8a2 plus uncommitted work: IL-0088's 19 files (applied, run marked failed on foreign dirt only), IL-0086's plist/pbxproj/xcscheme edits, the web agent's src/ and static/ changes. Under cdir 0.4.5 the untracked src/ folders will read as DENIED and be charged against the line budget, and cdir's own root tsc fails on src/routes/help/[slug]/+page.ts — the run is expected to read FAILED for those reasons alone; its baseline gitStatus and workTreeHashes are the proof."
+    source: system
+    confirmed: false
+  - text: ScriptSurface.swift is one of IL-0088's files and carries its uncommitted changes (~160 lines against HEAD). The fix touches only pagination(for:) and one argument in layOut — lines IL-0088 did not touch. The 400-line ceiling covers the fix (+175/-5 with its test) plus IL-0088's lines in that file, in case cdir counts the whole file against HEAD; it is not room for more work.
+    source: system
+    confirmed: false
+  - text: Diagnosis ran in scratch clones only (HEAD; HEAD+IL-0088; HEAD+IL-0088+fix), with probe-only instrumentation that is not part of this change. The fix arrives as one patch applied by run_locked.
+    source: system
+    confirmed: false
+createdAt: 2026-09-22T20:56:45.656Z
+createdBy: Yasirdora

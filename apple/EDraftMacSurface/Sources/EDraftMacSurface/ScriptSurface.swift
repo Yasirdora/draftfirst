@@ -482,6 +482,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         editor.onSetLayoutMode = { [weak self] mode in self?.setLayoutMode(mode) }
         editor.onSetArrangement = { [weak self] mode in self?.setArrangement(mode) }
         editor.onAddNote = { [weak self] in self?.addNoteAtCaret() }
+        editor.onSceneAction = { [weak self] action, id in self?.performSceneAction(action, on: id) }
         // The writer's choice reaches the canvas here rather than being read
         // from a global when the view was built — see `layoutMode`.
         canvas.layoutMode = editor.layoutMode
@@ -587,6 +588,71 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
            the caret last was, or to the end of the script. */
         let caret = caretAnchor(for: selectionTextView.selectedRange())
         let line = anchoredLine()
+        crossfade()
+        render(editor.screenplay.elements) { [weak self] in
+            self?.restoreCaret(caret)
+        }
+        scrollBack(to: line)
+        updateTypingAttributes()
+    }
+
+    /// Omits a scene, or restores one — the one path every door lands on:
+    /// the Navigator row, the page's context menu, the card's VoiceOver
+    /// action, and Format ▸ Omit Scene (RFC-DRAFT-PRODUCTION §7.3).
+    ///
+    /// A document edit, so it is one undo step named for what it did
+    /// ("Undo Omit Scene"), and the undo record carries the omission with the
+    /// lines. The page does not move: the line at the top of the glass is
+    /// held as a toggle holds it, the change is crossfaded rather than
+    /// swapped, and the caret lands on the card — or on the restored heading.
+    public func performSceneAction(_ action: SceneAction, on sceneID: UUID) {
+        guard let editor else { return }
+        editor.prepareForNativeEdit()
+        let previousState = ModelUndoState(
+            elements: editor.screenplay.elements,
+            activeElementID: editor.activeElementID,
+            selectionOffset: editor.selectionOffset,
+            selection: selectionTextView.selectedRange(),
+            omission: editor.omissionState
+        )
+        let line = anchoredLine()
+        let changed: OmittedScene?
+        switch action {
+        case .omit: changed = editor.omitScene(sceneID, recordsUndo: false)
+        case .restore: changed = editor.restoreScene(sceneID, recordsUndo: false)
+        }
+        guard let changed else { return }
+        /* Omitted, the scene is put away — the card is what the page shows. */
+        expandedOmissions.remove(changed.key)
+        registerModelUndo(previousState, actionName: action.title)
+        crossfade()
+        render(editor.screenplay.elements) { [self] in
+            restoreSelection(elementID: editor.activeElementID, offset: editor.selectionOffset)
+        }
+        scrollBack(to: line)
+        renderedRevision = editor.revision
+        updateTypingAttributes()
+        reportNativeUndoAvailability()
+        announce(changed.announcement(for: action))
+    }
+
+    /// The last thing announced to VoiceOver — readable to the package so a
+    /// test can hear it.
+    private(set) var lastAnnouncement: String?
+
+    /// Tells VoiceOver what just happened, in the card's own words: a strike
+    /// or a collapse is seen, not heard.
+    private func announce(_ text: String) {
+        lastAnnouncement = text
+        guard let window = scrollView.window else { return }
+        NSAccessibility.post(element: window, notification: .announcementRequested, userInfo: [
+            .announcement: text,
+            .priority: NSAccessibilityPriorityLevel.high.rawValue
+        ])
+    }
+
+    /// The re-lay a cut makes, faded rather than popped.
+    private func crossfade() {
         let fade = CATransition()
         fade.type = .fade
         fade.duration = 0.18
@@ -596,11 +662,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             view.wantsLayer = true
             view.layer?.add(fade, forKey: "omission")
         }
-        render(editor.screenplay.elements) { [weak self] in
-            self?.restoreCaret(caret)
-        }
-        scrollBack(to: line)
-        updateTypingAttributes()
     }
 
     /// Where the caret sits, as the element it sits on and its offset
@@ -633,6 +694,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let location = range.location + min(anchor.offset, range.length)
         let length = min(anchor.length, max(0, textStorage.length - location))
         textView(atCharacter: location).setSelectedRange(NSRange(location: location, length: length))
+    }
+
+    /// Restores the cut scene this key names, from its card's chrome.
+    func restoreOmission(_ key: DraftElementID) {
+        guard let editor,
+              let scene = editor.omittedScenes.scenes.first(where: { $0.key == key }),
+              let card = editor.screenplay.elements.first(where: { $0.draftID != nil && $0.draftID == scene.card })
+        else { return }
+        performSceneAction(.restore, on: card.id)
     }
 
     /// Whether this cut scene is open.
@@ -691,9 +761,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             } else {
                 view = OmittedSceneRegionView(scene: scene, collapsed: region.collapsed)
                 view.onToggle = { [weak self] key in self?.toggleOmission(key) }
+                view.onRestore = { [weak self] key in self?.restoreOmission(key) }
                 regionViews[region.key] = view
             }
-            view.update(scene: scene, collapsed: region.collapsed)
+            view.update(scene: scene, collapsed: region.collapsed, restorable: editor.keepsOmissions)
             if view.superview !== host {
                 view.removeFromSuperview()
                 host.addSubview(view, positioned: .above, relativeTo: nil)
@@ -760,7 +831,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             container.size = CGSize(width: measure, height: .greatestFiniteMagnitude)
             pageStarts = applyPageBreaks(
                 in: layoutManager, container: container,
-                elements: lastLaidElements, pagination: pagination
+                elements: pagination.elements, pagination: pagination
             )
             // No ensureLayout of our own here: applyPageBreaks leaves the
             // container laid out, and `usedRect` below forces the end of it
@@ -1129,8 +1200,16 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         }
     }
 
-    private func pagination(for elements: [ScriptElement]) -> Pagination {
+    private func pagination(for all: [ScriptElement]) -> Pagination {
         let format = PageFormat.current
+        /* One list, the one the page holds, for everything: what is counted,
+           what the counted lines index into, and what the cache is keyed on.
+           Counted over every element while the text held only the laid
+           ones, a collapsed cut scene shifted every page start after it —
+           and keyed on every element, opening or closing one reused pages
+           counted for the other state. Either way a page came out longer
+           than its sheet, and its lines were drawn off the paper. */
+        let elements = laidElements(all)
         if let cached = cachedPagination, cached.format == format {
             if Self.layoutEquivalent(cached.elements, elements) {
                 return cached
@@ -1147,7 +1226,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                ) {
                 let locations: [Int]
                 if pages.count > 1 {
-                    locations = ScreenplayPageLayout.pageStartLocations(elements: laidElements(elements), pages: pages)
+                    locations = ScreenplayPageLayout.pageStartLocations(elements: elements, pages: pages)
                 } else {
                     locations = []
                 }
@@ -1156,10 +1235,10 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 return fresh
             }
         }
-        let pages = ScreenplayExporter.paginate(Screenplay(elements: laidElements(elements)))
+        let pages = ScreenplayExporter.paginate(Screenplay(elements: elements))
         let locations: [Int]
         if let pages, pages.count > 1 {
-            locations = ScreenplayPageLayout.pageStartLocations(elements: laidElements(elements), pages: pages)
+            locations = ScreenplayPageLayout.pageStartLocations(elements: elements, pages: pages)
         } else {
             locations = []
         }
@@ -2582,13 +2661,59 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         )
         item.target = self
         menu.insertItem(item, at: 0)
-        menu.insertItem(.separator(), at: 1)
+        /* On a scene heading, or an OMITTED card, the scene's own actions —
+           the same list the Navigator row offers. A context menu shows only
+           what applies here (HIG): where the document could not keep an
+           omission, nothing is offered, and Format ▸ Omit Scene says why. */
+        var at = 1
+        for action in sceneActions(at: rightClickedElement) {
+            let sceneItem = NSMenuItem(
+                title: action.title, action: #selector(sceneActionFromMenu(_:)), keyEquivalent: ""
+            )
+            sceneItem.target = self
+            sceneItem.representedObject = action.rawValue
+            menu.insertItem(sceneItem, at: at)
+            at += 1
+        }
+        menu.insertItem(.separator(), at: at)
         return menu
+    }
+
+    /// The scene actions the line under the pointer offers: a heading's or a
+    /// card's, never a line inside a scene — the right-click is on the
+    /// scene heading, as the command is about the scene it names.
+    func sceneActions(at elementID: UUID?) -> [SceneAction] {
+        guard let editor, let row = sceneRow(at: elementID) else { return [] }
+        return editor.sceneActions(for: row)
+    }
+
+    /// The Navigator row a right-clicked line stands for. A cut scene's is
+    /// its card: collapsed, the pointer past the word OMITTED lands on the
+    /// hidden lines' empty ranges at the card's end; open, the scene's own
+    /// heading names the same scene.
+    private func sceneRow(at elementID: UUID?) -> SceneRow? {
+        guard let editor, var id = elementID,
+              let element = editor.screenplay.elements.first(where: { $0.id == id }) else { return nil }
+        if let scene = editor.omittedScenes.scene(for: element), editor.isOmitted(element) {
+            let hidden = ranges.first(where: { $0.id == id })?.range.length == 0
+            guard hidden || element.draftID == scene.key,
+                  let card = editor.screenplay.elements.first(where: { $0.draftID != nil && $0.draftID == scene.card })
+            else { return nil }
+            id = card.id
+        }
+        return editor.scenes.first { $0.id == id }
     }
 
     @objc private func addNoteFromMenu() {
         addNote(to: rightClickedElement)
         rightClickedElement = nil
+    }
+
+    @objc private func sceneActionFromMenu(_ sender: NSMenuItem) {
+        defer { rightClickedElement = nil }
+        guard let raw = sender.representedObject as? String, let action = SceneAction(rawValue: raw),
+              let row = sceneRow(at: rightClickedElement) else { return }
+        performSceneAction(action, on: row.id)
     }
 
     public func undoManager(for view: NSTextView) -> UndoManager? {
@@ -3401,16 +3526,26 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             elements: editor.screenplay.elements,
             activeElementID: editor.activeElementID,
             selectionOffset: editor.selectionOffset,
-            selection: selectionTextView.selectedRange()
+            selection: selectionTextView.selectedRange(),
+            omission: state.omission == nil ? nil : editor.omissionState
         )
         registerModelUndo(inverse, actionName: actionName)
-        editor.replaceAllElements(
-            state.elements,
-            activeID: state.activeElementID,
-            offset: state.selectionOffset,
-            structural: true,
-            recordsUndo: false
-        )
+        if let omission = state.omission {
+            /* An omit or a restore: the lines, the asides and the omitted
+               scenes go back together, or the card and its scene disagree. */
+            editor.replaceAllElements(
+                state.elements, restoring: omission,
+                activeID: state.activeElementID, offset: state.selectionOffset
+            )
+        } else {
+            editor.replaceAllElements(
+                state.elements,
+                activeID: state.activeElementID,
+                offset: state.selectionOffset,
+                structural: true,
+                recordsUndo: false
+            )
+        }
         render(editor.screenplay.elements) { [self] in
             restoreSelection(state.selection)
             refreshFormatBar(selection: state.selection)
@@ -4007,6 +4142,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let activeElementID: UUID?
         let selectionOffset: Int
         let selection: NSRange
+        /// Set for an omit or a restore: what else the step changed.
+        var omission: EditorState.OmissionState? = nil
     }
 
 

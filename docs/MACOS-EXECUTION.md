@@ -850,7 +850,59 @@ records one, and the span paginated when it does not.
 
 ### Not done here, and why
 
-Omitting or restoring a scene from the app is Production Mode (§7.3 blocks
-Omit in `development`). Printing and PDF still include the body: §7.3 says
-it must not print, but `ScreenplayPageRenderer`'s callers are the app
-target and EDraftUI's document, which these locks do not own.
+Printing and PDF still include the body: §7.3 says it must not print, but
+`ScreenplayPageRenderer`'s callers are the app target and EDraftUI's
+document, which these locks do not own. (Omitting and restoring from the
+app, listed here until IL-0087, is below.)
+
+### Omit and Restore from the app — IL-0087, 2026-09-22
+
+§7.3 was amended to allow Omit outside Production Mode where the file can
+keep it; the amendment quotes the sentence it replaced and argues the case.
+
+**Three doors, one room.** The Navigator's scene row shows the action on
+hover, at the trailing edge where the page number sits at rest (scissors;
+a cut scene shows Restore). The page's context menu offers it on a scene
+heading or an OMITTED card. Format ▸ Omit Scene follows the caret and
+retitles to Restore Scene on a card. All three call
+`ScriptSurface.performSceneAction`: one undo step named for the verb, the
+top line of the glass held, a crossfade, the caret on the card (its start —
+the card's end is where the hidden body's empty ranges sit), and a VoiceOver
+announcement ("Scene 21 omitted, 0.3 pages cut").
+
+**The model.** An omit inserts the OMITTED card, carrying the heading's
+number, and records the span heading → last printing line before the next
+heading or act break; asides anchored to the heading move to the card. A
+restore reverses it exactly — and a heading that came back with no number
+takes the card's, because Final Draft keeps the number on the card.
+
+**The save.** The preserving FDX save found omitted scenes only by the
+file's structure, so an app omit would have saved as a live OMITTED heading
+over the live scene, and an app restore would have been re-omitted. The
+editor now publishes the omission spans with each source once the writer
+has omitted or restored anything, and the rewrite (both ports) takes
+`script.omissions` as the writer's word: a new omission is nested inside
+its card from the lines' own bytes, a restored one is unwrapped the same
+way. Two gaps the round trip exposed were closed in both ports: a changed
+scene number is written onto the kept paragraph's `Number` (it was never
+written, and the paragraph lost its tags), and dual dialogue inside an
+omitted scene is read as its lines (it was read as one empty line).
+
+**Fountain.** Off, with the reason on the dimmed menu item: "Omissions are
+kept in Final Draft (.fdx) files." The row and the context menu offer
+nothing there — a context menu shows only what applies.
+
+**Measured on `finaldraft-sample02.fdx`** (Final Draft's own file, through
+`ScreenplayFile.open` → `EditorState` → `ScreenplayFile.encode`):
+
+| step | bytes | TagNumbers | omissions after reopen |
+|---|---|---|---|
+| as Final Draft wrote it | 392,700 | 407 | 1 (scene 21) |
+| omit scene 35 → save → reopen | 392,815 | 407 | 2 |
+| restore scene 21 → save → reopen | 392,498 | 407 | 1 — scene 21 whole |
+| omit, then undo → save | 392,700 | 407 | byte-identical |
+
+**Not done.** iOS (EDraftUIKitSurface) has no Omit/Restore command yet; the
+model API it would call is shared. The cross-port case for the two new
+behaviours is asserted as literal bytes in both ports' tests rather than
+generated into `fdx.json`, whose generator this lock did not own.

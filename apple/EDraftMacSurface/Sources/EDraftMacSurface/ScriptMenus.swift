@@ -115,6 +115,17 @@ public enum ScriptMenus {
         }
     }
 
+    /// Omit Scene — retitled Restore Scene on an OMITTED card, and dimmed
+    /// with its reason where the file could not keep one (as the menu
+    /// validates; see `ScriptWindowController.validateMenuItem`).
+    public static func omitSceneItem() -> NSMenuItem {
+        NSMenuItem(
+            title: SceneAction.omit.title,
+            action: #selector(ScriptWindowController.toggleSceneOmission(_:)),
+            keyEquivalent: ""
+        )
+    }
+
     /// Zoom In · Zoom Out · Actual Size · Zoom to Fit, with Preview's keys.
     public static func zoomItems() -> [NSMenuItem] {
         [

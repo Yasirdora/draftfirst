@@ -1,0 +1,156 @@
+schemaVersion: 1
+id: IL-0088
+status: failed
+utterance: "The Omit story, finished — and the scene's hover actions, born. A writer cannot omit a scene. The Navigator's scene rows get hover actions: Omit Scene on a live scene, Restore Scene on an omitted one (trailing edge, secondary color, SF Symbols), architected so Lock Scene and Scene Status slot in later — no greyed placeholders. Parity is mandatory: the same two commands as a right-click context menu on the scene heading in the text, and a menu bar item (Production menu if it exists; otherwise Format) that enables/disables with the caret's position. Done means: Omit with the caret anywhere in a scene collapses it to the card as real model state (Omission over the scene's elements); Restore is the reverse from the Navigator row, the card's context menu, or the menu bar; ⌘Z reverses omit/restore named \"Undo Omit Scene\"; page numbers and count exclude the cut body; FDX round-trips through the engine splice; Fountain documents either disable the command with a clear reason or warn; VoiceOver announces the action and result; no regression to the chevron, fade, caret anchoring, Navigator strike, both layouts, light and dark. Proof: EDraftCore and EDraftMacSurface suites green with new failing-before tests, macOS Debug build succeeds, measured before/after on a real FDX (omit → save → reopen; restore → save → reopen). Budget: EditorState/Omissions (EDraftCore), StoryPanel (EDraftUI), ScriptMenus/MainMenu, ScriptSurface or its context-menu path, tests in both packages. Deny the xcscheme, mcp.log, the root PNGs and the in-progress src/ help files. No commit until I say so."
+goal: A writer can omit and restore a scene from the Navigator row's hover action, the text's right-click menu, and the Format menu; the omission is model state, undoable as "Omit Scene"/"Restore Scene", excluded from page math, spoken to VoiceOver, and survives FDX save → reopen in both directions; the command is disabled with a stated reason where the file format cannot keep it.
+interpretation: |
+  WHAT AN OMIT IS, IN THIS MODEL. Final Draft nests the cut scene inside a
+  new Scene Heading whose text is OMITTED and whose number is the scene's
+  (IL-0071 reads exactly that shape). So Omit inserts one element — the
+  OMITTED card, carrying the heading's scene number — directly before the
+  scene's heading, and records an OmittedScene whose body is the heading
+  through the last element before the next heading (asides excluded).
+  Restore removes the card and the record; every body element keeps its
+  DraftElementID and text, so the script is byte-identical to before.
+  The body stays collapsed on omit (the IL-0076 display path), the caret
+  moves to the card, and the viewport does not jump.
+
+  ONE MUTATION, THREE DOORS. EditorState gains omitScene/restoreScene
+  (plus canOmit/canRestore queries by element) and an OmittedScenes
+  mutation API in Omissions.swift. The surface owns undo (editingUndo);
+  ModelUndoState grows the omission set so one registerModelUndo reverses
+  elements AND omissions together, named "Omit Scene" / "Restore Scene".
+  The Navigator row, the text's right-click menu, the OMITTED card's
+  right-click menu, and Format ▸ Omit Scene all call the same surface
+  entry point. The Format item is one item that retitles (Omit Scene ↔
+  Restore Scene) by the caret's scene, disabled with no scene.
+
+  THE NAVIGATOR ROW. StoryList's Mac scene row gains a trailing hover
+  action slot, driven by a small SceneRowAction value list (today: omit
+  or restore; later: lock, status) so new actions slot in without
+  redesign. Hidden until hover, SF Symbol, secondary ink, no placeholders.
+  The source list's selection highlight must survive the button.
+
+  PERSISTENCE — THE ENGINE WORK THE BRIEF DID NOT BUDGET. Measured in the
+  code: Fdx.Document.rewrite (both ports) finds omitted bodies by the
+  ORIGIN's structure and ignores script.omissions ("Matched against the
+  file rather than against script.omissions, because Fountain has no
+  spelling for an omission"). So today an app omit would save as a live
+  "OMITTED" heading plus the live scene, and an app restore would be
+  silently re-omitted on save. The rewrite must take the save's omission
+  spans explicitly: write a new <OmittedScene> block inside the card
+  paragraph (nested paragraphs keep their original bytes when unedited),
+  and on restore unwrap the block back to top-level paragraphs, keeping
+  their bytes and tags. ScreenplayFile.encode gains an omissions input
+  and ScreenplayDocument passes the editor's spans (index spans over the
+  merged document the Fountain source parses to, after flushPendingWork).
+  Ported to TypeScript for parity, with a cross-port case in fdx.json.
+
+  FOUNTAIN (.fountain and .edraft, which is Fountain on disk): the command
+  is DISABLED, the menu item's tooltip and the row action's help say
+  "Omissions are kept in Final Draft (.fdx) files", and VoiceOver hears
+  the same. Chosen over a save-time warning because a warning lets the
+  writer do something the file will silently undo on reopen — a cut that
+  comes back uninvited is worse than a cut that was never offered.
+
+  RFC §7.3 says "Omit is Blocked in development". The app has no
+  development/production state. This lock amends §7.3 to record that
+  Omit/Restore ship for FDX documents, and updates the MACOS-EXECUTION
+  "Not done here" note.
+
+  VOICEOVER: on omit/restore the surface posts an announcement —
+  "Scene 21 omitted, 0.3 pages cut" / "Scene 21 restored" — built from
+  OmittedScene.spoken's strings.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the chevron, its fade, the wash, caret anchoring (IL-0081), the Navigator's omitted ink, both layouts, light and dark are unchanged — existing OmittedScene* suites stay green unedited except where a new case is added
+  - kind: custom
+    text: an FDX Final Draft wrote, opened and saved with no omit/restore, still saves byte-identically (existing preserving round-trip tests stay green)
+  - kind: custom
+    text: no file outside the budget changes, and the foreign working-tree changes (pbxproj, xcscheme, Info.plists, src/, mcp.log, root PNGs, IL-0086) are left exactly as found
+deny:
+  - apple/eDraft.xcodeproj/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/iOS/**
+  - apple/macOS/Info.plist
+  - apple/macOS/EDraftMacApp.swift
+  - apple/macOS/SettingsWindow.swift
+  - apple/*/Package.swift
+  - src/**
+  - scripts/**
+  - static/**
+  - Github showcase/**
+  - package.json
+  - package-lock.json
+  - packages/edraft/package.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Package.resolved
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: Omit Scene / Restore Scene as a real, undoable, FDX-persistent command from the Navigator row, the text's context menu, and Format; disabled for Fountain.
+verifyCommand: swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftUI && swift test --package-path apple/EDraftMacSurface && npm test --workspace=@edraft/core && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 3600000
+budget:
+  files:
+    - apple/EDraftCore/Sources/EDraftCore/Omissions.swift
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayFile.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/OmitSceneCommandTests.swift
+    - apple/EDraftUI/Sources/EDraftUI/StoryPanel.swift
+    - apple/EDraftUI/Tests/EDraftUITests/OmittedSceneNavigatorTests.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptWindowController.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptMenus.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/OmittedSceneRegionView.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmitSceneCommandSurfaceTests.swift
+    - apple/macOS/MainMenu.swift
+    - apple/macOS/ScreenplayDocument.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fdx/Fdx.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/OmittedSceneConformanceTests.swift
+    - packages/edraft/src/fdx.ts
+    - packages/edraft/src/fdx.test.ts
+    - docs/RFC-DRAFT-PRODUCTION.md
+    - docs/MACOS-EXECUTION.md
+  symbols: []
+  maxFiles: 19
+  maxLines: 3000
+accept:
+  - "OMIT: with the caret anywhere from a scene's heading to its last element, Omit Scene inserts the OMITTED card (carrying the scene number) and records the scene as omitted; the body collapses to the card through the IL-0076 path. Test fails against HEAD (no such command)."
+  - "RESTORE: Restore Scene from the row, the card's context menu, or Format returns the element list byte-identical to before the omit — same text, types, runs, DraftElementIDs."
+  - "UNDO: ⌘Z after omit restores the live scene, after restore re-omits it; the Edit menu reads Undo Omit Scene / Undo Restore Scene; redo re-applies."
+  - "ENABLEMENT: Format ▸ Omit Scene is enabled in a live scene, retitles to Restore Scene on a card, is disabled above the first heading and in a Fountain/.edraft document (with the stated reason)."
+  - "PAGES: page numbers and page count exclude an omitted body, collapsed and expanded."
+  - "PERSISTENCE: engine tests — rewrite with a new omission span writes <OmittedScene> inside a card paragraph; rewrite after restoring a file's omission writes the body as top-level paragraphs with their original bytes; both ports assert the same literal output bytes for an omit and a restore (owner decision 2026-09-22, in place of a generated fdx.json case). Measured on an anonymised Final Draft-written FDX: omit → save → reopen shows the omission; restore → save → reopen shows the scene whole."
+  - "ENGINE FIXES (owner-approved 2026-09-22), both ports: a changed scene number on a preserved paragraph is written onto its Number attribute and the paragraph keeps its tags; dual dialogue inside an omitted scene is read as its lines, and a restore or omit keeps its block's bytes."
+  - "VOICEOVER: the row action, context items and menu item carry labels; the surface announces 'Scene N omitted, X pages cut' / 'Scene N restored'."
+  - "SUITES: eDraftEngine, EDraftCore, EDraftUI, EDraftMacSurface and @edraft/core green; macOS Debug build succeeds."
+  - 'RFC: the §7.3 amendment quotes the sentence it replaces verbatim ("Omit is **Blocked** in `development` (numbers are not addresses yet).") and argues why Omit is correct outside Production Mode — not merely records that it ships.'
+  - "REPORT: names the iOS deferral (EDraftUIKitSurface gets no Omit/Restore command in this lock; the model API it would call is shared)."
+assumptions:
+  - text: "Supersedes IL-0087, carrying its contract verbatim (utterance, goal, interpretation, keep, deny, verify, accept) with the line ceiling raised from 2,200 to 3,000 on the owner's word (2026-09-22: 'New lock at 3,000'). The finished work measured 2,790 changed lines in 19 files, about 1,380 of them tests; nothing was trimmed to fit. fdx.json dropped from the budget: its generator is outside it."
+    source: user
+    confirmed: true
+  - text: "Owner decisions 2026-09-22: keep both engine fixes (scene numbers written onto preserved paragraphs; dual dialogue inside an omitted scene read as its lines); the cross-port guarantee for omit and restore is literal output bytes asserted in both ports' tests."
+    source: user
+    confirmed: true
+  - text: "Owner condition (2026-09-22, from IL-0087): IL-0086's uncommitted edits to apple/macOS/Info.plist, apple/eDraft/Resources/Info.plist and apple/eDraft.xcodeproj/project.pbxproj are pre-existing dirt in every baseline, as are the untracked src/ help folders, src/routes/+page.svelte and static/edraft-mark.svg. All denied; none touched. Under cdir 0.4.5 the untracked folders are expected to read as out-of-budget; the run's baseline gitStatus is the proof they predate it."
+    source: user
+    confirmed: true
+  - text: "iOS deferral accepted by the owner: EDraftUIKitSurface gets no Omit/Restore command. Named in the report."
+    source: user
+    confirmed: true
+  - text: The change was developed and fully verified in a clean clone of HEAD 7fae8a2 under the scratchpad (never in this tree), and arrives as one patch applied by run_locked. The in-app GUI round trip could not be driven from this session (no assistive access); the measured before/after runs through the app's own open → EditorState → ScreenplayFile.encode path.
+    source: system
+    confirmed: false
+createdAt: 2026-09-22T20:11:37.664Z
+createdBy: Yasirdora

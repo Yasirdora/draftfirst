@@ -70,9 +70,14 @@ public final class EditorState {
     /// lines are the ones the file was read into. `nil` is a document that
     /// did not come from Final Draft, and carries none.
     public func attachImportedNotes(from origin: String?) {
+        /* Whatever the writer omitted or restored belonged to the text this
+           replaces; from here the file says what is omitted again. */
+        omissionsEdited = false
+        publishedOmissions = nil
         guard let origin else {
             importedNotes = []
             omittedScenes = OmittedScenes()
+            omissionsAvailability = .notFinalDraft
             return
         }
         let file = Fdx.parse(origin)
@@ -99,6 +104,9 @@ public final class EditorState {
                 ScreenplayExporter.pages(of: Array(document[span]))
             }
         )
+        /* The lines and the file agree index for index, or no omission could
+           be placed — and then none can be kept either. */
+        omissionsAvailability = file.script.elements.count == document.count ? .available : .unplaced
     }
 
     /// The scenes this document's file says are omitted (§7.3), by
@@ -111,6 +119,218 @@ public final class EditorState {
     /// surface, the Navigator and the paginator all ask.
     public func isOmitted(_ element: ScriptElement) -> Bool {
         omittedScenes.contains(element)
+    }
+
+    // MARK: - Omitting a scene (§7.3, IL-0087)
+
+    private enum OmissionsAvailability { case notFinalDraft, unplaced, available }
+    @ObservationIgnored private var omissionsAvailability = OmissionsAvailability.notFinalDraft
+    /// Whether the writer has omitted or restored a scene since the file was
+    /// read. Until then the file's own structure decides what a save keeps
+    /// omitted, exactly as it always has.
+    @ObservationIgnored private var omissionsEdited = false
+
+    /// Whether an omission made here would survive a save.
+    ///
+    /// Only a Final Draft file can keep one: Fountain — and so a `.fountain`
+    /// or `.edraft` document — has no spelling for an omission, and a cut
+    /// that silently came back on reopen would be worse than a cut never
+    /// offered. So the command is off there, and says why.
+    public var keepsOmissions: Bool { omissionsAvailability == .available }
+
+    /// Why Omit Scene is off for this document, as the dimmed menu bar item
+    /// says it; nil when it is on. The row and the context menu offer
+    /// nothing there rather than a dead control.
+    public var omissionUnavailableReason: String? {
+        switch omissionsAvailability {
+        case .available: return nil
+        case .notFinalDraft: return "Omissions are kept in Final Draft (.fdx) files."
+        case .unplaced: return "This file's omitted scenes could not be placed, so omitting is off for it."
+        }
+    }
+
+    /// What the save should write as omitted, published with each source —
+    /// nil until the writer has omitted or restored anything, so an ordinary
+    /// edit saves exactly as it did before this existed.
+    @ObservationIgnored public private(set) var publishedOmissions: OmissionSpans?
+
+    /// The production actions a Navigator row offers, in the order it shows
+    /// them. Empty where the scene allows none — or where this document could
+    /// not keep the result.
+    public func sceneActions(for row: SceneRow) -> [SceneAction] {
+        guard keepsOmissions, screenplay.elements.indices.contains(row.elementIndex) else { return [] }
+        let element = screenplay.elements[row.elementIndex]
+        guard element.id == row.id, element.type == .scene else { return [] }
+        if omittedScenes.isCard(element) { return [.restore] }
+        guard !omittedScenes.contains(element), !Omissions.isCardText(element.text),
+              !element.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        return [.omit]
+    }
+
+    /// What Omit Scene does where the caret is: omit the scene it is in, or
+    /// restore the one whose card it is on. Nil above the first heading, and
+    /// wherever this document cannot keep an omission.
+    public var caretSceneAction: (action: SceneAction, sceneID: UUID)? {
+        guard keepsOmissions, let id = activeSceneID,
+              let row = scenes.first(where: { $0.id == id }),
+              let action = sceneActions(for: row).first else { return nil }
+        return (action, row.id)
+    }
+
+    /// Carries a scene action out. The surface that owns the window's undo
+    /// performs it (`onSceneAction`), so every door — row, context menu,
+    /// menu bar — lands on one undoable path; without one, it is done here
+    /// on the editor's own undo stack.
+    public func perform(_ action: SceneAction, on sceneID: UUID) {
+        if let onSceneAction {
+            onSceneAction(action, sceneID)
+            return
+        }
+        switch action {
+        case .omit: omitScene(sceneID)
+        case .restore: restoreScene(sceneID)
+        }
+    }
+    @ObservationIgnored public var onSceneAction: ((SceneAction, UUID) -> Void)?
+
+    /// Omits the scene whose heading this is (§7.3).
+    ///
+    /// The shape Final Draft gives an omission: an OMITTED card, carrying the
+    /// scene's number, in front of the heading, and the scene behind it —
+    /// heading through its last line — recorded as omitted. Nothing is
+    /// deleted: every line keeps its identity and its words, so a restore
+    /// puts back exactly what was here. Asides that stood in front of the
+    /// heading now stand in front of the card, where they still are.
+    /// Returns the scene as omitted, or nil when this heading cannot be.
+    @discardableResult
+    public func omitScene(_ headingID: UUID, recordsUndo: Bool = true) -> OmittedScene? {
+        guard let index = screenplay.elements.firstIndex(where: { $0.id == headingID }),
+              let row = scenes.first(where: { $0.id == headingID }),
+              sceneActions(for: row).contains(.omit) else { return nil }
+        let card = ScriptElement(type: .scene, text: "OMITTED", sceneNumber: screenplay.elements[index].sceneNumber)
+        var page = screenplay.elements
+        page.insert(card, at: index)
+        let moved = asides.map { $0.anchor == headingID ? ScriptAside(element: $0.element, anchor: card.id) : $0 }
+        var result: OmittedScene?
+        /* The caret goes to the card's start: its end is where the hidden
+           body's lines sit, and a caret there would stand in a cut line. */
+        let applied = applyOmissionEdit(
+            page: page, asides: moved, activeID: card.id, offset: 0, recordsUndo: recordsUndo
+        ) { document in
+            guard let heading = document.firstIndex(where: { $0.id == headingID }),
+                  heading > 0, document[heading - 1].id == card.id else { return nil }
+            let span = Omissions.sceneSpan(at: heading, in: document)
+            let body = document[span]
+            let scene = OmittedScene(
+                card: document[heading - 1].draftID,
+                elements: body.compactMap(\.draftID),
+                sceneNumber: card.sceneNumber,
+                eighths: nil,
+                pages: ScreenplayExporter.pages(of: Array(body))
+            )
+            result = scene
+            return Self.inScriptOrder(omittedScenes.scenes + [scene], in: document)
+        }
+        return applied ? result : nil
+    }
+
+    /// Restores the scene whose OMITTED card this is (§7.3): the card goes,
+    /// the scene is live again, every line as it was.
+    ///
+    /// Final Draft moves a scene's number onto its card; a heading that
+    /// came back with no number of its own takes the card's, so scene 21 is
+    /// restored as scene 21. Returns the scene that was restored.
+    @discardableResult
+    public func restoreScene(_ cardID: UUID, recordsUndo: Bool = true) -> OmittedScene? {
+        guard keepsOmissions,
+              let index = screenplay.elements.firstIndex(where: { $0.id == cardID }),
+              omittedScenes.isCard(screenplay.elements[index]),
+              let scene = omittedScenes.scene(for: screenplay.elements[index]) else { return nil }
+        var page = screenplay.elements
+        page.remove(at: index)
+        guard let heading = page.firstIndex(where: { $0.draftID.map(scene.elements.contains) ?? false }) else { return nil }
+        if page[heading].sceneNumber == nil, let number = scene.sceneNumber {
+            page[heading].sceneNumber = number
+        }
+        let headingID = page[heading].id
+        let moved = asides.map { $0.anchor == cardID ? ScriptAside(element: $0.element, anchor: headingID) : $0 }
+        let remaining = OmittedScenes(scenes: omittedScenes.scenes.filter { $0.key != scene.key })
+        let applied = applyOmissionEdit(
+            page: page, asides: moved, activeID: headingID, offset: 0, recordsUndo: recordsUndo
+        ) { _ in remaining }
+        return applied ? scene : nil
+    }
+
+    /// What an omit or a restore changes beyond the page's lines: the asides
+    /// (one may have moved to or from a card) and the omitted scenes. The
+    /// surface keeps this beside the lines in its undo record, so one ⌘Z puts
+    /// all of it back.
+    public struct OmissionState: Equatable, Sendable {
+        public let asides: [ScriptAside]
+        public let omitted: OmittedScenes
+    }
+    public var omissionState: OmissionState { OmissionState(asides: asides, omitted: omittedScenes) }
+
+    /// Puts lines and omissions back together, recording no undo — the caller
+    /// owns it (the surface's undo of an omit or a restore).
+    @discardableResult
+    public func replaceAllElements(
+        _ elements: [ScriptElement], restoring state: OmissionState, activeID: UUID?, offset: Int
+    ) -> Bool {
+        applyOmissionEdit(
+            page: elements, asides: state.asides,
+            activeID: activeID ?? elements.first?.id, offset: offset, recordsUndo: false
+        ) { _ in state.omitted }
+    }
+
+    /// One structural change to lines, asides and omissions, committed once:
+    /// identities are settled first, so the omission can be built from the
+    /// document as it will stand, and the source published after carries
+    /// the omission with it.
+    private func applyOmissionEdit(
+        page incoming: [ScriptElement],
+        asides incomingAsides: [ScriptAside],
+        activeID: UUID?,
+        offset: Int,
+        recordsUndo: Bool,
+        omitted build: ([ScriptElement]) -> OmittedScenes?
+    ) -> Bool {
+        var candidate = documentIdentity
+        let adopted: [ScriptElement]
+        do { adopted = try candidate.reconcile(incoming + incomingAsides.map(\.element)) }
+        catch {
+            showBanner("This document cannot allocate another element identity")
+            return false
+        }
+        let page = Array(adopted.prefix(incoming.count))
+        var settled = incomingAsides
+        for i in settled.indices { settled[i].element = adopted[incoming.count + i] }
+        guard let omitted = build(ScriptAsides.merge(page: page, asides: settled)) else { return false }
+        if recordsUndo { recordSnapshot(structural: true) }
+        documentIdentity = candidate
+        synchronizingIdentity = true
+        screenplay.elements = page
+        asides = settled
+        screenplay.nextId = documentIdentity.allocator.nextId
+        synchronizingIdentity = false
+        omittedScenes = omitted
+        omissionsEdited = true
+        caseMemory.prune(toAlive: Set(screenplay.elements.map(\.id)))
+        activeElementID = activeID ?? screenplay.elements.first?.id
+        selectionOffset = max(0, offset)
+        commitChange()
+        return true
+    }
+
+    /// Omitted scenes in the order they fall in the document.
+    private static func inScriptOrder(_ scenes: [OmittedScene], in document: [ScriptElement]) -> OmittedScenes {
+        var position: [DraftElementID: Int] = [:]
+        for (at, element) in document.enumerated() {
+            if let id = element.draftID { position[id] = at }
+        }
+        return OmittedScenes(scenes: scenes.sorted {
+            (position[$0.key] ?? .max) < (position[$1.key] ?? .max)
+        })
     }
 
     /// The writer's structure among them: acts, sequences and beats, each
@@ -1584,6 +1804,7 @@ public final class EditorState {
         EditorSnapshot(
             screenplay: screenplay,
             asides: asides,
+            omitted: omittedScenes,
             activeElementID: activeElementID,
             selectionOffset: selectionOffset
         )
@@ -1594,6 +1815,10 @@ public final class EditorState {
         screenplay = snapshot.screenplay
         asides = snapshot.asides
         synchronizingIdentity = false
+        if omittedScenes != snapshot.omitted {
+            omittedScenes = snapshot.omitted
+            omissionsEdited = true
+        }
         synchronizeDraftIdentity()
         activeElementID = snapshot.activeElementID
         selectionOffset = snapshot.selectionOffset
@@ -1655,6 +1880,15 @@ public final class EditorState {
     private func publishSource() {
         let source = serializedSource()
         lastKnownSource = source
+        /* From the same model, at the same moment, as the source itself — so
+           the spans and the text they index cannot describe two documents. */
+        if omissionsEdited {
+            let document = ScriptAsides.merge(page: screenplay.elements, asides: asides)
+            publishedOmissions = OmissionSpans(
+                spans: Omissions.spans(of: omittedScenes, in: document),
+                elementCount: document.count
+            )
+        }
         onSourceChange?(source)
     }
 
@@ -1769,6 +2003,9 @@ public final class EditorState {
     private struct EditorSnapshot {
         let screenplay: Screenplay
         let asides: [ScriptAside]
+        /// Omissions are part of the document: an undo that brings a card back
+        /// brings back the scene it stands for.
+        let omitted: OmittedScenes
         let activeElementID: UUID?
         let selectionOffset: Int
     }

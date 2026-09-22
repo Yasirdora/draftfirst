@@ -84,7 +84,11 @@ final class ScreenplayDocument: NSDocument {
     }
 
     override func data(ofType typeName: String) throws -> Data {
-        try ScreenplayFile.encode(source, as: Self.contentType(typeName), origin: origin)
+        // The omissions the editor published with this source: what the writer
+        // omitted or restored, which Fountain has no way to carry (§7.3).
+        try ScreenplayFile.encode(
+            source, as: Self.contentType(typeName), origin: origin, omissions: editor.publishedOmissions
+        )
     }
 
     /// Print is the exported PDF, so what leaves the printer is what leaves

@@ -97,9 +97,16 @@ public nonisolated enum ScreenplayFile {
     /// paragraphs the writer changed are rewritten, and everything eDraft does
     /// not model survives untouched. Without one, as when exporting a
     /// screenplay that began life here, a whole file is written.
-    public static func encode(_ source: String, as type: UTType, origin: String? = nil) throws -> Data {
+    ///
+    /// `omissions` are the scenes the writer has omitted, as the editor
+    /// published them with this source (§7.3). Fountain cannot spell an
+    /// omission, so without them the file's own structure decides — which
+    /// is right until the writer omits or restores a scene, and wrong after.
+    public static func encode(
+        _ source: String, as type: UTType, origin: String? = nil, omissions: OmissionSpans? = nil
+    ) throws -> Data {
         guard type.conforms(to: .finalDraftScreenplay) else { return try encode(source) }
-        let screenplay = try Fountain.parse(source, emphasis: .runs)
+        let screenplay = Omissions.applying(omissions, to: try Fountain.parse(source, emphasis: .runs))
         // The writer's notes go into Final Draft's <ScriptNotes>, each signed
         // with the name the writer gave (RFC-NOTES-SYSTEM §4.2, §8).
         let notes = Fdx.NoteWriting(writer: NoteIdentity.signature)

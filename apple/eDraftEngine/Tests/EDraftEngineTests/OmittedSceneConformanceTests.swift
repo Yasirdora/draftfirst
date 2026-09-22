@@ -156,3 +156,331 @@ struct OmittedSceneConformanceTests {
         #expect(Fdx.open(withUnknown).rewrite(script, unedited: script) == withUnknown)
     }
 }
+
+/// A save that follows the writer's omissions — RFC-DRAFT-PRODUCTION §7.3,
+/// IL-0087.
+///
+/// Before this, the preserving save found an omitted scene only by the
+/// file's own structure: a scene the writer omitted in eDraft was written
+/// as a live OMITTED heading with the whole scene still live under it, and
+/// a scene the writer restored was quietly re-omitted by the next save.
+/// `script.omissions` is now the writer's word when it is given; nil keeps
+/// the file's structure deciding, as before.
+@Suite("Omitted scenes · a save that follows the writer")
+struct OmissionRewriteTests {
+
+    /// The lab's three scenes, all live.
+    private static let live = [
+        "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">",
+        "<Content>",
+        "<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>",
+        "<Paragraph Number=\"21\" Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>",
+        "<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>",
+        "<Paragraph Type=\"Scene Heading\"><Text>INT. HALL - NIGHT</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>",
+        "</Content>",
+        "</FinalDraft>"
+    ].joined(separator: "\n")
+
+    /// The same file after Final Draft omitted the yard: the card holds the
+    /// number, the scene sits inside it.
+    private static let omitted = [
+        "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">",
+        "<Content>",
+        "<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>",
+        "<Paragraph Number=\"21\" Type=\"Scene Heading\"><Text>OMITTED</Text><OmittedScene>",
+        "<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>",
+        "<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>",
+        "</OmittedScene></Paragraph>",
+        "<Paragraph Type=\"Scene Heading\"><Text>INT. HALL - NIGHT</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>",
+        "</Content>",
+        "</FinalDraft>"
+    ].joined(separator: "\n")
+
+    private static let sample02: String = {
+        (try? String(
+            contentsOf: FixtureStore.directory.appendingPathComponent("finaldraft-sample02.fdx"),
+            encoding: .utf8
+        )) ?? ""
+    }()
+
+    private static func count(_ needle: String, in haystack: String) -> Int {
+        haystack.components(separatedBy: needle).count - 1
+    }
+
+    /// The script as the app holds it: carried through Fountain and read
+    /// back, which is what the app's own save compares against.
+    private static func fountainReading(_ xml: String) throws -> Screenplay {
+        try Fountain.parse(Fountain.serialise(Fdx.parse(xml).script), emphasis: .runs)
+    }
+
+    /// The yard omitted by hand: an OMITTED card carrying its number in front
+    /// of its heading, and the span behind it.
+    private static func omittingTheYard(_ script: Screenplay) -> Screenplay {
+        var script = script
+        let heading = script.elements.firstIndex { $0.text == "EXT. THE YARD - DUSK" }!
+        script.elements.insert(ScreenplayElement(type: .scene, text: "OMITTED", sceneNumber: "21"), at: heading)
+        script.omissions = [Omission(start: heading + 1, end: heading + 4)]
+        return script
+    }
+
+    @Test("Omit: a scene the writer omitted is written inside its card, not live")
+    func omitNestsTheScene() throws {
+        let reading = Fdx.parse(Self.live).script
+        let saved = Self.omittingTheYard(reading)
+        let xml = Fdx.open(Self.live).rewrite(saved, unedited: reading)
+        let back = Fdx.parse(xml).script
+        #expect(back.omissions == saved.omissions)
+        #expect(back.elements.map(\.text) == saved.elements.map(\.text))
+        #expect(Self.count("<OmittedScene>", in: xml) == 1)
+        // Written once, inside the block — never also as a live paragraph.
+        #expect(Self.count("EXT. THE YARD - DUSK", in: xml) == 1)
+        guard let open = xml.range(of: "<OmittedScene>"), let close = xml.range(of: "</OmittedScene>"),
+              let body = xml.range(of: "EXT. THE YARD - DUSK"), let card = xml.range(of: ">OMITTED<")
+        else { Issue.record("no block"); return }
+        #expect(card.lowerBound < open.lowerBound)
+        #expect(body.lowerBound > open.upperBound && body.upperBound < close.lowerBound)
+    }
+
+    /// The bytes both ports write — the same literal is asserted in
+    /// `fdx.test.ts`, so the two engines cannot drift apart on either verb.
+    static let omittedByTheWriter = [
+        "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">",
+        "<Content>",
+        "<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>",
+        "<Paragraph Type=\"Scene Heading\" Number=\"21\"><Text>OMITTED</Text><OmittedScene>",
+        "<Paragraph Number=\"21\" Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>",
+        "<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>",
+        "</OmittedScene></Paragraph>",
+        "<Paragraph Type=\"Scene Heading\"><Text>INT. HALL - NIGHT</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>",
+        "</Content>",
+        "</FinalDraft>"
+    ].joined(separator: "\n")
+
+    static let restoredByTheWriter = [
+        "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"5\">",
+        "<Content>",
+        "<Paragraph Type=\"Scene Heading\"><Text>INT. KITCHEN - NIGHT</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>",
+        "<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>",
+        "<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>",
+        "<Paragraph Type=\"Scene Heading\"><Text>INT. HALL - NIGHT</Text></Paragraph>",
+        "<Paragraph Type=\"Action\"><Text>She waits.</Text></Paragraph>",
+        "</Content>",
+        "</FinalDraft>"
+    ].joined(separator: "\n")
+
+    @Test("Both ports write the same bytes for an omit and for a restore")
+    func crossPortBytes() {
+        let live = Fdx.parse(Self.live).script
+        #expect(Fdx.open(Self.live).rewrite(Self.omittingTheYard(live), unedited: live) == Self.omittedByTheWriter)
+        let omitted = Fdx.parse(Self.omitted).script
+        var restored = omitted
+        restored.elements.remove(at: restored.elements.firstIndex { $0.text == "OMITTED" }!)
+        restored.omissions = []
+        #expect(Fdx.open(Self.omitted).rewrite(restored, unedited: omitted) == Self.restoredByTheWriter)
+    }
+
+    @Test("Omit: each line of the omitted scene keeps the bytes it had live")
+    func omitKeepsTheBytes() {
+        let reading = Fdx.parse(Self.live).script
+        let xml = Fdx.open(Self.live).rewrite(Self.omittingTheYard(reading), unedited: reading)
+        for line in [
+            "<Paragraph Number=\"21\" Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>",
+            "<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>",
+            "<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>",
+            // And the scenes around it are untouched.
+            "<Paragraph Type=\"Scene Heading\"><Text>INT. HALL - NIGHT</Text></Paragraph>",
+            "<Paragraph Type=\"Action\"><Text>The kettle screams.</Text></Paragraph>"
+        ] {
+            #expect(xml.contains(line), "lost: \(line)")
+        }
+    }
+
+    @Test("Restore: a scene the writer restored comes out of its card, bytes and tags kept")
+    func restoreUnwrapsTheScene() {
+        let reading = Fdx.parse(Self.omitted).script
+        var saved = reading
+        let card = saved.elements.firstIndex { $0.text == "OMITTED" }!
+        saved.elements.remove(at: card)
+        saved.omissions = []
+        let xml = Fdx.open(Self.omitted).rewrite(saved, unedited: reading)
+        let back = Fdx.parse(xml).script
+        #expect(back.omissions == nil)
+        #expect(back.elements.map(\.text) == saved.elements.map(\.text))
+        #expect(!xml.contains("<OmittedScene"))
+        #expect(!xml.contains("OMITTED"))
+        #expect(xml.contains("<Paragraph Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>"))
+        #expect(xml.contains("<Paragraph Type=\"Action\"><Text TagNumber=\"213\">Mara</Text><Text> waits.</Text></Paragraph>"))
+    }
+
+    @Test("Restore: a heading given its card's number gains Number and keeps its tags")
+    func restoreCarriesTheNumber() {
+        let reading = Fdx.parse(Self.omitted).script
+        var saved = reading
+        saved.elements.remove(at: saved.elements.firstIndex { $0.text == "OMITTED" }!)
+        saved.omissions = []
+        let heading = saved.elements.firstIndex { $0.text == "EXT. THE YARD - DUSK" }!
+        saved.elements[heading].sceneNumber = "21"
+        let xml = Fdx.open(Self.omitted).rewrite(saved, unedited: reading)
+        #expect(xml.contains("<Paragraph Number=\"21\" Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>"))
+        #expect(Fdx.parse(xml).script.elements[heading].sceneNumber == "21")
+    }
+
+    /// The scene-number half of the fix, on its own — no omission in sight.
+    /// Before it, a renumbered heading saved with the file's old number,
+    /// and through Fountain lost its tags as well.
+    @Test("A renumbered heading's new Number is written, and its tags are kept")
+    func renumberedHeadingKeepsItsTags() throws {
+        let reading = try Self.fountainReading(Self.live)
+        var edited = reading
+        let heading = edited.elements.firstIndex { $0.text == "EXT. THE YARD - DUSK" }!
+        edited.elements[heading].sceneNumber = "21A"
+        let xml = Fdx.open(Self.live).rewrite(edited, unedited: reading)
+        #expect(xml.contains("<Paragraph Number=\"21A\" Type=\"Scene Heading\"><Text TagNumber=\"317\">EXT. THE YARD - DUSK</Text></Paragraph>"))
+        #expect(Fdx.parse(xml).script.elements[heading].sceneNumber == "21A")
+    }
+
+    @Test("Nil omissions leave the file's structure deciding, exactly as before")
+    func nilIsTheFilesWord() throws {
+        let reading = Fdx.parse(Self.omitted).script
+        var carried = reading
+        carried.omissions = nil
+        #expect(Fdx.open(Self.omitted).rewrite(carried, unedited: reading) == Self.omitted)
+        // Said explicitly, the same omissions write the same bytes.
+        #expect(Fdx.open(Self.omitted).rewrite(reading, unedited: reading) == Self.omitted)
+    }
+
+    /// Final Draft's dual dialogue: a paragraph with no text of its own
+    /// holding a <DualDialogue> of two speeches.
+    private static let dual = "<Paragraph Type=\"General\"><DualDialogue>"
+        + "<Paragraph Type=\"Character\"><Text>MARA</Text></Paragraph>"
+        + "<Paragraph Type=\"Dialogue\"><Text TagNumber=\"5\">Now.</Text></Paragraph>"
+        + "<Paragraph Type=\"Character\"><Text>TOM</Text></Paragraph>"
+        + "<Paragraph Type=\"Dialogue\"><Text>Not yet.</Text></Paragraph>"
+        + "</DualDialogue></Paragraph>"
+
+    private static let omittedWithDual = omitted.replacingOccurrences(
+        of: "<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>",
+        with: dual + "\n<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>"
+    )
+    private static let liveWithDual = live.replacingOccurrences(
+        of: "<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>",
+        with: dual + "\n<Paragraph Type=\"Transition\"><Text>Cut to:</Text></Paragraph>"
+    )
+
+    @Test("An omitted scene's dual dialogue is read as its lines, not lost")
+    func dualInsideAnOmissionIsRead() {
+        let script = Fdx.parse(Self.omittedWithDual).script
+        let omission = try? #require(script.omissions?.first)
+        let body = omission.map { Array(script.elements[$0.start..<$0.end]) } ?? []
+        #expect(body.map(\.text) == ["EXT. THE YARD - DUSK", "Mara waits.", "MARA", "Now.", "TOM", "Not yet.", "Cut to:"])
+        #expect(body.first { $0.text == "TOM" }?.dual == true)
+        #expect(body.first { $0.text == "Now." }?.runs?.first?.tagNumbers == [5])
+        // And a save that changes nothing still writes the file's own bytes.
+        #expect(Fdx.open(Self.omittedWithDual).rewrite(script, unedited: script) == Self.omittedWithDual)
+    }
+
+    @Test("Restore: a dual dialogue comes out of the card whole — its frame and its bytes")
+    func restoreKeepsDualDialogue() {
+        let reading = Fdx.parse(Self.omittedWithDual).script
+        var saved = reading
+        saved.elements.remove(at: saved.elements.firstIndex { $0.text == "OMITTED" }!)
+        saved.omissions = []
+        let xml = Fdx.open(Self.omittedWithDual).rewrite(saved, unedited: reading)
+        #expect(!xml.contains("<OmittedScene"))
+        #expect(xml.contains(Self.dual), "the block, byte for byte")
+        #expect(Fdx.parse(xml).script.elements.map(\.text) == saved.elements.map(\.text))
+    }
+
+    @Test("Omit: a scene holding dual dialogue is nested whole and reads back whole")
+    func omitKeepsDualDialogue() {
+        let reading = Fdx.parse(Self.liveWithDual).script
+        let heading = reading.elements.firstIndex { $0.text == "EXT. THE YARD - DUSK" }!
+        var saved = reading
+        saved.elements.insert(ScreenplayElement(type: .scene, text: "OMITTED", sceneNumber: "21"), at: heading)
+        let end = saved.elements.firstIndex { $0.text == "INT. HALL - NIGHT" }!
+        saved.omissions = [Omission(start: heading + 1, end: end)]
+        let xml = Fdx.open(Self.liveWithDual).rewrite(saved, unedited: reading)
+        #expect(xml.contains(Self.dual))
+        let back = Fdx.parse(xml).script
+        #expect(back.omissions == saved.omissions)
+        #expect(back.elements.map(\.text) == saved.elements.map(\.text))
+        #expect(back.elements.first { $0.text == "TOM" }?.dual == true)
+    }
+
+    @Test("The real file: the file's own omission, said explicitly through Fountain, saves byte for byte")
+    func realFileExplicitIsIdentical() throws {
+        let parsed = Fdx.parse(Self.sample02).script
+        var reading = try Self.fountainReading(Self.sample02)
+        #expect(reading.elements.count == parsed.elements.count)
+        reading.omissions = parsed.omissions
+        #expect(Fdx.open(Self.sample02).rewrite(reading, unedited: reading) == Self.sample02)
+    }
+
+    @Test("The real file: restore → save → omit again → save — the same scene omitted, every tag kept")
+    func realFileRestoreAndBack() throws {
+        let parsed = Fdx.parse(Self.sample02).script
+        let omission = try #require(parsed.omissions?.first)
+        let reading = try Self.fountainReading(Self.sample02)
+        let tags = Self.count("TagNumber=", in: Self.sample02)
+
+        var restored = reading
+        let card = restored.elements.remove(at: omission.start - 1)
+        restored.omissions = []
+        let saved = Fdx.open(Self.sample02).rewrite(restored, unedited: reading)
+        #expect(!saved.contains("<OmittedScene"))
+        #expect(Fdx.parse(saved).script.omissions == nil)
+        #expect(Self.count("TagNumber=", in: saved) == tags)
+        #expect(Fdx.parse(saved).script.elements.count == parsed.elements.count - 1)
+
+        // And the writer changes their mind: the same card, the same span.
+        var again = try Self.fountainReading(saved)
+        again.elements.insert(card, at: omission.start - 1)
+        again.omissions = [omission]
+        let back = Fdx.open(saved).rewrite(again, unedited: try Self.fountainReading(saved))
+        #expect(Fdx.parse(back).script.omissions == [omission])
+        #expect(Self.count("TagNumber=", in: back) == tags)
+        /* The file's own words throughout; the card, written fresh, in the
+           capitals a scene heading takes on the way through Fountain. */
+        var expected = parsed.elements.map(\.text)
+        expected[omission.start - 1] = expected[omission.start - 1].uppercased()
+        #expect(Fdx.parse(back).script.elements.map(\.text) == expected)
+    }
+
+    @Test("The real file: omitting a live scene nests it, every tag kept, the rest untouched")
+    func realFileOmitALiveScene() throws {
+        let parsed = Fdx.parse(Self.sample02).script
+        let existing = try #require(parsed.omissions?.first)
+        var reading = try Self.fountainReading(Self.sample02)
+        /* The first live scene after the file's own omission. */
+        let heading = try #require(reading.elements.indices.first { $0 > existing.end && reading.elements[$0].type == .scene })
+        let next = reading.elements.indices.first { $0 > heading && reading.elements[$0].type == .scene } ?? reading.elements.count
+        let unedited = reading
+        reading.elements.insert(
+            ScreenplayElement(type: .scene, text: "OMITTED", sceneNumber: reading.elements[heading].sceneNumber),
+            at: heading
+        )
+        reading.omissions = [existing, Omission(start: heading + 1, end: next + 1)]
+        let xml = Fdx.open(Self.sample02).rewrite(reading, unedited: unedited)
+        let back = Fdx.parse(xml).script
+        #expect(back.omissions == reading.omissions)
+        /* Every line the writer did not touch comes back in the file's own
+           words — not the Fountain reading's canonical casing — and the one
+           new line is the card. */
+        var expected = parsed.elements.map(\.text)
+        expected.insert("OMITTED", at: heading)
+        #expect(back.elements.map(\.text) == expected)
+        #expect(Self.count("<OmittedScene>", in: xml) == 2)
+        #expect(Self.count("TagNumber=", in: xml) == Self.count("TagNumber=", in: Self.sample02))
+    }
+}

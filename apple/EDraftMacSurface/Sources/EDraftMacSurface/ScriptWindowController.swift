@@ -374,6 +374,14 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
         editor.onExport?(format)
     }
 
+    /// Format ▸ Omit Scene: omits the scene the caret is in, or restores
+    /// the one whose OMITTED card it is on. One item that says which, the
+    /// way View ▸ Show Sidebar says Hide Sidebar when the sidebar is open.
+    @objc public func toggleSceneOmission(_ sender: Any?) {
+        guard let current = editor.caretSceneAction else { return }
+        editor.perform(current.action, on: current.sceneID)
+    }
+
     /// Number All and Remove confirm, because they change addresses a
     /// schedule may already cite.
     @objc public func numberNewScenes(_ sender: Any?) {
@@ -443,6 +451,13 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
             return PageZoom.isAvailable(.actualSize, at: editor.zoom)
         case #selector(removeSceneNumbers(_:)):
             return editor.isSceneNumbered
+        case #selector(toggleSceneOmission(_:)):
+            /* Dimmed rather than hidden — a menu bar item keeps its place —
+               and, where the file could not keep an omission, it says why. */
+            let current = editor.caretSceneAction
+            item.title = (current?.action ?? .omit).title
+            item.toolTip = current == nil ? editor.omissionUnavailableReason : nil
+            return current != nil
         case #selector(setLayoutMode(_:)):
             item.state = (item.representedObject as? PageLayoutMode) == editor.layoutMode ? .on : .off
             return true
@@ -485,7 +500,10 @@ private struct NavigatorColumn: View {
                     // growing a dismiss control of its own.
                     state.selectedCharacter = state.selectedCharacter == name ? nil : name
                 },
-                selectedCharacter: state.selectedCharacter
+                selectedCharacter: state.selectedCharacter,
+                // A scene row's hover actions land where the menu bar's and
+                // the page's do: the surface, on the window's undo.
+                onSceneAction: { action, id in editor.perform(action, on: id) }
             ) { element in
                 // The sidebar stays where it is: a Mac reader keeps their
                 // place in the list while the page moves beside it.

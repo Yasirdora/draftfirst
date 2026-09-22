@@ -125,6 +125,9 @@ enum MainMenu {
         numbers.addItem(item("Number All Scenes…", #selector(ScriptWindowController.numberAllScenes(_:))))
         numbers.addItem(item("Remove Scene Numbers…", #selector(ScriptWindowController.removeSceneNumbers(_:))))
         menu.addItem(submenu("Scene Numbers", numbers))
+        // Beside the numbers it keeps: an omitted scene holds its number
+        // (RFC-DRAFT-PRODUCTION §7.3). Retitles to Restore Scene on a card.
+        menu.addItem(ScriptMenus.omitSceneItem())
         return menu
     }
 

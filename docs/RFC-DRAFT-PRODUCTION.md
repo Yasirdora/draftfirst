@@ -422,7 +422,45 @@ Rendering: the span prints as an OMITTED card carrying `number`
 The body MUST NOT print. Restore removes the record; the elements print
 again; ids unchanged.
 
-Omit is **Blocked** in `development` (numbers are not addresses yet).
+Omit is **Available** in `development`, for a document whose file can keep
+the record (amended 2026-09-22, IL-0087). This replaces the sentence:
+
+> Omit is **Blocked** in `development` (numbers are not addresses yet).
+
+The reason given was true and did not support the rule. Numbers are not
+addresses in `development` — but an omission does not depend on them being
+addresses:
+
+- **The record is not an address.** `number` exists so a schedule that cites
+  scene 21 does not grow a hole. Before numbers are locked (§7.1) there is no
+  schedule citing anything; an omission then carries whatever number the
+  heading has, or none, and nothing downstream reads that as an address.
+  When numbers lock, the card carries the locked number and the rule above
+  does the job it was written for, unchanged.
+- **Omit is the reversible form of a decision writers make anyway.** The body
+  stays in the script with its ids and its words; Restore removes the record
+  and every element prints again. Blocking Omit did not stop a writer cutting
+  scene 21 in a draft — it made them delete it, which is the irreversible
+  form of the same decision, and the one that loses the scene. A lossless,
+  undoable edit is exactly what `development` is for.
+- **The files a writer exchanges already carry it.** Final Draft omits at any
+  stage, and an FDX from a production arrives with `<OmittedScene>` in it.
+  eDraft already reads, shows and saves those. A tool that can display and
+  preserve an omission but not make or undo one is the one tool in the loop
+  that cannot answer "cut 21", and the one a writer has to leave to do it.
+- **What makes an omission a production fact stays with Production Mode.**
+  `issued` provenance, and the rule below that a restore of an issued
+  omission goes out on the next Issue, are untouched: outside Production
+  Mode nothing is issued, so `issued` stays absent.
+
+Where it is offered is decided by the file, not by the mode: only where the
+record survives a save. An FDX keeps it as `<OmittedScene>` — the preserving
+save writes the writer's omissions, a new one nested in its card and a
+restored one unwrapped from it, each line keeping its bytes, identically in
+both ports. Fountain has no spelling for an omission, so in a `.fountain`
+document, and an `.edraft` one (Fountain on disk), Omit is off and says why.
+The `.draft` record in `production.json` below remains Q13's.
+
 Restore of an omission that was in an issued snapshot is itself a change
 and MUST go out on the next Issue.
 

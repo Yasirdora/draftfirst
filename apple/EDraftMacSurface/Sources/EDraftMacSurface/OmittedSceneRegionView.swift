@@ -23,6 +23,12 @@ final class OmittedSceneRegionView: NSView {
     private(set) var collapsed: Bool
     /// Called when the writer asks to see the cut text, or to put it away.
     var onToggle: ((DraftElementID) -> Void)?
+    /// Called when the writer restores the scene from the card itself — the
+    /// VoiceOver action a sighted writer reaches by right-clicking the line.
+    var onRestore: ((DraftElementID) -> Void)?
+    /// Whether this document could keep a restore; without it the card
+    /// offers none (IL-0087).
+    private var restorable = false
 
     /// The pointer is over the line. Set by the tracking area; readable to
     /// the package so the reveal is proven by a test and not by an eyeball.
@@ -49,9 +55,10 @@ final class OmittedSceneRegionView: NSView {
 
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError("not in a nib") }
 
-    func update(scene: OmittedScene, collapsed: Bool) {
+    func update(scene: OmittedScene, collapsed: Bool, restorable: Bool = false) {
         self.scene = scene
         self.collapsed = collapsed
+        self.restorable = restorable
         apply()
     }
 
@@ -78,6 +85,16 @@ final class OmittedSceneRegionView: NSView {
         setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(scene.spoken(collapsed: collapsed))
+        /* Press opens or closes the cut text; restoring the scene is the
+           card's other verb, in the actions menu where VoiceOver keeps
+           the rest. */
+        setAccessibilityCustomActions(restorable ? [
+            NSAccessibilityCustomAction(name: SceneAction.restore.title) { [weak self] in
+                guard let self else { return false }
+                self.onRestore?(self.scene.key)
+                return true
+            }
+        ] : [])
         updateChrome()
     }
 
