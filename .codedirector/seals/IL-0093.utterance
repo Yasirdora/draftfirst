@@ -1,0 +1,1 @@
+Repair: c1cc7bc committed src/routes/help/[slug]/+page.ts with a TypeScript error (TS7031, untyped params), which fails Code Director's global tsc gate on every run. Type the load and entries functions with the generated $types — the standard SvelteKit pattern. One file, no behavior change.

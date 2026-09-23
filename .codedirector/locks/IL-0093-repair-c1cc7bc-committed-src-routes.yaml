@@ -1,0 +1,50 @@
+schemaVersion: 1
+id: IL-0093
+status: verified
+utterance: "Repair: c1cc7bc committed src/routes/help/[slug]/+page.ts with a TypeScript error (TS7031, untyped params), which fails Code Director's global tsc gate on every run. Type the load and entries functions with the generated $types — the standard SvelteKit pattern. One file, no behavior change."
+goal: "src/routes/help/[slug]/+page.ts typechecks: entries is EntryGenerator, load is PageLoad; tsc --noEmit exits 0; nothing else changes."
+interpretation: |
+  A REPAIR, NOT A FEATURE. The marketing-site commit c1cc7bc shipped one
+  type error. The fix is the generated-route-types pattern SvelteKit
+  documents: import type { EntryGenerator, PageLoad } from './$types' and
+  annotate both exports. Runtime behavior is identical; only types move.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: one file changes; the rest of the tree — including the other sessions' uncommitted work — is left exactly as found
+deny:
+  - apple/**
+  - packages/**
+  - docs/**
+  - scripts/**
+  - static/**
+  - src/lib/**
+  - src/routes/+page.svelte
+  - src/routes/features/**
+  - src/routes/privacy/**
+  - src/routes/404/**
+  - src/routes/screenplay/**
+  - src/app.css
+  - .codedirector/**
+  - package.json
+  - package-lock.json
+  - edraft logo.png
+  - screenshot.png
+change: Type the help article route's load/entries with generated $types.
+verifyCommand: node node_modules/typescript/bin/tsc --noEmit -p .
+verifyTimeoutMs: 300000
+budget:
+  files:
+    - src/routes/help/[slug]/+page.ts
+  symbols: []
+  maxFiles: 1
+  maxLines: 20
+accept:
+  - tsc --noEmit exits 0 on the whole project.
+  - Only src/routes/help/[slug]/+page.ts changed.
+assumptions:
+  - text: HEAD is 85fe3c6. IL-0090's uncommitted files and the xcscheme dirt are foreign and untouched.
+    source: system
+    confirmed: false
+createdAt: 2026-09-23T04:40:00.000Z
+createdBy: Yasirdora

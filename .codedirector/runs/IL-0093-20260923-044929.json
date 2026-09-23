@@ -1,0 +1,107 @@
+{
+  "allowExpand": false,
+  "baselinePath": ".codedirector/baselines/IL-0093-20260923-044929.json",
+  "baselineSha256": "ba40cd324ad591abf6867d421a9bc31cf6bfafe0d29760a4719b2469ce6a4cb2",
+  "budget": {
+    "filesChanged": 0,
+    "linesChanged": 0,
+    "maxFiles": 1,
+    "maxLines": 20
+  },
+  "changed": [],
+  "checkpoint": {
+    "blobDir": "ckpt-blobs/ckpt-20260923T044919530",
+    "createdAt": "2026-09-23T04:49:19.691Z",
+    "dirty": true,
+    "id": "ckpt-20260923T044919530",
+    "ref": "85fe3c6a988172f06168fe9ebc6251b722c442d2",
+    "statusHash": "5356a2b5f5f6c0556f7bf61040207f79a2c7e6115e9fbdb9abf5bf4e5e30fe25",
+    "tag": "cdir/ckpt-20260923T044919530"
+  },
+  "command": [
+    "node",
+    "node_modules/typescript/bin/tsc",
+    "--noEmit",
+    "-p",
+    "."
+  ],
+  "exitCode": 0,
+  "finishedAt": "2026-09-23T04:49:29.837Z",
+  "keepResults": [
+    {
+      "detail": "package.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "package-lock.json unchanged",
+      "kind": "no-new-dependency",
+      "status": "ok"
+    },
+    {
+      "detail": "one file changes; the rest of the tree — including the other sessions' uncommitted work — is left exactly as found — not machine-checkable; human judges",
+      "kind": "custom",
+      "status": "custom"
+    }
+  ],
+  "lockId": "IL-0093",
+  "startedAt": "2026-09-23T04:49:29.244Z",
+  "verification": {
+    "baselinePath": ".codedirector/baselines/IL-0093-20260923-044929.json",
+    "counts": {
+      "asserted": 0,
+      "measured": 1,
+      "proven": 3,
+      "unchecked": 1
+    },
+    "items": [
+      {
+        "artifactRef": ".codedirector/baselines/IL-0093-20260923-044929.json#manifests[package.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": ".codedirector/baselines/IL-0093-20260923-044929.json#manifests[package-lock.json]",
+        "clauseKind": "no-new-dependency",
+        "detail": "package-lock.json unchanged",
+        "evidenceClass": "proven",
+        "source": "keep-clause",
+        "subject": "no-new-dependency · package-lock.json",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "node node_modules/typescript/bin/tsc --noEmit -p . → exit 0",
+        "detail": "tsc --noEmit clean",
+        "evidenceClass": "proven",
+        "source": "typecheck",
+        "subject": "typecheck · tsc --noEmit",
+        "verdict": "held"
+      },
+      {
+        "artifactRef": "sh -c \"node node_modules/typescript/bin/tsc --noEmit -p .\" → exit 0",
+        "detail": "verifyCommand passed: node node_modules/typescript/bin/tsc --noEmit -p .",
+        "evidenceClass": "measured",
+        "source": "verify-command",
+        "subject": "verifyCommand · node node_modules/typescript/bin/tsc --noEmit -p .",
+        "verdict": "held"
+      },
+      {
+        "clauseKind": "custom",
+        "detail": "not machine-checkable — human judges",
+        "evidenceClass": "unchecked",
+        "reason": "not machine-checkable — human judges",
+        "source": "keep-clause",
+        "subject": "custom · one file changes; the rest of the tree — including the other sessions' uncommitted work — is left exactly as found",
+        "verdict": "unchecked"
+      }
+    ],
+    "lockId": "IL-0093",
+    "verifiedAt": "2026-09-23T04:49:52.710Z",
+    "violations": []
+  },
+  "violations": []
+}
