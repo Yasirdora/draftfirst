@@ -74,6 +74,7 @@ public final class EditorState {
            replaces; from here the file says what is omitted again. */
         omissionsEdited = false
         publishedOmissions = nil
+        finalDraftPageLockCount = origin.map(FinalDraftPageLocks.count(inOrigin:)) ?? 0
         guard let origin else {
             importedNotes = []
             omittedScenes = OmittedScenes()
@@ -119,6 +120,41 @@ public final class EditorState {
     /// surface, the Navigator and the paginator all ask.
     public func isOmitted(_ element: ScriptElement) -> Bool {
         omittedScenes.contains(element)
+    }
+
+    // MARK: - Final Draft page locks (IL-0090)
+
+    /// How many page locks the Final Draft file this document came from
+    /// carries — read once, when the file is attached (`FinalDraftPageLocks`).
+    @ObservationIgnored private var finalDraftPageLockCount = 0
+    /// Whether this session has told the writer already. Never reset — not by
+    /// a dismissal, not by Revert: once per document per session.
+    @ObservationIgnored private var pageLockNoticeRaised = false
+
+    /// What the window says about this file's Final Draft page locks, while
+    /// it is saying it; nil otherwise.
+    ///
+    /// Raised by the writer's first edit of a file that has locks: Final
+    /// Draft moves a lock with the text, and eDraft's save does not yet, so
+    /// from that edit on the locks in the saved file may point at the wrong
+    /// text in Final Draft (RFC-DRAFT-PRODUCTION §7.2). Never at open, and
+    /// never for a file that is only read and saved as it was. When the Help
+    /// Center has an article on it, the notice gains a Learn More link.
+    public private(set) var pageLockNotice: String?
+
+    public static let pageLockNoticeText = "This script has Final Draft page locks. eDraft doesn't move them with your edits yet, so in Final Draft some locked pages may start in the wrong place."
+
+    /// The writer has read it.
+    public func dismissPageLockNotice() {
+        pageLockNotice = nil
+    }
+
+    /// Every edit the writer makes passes here — typing, a structural edit,
+    /// an undo or a redo. One flag test; nothing about the document is read.
+    private func noteWritersEdit() {
+        guard finalDraftPageLockCount > 0, !pageLockNoticeRaised else { return }
+        pageLockNoticeRaised = true
+        pageLockNotice = Self.pageLockNoticeText
     }
 
     // MARK: - Omitting a scene (§7.3, IL-0087)
@@ -1198,6 +1234,7 @@ public final class EditorState {
         activeElementID = id
         self.selectionOffset = max(0, selectionOffset)
         revision += 1
+        noteWritersEdit()
         scheduleSourcePublish()
         scheduleStatsRefresh()
         refreshPredictions()
@@ -1823,6 +1860,7 @@ public final class EditorState {
         activeElementID = snapshot.activeElementID
         selectionOffset = snapshot.selectionOffset
         revision += 1
+        noteWritersEdit()
         updateUndoAvailability()
         publishSource()
         scheduleStatsRefresh()
@@ -1831,6 +1869,7 @@ public final class EditorState {
 
     private func commitChange(liveTyping: Bool = false) {
         revision += 1
+        noteWritersEdit()
         updateUndoAvailability()
         if liveTyping {
             scheduleSourcePublish()

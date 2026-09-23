@@ -53,6 +53,8 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
     /// What the bar was last told, so it is told again only on a real
     /// change — see `followTheModel`.
     private var shownElementKind: ScreenplayKind?
+    /// The Final Draft page-lock notice while it is docked (IL-0090).
+    private(set) var pageLockAccessory: PageLockNoticeAccessory?
 
     private enum ItemID {
         static let element = "eDraft.element"
@@ -296,7 +298,29 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
             let mode = editor.arrangement
             arrangementItem?.toolTip = mode.title
         }
+        observeChanges { [weak self] in
+            guard let self else { return }
+            showPageLockNotice(editor.pageLockNotice)
+        }
         pagePaperChanged()
+    }
+
+    /// Docks the Final Draft page-lock notice under the toolbar while the
+    /// editor has one to give, and takes it away when it is dismissed.
+    private func showPageLockNotice(_ text: String?) {
+        guard let window else { return }
+        if let text, pageLockAccessory == nil {
+            let accessory = PageLockNoticeAccessory(text: text) { [weak self] in
+                self?.editor.dismissPageLockNotice()
+            }
+            window.addTitlebarAccessoryViewController(accessory)
+            accessory.track(window)
+            pageLockAccessory = accessory
+        } else if text == nil, let accessory = pageLockAccessory {
+            accessory.stopTracking()
+            accessory.removeFromParent()
+            pageLockAccessory = nil
+        }
     }
 
     /// Sun on paper, moon on a dark page — the symbol says which one you are

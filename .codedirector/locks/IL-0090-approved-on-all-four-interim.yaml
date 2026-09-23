@@ -1,0 +1,107 @@
+schemaVersion: 1
+id: IL-0090
+status: failed
+utterance: "Approved on all four: interim warn lock (quiet, once per document per session), RFC amended as argued, page parity as documented v1 limit with its own stage later, and generate the E-script — I'll run E1–E8 in Final Draft tonight. The Position rule is the hard gate: if the E-files don't pin it, Freeze Page doesn't ship and we stay read-and-warn. One design change: pin glyph, not snowflake — this is a production tool. Proceed with professionalism"
+goal: When a writer edits a Final Draft file that carries page locks, eDraft tells them once per document per session, quietly and without covering the page, that those locks do not move with edits in eDraft yet — so nobody ships a file whose locked pages silently point at the wrong text without having been told.
+interpretation: |
+  WHY. Measured 2026-09-22: Final Draft moves every `<LockedPage Position>`
+  with the text (probe-B: +46 for 46 units inserted), but eDraft's splice
+  writes `<LockedPages>` back byte for byte — so after any edit above a
+  locked page, the file eDraft saves has locks pointing at the wrong text in
+  Final Draft. The real fix needs the absolute Position rule, which the
+  owner's E1–E8 run is measuring. Until then eDraft tells the writer. This
+  lock changes no bytes eDraft writes.
+
+  WHEN. A document whose Final Draft origin carries `<LockedPage>` entries
+  (counted once at open from the origin string — a narrow, named scan like
+  `Omissions.recordedEighths`, retired when the engine models locks). On the
+  writer's first edit — typing (`applyLiveText`), any structural edit
+  (`commitChange`, omit/restore included) or undo/redo (`restore`) — the
+  notice is raised. Once per document per session: dismissing it, reverting,
+  or editing again never raises it a second time. A file with no locks, a
+  Fountain or .edraft document, or a locked file that is only read and
+  saved unedited, never sees it. The check is one flag at those three
+  points — no per-keystroke document work.
+
+  WHAT IT SAYS. Plain, one sentence and a clause, no alarm:
+  "This script has Final Draft page locks. eDraft doesn't move them with your
+  edits yet, so in Final Draft some locked pages may start in the wrong
+  place." The wording is the owner's to change.
+
+  WHERE (MACOS-DESIGN §1.6 — nothing floats over the page). A strip docked
+  under the toolbar (`NSTitlebarAccessoryViewController`, layout `.bottom`),
+  the way Safari and Mail dock their notices: AppKit shrinks the content
+  area for it, so it never covers a line. Quiet: `info.circle` in secondary
+  ink, subheadline text, one Dismiss (xmark) button, regular material — the
+  look of `LaunchTrashBanner`. It stays until dismissed or the window
+  closes. VoiceOver hears it once when it appears (announcement), and the
+  strip is an accessibility element with its text as the label.
+
+  NOT HERE. The Mac's `editor.banner` gap (showBanner is never displayed on
+  the Mac) is its own task (chip task_6b6fed65), not this lock. iOS shows
+  nothing new — the Mac is where Final Draft files are worked on; the model
+  flag is shared and ready for the phone later.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no bytes eDraft writes change — every FDX save is identical before and after this lock
+  - kind: custom
+    text: the working tree's uncommitted work from other sessions (IL-0086's plists/pbxproj/xcscheme, the web agent's src/ and static/ files) is left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/*/Package.swift
+  - apple/EDraftCore/Sources/EDraftCore/ScreenplayFile.swift
+  - apple/EDraftCore/Sources/EDraftCore/Omissions.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+  - packages/**
+  - src/**
+  - static/**
+  - scripts/**
+  - docs/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - "**/DerivedData/**"
+change: A quiet, once-per-session notice when a locked Final Draft file is edited — its page locks don't move with edits in eDraft yet.
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 3600000
+budget:
+  files:
+    - apple/EDraftCore/Sources/EDraftCore/FinalDraftPageLocks.swift
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/PageLockNoticeTests.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageLockNotice.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptWindowController.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/PageLockNoticeSurfaceTests.swift
+  symbols: []
+  maxFiles: 6
+  maxLines: 500
+accept:
+  - "RAISED ON FIRST EDIT: a Final Draft file with <LockedPage> entries raises the notice on the writer's first typed, structural or undo edit — not at open, not on a save of an unedited file. Test fails on the old code (no notice exists)."
+  - "ONCE: dismissing, editing again, undo, or Revert in the same session never raises it again."
+  - "NEVER WRONGLY: no notice for an FDX without locks, a Fountain or .edraft document, or an FDX whose only <LockedPage> text is outside a <LockedPages> block."
+  - "DOCKED, NOT FLOATING: on the Mac the notice is a titlebar accessory under the toolbar — it appears after the edit, goes on Dismiss, and never overlaps the page; VoiceOver gets its text."
+  - "NO WORK PER KEYSTROKE: the edit-time check is a flag test; the lock count is read once at open."
+  - "BYTES UNCHANGED: an FDX save is byte-identical with and without this lock (existing save tests stay green)."
+  - "SUITES: EDraftCore and EDraftMacSurface green; macOS Debug build succeeds."
+assumptions:
+  - text: "HEAD is c1cc7bc (the web agent committed its site on top of f538605, touching only src/ and static/). The tree still carries other sessions' uncommitted work: IL-0086's plists/pbxproj/xcscheme and its lock and seal, the root PNGs, mcp.log. None is touched; the run's baseline is the proof."
+    source: system
+    confirmed: false
+  - text: "Owner decisions 2026-09-23: interim warn lock approved (quiet, once per document per session); Freeze Page itself is gated on the E1–E8 files pinning the absolute Position rule; pin glyph, not snowflake. The RFC amendment is written with the engine lock, not here."
+    source: user
+    confirmed: true
+  - text: "Owner raised the ceiling from 450 to 500 on 2026-09-23 before activation: the finished change measured 473 lines (196 source, 277 tests) and nothing was trimmed to fit."
+    source: user
+    confirmed: true
+createdAt: 2026-09-22T22:12:55.456Z
+createdBy: Yasirdora
