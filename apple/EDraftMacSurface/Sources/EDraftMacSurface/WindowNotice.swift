@@ -1,14 +1,14 @@
 import AppKit
 import SwiftUI
 
-/// What the window says about a Final Draft file's page locks once the
-/// writer has edited it (IL-0090; `EditorState.pageLockNotice`).
+/// A notice the document window gives the writer: the Final Draft page-lock
+/// warning (IL-0090; `EditorState.pageLockNotice`) and the editor's banners
+/// (IL-0099; `EditorState.banner`).
 ///
 /// Quiet, the way the launch window's trash bar is: one line of secondary
 /// type after an info mark, and a way to put it away. It says a thing the
-/// writer needs to know before they send the file back to Final Draft; it
-/// does not ask them to do anything.
-struct PageLockNoticeBar: View {
+/// writer needs to know; it does not ask them to do anything.
+struct WindowNoticeBar: View {
     let text: String
     var onDismiss: () -> Void
 
@@ -53,15 +53,15 @@ struct PageLockNoticeBar: View {
 /// layout rectangle, so the page is laid out below it and no line is ever
 /// under it at rest (MACOS-DESIGN §1.6 — controls may float over a canvas,
 /// never over the thing being read).
-final class PageLockNoticeAccessory: NSTitlebarAccessoryViewController {
+final class WindowNoticeAccessory: NSTitlebarAccessoryViewController {
 
     let text: String
-    private let hosting: NSHostingController<PageLockNoticeBar>
+    private let hosting: NSHostingController<WindowNoticeBar>
     private var resizeObserver: NSObjectProtocol?
 
     init(text: String, onDismiss: @escaping () -> Void) {
         self.text = text
-        hosting = NSHostingController(rootView: PageLockNoticeBar(text: text, onDismiss: onDismiss))
+        hosting = NSHostingController(rootView: WindowNoticeBar(text: text, onDismiss: onDismiss))
         hosting.sizingOptions = []
         super.init(nibName: nil, bundle: nil)
         layoutAttribute = .bottom

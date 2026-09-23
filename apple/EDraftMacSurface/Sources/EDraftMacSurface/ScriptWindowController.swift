@@ -54,7 +54,9 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
     /// change — see `followTheModel`.
     private var shownElementKind: ScreenplayKind?
     /// The Final Draft page-lock notice while it is docked (IL-0090).
-    private(set) var pageLockAccessory: PageLockNoticeAccessory?
+    private(set) var pageLockAccessory: WindowNoticeAccessory?
+    /// The editor's latest banner while it is docked (IL-0099).
+    private(set) var bannerAccessory: WindowNoticeAccessory?
 
     private enum ItemID {
         static let element = "eDraft.element"
@@ -302,6 +304,10 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
             guard let self else { return }
             showPageLockNotice(editor.pageLockNotice)
         }
+        observeChanges { [weak self] in
+            guard let self else { return }
+            showBanner(editor.banner)
+        }
         pagePaperChanged()
     }
 
@@ -310,7 +316,7 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
     private func showPageLockNotice(_ text: String?) {
         guard let window else { return }
         if let text, pageLockAccessory == nil {
-            let accessory = PageLockNoticeAccessory(text: text) { [weak self] in
+            let accessory = WindowNoticeAccessory(text: text) { [weak self] in
                 self?.editor.dismissPageLockNotice()
             }
             window.addTitlebarAccessoryViewController(accessory)
@@ -321,6 +327,33 @@ public final class ScriptWindowController: SplitWindowController, NSMenuDelegate
             accessory.removeFromParent()
             pageLockAccessory = nil
         }
+    }
+
+    /// Docks the editor's latest banner under the toolbar, as the page-lock
+    /// notice is docked (IL-0099).
+    ///
+    /// The model clears `banner` after 1.6 s — the iPhone's capsule floats
+    /// and fades. A docked strip that left that fast would move the page down
+    /// and back up before its sentence could be read, so here it stays until
+    /// the writer dismisses it, and a newer banner takes its place.
+    private func showBanner(_ text: String?) {
+        guard let window, let text, bannerAccessory?.text != text else { return }
+        dismissBanner()
+        let accessory = WindowNoticeAccessory(text: text) { [weak self] in
+            self?.dismissBanner()
+        }
+        window.addTitlebarAccessoryViewController(accessory)
+        accessory.track(window)
+        bannerAccessory = accessory
+    }
+
+    /// Takes the banner's strip away — the writer closed it, or a newer
+    /// banner is taking its place.
+    func dismissBanner() {
+        guard let accessory = bannerAccessory else { return }
+        accessory.stopTracking()
+        accessory.removeFromParent()
+        bannerAccessory = nil
     }
 
     /// Sun on paper, moon on a dark page — the symbol says which one you are

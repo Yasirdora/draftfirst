@@ -53,8 +53,8 @@ final class PageLockNoticeSurfaceTests: XCTestCase {
         settle()
     }
 
-    private func docked(_ controller: ScriptWindowController) -> [PageLockNoticeAccessory] {
-        controller.window?.titlebarAccessoryViewControllers.compactMap { $0 as? PageLockNoticeAccessory } ?? []
+    private func docked(_ controller: ScriptWindowController) -> [WindowNoticeAccessory] {
+        controller.window?.titlebarAccessoryViewControllers.compactMap { $0 as? WindowNoticeAccessory } ?? []
     }
 
     func testNothingIsDockedAtOpen() throws {

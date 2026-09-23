@@ -31,6 +31,21 @@ final class ScreenplayDocument: NSDocument {
     /// typo and saves must not lose them. See `ScreenplayFile.open`.
     private var origin: String?
 
+    /// Whether the reload under way is a change made outside this window —
+    /// another device, another app (IL-0099). Decided where AppKit reloads:
+    /// the document's own file, changed on disk since this document last read
+    /// or wrote it. The writer's own Revert To reads a saved version, or a
+    /// file this document wrote itself, and is not announced; a reload this
+    /// cannot tell apart is quiet, as every reload was before the Mac showed
+    /// banners.
+    ///
+    /// Measured 2026-09-23: AppKit reloads an outside change with
+    /// `revert(toContentsOf: fileURL)` on the main thread, after — not inside —
+    /// `presentedItemDidChange`, which also fires when nothing changed (on
+    /// open, and after every reload). A record kept from that notice would be
+    /// set nearly always.
+    private var reloadingChangeFromElsewhere = false
+
     override init() {
         source = ScreenplayFile.blankSource
         editor = EditorState(source: source)
@@ -74,13 +89,22 @@ final class ScreenplayDocument: NSDocument {
                 editor = EditorState(source: source)
                 bind(editor)
             } else {
-                // Revert To: the window stays, the text under it changes.
-                editor.applyExternalSource(source)
+                // Revert To, or a change from elsewhere: the window stays, the
+                // text under it changes, and only the second is announced.
+                editor.applyExternalSource(source, announcing: reloadingChangeFromElsewhere)
             }
             // Final Draft's own notes, read from the file and placed on the
             // lines just loaded — never written back. See `ImportedNote`.
             editor.attachImportedNotes(from: origin)
         }
+    }
+
+    override func revert(toContentsOf url: URL, ofType typeName: String) throws {
+        let onDisk = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        reloadingChangeFromElsewhere = url.standardizedFileURL == fileURL?.standardizedFileURL
+            && onDisk != nil && onDisk != fileModificationDate
+        defer { reloadingChangeFromElsewhere = false }
+        try super.revert(toContentsOf: url, ofType: typeName)
     }
 
     override func data(ofType typeName: String) throws -> Data {

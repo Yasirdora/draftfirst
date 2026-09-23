@@ -1290,7 +1290,12 @@ public final class EditorState {
     /// identity, so the caret and the text surface's range map survive; both
     /// undo timelines stay intact; nothing is published back (a sync must
     /// never become a write-after-read).
-    public func applyExternalSource(_ source: String) {
+    ///
+    /// `announcing` says "Updated elsewhere" when it is true. The Mac passes
+    /// false for the writer's own Revert To, which reaches the same reload
+    /// and is not a change from elsewhere (IL-0099). A change that cannot be
+    /// read is reported either way.
+    public func applyExternalSource(_ source: String, announcing: Bool = true) {
         // No flush: publishing now would clobber the incoming sync with our
         // stale model. Cancel the debounced write instead — last-writer-wins
         // is the document store's semantics, and the sync is the newer write.
@@ -1363,7 +1368,7 @@ public final class EditorState {
         // file outside this editor — another device, an edit made in Files,
         // a conflict resolved by the system. Naming one source was wrong
         // three times out of four.
-        showBanner("Updated elsewhere")
+        if announcing { showBanner("Updated elsewhere") }
     }
 
     private static func identityKey(for element: ScriptElement) -> String {

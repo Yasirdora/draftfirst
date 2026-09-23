@@ -1,0 +1,158 @@
+schemaVersion: 1
+id: IL-0099
+status: verified
+utterance: "Yes — take the banner task. Draft the lock, Vibe Check first, wait for my yes. Note the pattern has advanced since your notification was written: PageLockNoticeAccessory (IL-0090, committed) is the current house pattern — a titlebar accessory docked under the toolbar, not a floating view. Follow it."
+goal: The Mac document window shows EditorState.banner the way it shows the page-lock notice — a titlebar accessory docked under the toolbar, one strip, until the writer dismisses it — and never tells the writer a change came from elsewhere when it was their own Revert To.
+interpretation: |
+  THE BUG. `EditorState.showBanner` sets `banner` for 1.6 s and only the
+  iPhone's EditorView draws it. The Mac window never does. Messages the Mac
+  can raise today, all invisible:
+  - "Updated elsewhere" — `applyExternalSource`, reached on the Mac from
+    `ScreenplayDocument.read(from:)` whenever a window is already open.
+  - "A change from elsewhere couldn't be read" — same path, unparseable text.
+  - "This document cannot allocate another element identity" — three sites
+    in EditorState, when an edit is refused.
+  (The other showBanner callers — scan, Save As, "Added N elements" — are the
+  iPhone's EditorChrome and never run on the Mac.)
+
+  THE PATTERN (owner's instruction): IL-0090's titlebar accessory, docked
+  under the toolbar with `layoutAttribute = .bottom`, so AppKit lays the
+  page out below it and no line sits under it at rest (MACOS-DESIGN §1.6).
+  Following it means its lifetime too: the strip stays until the writer
+  dismisses it, and a newer banner replaces its words in the same strip. The
+  model's 1.6 s timer stays the iPhone capsule's; on the Mac a docked strip
+  that left after 1.6 s would move the page down and back up inside two
+  seconds, too fast to read the sentence it carried.
+
+  THE GENERALISATION: `PageLockNoticeBar` / `PageLockNoticeAccessory` become
+  `WindowNoticeBar` / `WindowNoticeAccessory` in `WindowNotice.swift`
+  (`git mv` of PageLockNotice.swift), unchanged in behaviour — one class
+  serving two notices, not a copy of it named after the wrong one.
+  PageLockNoticeSurfaceTests changes only the type name it looks for.
+
+  THE HONESTY FIX (found while scoping): `ScreenplayDocument` autosaves in
+  place, so `read(from:)` with a window open is reached two ways — AppKit
+  reloading a file that another device or app changed, and the writer's own
+  File ▸ Revert To. Both call `applyExternalSource`, which says "Updated
+  elsewhere". Once the Mac shows banners, a Revert To would say something
+  false. Fix:
+  - Core: `applyExternalSource(_:announcing: Bool = true)`; `false` applies
+    the text without "Updated elsewhere". The iPhone's call is unchanged.
+    The unreadable-change banner is raised either way — a failure is never
+    silenced.
+  - ScreenplayDocument decides where AppKit reloads, in
+    `revert(toContentsOf:ofType:)` on the main thread: announce only when it
+    reads the document's own file AND that file's modification date on disk
+    differs from the one this document last read or wrote. Scoped to that
+    one call, so nothing lingers. The writer's own Revert To reads a saved
+    version (another URL) or a file this document wrote itself (same date):
+    quiet. Anything it cannot tell apart is quiet, as every Mac reload is
+    today — silence is the failure mode.
+  - REVISED BEFORE ACTIVATION (peer review from the owner's second session,
+    then measured): the first draft kept an "outside change" record set in
+    `presentedItemDidChange` and cleared by `revertToSaved(_:)` /
+    `browseVersions(_:)`. A headless NSDocument probe (2026-09-23, scratch)
+    showed `presentedItemDidChange` arrives off the main thread and returns
+    BEFORE AppKit reloads (`revert(toContentsOf: fileURL)` then `read`, on the
+    main thread), and that it also fires when nothing changed — on open and
+    after every reload. That record would be set nearly always, and any
+    revert path not through the two overrides (AppKit inserts dated "Last
+    Opened" / "Previous Save" items into the app's own Revert To submenu,
+    MainMenu.swift:73-76) would say "Updated elsewhere" falsely. Probe:
+    outside change → own file, dates differ (announce); a revert of the file
+    with no outside change → dates equal (quiet); spurious notices → no
+    reload at all.
+  - The Mac app target has no test target, so this half is proved by the
+    probe's measurements and the manual checks below, stated as such.
+
+  TESTS (fail-before = at HEAD, where nothing docks):
+  - EditorBannerSurfaceTests (new): nothing docked at open; a banner docks
+    under the toolbar (.bottom, its words, content area shrinks); it stays
+    after the model's timer clears `banner` and leaves when dismissed; a
+    newer banner replaces the words — one strip; `applyExternalSource`
+    docks "Updated elsewhere" and `announcing: false` docks nothing; the
+    banner and the page-lock notice dock together and dismissing one
+    leaves the other.
+  - ExternalSourceAnnouncementTests (Core, new): the default announces
+    "Updated elsewhere" (the iPhone's behaviour, pinned for the first time);
+    `announcing: false` applies the text and raises no banner; unreadable
+    text raises "couldn't be read" with `announcing: false` too.
+
+  MANUAL (the document half; the owner on screen, the outside change made
+  from the shell):
+  - An open script's file changed from outside: the strip says "Updated
+    elsewhere".
+  - File ▸ Revert To ▸ Last Saved / Last Opened / Previous Save (whichever
+    AppKit lists), and Browse All Versions ▸ Restore: no strip for any.
+  - The peer's sequence: an outside change while the script has unsaved
+    edits, then Revert To ▸ Last Opened: no strip.
+  - VoiceOver announces the strip's words when it arrives (IL-0090's bar
+    posts it on appear; a replacement is a new bar, so it announces again).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the iPhone's banner is unchanged — EditorView's capsule, the 1.6 s timer, and every EditorChrome showBanner call compile and behave as before
+  - kind: custom
+    text: the page-lock notice behaves exactly as IL-0090 shipped it — PageLockNoticeSurfaceTests pass with only the type name changed
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the root PNGs) is left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/*/Package.swift
+  - apple/macOS/Info.plist
+  - apple/macOS/eDraft.entitlements
+  - packages/**
+  - src/**
+  - static/**
+  - scripts/**
+  - docs/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Package.resolved
+  - "**/DerivedData/**"
+change: The Mac window docks EditorState.banner under the toolbar with IL-0090's accessory (generalised as WindowNoticeAccessory) until dismissed; applyExternalSource gains announcing:, and the Mac announces a reload only when AppKit reloads the document's own file changed on disk since the document last touched it.
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/89c1f01a-dda1-4256-a904-7fd1f0d1a30c/scratchpad/il0099-dd/macos -quiet build && xcodebuild -project apple/eDraft.xcodeproj -scheme eDraft -configuration Debug -destination "generic/platform=iOS Simulator" -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/89c1f01a-dda1-4256-a904-7fd1f0d1a30c/scratchpad/il0099-dd/ios -quiet build
+verifyTimeoutMs: 3600000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageLockNotice.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/WindowNotice.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptWindowController.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/PageLockNoticeSurfaceTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/EditorBannerSurfaceTests.swift
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/ExternalSourceAnnouncementTests.swift
+    - apple/macOS/ScreenplayDocument.swift
+  symbols: []
+  maxFiles: 8
+  maxLines: 540
+accept:
+  - "SHOWN: a banner raised on the Mac docks under the toolbar as a titlebar accessory (.bottom) carrying its words — EditorBannerSurfaceTests fails at HEAD (nothing docks) and passes after."
+  - "LIFETIME: the strip outlives the model's 1.6 s timer, leaves when dismissed, and a newer banner replaces its words in one strip — tested."
+  - "TOGETHER: the banner and the page-lock notice dock at once; dismissing one leaves the other — tested; PageLockNoticeSurfaceTests unchanged but for the type name."
+  - "HONEST: applyExternalSource(announcing: false) applies the text without 'Updated elsewhere'; the default still announces; an unreadable change is reported either way — Core tests."
+  - "MANUAL, stated as manual: an outside change to an open file shows 'Updated elsewhere'; every Revert To item and Browse ▸ Restore show nothing, including after an outside change that arrived while the script had unsaved edits."
+  - "UNCHANGED: iPhone banner behaviour (its applyExternalSource call compiles unchanged — the iOS Simulator build is in verifyCommand); Core and surface suites green; macOS Debug build succeeds."
+assumptions:
+  - text: "HEAD is 75abf47 (IL-0100 committed; IL-0096 committed as abandoned). None of this lock's budget files changed since the spike's base de8841c; the patch applies at 75abf47. Foreign dirt: the xcscheme (owner: leave unstaged), .codedirector/mcp.log, the IL-0077 seal, the root PNGs — none touched; the baseline is the proof."
+    source: system
+    confirmed: false
+  - text: "Both xcodebuild steps build into their own DerivedData under this session's scratchpad (verify-only; relayed as owner-approved from the peer-review session, confirmed by the owner in this window before activation): IL-0096's verify failed only at a shared-DerivedData xcodebuild, and IL-0100 verified once given its own."
+    source: system
+    confirmed: false
+  - text: The line ceiling assumes Code Director counts the rename as a whole file removed and a whole file added (≈200 of the 540); if it counts the rename as the small change it is, the real total is far lower.
+    source: system
+    confirmed: false
+createdAt: 2026-09-23T16:40:00.000Z
+createdBy: Yasirdora
