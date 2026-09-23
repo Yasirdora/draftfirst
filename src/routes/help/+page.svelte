@@ -106,8 +106,8 @@
 			<section class="popular" aria-labelledby="popular-title">
 				<div class="section-width popular-layout">
 					<div>
-						<p class="label">Popular</p>
-						<h2 id="popular-title">The answers people look for most.</h2>
+						<p class="label">Start here</p>
+						<h2 id="popular-title">Common tasks.</h2>
 					</div>
 					<ul class="popular-list">
 						{#each popularArticles as slug}
@@ -149,7 +149,7 @@
 				<h2 id="contact-title">Still stuck?</h2>
 				<p>Email us, or open an issue on GitHub. Both reach a person.</p>
 				<div class="contact-actions">
-					<a class="button" href="mailto:[SUPPORT EMAIL]">Email support</a>
+					<a class="button" href="mailto:support@edraft.xyz">Email support</a>
 					<a class="text-link" href="https://github.com/Yasirdora/edraft/issues" target="_blank" rel="noreferrer">GitHub issues <span aria-hidden="true">›</span></a>
 				</div>
 			</div>

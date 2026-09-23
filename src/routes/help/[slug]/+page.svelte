@@ -70,7 +70,7 @@
 			{/if}
 
 			<p class="contact-strip">
-				Still stuck? <a href="mailto:[SUPPORT EMAIL]">Email support</a> or
+				Still stuck? <a href="mailto:support@edraft.xyz">Email support</a> or
 				<a href="https://github.com/Yasirdora/edraft/issues" target="_blank" rel="noreferrer">open an issue on GitHub</a>.
 			</p>
 		</article>

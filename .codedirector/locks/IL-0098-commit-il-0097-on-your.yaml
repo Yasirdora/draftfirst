@@ -1,0 +1,90 @@
+schemaVersion: 1
+id: IL-0098
+status: verified
+utterance: "Commit IL-0097. On your three calls: agreed on all three — Apple drops the ellipsis, the highlights-loss Note stays (documenting it protects writers; hiding it would be marketing), and noted on Send Feedback. For the decision-4 lock: yes, fold in privacy/+page.svelte:50 and privacy-policy.txt:35 — same placeholder class, one lock. Go ahead with that Vibe Check when ready."
+goal: "Decision 4 from the IL-0097 review: no [SUPPORT EMAIL] placeholder remains in anything the site or the privacy policy ships — the Help Center home and article pages, the privacy page, and the privacy policy's text and HTML copies all give support@edraft.xyz — and the Help Center home's popular-list heading stops claiming data eDraft does not collect. Copy only: no layout, style, route or logic change."
+interpretation: |
+  THE PLACEHOLDER. Every literal [SUPPORT EMAIL] a reader can reach becomes
+  support@edraft.xyz (the owner's answer, 2026-09-23), in the mailto: href
+  and in visible text alike:
+  - src/routes/help/+page.svelte:152 — the home page's Email support button;
+  - src/routes/help/[slug]/+page.svelte:73 — every article's contact strip;
+  - src/routes/privacy/+page.svelte:50 — the privacy page, href and text;
+  - docs/privacy-policy.txt:35 — the policy's text copy;
+  - docs/privacy-policy.html:48 — the policy's HTML copy, href and text.
+    Not named by the owner; found by the scoping grep and proposed under
+    their rule "same placeholder class, one lock" — in only if they say yes.
+  docs/APP-STORE-READINESS.md cites the placeholder as evidence in a dated
+  audit and is left as the record it is.
+
+  THE HEADING. src/routes/help/+page.svelte:109-110 read "Popular" / "The
+  answers people look for most." — a claim about reader behaviour eDraft
+  has no data for (Data Not Collected). They become "Start here" /
+  "Common tasks." The popularArticles list, the markup, ids and classes
+  are unchanged.
+
+  NOT CHANGED. The policies' "Last updated" dates: filling in a contact
+  address is not a change of practice, which is what the policy says the
+  date tracks. The help pages' GitHub links (github.com/Yasirdora/edraft,
+  which GitHub resolves to Yasirdora/eDraft) and all other copy.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: copy only — every changed line differs from HEAD only in the placeholder text or the two heading strings; no markup, class, id, route, style or script changes
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the IL-0096 lock, the root PNGs) is left exactly as found
+deny:
+  - apple/**
+  - packages/**
+  - src/lib/**
+  - src/routes/+page.svelte
+  - src/routes/+layout.svelte
+  - src/routes/+layout.ts
+  - src/routes/404/**
+  - src/routes/features/**
+  - src/routes/screenplay/**
+  - src/routes/help/[slug]/+page.ts
+  - src/app.css
+  - src/app.html
+  - docs/*.md
+  - docs/artifacts/**
+  - docs/tasks/**
+  - docs/images/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - vite.config.ts
+  - tsconfig.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: The Help Center, the privacy page and both copies of the privacy policy give support@edraft.xyz instead of [SUPPORT EMAIL], and the Help Center home's popular heading reads "Start here" / "Common tasks."
+verifyCommand: npm run check && npx vitest run src/lib/help && npx vite build && ! grep -rnF '[SUPPORT EMAIL]' src docs/privacy-policy.txt docs/privacy-policy.html build && ! grep -rnF 'people look for most' src build
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - src/routes/help/+page.svelte
+    - src/routes/help/[slug]/+page.svelte
+    - src/routes/privacy/+page.svelte
+    - docs/privacy-policy.txt
+    - docs/privacy-policy.html
+  symbols: []
+  maxFiles: 5
+  maxLines: 40
+accept: []
+assumptions:
+  - text: "HEAD is 4cae4f2 (IL-0097). Foreign dirt: the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the IL-0096 draft lock, the root PNGs — none touched; the baseline is the proof. IL-0097's run passed the same gates at this tree."
+    source: system
+    confirmed: false
+  - text: The owner approved this lock's scope on 2026-09-23 as IL-0097's decision 4 (renderer copy as a separate lock), gave the address (support@edraft.xyz), and folded in privacy/+page.svelte:50 and privacy-policy.txt:35 ("same placeholder class, one lock").
+    source: user
+    confirmed: true
+  - text: The owner approved both proposals on 2026-09-23 ("Yes to both as proposed — privacy-policy.html is in, and 'Start here' / 'Common tasks.' stands. Go.").
+    source: user
+    confirmed: true
+  - text: cdir's automatic draft anchored on name fragments (RevisionDiff.same, LaunchModel.when, …) and proposed six apple/** files — none fit; the budget and deny list were set by hand from a grep for the placeholder.
+    source: system
+    confirmed: false
+createdAt: 2026-09-23T16:06:17.483Z
+createdBy: Yasirdora
