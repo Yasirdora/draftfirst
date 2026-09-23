@@ -29,19 +29,19 @@ final class TwoPageSheetCostTests: XCTestCase {
 
     /// Hold on to the editor: the surface keeps it weakly, and a keystroke
     /// with no editor behind it never reaches the model or the layout.
-    private func spread(_ elements: [ScriptElement], sheets: Bool = true) -> (EditorState, ScriptSurface, NSWindow) {
+    private func spread(_ elements: [ScriptElement]) -> (EditorState, ScriptSurface, NSWindow) {
         let editor = EditorState(source: "An opening image.")
         editor.screenplay = Screenplay(elements: elements)
-        let (surface, window) = spread(editor, sheets: sheets)
+        let (surface, window) = open(editor, in: .spread)
         return (editor, surface, window)
     }
 
-    private func spread(_ editor: EditorState, sheets: Bool) -> (ScriptSurface, NSWindow) {
-        let surface = ScriptSurface(multiContainerSpreadEnabled: sheets)
+    private func open(_ editor: EditorState, in arrangement: PageArrangement) -> (ScriptSurface, NSWindow) {
+        let surface = ScriptSurface()
         surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1500, height: 1100)
         surface.bind(to: editor)
         surface.renderIfNeeded(editor)
-        surface.setArrangement(.spread)
+        surface.setArrangement(arrangement)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1500, height: 1100),
                               styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -152,11 +152,11 @@ final class TwoPageSheetCostTests: XCTestCase {
 
     /// Median keystroke over 20 after 5 of warm-up, typed ~60% into the
     /// script through the caret's own view — IL-0089's method.
-    private func keystroke(_ data: Data, sheets: Bool) throws -> Double {
+    private func keystroke(_ data: Data, in arrangement: PageArrangement) throws -> Double {
         let file = try ScreenplayFile.open(data, as: .finalDraftScreenplay)
         let editor = EditorState(source: file.source)
         editor.attachImportedNotes(from: file.origin)
-        let (surface, window) = spread(editor, sheets: sheets)
+        let (surface, window) = open(editor, in: arrangement)
         defer { window.close() }
         return try measure(editor, surface, window)
     }
@@ -179,14 +179,16 @@ final class TwoPageSheetCostTests: XCTestCase {
         return times.sorted()[times.count / 2]
     }
 
-    func testAKeystrokeOnSheetsCostsWhatTheLegacyFoldCosts() throws {
+    /// Two Pages against Single pages, the column the retired fold drew
+    /// from (IL-0094). Before the flip the fold measured 6.53 and 3.36 ms.
+    func testAKeystrokeInTwoPagesCostsWhatItCostsInSinglePages() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["EDRAFT_BENCHMARKS"] == "1",
                           "benchmark — set EDRAFT_BENCHMARKS=1")
         for (name, data) in [("115-page synthetic", synthetic()), ("sample02", try sample02())] {
-            let legacy = try keystroke(data, sheets: false)
-            let sheets = try keystroke(data, sheets: true)
-            print(String(format: "BENCH %@: legacy fold %.2f ms · page sheets %.2f ms a keystroke (median of 20)", name, legacy, sheets))
-            XCTAssertLessThan(sheets, legacy * 1.25 + 1, "\(name): page sheets within noise of the legacy fold")
+            let single = try keystroke(data, in: .single)
+            let sheets = try keystroke(data, in: .spread)
+            print(String(format: "BENCH %@: Single pages %.2f ms · Two Pages %.2f ms a keystroke (median of 20)", name, single, sheets))
+            XCTAssertLessThan(sheets, single * 1.25 + 1, "\(name): Two Pages within noise of Single pages")
         }
     }
 }

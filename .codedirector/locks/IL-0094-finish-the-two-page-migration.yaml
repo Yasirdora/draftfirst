@@ -1,0 +1,185 @@
+schemaVersion: 1
+id: IL-0094
+status: verified
+utterance: "Finish the two-page migration: prove it, flip it, retire the legacy path. We do not patch the legacy two-page path. We finish the new one, prove it, make it the default, and retire the old one. Phase 1 — the proof: cross-sheet drag selection and copy; focus/tab order; IME; editing churn across a sheet boundary and at a page break with caret and viewport holding; performance on the 115-page synthetic and sample02, before vs after the flip, no regression past noise. Fail-before recorded. Phase 2 — the flip and the retirement: the PageSheet path becomes the only pages-mode path, the env flag and #if DEBUG gate go away, multiContainerSpreadEnabled ceases to exist; the legacy container code is removed unless something still depends on it — name every dependent and propose the cut line; behaviour parity table. Code Director lock after a Vibe Check I approve; budget by hand; every claim a failing-before test or a measurement."
+goal: "Two Pages is page sheets, always: the env flag, the #if DEBUG gate and multiContainerSpreadEnabled no longer exist; SpreadFold and ArrangedTextView are deleted; PageGapContainer stays for Single pages, Grid and Continuous; every test that leaned on the fold is deleted or re-proved against Single pages; a Navigator reveal in Two Pages rests a fifth below the top as in Single, not on an edge; the RFC records the flip."
+interpretation: |
+  PHASE 2 OF THE BRIEF. Phase 1 is IL-0091 (729cff9). Code Director
+  numbered this lock IL-0094; IL-0092 was never allocated (IL-0091's yaml
+  and commit message call the flip "IL-0092" — same lock).
+
+  SIZED BY A SPIKE, NOT GUESSED: the whole change was made in a scratch
+  clone at 729cff9 — 14 files, +178 / −351 (529 lines, net −173). Full
+  surface suite 369 tests, 7 skipped, 0 failures; macOS Debug build
+  succeeds. Nothing in the tree is touched until this lock is active.
+
+  WHAT GOES (sources):
+  - ScriptSurface: `multiContainerSpreadEnabled`, `debugMultiContainerSpreadEnabled`
+    (the #if DEBUG gate and EDRAFT_MULTI_CONTAINER_SPREAD), the init
+    parameter; the flag test in `layOut()`; both fold assignments;
+    `spreadRect(fromTextRect:)` and the fold arithmetic inside
+    `canvasRect(fromTextRect:)` / `textPoint(fromCanvas:)` / the note-margin
+    rect / `mark(_:)`; `private final class ArrangedTextView` (≈65 lines).
+    The column view becomes a plain NSTextView.
+  - PageCanvasView: `spreadFold`, its construction, `struct SpreadFold`
+    (≈55 lines), and the fold-only text-frame arithmetic for Two Pages (the
+    column view is hidden there; its frame is the column's either way).
+  - Comment text that still says "flagged": PageSheet, FindBarClient.
+
+  CUT LINE — WHAT STAYS, WITH ITS DEPENDENTS:
+  - PageGapContainer: Single pages (its gap bands place each page), Grid
+    (previews are drawn from that gapped layout, `drawGridPageGlyphs`),
+    Continuous (the same container, no bands). Removing it is the RFC's
+    Stage 4 decision (Single and Grid onto sheets) — its own lock.
+  - The column `textView`, `legacyContainer`, `legacySelection`,
+    `restoreLegacyContainerIfNeeded`: the same three modes. Not renamed.
+  - The canvas's `.spread` paper geometry: page sheets sit on it.
+  - `PageSheetFindBarClient` and the legacy finder client (Single etc.).
+
+  TESTS (every one that leaned on the fold, by name):
+  - Deleted — they test deleted code: DiscreteSheetsTests
+    testSpreadFoldPutsTheSecondPageOnTheRight,
+    testSpreadFoldRoundTripsRectGeometry; PageSheetTests
+    testDisabledFlagKeepsTheLegacySpread.
+  - Re-proved on sheets / against Single pages:
+    MultiContainerEquivalenceTests testProductionSpreadMatchesLegacyCanvasRects…
+    → testTwoPagesPutsEveryCharacterWhereSinglePagesPutsItOnItsPage (every
+    character, whole corpus, three viewports, canvas coordinates, 0.5 pt);
+    DiscreteSheetsTests testSpreadRevealMarksTheLineWhereItsInkLands (the
+    highlight on the sheet holding each scene heading, both pages of a
+    fitted opening); PageSheetTests testFlagDoesNotAffectSingleGridOrContinuous
+    → testSingleGridAndContinuousKeepTheColumnView;
+    testDefaultSurfaceUsesLegacyUnlessDebugEnvironmentExplicitlyOptsIn →
+    testTwoPagesIsPageSheets; testLeavingPreviewForContinuous… and
+    testRetiredSheetsAndSurfaceAreReleased lose their flag-off variant;
+    DiscreteSheetsTests testTwoPagePutsFacingSheetsBesideEachOther asserts
+    sheets instead of the column view; TwoPageSheetCostTests' benchmark
+    compares Two Pages with Single pages (the fold it compared with is gone).
+  - Mechanical (`ScriptSurface()` for `ScriptSurface(multiContainerSpreadEnabled: …)`):
+    OmitSceneCommandSurfaceTests, OmittedPageTearTests,
+    OmittedSceneSurfaceTests, PageSheetInteractionTests, TwoPageSheetProofTests;
+    MultiContainerEquivalenceTests' Single reference sets `.single` itself
+    instead of relying on the stored arrangement.
+
+  FAIL-BEFORE (run at 729cff9 with the spike's tests): testTwoPagesIsPageSheets
+  (the default Two Pages is the fold), testSingleGridAndContinuousKeepTheColumnView,
+  testTwoPagePutsFacingSheetsBesideEachOther (0 sheets for 5 pages),
+  testSpreadRevealMarksTheLineWhereItsInkLands (0 sheets) — all fail.
+
+  MEASURED IN THE SPIKE (release, median of 20 after 5 warm-up):
+  | | 115-page synthetic | sample02 |
+  | Two Pages before the flip (the fold, IL-0091 run) | 6.53 ms | 3.36 ms |
+  | Two Pages after the flip (page sheets) | 6.50 ms | 3.60 ms |
+  | Single pages | 6.45 ms | 3.29 ms |
+  sample02 is +0.24 ms (+7%) against the fold — inside the 1.25×+1 ms noise
+  band the benchmark asserts, and reported as a difference, not as zero.
+
+  PARITY TABLE (behaviour | how Two Pages on sheets is proved):
+  | page gaps / placement | converted harness vs Single pages, every character |
+  | find | PageSheetInteractionTests (finder ranges and rects per sheet) |
+  | reveal | converted DiscreteSheets reveal test + PageSheetInteractionTests |
+  | zoom | TwoPageSheetProofTests (IL-0091) |
+  | notes wash | TwoPageSheetProofTests (IL-0091) |
+  | omitted cards | OmittedSceneSurfaceTests / OmitSceneCommandSurfaceTests on sheets |
+  | ghost line | CHANGED ON PURPOSE: shown on sheets (PageSheetInteractionTests); the fold suppressed it |
+  | page-break markers | not applicable: drawn in Continuous only, untouched |
+
+  OWNER'S ON-SCREEN CHECKS (2026-09-23, flagged Debug build of 729cff9):
+  passed — drag across pages with autoscroll, first click into the right
+  page from another app, typing across a boundary, general feel. Not run:
+  a real IME candidate window, VoiceOver across sheets (stay Unchecked).
+  One finding, folded in by the owner's instruction because it fits the
+  budget: a Navigator reveal in Two Pages landed flush on the top or bottom
+  edge. Cause: the sheet branch of `reveal` called `scrollRangeToVisible`
+  (AppKit's least scroll). Single rests a reveal a fifth below the top
+  (`revealAir`, pinned by RevealMarkPlacementTests); the owner chose that
+  rule for Two Pages over a true centre. Fix: the sheet branch uses the same
+  `scroll(revealing…)` rule on the line's canvas Y. Test:
+  DiscreteSheetsTests testATwoPagesRevealRestsAFifthBelowTheTop — fails
+  before the fix (441 pt below the top of a 480 pt view, i.e. the bottom
+  edge; 96 expected), passes after, on both pages of an opening.
+
+  SPIKE WITH THE FIX: 14 files, 595 lines (+240 / −355); suite 370 tests,
+  7 skipped, 0 failures; macOS Debug build succeeds; benchmark Two Pages
+  6.42 / 3.36 ms against Single 6.32 / 3.21 (an earlier run: 6.50 / 3.60).
+
+  RFC: §9's "Enabling the preview" is marked retired; a new §11 records the
+  flip, the cut line, the evidence and what stays unchecked. §10 ends "The
+  default flag must remain off pending the separate human decision after
+  on-screen testing" — the owner's approval of this lock is that decision,
+  and §11 says whether the on-screen checks were run first.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: Single pages, Grid and Continuous behave as before — PageGapContainer.swift is untouched, every line removed from their code path is a fold step that was nil outside Two Pages, and the full surface suite stays green
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the root PNGs) is left exactly as found
+deny:
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/eDraftEngine/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/*/Package.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptWindowController.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageLockNotice.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageGapContainer.swift
+  - packages/**
+  - src/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Package.resolved
+  - "**/DerivedData/**"
+change: Two Pages is page sheets with no flag; the fold (SpreadFold, ArrangedTextView) is deleted; PageGapContainer stays for Single, Grid and Continuous; fold-bound tests are deleted or re-proved against Single pages; a Two Pages reveal rests a fifth below the top; RFC §11 records it.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageSheet.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/FindBarClient.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/DiscreteSheetsTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MultiContainerEquivalenceTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmitSceneCommandSurfaceTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedPageTearTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/OmittedSceneSurfaceTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/PageSheetInteractionTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/PageSheetTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/TwoPageSheetCostTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/TwoPageSheetProofTests.swift
+    - docs/RFC-MULTI-CONTAINER-PAGES.md
+  symbols: []
+  maxFiles: 14
+  maxLines: 600
+accept:
+  - "FLIPPED: a default ScriptSurface in Two Pages uses page sheets — testTwoPagesIsPageSheets, and the converted Two Pages tests, fail at 729cff9 and pass after."
+  - "GONE: no multiContainerSpreadEnabled, EDRAFT_MULTI_CONTAINER_SPREAD, SpreadFold or ArrangedTextView remains under apple/ — shown by grep."
+  - "KEPT: Single pages, Grid and Continuous still lay out on PageGapContainer — testSingleGridAndContinuousKeepTheColumnView; full surface suite green; macOS Debug build succeeds."
+  - "PARITY: every character on its Two Pages sheet sits where Single pages puts it on the same page (whole corpus, three viewports, 0.5 pt); a reveal marks its line on both pages of a fitted opening."
+  - "COST: a Two Pages keystroke after the flip, measured on the 115-page synthetic and sample02, within noise of the pre-flip fold and of Single pages — reported as numbers, including any difference."
+  - "REVEAL: a Navigator reveal in Two Pages rests its line a fifth of the visible height below the top (Single's rule), on either page of an opening — testATwoPagesRevealRestsAFifthBelowTheTop fails before the fix (bottom edge) and passes after."
+  - "DOCS: RFC §9's preview instructions are marked retired; §11 records the flip, the cut line, the evidence and what stays unchecked."
+assumptions:
+  - text: "HEAD is 729cff9 (IL-0091 committed). Foreign dirt: the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the root PNGs — none touched; the baseline is the proof."
+    source: system
+    confirmed: false
+  - text: Code Director allocated IL-0094 for the lock IL-0091 called IL-0092; the number changes, the scope does not.
+    source: system
+    confirmed: false
+  - text: The Stage 4 decision (Single and Grid onto sheets, then PageGapContainer's removal) is out of scope and stays open.
+    source: system
+    confirmed: false
+createdAt: 2026-09-23T05:38:33.426Z
+createdBy: Yasirdora

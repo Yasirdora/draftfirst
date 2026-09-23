@@ -30,24 +30,15 @@ import SwiftUI
 public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegate {
 
     public let scrollView: NSScrollView
-    /// The legacy column view only, detached while the flagged spread editor
-    /// is active. Selection and character geometry resolve their owning sheet.
+    /// The column view of Single pages, Grid and Continuous, detached while
+    /// Two Pages edits on page sheets. Selection and character geometry
+    /// resolve their owning sheet.
     public let textView: NSTextView
     public let textStorage: NSTextStorage
     public let layoutManager: NSLayoutManager
     public private(set) var sheets: [PageSheet] = []
     private let legacyContainer: PageGapContainer
     private var legacySelection: NSRange?
-    private let multiContainerSpreadEnabled: Bool
-
-    /// Opt-in for manual sheet editing; absent (and in Release) means OFF.
-    static var debugMultiContainerSpreadEnabled: Bool {
-        #if DEBUG
-        ProcessInfo.processInfo.environment["EDRAFT_MULTI_CONTAINER_SPREAD"] == "1"
-        #else
-        false
-        #endif
-    }
 
     var usesPageSheets: Bool { !sheets.isEmpty }
 
@@ -219,9 +210,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// note where the writer pointed.
     private var rightClickedElement: UUID?
 
-    public init(measure: CGFloat = 640, multiContainerSpreadEnabled: Bool? = nil) {
-        self.multiContainerSpreadEnabled = multiContainerSpreadEnabled
-            ?? Self.debugMultiContainerSpreadEnabled
+    public init(measure: CGFloat = 640) {
         let textWidth = ScriptLayout.pageMeasure
         self.measure = textWidth
 
@@ -240,7 +229,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         storage.addLayoutManager(layoutManager)
         layoutManager.addTextContainer(container)
 
-        let textView = ArrangedTextView(
+        let textView = NSTextView(
             frame: NSRect(x: 0, y: 0, width: textWidth, height: 0), textContainer: container
         )
         textView.isRichText = false
@@ -823,8 +812,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     private func layOut() {
         var pageStarts: [CGFloat] = [0]
         let pagination = pagination(for: lastLaidElements)
-        if multiContainerSpreadEnabled, canvas.layoutMode == .pages,
-           canvas.arrangement == .spread {
+        if canvas.layoutMode == .pages, canvas.arrangement == .spread {
             layOutPageSheets(pagination)
             return
         }
@@ -871,8 +859,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // already say it, and a rule as well is a third mark for one
         // boundary.
         canvas.showBreaks(at: canvas.layoutMode == .continuous ? pageBreakPositions(pagination) : [])
-        (textView as? ArrangedTextView)?.fold =
-            canvas.arrangement == .spread ? canvas.spreadFold : nil
         placeNoteMarkers()
         washNotedLines()
         scrollView.layoutSubtreeIfNeeded()
@@ -899,7 +885,6 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             textView.isHidden = true
             textView.isEditable = false
             textView.isSelectable = false
-            (textView as? ArrangedTextView)?.fold = nil
             layoutManager.removeTextContainer(at: 0)
             // Retire chrome while its previous host leaves the hierarchy.
             formatBar.hostView.isHidden = true
@@ -1154,29 +1139,15 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         return ScriptLayout.boundingRect(of: probe, in: textView)
     }
 
-    /// A TextKit rectangle in the coordinates its ink actually lands in.
-    ///
-    /// The fold is a transform *inside* the text view, not a step in the view
-    /// hierarchy: `ArrangedTextView.draw` paints every line fragment through
-    /// it, `characterIndexForInsertion` unfolds a point arriving from it, and
-    /// `firstRect` folds on the way out. The view's own space *is* the spread,
-    /// so an overlay hosted by it — a subview, whose frame is read in its
-    /// superview's coordinates — belongs there too. Give one the unfolded
-    /// rectangle and it sits where the line would be in a single column,
-    /// which on an open book is another page.
-    private func spreadRect(fromTextRect rect: CGRect) -> CGRect {
-        (textView as? ArrangedTextView)?.fold?.spreadRect(fromVertical: rect) ?? rect
-    }
-
-    /// The same rectangle again, lifted out to the canvas the scroll view moves.
+    /// A column view's TextKit rectangle, lifted out to the canvas the
+    /// scroll view moves. (Two Pages is page sheets; each is its own view.)
     private func canvasRect(fromTextRect rect: CGRect) -> CGRect {
-        textView.convert(spreadRect(fromTextRect: rect), to: canvas)
+        textView.convert(rect, to: canvas)
     }
 
-    /// Convert a canvas point back into the vertical TextKit column.
+    /// Convert a canvas point back into the column view.
     private func textPoint(fromCanvas point: NSPoint) -> NSPoint {
-        let local = textView.convert(point, from: canvas)
-        return (textView as? ArrangedTextView)?.fold?.verticalPoint(fromSpread: local) ?? local
+        textView.convert(point, from: canvas)
     }
 
     /// What a layout pass can see of the text: everything but identity and
@@ -2229,8 +2200,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                 marginX = mapped.marginX
             } else {
                 guard let rect = boundingRect(atCharacter: range.location) else { continue }
-                let drawn = (textView as? ArrangedTextView)?.fold?.spreadRect(fromVertical: rect) ?? rect
-                inCanvas = canvas.convert(drawn, from: textView)
+                inCanvas = canvas.convert(rect, from: textView)
                 marginX = nil
                 page = 0
             }
@@ -2484,7 +2454,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             guard let geometry = sheetRect(for: mapped.range) else { return false }
             geometry.view.setSelectedRange(NSRange(location: mapped.range.location, length: 0))
             updateSelection()
-            geometry.view.scrollRangeToVisible(mapped.range)
+            /* Single's rule, not `scrollRangeToVisible`: the least scroll
+               that shows a line leaves it flush on an edge (IL-0094). */
+            scroll(revealingCanvasY: canvas.convert(geometry.rect, from: geometry.view).minY)
             highlight.mark(geometry.rect, in: geometry.view, reduceMotion: reduceMotion)
             return true
         }
@@ -2543,13 +2515,17 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// instead, the same arithmetic the clip view owns: paper narrower than
     /// the window stays centred, and paper wider keeps the writer's pan.
     public func scroll(revealing rect: CGRect) {
+        scroll(revealingCanvasY: canvasY(ofTextRect: rect))
+    }
+
+    /// The same, for a line already in the canvas's coordinates — a page
+    /// sheet's, which is a view of its own.
+    private func scroll(revealingCanvasY lineTop: CGFloat) {
         let range = scrollableRange
         guard PageScroll.canScroll(range) else { return }
         let clip = scrollView.contentView
         let air = clip.bounds.height * Self.revealAir
-        let y = PageScroll.offset(
-            bringingContentY: canvasY(ofTextRect: rect), toTopOf: range, airAbove: air
-        )
+        let y = PageScroll.offset(bringingContentY: lineTop, toTopOf: range, airAbove: air)
         let x = clip.bounds.width >= canvas.frame.width
             ? (canvas.frame.width - clip.bounds.width) / 2
             : clip.bounds.origin.x
@@ -2569,17 +2545,13 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     }
 
     /// `rect` arrives in TextKit's own column, the way `ScriptLayout` hands it
-    /// over. The mark is a subview of the text view, so the fold belongs here,
-    /// at the boundary — and the widening belongs before it, because a
-    /// container's width is a column's width and the fold is what scales it.
+    /// over; an empty one is widened to the column's width.
     private func mark(_ rect: CGRect, reduceMotion: Bool) {
         var marked = rect
         if marked.width < 1, let container = textView.textContainer {
             marked.size.width = container.size.width
         }
-        highlight.mark(
-            spreadRect(fromTextRect: marked), in: textView, reduceMotion: reduceMotion
-        )
+        highlight.mark(marked, in: textView, reduceMotion: reduceMotion)
     }
 
     /// Whether a mark is currently on the page — the surface's own answer to
@@ -4063,9 +4035,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             )
         }
         guard let rect = caret else { return nil }
-        // Both ends off one rectangle in one space. A folded top over an
-        // unscaled TextKit height made the band half a line too tall in
-        // Two-page, and the band is what decides the caret has left the glass.
+        // Both ends off one rectangle in one space: the band is what decides
+        // the caret has left the glass.
         let band = canvasRect(fromTextRect: rect)
         return band.minY...(band.minY + max(band.height, 1))
     }
@@ -4205,76 +4176,6 @@ private final class SettleRelay: NSObject {
                 return
             }
             surface.settleFrame()
-        }
-    }
-}
-
-/// The script, drawn as a column or as an open book.
-///
-/// TextKit still lays the type out as one stack — the same bands, the same
-/// page starts — so a line that began a page in Single still begins it in
-/// Two-page. Drawing and hit-testing fold that stack onto facing sheets.
-private final class ArrangedTextView: NSTextView {
-    var fold: SpreadFold? {
-        didSet {
-            if oldValue != fold { needsDisplay = true }
-        }
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        guard let fold, let layoutManager, let textContainer else {
-            super.draw(dirtyRect)
-            return
-        }
-        let origin = textContainerOrigin
-        let glyphs = layoutManager.glyphRange(for: textContainer)
-        layoutManager.enumerateLineFragments(forGlyphRange: glyphs) { _, used, _, glyphRange, _ in
-            let vertical = NSPoint(x: origin.x + used.minX, y: origin.y + used.minY)
-            let dest = fold.spreadPoint(fromVertical: vertical)
-            NSGraphicsContext.saveGraphicsState()
-            let xform = NSAffineTransform()
-            xform.translateX(by: dest.x, yBy: dest.y)
-            xform.scale(by: fold.scale)
-            xform.translateX(by: -used.minX, yBy: -used.minY)
-            xform.concat()
-            layoutManager.drawBackground(forGlyphRange: glyphRange, at: .zero)
-            layoutManager.drawGlyphs(forGlyphRange: glyphRange, at: .zero)
-            NSGraphicsContext.restoreGraphicsState()
-        }
-        if shouldDrawInsertionPoint, let color = insertionPointColor as NSColor? {
-            let range = selectedRange()
-            if range.length == 0 {
-                var actual = NSRange()
-                let screen = firstRect(forCharacterRange: range, actualRange: &actual)
-                if let window, screen != .zero {
-                    let inWindow = window.convertFromScreen(screen)
-                    let inView = convert(inWindow, from: nil)
-                    drawInsertionPoint(in: inView, color: color, turnedOn: true)
-                }
-            }
-        }
-    }
-
-    override func characterIndexForInsertion(at point: NSPoint) -> Int {
-        guard let fold else { return super.characterIndexForInsertion(at: point) }
-        return super.characterIndexForInsertion(at: fold.verticalPoint(fromSpread: point))
-    }
-
-    override func firstRect(forCharacterRange range: NSRange, actualRange: NSRangePointer?) -> NSRect {
-        let rect = super.firstRect(forCharacterRange: range, actualRange: actualRange)
-        guard let fold, let window, rect != .zero else { return rect }
-        let inWindow = window.convertFromScreen(rect)
-        let inView = convert(inWindow, from: nil)
-        let mapped = fold.spreadRect(fromVertical: inView)
-        let back = convert(mapped, to: nil)
-        return window.convertToScreen(back)
-    }
-
-    override func setNeedsDisplay(_ invalidRect: NSRect) {
-        if fold != nil {
-            super.setNeedsDisplay(bounds)
-        } else {
-            super.setNeedsDisplay(invalidRect)
         }
     }
 }

@@ -286,7 +286,7 @@ legacy path.
 
 ### Enabling the preview
 
-The flag defaults **OFF**. In a Debug launch, set the environment variable
+*Retired by IL-0094 — Two Pages is page sheets; see §11.* The flag defaults **OFF**. In a Debug launch, set the environment variable
 `EDRAFT_MULTI_CONTAINER_SPREAD=1` and choose Two-page using the existing
 arrangement control. Unset the variable and relaunch to disable it. Release
 builds ignore this environment switch. Tests use
@@ -424,3 +424,60 @@ and visual inspection with real input; feature-length editing performance.
 The responder and churn tests above establish their specific native-edit
 cases, not all combinations of those interactions. The default flag must
 remain off pending the separate human decision after on-screen testing.
+
+## 11. The flip — IL-0091 and IL-0094, 2026-09-23
+
+Two Pages is page sheets. The flag, the `EDRAFT_MULTI_CONTAINER_SPREAD`
+switch and `ScriptSurface(multiContainerSpreadEnabled:)` are gone, so §9's
+preview instructions no longer apply. `SpreadFold` and `ArrangedTextView`
+are deleted: the fold half of Stage 5. `PageGapContainer` stays, because
+three modes still lay out on it: Single pages (its bands place each page),
+Grid (previews are drawn from that gapped layout) and Continuous (the same
+container without bands). Removing it waits on the Stage 4 decision.
+
+IL-0091 made the sheet path fit to be the only one. A keystroke lays out
+the caret's sheet; the canvas measures the sheets in view, and the rest
+when they scroll in. `PageSheet.follow` moves each sheet's start and its
+container's break with the text as the storage processes an edit, before
+the layout manager hears of it. The geometry change in §9, which throws
+away the layout of every later container, now happens only when
+pagination moves a break the edit did not. Only the sheet holding the
+caret is in the key-view loop, so Tab leaves the page. The ghost line now
+shows in Two Pages; the fold had suppressed it.
+
+A Navigator reveal in Two Pages now rests its line a fifth of the visible
+height below the top, as Single does. The sheet path had asked AppKit for
+the least scroll that showed the line, which left it flush on the top or
+bottom edge; the owner found it on screen before the flip.
+
+The Stage 1/2 harness compared sheets with the fold. With the fold gone,
+its reference is Single pages, the column the fold drew from: every
+character sits on its sheet where it sits on the same page in Single,
+scaled with the paper, in canvas coordinates.
+
+### Measured evidence
+
+Keystroke cost, release build, median of 20 after 5 of warm-up, typed
+about 60% into the script through the caret's own view:
+
+| | 115-page synthetic | `finaldraft-sample02.fdx` |
+|---|---|---|
+| Two Pages before the flip (the fold) | 6.53 ms | 3.36 ms |
+| page sheets before IL-0091 | 102.99 ms | 14.66 ms |
+| Two Pages after IL-0094 (page sheets) | 6.42 ms | 3.36 ms |
+| Single pages, for reference | 6.32 ms | 3.21 ms |
+
+An earlier run of the same typing path measured 6.50 / 3.60 ms against
+Single's 6.45 / 3.29: on sample02 runs differ by about 0.25 ms.
+
+### On screen, before the flip
+
+§10's gate was a human decision after on-screen testing. The owner ran a
+Debug build with the flag on and checked: a drag across pages with
+autoscroll, a first click into the right-hand page from another app,
+typing across a page boundary, and the general feel. The one finding, the
+reveal landing on an edge, is fixed above and pinned by a test.
+
+### Unchecked
+
+A real input method's candidate window, and VoiceOver across sheets.

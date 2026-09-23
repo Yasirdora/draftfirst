@@ -104,7 +104,7 @@ final class MultiContainerEquivalenceTests: XCTestCase {
 
     private func candidate(for elements: [ScriptElement], starts: [Int], production: Bool) -> Candidate {
         if production {
-            let surface = spread(elements, enabled: true, size: CGSize(width: 700, height: 400))
+            let surface = spread(elements, size: CGSize(width: 700, height: 400))
             return Candidate(
                 layoutManager: surface.layoutManager,
                 containers: surface.sheets.map(\.textContainer), leading: nil,
@@ -220,8 +220,8 @@ final class MultiContainerEquivalenceTests: XCTestCase {
         }
     }
 
-    private func spread(_ elements: [ScriptElement], enabled: Bool, size: CGSize) -> ScriptSurface {
-        let surface = ScriptSurface(multiContainerSpreadEnabled: enabled)
+    private func spread(_ elements: [ScriptElement], size: CGSize) -> ScriptSurface {
+        let surface = ScriptSurface()
         surface.scrollView.frame = CGRect(origin: .zero, size: size)
         surface.setArrangement(.spread)
         surface.render(elements)
@@ -302,8 +302,9 @@ final class MultiContainerEquivalenceTests: XCTestCase {
             let starts = try engineStarts(elements)
             let built = candidate(for: elements, starts: starts, production: production)
 
-            let surface = ScriptSurface(multiContainerSpreadEnabled: false)
+            let surface = ScriptSurface()
             surface.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+            surface.setArrangement(.single)
             surface.render(elements)
             surface.setLayoutMode(.pages)
 
@@ -368,44 +369,52 @@ final class MultiContainerEquivalenceTests: XCTestCase {
         }
     }
 
-    /// Stage 2 also owns where the sheets sit. Compare full rectangles in
-    /// canvas coordinates, including the scale of a fitted spread, so a
-    /// page-local match cannot conceal a misplaced right-hand sheet.
-    func testProductionSpreadMatchesLegacyCanvasRectsForEveryCharacter() throws {
+    /// Stage 2 also owns where the sheets sit. Full rectangles in canvas
+    /// coordinates, including the scale of a fitted opening, so a page-local
+    /// match cannot conceal a misplaced right-hand sheet. The reference is
+    /// Single pages — the column the retired fold used to fold (IL-0094): on
+    /// its Two Pages sheet a character sits where it sits on the same page in
+    /// Single, scaled with the paper.
+    func testTwoPagesPutsEveryCharacterWhereSinglePagesPutsItOnItsPage() throws {
         for (name, elements) in corpus() {
             let starts = try engineStarts(elements)
-            let old = spread(elements, enabled: false, size: CGSize(width: 700, height: 400))
-            let new = spread(elements, enabled: true, size: CGSize(width: 700, height: 400))
+            let single = ScriptSurface()
+            single.scrollView.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+            single.setArrangement(.single)
+            single.render(elements)
+            single.setLayoutMode(.pages)
+            let new = spread(elements, size: CGSize(width: 700, height: 400))
             for size in [CGSize(width: 700, height: 400), CGSize(width: 1500, height: 1000),
                          CGSize(width: 600, height: 350)] {
-                for surface in [old, new] {
-                    surface.scrollView.frame.size = size
-                    surface.remeasure(to: size.width, elements: elements)
-                }
-                let fold = try XCTUnwrap(old.canvas.spreadFold)
-                XCTAssertNil(new.canvas.spreadFold)
+                new.scrollView.frame.size = size
+                new.remeasure(to: size.width, elements: elements)
                 XCTAssertEqual(new.sheets.count, starts.count)
-                XCTAssertEqual(new.pageFrames, old.pageFrames)
-                XCTAssertEqual(new.textStorage.string, old.textStorage.string)
+                XCTAssertEqual(new.pageFrames.count, single.pageFrames.count)
+                XCTAssertEqual(new.textStorage.string, single.textStorage.string)
                 var compared = 0
                 var firstFailure: String?
-                for location in 0..<old.textStorage.length {
+                for location in 0..<single.textStorage.length {
                     let page = page(of: location, in: starts)
                     let view = new.sheets[page].textView
                     let range = NSRange(location: location, length: 1)
-                    guard let oldLocal = ScriptLayout.boundingRect(of: range, in: old.textView),
-                          let newLocal = ScriptLayout.boundingRect(of: range, in: view) else { continue }
-                    let expected = old.textView.convert(fold.spreadRect(fromVertical: oldLocal), to: old.canvas)
-                    let actual = view.convert(newLocal, to: new.canvas)
+                    guard let column = ScriptLayout.boundingRect(of: range, in: single.textView),
+                          let sheet = ScriptLayout.boundingRect(of: range, in: view) else { continue }
+                    let paper = single.pageFrames[page], facing = new.pageFrames[page]
+                    let scale = facing.width / paper.width
+                    let onPaper = single.textView.convert(column, to: single.canvas)
+                    let expected = CGRect(x: facing.minX + (onPaper.minX - paper.minX) * scale,
+                                          y: facing.minY + (onPaper.minY - paper.minY) * scale,
+                                          width: onPaper.width * scale, height: onPaper.height * scale)
+                    let actual = view.convert(sheet, to: new.canvas)
                     compared += 1
                     let differences = [actual.minX - expected.minX, actual.minY - expected.minY,
                                        actual.width - expected.width, actual.height - expected.height]
                     if differences.contains(where: { abs($0) > Self.tolerance }), firstFailure == nil {
                         firstFailure = "\(name), viewport \(size), page \(page + 1), character \(location): "
-                            + "legacy \(expected), PageSheet \(actual)"
+                            + "Single pages \(expected), Two Pages \(actual)"
                     }
                 }
-                XCTAssertEqual(compared, old.textStorage.length, "\(name): no character may escape the canvas comparison")
+                XCTAssertEqual(compared, single.textStorage.length, "\(name): no character may escape the canvas comparison")
                 XCTAssertNil(firstFailure, firstFailure ?? "")
             }
         }

@@ -275,7 +275,7 @@ final class OmitSceneCommandSurfaceTests: XCTestCase {
         let file = try ScreenplayFile.open(fdx(before: 30, after: 30), as: .finalDraftScreenplay)
         let editor = EditorState(source: file.source)
         editor.attachImportedNotes(from: file.origin)
-        let surface = ScriptSurface(multiContainerSpreadEnabled: true)
+        let surface = ScriptSurface()
         surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1500, height: 1100)
         surface.bind(to: editor)
         surface.renderIfNeeded(editor)

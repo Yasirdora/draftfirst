@@ -45,7 +45,7 @@ final class FindBarClient: NSObject, NSTextFinderClient {
     }
 }
 
-/// NSTextFinder's multi-view contract for the flagged sheet architecture.
+/// NSTextFinder's multi-view contract for Two Pages' page sheets.
 /// The legacy client above deliberately retains its original implementation.
 @MainActor
 final class PageSheetFindBarClient: NSObject, NSTextFinderClient {

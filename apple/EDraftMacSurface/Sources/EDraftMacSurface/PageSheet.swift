@@ -1,7 +1,7 @@
 import AppKit
 import EDraftCore
 
-/// One engine page in the flagged spread editor. All sheets share the
+/// One engine page of Two Pages. All sheets share the
 /// surface's storage and layout manager; neither pagination nor text is copied.
 @MainActor
 public final class PageSheet {

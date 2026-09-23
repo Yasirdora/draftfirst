@@ -227,8 +227,9 @@ final class DiscreteSheetsTests: XCTestCase {
             accuracy: 0.5
         )
         XCTAssertLessThanOrEqual(scale, 1.001, "two-page never draws larger than life size")
-        XCTAssertTrue(surface.textView.isEditable)
-        XCTAssertFalse(surface.textView.isHidden)
+        XCTAssertEqual(surface.sheets.count, pages.count, "a sheet per page carries the type")
+        XCTAssertTrue(surface.sheets.allSatisfy { $0.textView.isEditable && !$0.textView.isHidden })
+        XCTAssertTrue(surface.textView.isHidden)
     }
 
     func testGridIsFourAcross() throws {
@@ -294,45 +295,16 @@ final class DiscreteSheetsTests: XCTestCase {
         XCTAssertFalse(surface.textView.isHidden)
     }
 
-    func testSpreadFoldPutsTheSecondPageOnTheRight() {
-        let fold = SpreadFold(
-            pageTops: [0, 800],
-            columnPitch: 613,
-            rowPitch: 797,
-            scale: 1
-        )
-        let onTheRight = fold.spreadPoint(fromVertical: CGPoint(x: 10, y: 810))
-        XCTAssertGreaterThan(onTheRight.x, 600)
-        XCTAssertEqual(onTheRight.y, 10, accuracy: 0.5)
-        let back = fold.verticalPoint(fromSpread: onTheRight)
-        XCTAssertEqual(back.x, 10, accuracy: 0.5)
-        XCTAssertEqual(back.y, 810, accuracy: 0.5)
-    }
-
-    func testSpreadFoldRoundTripsRectGeometry() {
-        let fold = SpreadFold(pageTops: [0, 800], columnPitch: 613, rowPitch: 797, scale: 0.75)
-        let source = CGRect(x: 40, y: 810, width: 120, height: 12)
-        let spread = fold.spreadRect(fromVertical: source)
-        let back = fold.verticalPoint(fromSpread: spread.origin)
-        XCTAssertEqual(back.x, source.minX, accuracy: 0.5)
-        XCTAssertEqual(back.y, source.minY, accuracy: 0.5)
-        XCTAssertEqual(spread.width, source.width * 0.75, accuracy: 0.5)
-        XCTAssertEqual(spread.height, source.height * 0.75, accuracy: 0.5)
-    }
-
-    /// The mark is a subview of the text view, and the text view's own space is
-    /// the folded one — `ArrangedTextView.draw` paints the glyphs through the
-    /// fold. A mark handed TextKit's unfolded rectangle lands where the line
-    /// would be in a single column: past the first sheet that is off the bottom
-    /// of the opening, and never on the right-hand page.
+    /// A reveal marks the line on the sheet that holds it: every scene
+    /// heading, on both pages of a fitted opening and past the first one.
     func testSpreadRevealMarksTheLineWhereItsInkLands() throws {
         let elements = script(scenes: 25)
         let surface = surface(elements, mode: .pages)
         surface.setArrangement(.spread)
 
-        let fold = try XCTUnwrap(surface.canvas.spreadFold)
-        XCTAssertGreaterThan(fold.pageTops.count, 2, "the proof needs lines past the first opening")
-        XCTAssertLessThan(fold.scale, 1, "a fitted opening, or the scale proves nothing")
+        XCTAssertGreaterThan(surface.sheets.count, 2, "the proof needs lines past the first opening")
+        XCTAssertLessThan(surface.pageFrames[0].width, PageFormat.current.pageRect.width,
+                          "a fitted opening, or the scale proves nothing")
 
         let byID = Dictionary(
             uniqueKeysWithValues: ScriptLayout.attributedScript(elements, measure: 500)
@@ -342,16 +314,52 @@ final class DiscreteSheetsTests: XCTestCase {
         for element in elements where element.type == .scene {
             let range = try XCTUnwrap(byID[element.id], element.text)
             XCTAssertTrue(surface.reveal(element.id, reduceMotion: true), element.text)
-            let line = try XCTUnwrap(
-                ScriptLayout.boundingRect(of: range, in: surface.textView), element.text
-            )
-            let folded = fold.spreadRect(fromVertical: line)
-            XCTAssertTrue(surface.highlight.superview === surface.textView, element.text)
-            XCTAssertEqual(surface.highlight.frame.midY, folded.midY, accuracy: 1, element.text)
-            XCTAssertEqual(surface.highlight.frame.midX, folded.midX, accuracy: 1, element.text)
-            columns.insert(fold.pageIndex(atVerticalY: line.minY) % 2)
+            let page = try XCTUnwrap(surface.sheets.lastIndex { $0.startLocation <= range.location }, element.text)
+            let view = surface.sheets[page].textView
+            let line = try XCTUnwrap(ScriptLayout.sheetBoundingRect(of: range, in: view), element.text)
+            XCTAssertTrue(surface.highlight.superview === view, element.text)
+            XCTAssertEqual(surface.highlight.frame.midY, line.midY, accuracy: 1, element.text)
+            columns.insert(page % 2)
         }
         XCTAssertEqual(columns, [0, 1], "both pages of the opening must be proved")
+    }
+
+    /// A Navigator reveal in Two Pages rests its line a fifth of the visible
+    /// height below the top — Single's rule, `RevealMarkPlacementTests` — on
+    /// either page of an opening. It used to ask AppKit for the least scroll
+    /// that made the line visible, which left it flush on the top or bottom
+    /// edge (found on screen, IL-0094).
+    func testATwoPagesRevealRestsAFifthBelowTheTop() throws {
+        let elements = script(scenes: 60)
+        let surface = surface(elements, mode: .pages)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
+                              styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        window.contentView = surface.scrollView
+        surface.setArrangement(.spread)
+        surface.scrollView.layoutSubtreeIfNeeded()
+        surface.remeasure(to: 900, elements: elements)
+
+        let ranges = Dictionary(uniqueKeysWithValues: surface.ranges.map { ($0.id, $0.range) })
+        let scenes = elements.filter { $0.type == .scene }
+        var proved: Set<Int> = []
+        for scene in scenes[scenes.count / 3 ..< scenes.count * 2 / 3] {
+            let range = try XCTUnwrap(ranges[scene.id])
+            let page = try XCTUnwrap(surface.sheets.lastIndex { $0.startLocation <= range.location })
+            guard page >= 2, !proved.contains(page % 2) else { continue }
+            XCTAssertTrue(surface.reveal(scene.id, reduceMotion: true), scene.text)
+
+            let view = surface.sheets[page].textView
+            let line = try XCTUnwrap(ScriptLayout.sheetBoundingRect(of: range, in: view))
+            let clip = surface.scrollView.contentView
+            let readableTop = clip.bounds.minY + surface.scrollView.contentInsets.top
+            let belowTop = surface.canvas.convert(line, from: view).minY - readableTop
+            XCTAssertEqual(belowTop, clip.bounds.height * 0.2, accuracy: 2,
+                           "\(scene.text), page \(page + 1): not a fifth below the top")
+            proved.insert(page % 2)
+        }
+        XCTAssertEqual(proved, [0, 1], "both pages of an opening must be proved")
     }
 
     func testGridLightsTheSheetANavigatorClickAskedFor() throws {

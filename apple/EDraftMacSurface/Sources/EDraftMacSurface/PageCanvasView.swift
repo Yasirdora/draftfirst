@@ -80,10 +80,6 @@ final class PageCanvasView: NSView {
         didSet { if oldValue != highlightedPage { applyAppearance(); needsDisplay = true } }
     }
 
-    /// How a vertical stack of type maps onto facing pages, in the text
-    /// view's own coordinates.
-    private(set) var spreadFold: SpreadFold?
-
     private var breakMarkers: [PageBreakMarker] = []
     private var noteMarkers: [NoteMarker] = []
 
@@ -166,9 +162,9 @@ final class PageCanvasView: NSView {
                     starts: starts)
     }
 
-    /// Stage 2 uses ordinary views on the same paper geometry. The frame-to-
-    /// bounds scale belongs to AppKit, so the layout manager and view hierarchy
-    /// agree; no SpreadFold participates in drawing these views.
+    /// Two Pages: one ordinary view per page sheet on the same paper
+    /// geometry. The frame-to-bounds scale belongs to AppKit, so the layout
+    /// manager and the view hierarchy agree.
     func layoutSheets(_ sheets: [PageSheet], viewport: CGSize) {
         precondition(layoutMode == .pages && arrangement == .spread)
         layoutPages(pageCount: sheets.count, textHeight: 1, viewport: viewport)
@@ -384,16 +380,6 @@ final class PageCanvasView: NSView {
 
         syncGridChrome()
 
-        spreadFold = nil
-        if arranged == .spread, let starts, !starts.isEmpty {
-            spreadFold = SpreadFold(
-                pageTops: starts.map { $0 - starts[0] },
-                columnPitch: pageSize.width + Self.spreadHairline,
-                rowPitch: pageSize.height + Self.pageGap,
-                scale: scale
-            )
-        }
-
         // Headroom for a glyph taller than its line. The view starts one line
         // above the text block and insets the text back down by the same
         // amount, so the first line of type still sits exactly on `textTop`
@@ -410,22 +396,13 @@ final class PageCanvasView: NSView {
         if let textView, textView.textContainerInset != inset {
             textView.textContainerInset = inset
         }
-        let textWidthOnCanvas: CGFloat = switch arranged {
-        case .spread: (textWidth + pageSize.width + Self.spreadHairline) * scale
-        case .single, .grid: textWidth
-        }
-        let textHeightOnCanvas: CGFloat = switch arranged {
-        case .spread:
-            (max(CGFloat(rows) * (pageSize.height + Self.pageGap) - Self.pageGap, textBlock, 1)
-                + slack * 2) * scale
-        case .single, .grid:
-            max(textHeight, usingSheets ? lastTextBottom : textHeight, 1) + slack * 2
-        }
+        // In Two Pages the column view is hidden and the page sheets carry
+        // the type (`layoutSheets`); its frame is the column's either way.
         textView?.frame = CGRect(
             x: x0 + ScreenplayPageLayout.textLeft * scale,
             y: desk + (format.textTop - slack) * scale,
-            width: textWidthOnCanvas,
-            height: textHeightOnCanvas
+            width: textWidth,
+            height: max(textHeight, usingSheets ? lastTextBottom : textHeight, 1) + slack * 2
         )
         textView?.isHidden = arranged == .grid
         applyAppearance()
@@ -908,61 +885,5 @@ final class PageCanvasView: NSView {
         page.wantsLayer = true
         // What it looks like is `applyAppearance`'s, all of it — see there.
         return page
-    }
-}
-
-/// Vertical type folded onto facing pages.
-///
-/// Layout still happens as a column — the same bands, the same page
-/// starts — and drawing and hit-testing ask this where that column sits
-/// on an open book. Pagination is not consulted; the starts already are.
-struct SpreadFold: Equatable {
-    let pageTops: [CGFloat]
-    let columnPitch: CGFloat
-    let rowPitch: CGFloat
-    /// 1 is life size. Smaller when the opening is fitted to the window.
-    var scale: CGFloat = 1
-
-    func pageIndex(atVerticalY y: CGFloat) -> Int {
-        guard pageTops.count > 1 else { return 0 }
-        var i = 0
-        while i + 1 < pageTops.count, pageTops[i + 1] <= y + 0.01 {
-            i += 1
-        }
-        return i
-    }
-
-    func spreadPoint(fromVertical p: CGPoint) -> CGPoint {
-        let page = pageIndex(atVerticalY: p.y)
-        let col = page % 2
-        let row = page / 2
-        let top = page < pageTops.count ? pageTops[page] : 0
-        let s = scale
-        return CGPoint(
-            x: (p.x + CGFloat(col) * columnPitch) * s,
-            y: (CGFloat(row) * rowPitch + (p.y - top)) * s
-        )
-    }
-
-    func verticalPoint(fromSpread p: CGPoint) -> CGPoint {
-        let s = max(scale, 0.0001)
-        let q = CGPoint(x: p.x / s, y: p.y / s)
-        let col = q.x >= columnPitch - 0.5 ? 1 : 0
-        let row = max(0, Int((q.y / max(rowPitch, 1)).rounded(.down)))
-        let page = min(pageTops.count - 1, max(0, row * 2 + col))
-        let top = pageTops.indices.contains(page) ? pageTops[page] : 0
-        let yInPage = q.y - CGFloat(row) * rowPitch
-        return CGPoint(
-            x: q.x - CGFloat(col) * columnPitch,
-            y: top + yInPage
-        )
-    }
-
-    func spreadRect(fromVertical r: CGRect) -> CGRect {
-        let origin = spreadPoint(fromVertical: r.origin)
-        return CGRect(
-            origin: origin,
-            size: CGSize(width: r.width * scale, height: r.height * scale)
-        )
     }
 }

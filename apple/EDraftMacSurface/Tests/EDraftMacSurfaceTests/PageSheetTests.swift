@@ -24,8 +24,8 @@ final class PageSheetTests: XCTestCase {
         }
     }
 
-    private func surface(_ elements: [ScriptElement], enabled: Bool = true) -> ScriptSurface {
-        let surface = ScriptSurface(multiContainerSpreadEnabled: enabled)
+    private func surface(_ elements: [ScriptElement]) -> ScriptSurface {
+        let surface = ScriptSurface()
         surface.scrollView.frame = NSRect(x: 0, y: 0, width: 900, height: 650)
         surface.setArrangement(.spread)
         surface.render(elements)
@@ -74,36 +74,22 @@ final class PageSheetTests: XCTestCase {
         }
     }
 
-    func testDisabledFlagKeepsTheLegacySpread() {
-        let surface = surface(script(25), enabled: false)
+    /// Page sheets are Two Pages only. Single pages, Grid and Continuous keep
+    /// the column view in the one layout manager.
+    func testSingleGridAndContinuousKeepTheColumnView() {
+        let surface = surface(script(25))
+        XCTAssertFalse(surface.sheets.isEmpty)
+        for arrangement in [PageArrangement.single, .grid] {
+            surface.setArrangement(arrangement)
+            XCTAssertTrue(surface.sheets.isEmpty, "\(arrangement)")
+            XCTAssertTrue(surface.textView.textContainer is PageGapContainer)
+            XCTAssertTrue(surface.textView.layoutManager === surface.layoutManager)
+            XCTAssertEqual(surface.layoutManager.textContainers.count, 1)
+        }
+        surface.setArrangement(.single)
+        surface.setLayoutMode(.continuous)
         XCTAssertTrue(surface.sheets.isEmpty)
-        XCTAssertTrue(surface.textView.textStorage === surface.textStorage)
-        XCTAssertTrue(surface.textView.textContainer is PageGapContainer)
-        XCTAssertEqual(surface.layoutManager.textContainers.count, 1)
-        XCTAssertNotNil(surface.canvas.spreadFold)
-        XCTAssertFalse(surface.textView.isHidden)
-    }
-
-    func testFlagDoesNotAffectSingleGridOrContinuous() {
-        let elements = script(25)
-        let enabled = ScriptSurface(multiContainerSpreadEnabled: true)
-        let disabled = ScriptSurface(multiContainerSpreadEnabled: false)
-        for surface in [enabled, disabled] {
-            surface.scrollView.frame = NSRect(x: 0, y: 0, width: 900, height: 650)
-            surface.render(elements)
-        }
-        for arrangement in [PageArrangement.single, .grid, .single] {
-            for surface in [enabled, disabled] { surface.setArrangement(arrangement) }
-            XCTAssertTrue(enabled.sheets.isEmpty)
-            XCTAssertEqual(enabled.pageFrames, disabled.pageFrames)
-            XCTAssertEqual(enabled.textView.frame, disabled.textView.frame)
-            XCTAssertEqual(enabled.textView.isHidden, disabled.textView.isHidden)
-            XCTAssertEqual(enabled.textView.isEditable, disabled.textView.isEditable)
-        }
-        for surface in [enabled, disabled] { surface.setLayoutMode(.continuous) }
-        XCTAssertTrue(enabled.sheets.isEmpty)
-        XCTAssertEqual(enabled.pageFrames, disabled.pageFrames)
-        XCTAssertEqual(enabled.textView.frame, disabled.textView.frame)
+        XCTAssertTrue(surface.textView.layoutManager === surface.layoutManager)
     }
 
     func testMovingABreakAfterLayoutInvalidatesContainerGeometry() {
@@ -169,7 +155,7 @@ final class PageSheetTests: XCTestCase {
     }
 
     func testReturningToLegacyAfterPreviewUsesCurrentTextAndBreaks() throws {
-        let surface = ScriptSurface(multiContainerSpreadEnabled: true)
+        let surface = ScriptSurface()
         surface.render(script(20))
         let storage = surface.textStorage
         let manager = surface.layoutManager
@@ -205,17 +191,13 @@ final class PageSheetTests: XCTestCase {
         for (before, after) in zip(sheets, surface.sheets) { XCTAssertTrue(before === after) }
     }
 
-    func testDefaultSurfaceUsesLegacyUnlessDebugEnvironmentExplicitlyOptsIn() {
+    /// Two Pages is page sheets — no flag, no environment switch (IL-0094).
+    func testTwoPagesIsPageSheets() {
         let surface = ScriptSurface()
         surface.setArrangement(.spread)
         surface.render(script(10))
-        #if DEBUG
-        let enabled = ProcessInfo.processInfo.environment["EDRAFT_MULTI_CONTAINER_SPREAD"] == "1"
-        #else
-        let enabled = false
-        #endif
-        XCTAssertEqual(surface.usesPageSheets, enabled)
-        XCTAssertEqual(surface.textView.layoutManager == nil, enabled)
+        XCTAssertTrue(surface.usesPageSheets)
+        XCTAssertNil(surface.textView.layoutManager, "the column view is detached")
     }
 
     func testLeavingPreviewForContinuousRestoresTheSameLegacyGeometry() {
@@ -223,8 +205,14 @@ final class PageSheetTests: XCTestCase {
         let preview = surface(script(5))
         preview.render(elements)
         preview.setLayoutMode(.continuous)
-        let legacy = surface(elements, enabled: false)
+        // Never in Two Pages. Continuous lays out as one column whatever
+        // the arrangement, so Single is the same reference the fold was.
+        let legacy = ScriptSurface()
+        legacy.scrollView.frame = NSRect(x: 0, y: 0, width: 900, height: 650)
+        legacy.setArrangement(.single)
+        legacy.render(elements)
         legacy.setLayoutMode(.continuous)
+        XCTAssertTrue(legacy.sheets.isEmpty)
         XCTAssertTrue(preview.sheets.isEmpty)
         XCTAssertEqual(preview.pageFrames, legacy.pageFrames)
         XCTAssertEqual(preview.textView.frame, legacy.textView.frame)
@@ -238,18 +226,17 @@ final class PageSheetTests: XCTestCase {
     /// switch back to the legacy container. AppKit's internal text-system
     /// caches have a separate lifetime on both architectures.
     func testRetiredSheetsAndSurfaceAreReleased() {
-        for enabled in [false, true] {
-            weak var owner: ScriptSurface?
-            weak var retired: PageSheet?
-            autoreleasepool {
-                let surface = surface(script(20), enabled: enabled)
-                owner = surface
-                retired = surface.sheets.last
-                surface.setArrangement(.single)
-                XCTAssertNil(retired)
-            }
-            XCTAssertNil(owner)
+        weak var owner: ScriptSurface?
+        weak var retired: PageSheet?
+        autoreleasepool {
+            let surface = surface(script(20))
+            owner = surface
+            retired = surface.sheets.last
+            XCTAssertNotNil(retired)
+            surface.setArrangement(.single)
+            XCTAssertNil(retired)
         }
+        XCTAssertNil(owner)
     }
 
 
@@ -261,7 +248,7 @@ final class PageSheetTests: XCTestCase {
         editor.screenplay = Screenplay(titlePage: [], elements: elements)
         editor.activeElementID = elements[41].id
         editor.selectionOffset = 3
-        let surface = ScriptSurface(multiContainerSpreadEnabled: true)
+        let surface = ScriptSurface()
         surface.bind(to: editor)
         surface.renderIfNeeded(editor)
         let selection = surface.textView.selectedRange()

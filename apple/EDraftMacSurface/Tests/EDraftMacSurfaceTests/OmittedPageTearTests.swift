@@ -50,7 +50,7 @@ final class OmittedPageTearTests: XCTestCase {
         let file = try ScreenplayFile.open(data, as: .finalDraftScreenplay)
         let editor = EditorState(source: file.source)
         editor.attachImportedNotes(from: file.origin)
-        let surface = ScriptSurface(multiContainerSpreadEnabled: sheets)
+        let surface = ScriptSurface()
         surface.scrollView.frame = NSRect(x: 0, y: 0, width: 1500, height: 1100)
         surface.bind(to: editor)
         surface.renderIfNeeded(editor)
