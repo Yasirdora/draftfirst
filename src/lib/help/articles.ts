@@ -5,6 +5,13 @@
  * summary, related slugs, and body blocks. The same data will later
  * generate the Apple Help Book, so keep everything here plain and
  * serializable. Renderers live in the routes; they never invent content.
+ *
+ * Written to Apple's help standard for the Mac app: imperative titles for
+ * tasks, "Intro to …" for concepts, "If …" for problems; second person;
+ * menu paths as "File > Export > PDF"; the app's own names for things. A
+ * Tip only when it saves the reader time; a caveat is a Note. Every claim
+ * is true of the app as it ships — a behaviour that is not built yet does
+ * not get an article.
  */
 
 export type HelpBlock =
@@ -13,7 +20,8 @@ export type HelpBlock =
 	| { type: 'list'; items: string[] }
 	| { type: 'steps'; items: string[] }
 	| { type: 'table'; head: string[]; rows: string[][] }
-	| { type: 'tip'; text: string };
+	| { type: 'tip'; text: string }
+	| { type: 'note'; text: string };
 
 export interface HelpArticle {
 	slug: string;
@@ -31,484 +39,877 @@ export interface HelpCategory {
 }
 
 export const helpCategories: HelpCategory[] = [
-	{ id: 'getting-started', name: 'Get started', description: 'New scripts, opening files, and bringing in work from other apps.' },
-	{ id: 'writing', name: 'Writing', description: 'Elements, the Tab and Return flow, and writing suggestions.' },
-	{ id: 'notes', name: 'Notes', description: 'Margin notes, threads, and where notes live in your file.' },
-	{ id: 'scenes', name: 'Scenes', description: 'Numbering, omitting, and moving between scenes.' },
-	{ id: 'pages', name: 'Pages & title page', description: 'Layouts, zoom, paper, and the title page.' },
-	{ id: 'files', name: 'Files & privacy', description: 'Where scripts live, iCloud, and file formats.' },
+	{ id: 'getting-started', name: 'Get started', description: 'The library, new scripts, and Final Draft files.' },
+	{ id: 'writing', name: 'Write', description: 'Elements, Tab and Return, suggestions, and emphasis.' },
+	{ id: 'notes', name: 'Notes', description: 'Add notes to lines and review them in the Navigator.' },
+	{ id: 'scenes', name: 'Scenes & structure', description: 'The Navigator, scene numbers, omitted scenes, and characters.' },
+	{ id: 'pages', name: 'Pages & view', description: 'Page layouts, zoom, Focus, Dark Mode, and the title page.' },
+	{ id: 'files', name: 'Final Draft & files', description: 'Saving, versions, Final Draft and Fountain files, and privacy.' },
 	{ id: 'export', name: 'Export & print', description: 'PDF, Final Draft, Fountain, plain text, and printing.' },
-	{ id: 'support', name: 'Shortcuts & support', description: 'Every shortcut, first fixes, and how to reach us.' }
+	{ id: 'support', name: 'Shortcuts & support', description: 'Keyboard shortcuts, fixes for common problems, and contact.' }
 ];
 
 export const popularArticles = [
 	'import-final-draft',
 	'tab-and-return',
-	'writing-suggestions',
+	'omit-a-scene',
 	'export-pdf',
-	'omit-a-scene'
+	'keyboard-shortcuts'
 ];
 
 export const helpArticles: HelpArticle[] = [
+	// Get started
+
 	{
-		slug: 'start-a-screenplay',
-		title: 'Start a new screenplay',
+		slug: 'intro-to-edraft',
+		title: 'Intro to eDraft',
 		category: 'getting-started',
-		summary: 'The launch window, recent scripts, favorites, and the grid.',
-		related: ['open-and-manage', 'where-files-live', 'screenplay-elements'],
+		summary: 'The library, the script window, and where the commands are.',
+		related: ['use-the-library', 'use-the-navigator', 'screenplay-elements'],
 		blocks: [
-			{ type: 'p', text: 'When you open eDraft, the launch window is where you begin. It shows the scripts you had open most recently, with the newest first.' },
-			{ type: 'steps', items: [
-				'Click New Screenplay for a blank script.',
-				'Click Open… to pick an existing file from anywhere on your Mac or in iCloud Drive.',
-				'Click any recent script to continue where you left off.'
-			] },
+			{ type: 'p', text: 'eDraft is a screenwriting app. As you type, it formats each line as part of a screenplay — a scene heading, action, a character’s name, dialogue — on pages laid out the way they print.' },
 			{ type: 'h', text: 'The library' },
-			{ type: 'p', text: 'Each recent script shows its name and when you last touched it — Today, Yesterday, or a date. The toolbar switch flips between the grid of pages and a compact list, and the toolbar search narrows the library by name.' },
-			{ type: 'p', text: 'The ⋯ menu on a script opens it in a new window, renames it, duplicates it, favorites it, or moves it to the Trash. Trash is undoable — a banner appears at the bottom of the window with an Undo button until you dismiss it.' },
-			{ type: 'tip', text: 'Star a script with Favorite to pin it to the top of the library.' }
+			{ type: 'p', text: 'When you open eDraft, the library shows the scripts you opened most recently. Click a script to open it, or click New Screenplay to start one.' },
+			{ type: 'h', text: 'The script window' },
+			{ type: 'list', items: [
+				'The Navigator, on the left, lists the script’s scenes, its cast, and its notes. Click an item to go to it.',
+				'The page, in the middle, is where you write.',
+				'The toolbar has Back, which returns to the library; the Element button, which shows the current line’s element; Focus; Layout; Page; Title Page; Export; and More.',
+				'Below the script’s name, the window shows its page count and an estimate of its running time.',
+				'The zoom control is in the lower-right corner of the window.'
+			] },
+			{ type: 'p', text: 'Commands for elements, scene numbers, and omitted scenes are in the Format menu. Commands for how the page looks are in the View menu.' }
 		]
 	},
 	{
-		slug: 'open-and-manage',
-		title: 'Open, rename, move, or duplicate a script',
+		slug: 'start-a-screenplay',
+		title: 'Create a screenplay',
 		category: 'getting-started',
-		summary: 'File menu basics, Open Recent, and Revert To.',
-		related: ['start-a-screenplay', 'where-files-live', 'troubleshooting'],
+		summary: 'Start a new script and choose where it’s saved.',
+		related: ['use-the-library', 'where-files-live', 'title-page'],
 		blocks: [
-			{ type: 'p', text: 'Scripts are ordinary documents. Everything you expect from a Mac document app is in the File menu.' },
-			{ type: 'list', items: [
-				'File → Open Recent lists the scripts you touched last, and Clear Menu empties the list.',
-				'File → Rename… changes only the name. The file keeps its place.',
-				'File → Move To… and File → Show in Finder put the file where you want it.',
-				'File → Duplicate (⇧⌘S) saves a copy under a new name and opens that copy.'
+			{ type: 'steps', items: [
+				'In the library, click New Screenplay, or choose File > New (⌘N).',
+				'Start typing on the page. To begin a scene heading, type INT. or EXT.',
+				'Choose File > Save (⌘S), enter a name, then click Save.'
 			] },
-			{ type: 'h', text: 'Going back' },
-			{ type: 'p', text: 'File → Revert To → Last Saved discards changes since the last save. Revert To → Browse All Versions… opens the version browser, so you can compare and pull from earlier saves.' },
-			{ type: 'tip', text: 'Rename and Duplicate are also on the ⋯ menu of any recent script in the launch window.' }
+			{ type: 'p', text: 'The first time you save a new script, eDraft suggests the eDraft folder in iCloud Drive. You can choose another folder instead.' },
+			{ type: 'p', text: 'After the first save, eDraft saves your changes as you work.' },
+			{ type: 'p', text: 'A new script starts with a title page titled Untitled Screenplay. To change it, see Create a title page.' }
+		]
+	},
+	{
+		slug: 'use-the-library',
+		title: 'Find and manage scripts in the library',
+		category: 'getting-started',
+		summary: 'Open recent scripts, search, mark favorites, and move scripts to the Trash.',
+		related: ['start-a-screenplay', 'open-and-manage', 'where-files-live'],
+		blocks: [
+			{ type: 'p', text: 'The library opens when you start eDraft. It shows your most recent scripts, newest first, with the date each one last changed.' },
+			{ type: 'p', text: 'To return to the library from a script, click Back in the toolbar. The script’s window closes.' },
+			{ type: 'h', text: 'Find a script' },
+			{ type: 'list', items: [
+				'To switch between cards and a list, click Grid or List in the toolbar.',
+				'To find a script by name, type in the search field in the toolbar.',
+				'Favorites always appear first.'
+			] },
+			{ type: 'h', text: 'Manage a script' },
+			{ type: 'p', text: 'Click the More button (…) next to a script’s name, then choose any of the following:' },
+			{ type: 'list', items: [
+				'Open in New Window: Opens the script in a new window.',
+				'Rename: Changes the script’s name. The file stays in the same folder.',
+				'Duplicate: Makes a copy of the script.',
+				'Favorite or Unfavorite: Keeps the script at the top of the library, or stops keeping it there.',
+				'Move to Trash: Moves the file to the Trash. To put it back, click Undo in the bar at the bottom of the window.'
+			] }
 		]
 	},
 	{
 		slug: 'import-final-draft',
-		title: 'Import a Final Draft file',
+		title: 'Open a Final Draft file',
 		category: 'getting-started',
-		summary: 'Open a .fdx, read the import report, and keep your original.',
-		related: ['export-final-draft', 'fountain-and-fdx', 'troubleshooting'],
+		summary: 'Open a .fdx script and keep working in it.',
+		related: ['final-draft-files', 'final-draft-page-locks', 'share-with-final-draft-users'],
 		blocks: [
-			{ type: 'p', text: 'eDraft opens Final Draft files directly. Choose File → Open… and pick the .fdx file, or double-click it in Finder. There is no separate import step.' },
-			{ type: 'h', text: 'What gets imported' },
-			{ type: 'p', text: 'eDraft reads a deliberately bounded subset of FDX — the screenplay content itself. Scene headings, action, characters, parentheticals, dialogue, transitions, shots, scene numbers, and notes all come across.' },
-			{ type: 'h', text: 'Read the report' },
-			{ type: 'p', text: 'When something in the file is outside that subset, eDraft says so instead of guessing. Review any import warnings, and check the pages before a production deadline.' },
-			{ type: 'tip', text: 'Keep the original .fdx. eDraft never modifies it, and a production file should never have only one home.' }
+			{ type: 'p', text: 'eDraft opens Final Draft files (.fdx) and saves your changes back to the same file, so the script stays a Final Draft file.' },
+			{ type: 'steps', items: [
+				'Choose File > Open (⌘O).',
+				'Select the .fdx file, then click Open.'
+			] },
+			{ type: 'p', text: 'You can also Control-click the file in the Finder, then choose Open With > eDraft.' },
+			{ type: 'note', text: 'eDraft saves your changes to the .fdx file as you work. To keep an unchanged copy, duplicate the file in the Finder before you open it: select the file, then choose File > Duplicate.' },
+			{ type: 'h', text: 'What you see' },
+			{ type: 'p', text: 'The script’s text, scene numbers, title page, and notes open in eDraft. Notes written in Final Draft can be read but not changed. Scenes omitted in Final Draft appear as OMITTED cards.' },
+			{ type: 'h', text: 'What eDraft keeps' },
+			{ type: 'p', text: 'A Final Draft file can hold things eDraft doesn’t show, such as revisions, locked pages, and tags. eDraft keeps them in the file, and when it saves, it rewrites only the parts of the script you changed.' },
+			{ type: 'p', text: 'If the script has locked pages, eDraft tells you the first time you edit it. See Edit a Final Draft script with locked pages.' }
+		]
+	},
+
+	// Write
+
+	{
+		slug: 'screenplay-elements',
+		title: 'Intro to screenplay elements',
+		category: 'writing',
+		summary: 'The kinds of lines a screenplay is made of.',
+		related: ['change-an-element', 'tab-and-return', 'writing-suggestions'],
+		blocks: [
+			{ type: 'p', text: 'Every line in a screenplay is an element. eDraft sets the margins and capitals for each element, so you only choose which element a line is.' },
+			{ type: 'table', head: ['Element', 'Use it for'], rows: [
+				['Scene Heading', 'Where and when a scene takes place: INT. KITCHEN - NIGHT'],
+				['Action', 'What the audience sees and hears'],
+				['Character', 'The name of the person who speaks'],
+				['Parenthetical', 'A short direction for how a line is spoken'],
+				['Dialogue', 'What the character says'],
+				['Transition', 'A move between scenes, such as CUT TO:'],
+				['Shot', 'A particular camera shot, such as CLOSE ON'],
+				['General', 'Text that isn’t one of the other elements'],
+				['Centered', 'A line centered on the page, such as THE END'],
+				['Lyrics', 'The words of a song']
+			] },
+			{ type: 'p', text: 'The Element button in the toolbar shows the element of the line you’re typing in.' },
+			{ type: 'tip', text: 'Start a line with INT. or EXT. and eDraft makes it a scene heading as you type.' }
 		]
 	},
 	{
-		slug: 'screenplay-elements',
-		title: 'The screenplay elements',
+		slug: 'change-an-element',
+		title: 'Change a line’s element',
 		category: 'writing',
-		summary: 'Nine elements, Act Break, and Format → Element.',
-		related: ['tab-and-return', 'scene-numbering', 'writing-suggestions'],
+		summary: 'Use the Format menu, the toolbar, or the keyboard.',
+		related: ['screenplay-elements', 'tab-and-return', 'keyboard-shortcuts'],
 		blocks: [
-			{ type: 'p', text: 'A screenplay is a handful of building blocks. eDraft formats each one for you — you never set an indent or a margin.' },
+			{ type: 'p', text: 'Click in the line, then do any of the following:' },
 			{ type: 'list', items: [
-				'Scene Heading — INT. KITCHEN - DAY',
-				'Action — what the camera sees',
-				'Character — who speaks',
-				'Parenthetical — how, in a low voice',
-				'Dialogue — the words',
-				'Transition — CUT TO:',
-				'Shot — CLOSE ON',
-				'General and Lyrics — for songs and special cases'
+				'Choose Format > Element, then choose an element.',
+				'Press one of the shortcuts in the table below.',
+				'Click the Element button in the toolbar, then choose an element. The elements that fit best where you’re typing are listed first, under Suggested.',
+				'Press Tab to step through the elements that can follow the line above. See Move between elements with Tab and Return.'
 			] },
-			{ type: 'h', text: 'Set an element directly' },
-			{ type: 'p', text: 'Format → Element converts the current line, with shortcuts ⌘1 through ⌘9 in the order above. The element menu in the toolbar lists what the cursor position suggests first.' },
-			{ type: 'p', text: 'An Act Break is not a conversion — it marks that a new act starts here. Choose it at the bottom of the element menu to insert one.' },
-			{ type: 'tip', text: 'Typing INT. or EXT. promotes the line to a Scene Heading by itself.' }
+			{ type: 'table', head: ['Element', 'Shortcut'], rows: [
+				['Scene Heading', '⌘1'],
+				['Action', '⌘2'],
+				['Character', '⌘3'],
+				['Parenthetical', '⌘4'],
+				['Dialogue', '⌘5'],
+				['Transition', '⌘6'],
+				['Shot', '⌘7'],
+				['General', '⌘8'],
+				['Lyrics', '⌘9']
+			] },
+			{ type: 'p', text: 'Centered is in the toolbar’s Element menu, and Lyrics is in Format > Element.' }
 		]
 	},
 	{
 		slug: 'tab-and-return',
-		title: 'Tab and Return while writing',
+		title: 'Move between elements with Tab and Return',
 		category: 'writing',
-		summary: 'The keyboard flow that keeps your hands on the keys.',
-		related: ['screenplay-elements', 'writing-suggestions', 'keyboard-shortcuts'],
+		summary: 'Change the current line with Tab; start the next one with Return.',
+		related: ['change-an-element', 'writing-suggestions', 'keyboard-shortcuts'],
 		blocks: [
-			{ type: 'p', text: 'You can write a whole script without touching the mouse. Tab and Return carry you from element to element.' },
-			{ type: 'table', head: ['Key', 'What it does'], rows: [
-				['Tab at the end of a line', 'Commit the line and move to the next element'],
-				['Tab inside text, or on an empty line', 'Change the element'],
-				['⇧ Tab', 'Cycle elements back'],
-				['Return', 'Next logical element — Character after a heading, Dialogue after a character'],
-				['⇧ Return', 'New line, same element']
+			{ type: 'p', text: 'Tab changes the element of the line you’re typing in. Return starts a new line and chooses its element for you.' },
+			{ type: 'h', text: 'Tab' },
+			{ type: 'p', text: 'Press Tab to change the current line to the next element that can follow the line above it. Press Shift-Tab to go back.' },
+			{ type: 'table', head: ['After this line', 'Tab steps through'], rows: [
+				['Scene Heading or Action', 'Action, Character, Transition'],
+				['Character', 'Dialogue, Parenthetical'],
+				['Parenthetical', 'Dialogue'],
+				['Dialogue', 'Dialogue, Transition, Scene Heading, Action, Character'],
+				['Any other line, or the top of the script', 'Scene Heading, Action, Character, Transition']
 			] },
-			{ type: 'p', text: 'This choreography is part of the writing engine, so it behaves the same on Mac, iPhone, and iPad.' },
-			{ type: 'tip', text: 'Press ? inside the app to see the full shortcut sheet.' }
+			{ type: 'h', text: 'Return' },
+			{ type: 'p', text: 'Press Return at the end of a line to start a new one. The new line’s element depends on the line you finished:' },
+			{ type: 'table', head: ['After', 'Return starts'], rows: [
+				['Scene Heading', 'Action'],
+				['Action', 'Action'],
+				['Character', 'Dialogue'],
+				['Parenthetical', 'Dialogue'],
+				['Dialogue', 'Character'],
+				['Transition', 'Scene Heading'],
+				['Shot, General, or Centered', 'Action'],
+				['Lyrics', 'Lyrics']
+			] },
+			{ type: 'p', text: 'If the line is empty, Return changes it instead of adding a line: an empty Action line becomes Character, and any other empty line becomes Action.' },
+			{ type: 'tip', text: 'To write a speech, press Return after the character’s name and type the dialogue. Press Return twice after the dialogue to go back to action.' }
 		]
 	},
 	{
 		slug: 'writing-suggestions',
-		title: 'Writing suggestions',
+		title: 'Accept writing suggestions',
 		category: 'writing',
-		summary: 'Character names and extensions, accepted with ⌘→.',
-		related: ['tab-and-return', 'screenplay-elements', 'add-a-note'],
+		summary: 'Finish names, places, and extensions with one key.',
+		related: ['tab-and-return', 'screenplay-elements', 'keyboard-shortcuts'],
 		blocks: [
-			{ type: 'p', text: 'As you type, eDraft suggests what usually comes next — a character you have already used, a location from your script, an extension like (V.O.). The suggestion appears dimmed ahead of the cursor.' },
-			{ type: 'p', text: 'Press ⌘→ to accept it, one word at a time. Keep typing and the suggestion steps aside — ignoring it costs nothing.' },
-			{ type: 'h', text: 'Where suggestions come from' },
-			{ type: 'p', text: 'Suggestions are derived from your own document. Nothing you write is sent anywhere to make them.' },
-			{ type: 'tip', text: 'Accept Suggestion is also in the Edit menu, with the same ⌘→ shortcut.' }
+			{ type: 'p', text: 'As you type, eDraft may suggest how to finish the line — a character’s name, a location already in your script, or an extension such as (V.O.). The suggestion appears as dimmed text after the insertion point.' },
+			{ type: 'p', text: 'To accept a suggestion, do any of the following:' },
+			{ type: 'list', items: [
+				'Press ⌘→, or choose Edit > Accept Suggestion.',
+				'At the end of the line, press Space.',
+				'Click the suggestion.'
+			] },
+			{ type: 'p', text: 'Accepting fills in the rest of the suggestion. To ignore a suggestion, keep typing.' },
+			{ type: 'p', text: 'Suggestions come from your own script and are made on your Mac.' }
 		]
 	},
+	{
+		slug: 'add-emphasis',
+		title: 'Add bold, italic, underline, or a highlight',
+		category: 'writing',
+		summary: 'Format selected words from the bar above the selection.',
+		related: ['add-a-note', 'screenplay-elements', 'export-pdf'],
+		blocks: [
+			{ type: 'steps', items: [
+				'Select the words you want to format.',
+				'In the bar that appears above the selection, click Bold, Italic, Underline, Strikethrough, or Highlight.'
+			] },
+			{ type: 'p', text: 'To remove the formatting, select the same words and click the button again.' },
+			{ type: 'p', text: 'Highlights are yellow, and they print. The bar also has Add Note; see Add a note to a line.' },
+			{ type: 'note', text: 'Highlights are kept only in Final Draft (.fdx) files. eDraft scripts (.draft) and Fountain files don’t keep them after you close the script, and Final Draft removes them when it saves a file.' }
+		]
+	},
+
+	// Notes
+
 	{
 		slug: 'add-a-note',
 		title: 'Add a note to a line',
 		category: 'notes',
-		summary: '⇧⌘K opens the card; typing [[ also works.',
-		related: ['note-threads', 'where-notes-live', 'writing-suggestions'],
+		summary: 'Leave a note beside a line. Notes never print.',
+		related: ['edit-notes', 'review-notes', 'where-notes-live'],
 		blocks: [
-			{ type: 'p', text: 'Notes live beside the line they belong to, not in a separate app.' },
 			{ type: 'steps', items: [
-				'Place the cursor on the line.',
-				'Choose Edit → Add Note (⇧⌘K).',
-				'Type the note and press Return. Press Escape to cancel.'
+				'Click in the line.',
+				'Choose Edit > Add Note (⇧⌘K).',
+				'Type your note, then click Done.'
 			] },
-			{ type: 'p', text: 'Either way, the caret returns exactly where it was. The note card sits next to the line, and everyone who opens the file sees it.' },
-			{ type: 'h', text: 'The [[ way' },
-			{ type: 'p', text: 'If your hands never leave the keyboard, type [[ and the note text, then ]]. eDraft reads this Fountain convention and moves the note onto the line.' },
-			{ type: 'tip', text: 'Selecting text first? The format bar offers Add Note too.' }
-		]
-	},
-	{
-		slug: 'note-threads',
-		title: 'Threads, replies, and resolving',
-		category: 'notes',
-		summary: 'Conversations on a line. Resolved fades — it never deletes.',
-		related: ['add-a-note', 'where-notes-live', 'notes-report'],
-		blocks: [
-			{ type: 'p', text: 'A note can grow into a conversation. Replies stack on the same card, each with its author and role, so a line can hold a full discussion without leaving the page.' },
-			{ type: 'h', text: 'Resolving' },
-			{ type: 'p', text: 'When a thread is done, resolve it. The card dims and its replies collapse, but the words stay — a resolved thread fades, it never deletes. Switch the notes list between Open and All to see everything.' },
-			{ type: 'h', text: 'Seeing every thread' },
-			{ type: 'p', text: 'The notes inspector collects all threads — the card answers what did we say about this line, the inspector answers what is still open.' },
-			{ type: 'tip', text: 'Export the notes report when you want every open thread as a document of its own.' }
-		]
-	},
-	{
-		slug: 'notes-report',
-		title: 'The notes report',
-		category: 'notes',
-		summary: 'Every open thread, collected into one document.',
-		related: ['note-threads', 'add-a-note', 'export-pdf'],
-		blocks: [
-			{ type: 'p', text: 'The notes report gathers every note in the script into a single document — each thread with its line, its scene, and its author.' },
-			{ type: 'p', text: 'Use it for a notes pass before a draft goes out: read every open thread top to bottom, resolve what is done, and hand the list to a collaborator.' },
-			{ type: 'h', text: 'What it contains' },
+			{ type: 'p', text: 'The first time you add a note, eDraft asks for your name and, if you like, your role. Your notes carry this name, in eDraft and in Final Draft. The name is kept on this Mac.' },
+			{ type: 'p', text: 'A note appears as a mark in the right margin, beside its line. Notes don’t print.' },
+			{ type: 'p', text: 'You can also add a note in these ways:' },
 			{ type: 'list', items: [
-				'The quoted line each thread is anchored to.',
-				'Every message, with author and role.',
-				'Open and resolved threads, marked as such.'
+				'Control-click a line, then choose Add Note.',
+				'Select some text, then click Add Note in the bar above the selection. The note goes on the line.',
+				'Click More in the toolbar, then choose Add Note.'
+			] }
+		]
+	},
+	{
+		slug: 'edit-notes',
+		title: 'Read, edit, or delete a note',
+		category: 'notes',
+		summary: 'Open a line’s notes from its mark in the margin.',
+		related: ['add-a-note', 'review-notes', 'where-notes-live'],
+		blocks: [
+			{ type: 'p', text: 'Click a note’s mark in the margin to open the card for that line. The card shows every note on the line.' },
+			{ type: 'p', text: 'In the card, do any of the following:' },
+			{ type: 'list', items: [
+				'Edit a note: Click in its text, make your changes, then click Done.',
+				'Add another note to the same line: Click Add.',
+				'Delete a note: Click its Delete button (trash).'
 			] },
-			{ type: 'tip', text: 'Notes are anchored to words, not positions — the report stays correct even after heavy edits.' }
+			{ type: 'p', text: 'Notes written in Final Draft show who wrote them. You can read them in eDraft; to change them, use Final Draft.' },
+			{ type: 'p', text: 'Each person’s notes have their own color, in the margin and in the Navigator.' }
+		]
+	},
+	{
+		slug: 'review-notes',
+		title: 'Review notes in the Navigator',
+		category: 'notes',
+		summary: 'See every note in the script in one list.',
+		related: ['add-a-note', 'edit-notes', 'use-the-navigator'],
+		blocks: [
+			{ type: 'steps', items: [
+				'If the Navigator is hidden, choose View > Show Sidebar (⌃⌘S).',
+				'Click Notes at the top of the Navigator.',
+				'Click a note to go to its line.'
+			] },
+			{ type: 'p', text: 'To narrow the list, type in the search field. eDraft matches the note’s words, its author, and the scene it’s in.' },
+			{ type: 'p', text: 'To see one person’s notes, click the filter button next to the search field, then choose a name. To see everyone’s notes again, choose All Notes.' },
+			{ type: 'p', text: 'The bottom of the Navigator shows how many notes there are and how many scenes have them.' }
 		]
 	},
 	{
 		slug: 'where-notes-live',
-		title: 'Where notes live in your file',
+		title: 'How eDraft saves notes',
 		category: 'notes',
-		summary: 'Inside the .draft, in FDX, and in Fountain — never on a server.',
-		related: ['add-a-note', 'note-threads', 'where-files-live'],
+		summary: 'Notes are saved in the script file, in a form other apps can read.',
+		related: ['add-a-note', 'final-draft-files', 'fountain-files'],
 		blocks: [
-			{ type: 'p', text: 'Notes are part of your document, so they travel with it.' },
+			{ type: 'p', text: 'Notes are saved in the script file itself, so they go wherever the file goes.' },
 			{ type: 'list', items: [
-				'In an eDraft file, notes are stored with the lines they belong to.',
-				'Exported to Final Draft, they become ScriptNotes that Final Draft can read.',
-				'Exported to Fountain, they become [[ note text ]] — readable by any Fountain tool.'
+				'In an eDraft script (.draft) or a Fountain file, a note is saved as text in double brackets, [[like this]], just before its line.',
+				'In a Final Draft file, a note is saved as a Final Draft note titled [eDraft], with your name as its author.',
+				'Notes that came from Final Draft stay exactly as they were.'
 			] },
-			{ type: 'p', text: 'Notes are anchored to the words they sit on, not to a position in the text. Add a scene above and every note still points at the right line.' },
-			{ type: 'tip', text: 'There is no eDraft server. Your notes are never uploaded anywhere.' }
+			{ type: 'p', text: 'Notes never print and aren’t part of the script’s pages.' }
 		]
 	},
+
+	// Scenes & structure
+
 	{
-		slug: 'scene-numbering',
-		title: 'Number your scenes',
+		slug: 'use-the-navigator',
+		title: 'Move around your script with the Navigator',
 		category: 'scenes',
-		summary: 'Number New Scenes, Number All Scenes, Remove Scene Numbers.',
-		related: ['omit-a-scene', 'find-a-scene', 'screenplay-elements'],
+		summary: 'Go to any scene, character, or note.',
+		related: ['find-a-scene', 'character-scenes', 'review-notes'],
 		blocks: [
-			{ type: 'p', text: 'Scene numbers live on the scene headings themselves, so they print exactly where a production expects them.' },
-			{ type: 'steps', items: [
-				'Choose Format → Scene Numbers → Number New Scenes to number only the scenes that do not have a number yet.',
-				'Choose Number All Scenes… to number everything; eDraft asks before it renumbers.',
-				'Choose Remove Scene Numbers… to strip them; eDraft asks before it does.'
-			] },
-			{ type: 'p', text: 'Once scenes are numbered, the numbers stay put — a new scene inserted between 4 and 5 becomes 4A, and the rest of the script is untouched.' },
-			{ type: 'tip', text: 'Scene numbers appear on the right of the page, as production drafts expect.' }
-		]
-	},
-	{
-		slug: 'omit-a-scene',
-		title: 'Omit a scene, restore it later',
-		category: 'scenes',
-		summary: 'A reversible cut that keeps the scene’s number.',
-		related: ['scene-numbering', 'find-a-scene', 'export-pdf'],
-		blocks: [
-			{ type: 'p', text: 'Cutting a scene does not have to mean deleting it. Omitting folds the scene away and leaves a card in its place marked OMITTED, with the scene’s number on it — so schedules never grow a hole.' },
-			{ type: 'h', text: 'What happens' },
+			{ type: 'p', text: 'The Navigator is the list on the left side of the script window. To show or hide it, choose View > Show Sidebar (⌃⌘S), or click the sidebar button in the toolbar.' },
+			{ type: 'p', text: 'Click Scenes, Cast, or Notes at the top of the Navigator to choose what it lists:' },
 			{ type: 'list', items: [
-				'The scene’s text stays in your file. Nothing is deleted.',
-				'The scene does not print or export while it is omitted.',
-				'Its number is kept, so the scenes around it are not renumbered.'
+				'Scenes: Every scene, with its number, its heading, and the page it starts on. Click a scene to go to it; eDraft marks the heading so you can find it on the page.',
+				'Cast: Every character who speaks, with the number of times each one is cued. Click a name to see every scene they’re in.',
+				'Notes: Every note in the script. Click a note to go to its line.'
 			] },
-			{ type: 'p', text: 'Restore brings the scene back exactly as written — same words, same number. The whole thing is reversible.' },
-			{ type: 'tip', text: 'Omit instead of deleting anything you might want back. Deletion is the one gesture there is no undo for across saves.' }
+			{ type: 'h', text: 'Narrow the scene list' },
+			{ type: 'list', items: [
+				'To find a scene, type part of its heading or its number in the search field.',
+				'To show only interiors or exteriors, click the filter button next to the search field, then choose Interior, Exterior, or Int. / Ext. To see every scene again, choose All Scenes.'
+			] },
+			{ type: 'p', text: 'The bottom of the Navigator shows the script’s length in pages, its estimated running time, and its word count, with counts of its scenes and locations.' },
+			{ type: 'p', text: 'Omitted scenes stay in the list, dimmed, with how much of a page each one cut.' }
 		]
 	},
 	{
 		slug: 'find-a-scene',
-		title: 'Find a scene or words',
+		title: 'Find a scene or text',
 		category: 'scenes',
-		summary: 'Find Scene ⌘L, Find ⌘F, Find Next ⌘G.',
-		related: ['scene-numbering', 'omit-a-scene', 'keyboard-shortcuts'],
+		summary: 'Go to a scene by heading or number, or search the script’s words.',
+		related: ['use-the-navigator', 'scene-numbering', 'keyboard-shortcuts'],
 		blocks: [
-			{ type: 'p', text: 'Two searches, two jobs. Find looks for text. Find Scene takes you to a scene.' },
-			{ type: 'list', items: [
-				'Edit → Find Scene (⌘L) jumps scene to scene — the go-to-scene command.',
-				'Edit → Find… (⌘F) opens the system find bar.',
-				'⌘G finds the next match, ⇧⌘G the previous one.'
+			{ type: 'h', text: 'Go to a scene' },
+			{ type: 'steps', items: [
+				'Choose Edit > Find Scene (⌘L). The Navigator shows the scene list, ready for you to type.',
+				'Type part of the scene’s heading or its number.',
+				'Press Return to go to the first scene in the list.'
 			] },
-			{ type: 'p', text: 'The find bar is the macOS one you already know — the same search every other app on your Mac uses.' }
+			{ type: 'h', text: 'Find words' },
+			{ type: 'list', items: [
+				'Choose Edit > Find > Find (⌘F), then type in the find bar.',
+				'To go to the next match, press ⌘G. To go to the previous match, press ⇧⌘G.'
+			] }
 		]
 	},
+	{
+		slug: 'scene-numbering',
+		title: 'Number scenes',
+		category: 'scenes',
+		summary: 'Add, renumber, or remove scene numbers.',
+		related: ['omit-a-scene', 'use-the-navigator', 'find-a-scene'],
+		blocks: [
+			{ type: 'p', text: 'Scene numbers print in both margins beside each scene heading, and appear next to each scene in the Navigator.' },
+			{ type: 'p', text: 'Choose Format > Scene Numbers, then choose one of the following:' },
+			{ type: 'list', items: [
+				'Number New Scenes: Numbers only the scenes that don’t have a number yet, and keeps every existing number. A scene added after 12 becomes 12A. If no scene has a number, every scene is numbered from 1.',
+				'Number All Scenes: Numbers every scene again, starting from 1. Numbers already in use can change, so eDraft asks you to confirm.',
+				'Remove Scene Numbers: Removes every scene number. eDraft asks you to confirm. This command is dimmed when the script has no scene numbers.'
+			] },
+			{ type: 'tip', text: 'Once a script has gone to a production, use Number New Scenes. It never changes a number that a schedule or call sheet may already cite.' }
+		]
+	},
+	{
+		slug: 'omit-a-scene',
+		title: 'Omit or restore a scene',
+		category: 'scenes',
+		summary: 'Cut a scene but keep its number and its text.',
+		related: ['scene-numbering', 'if-omit-scene-is-dimmed', 'final-draft-files'],
+		blocks: [
+			{ type: 'p', text: 'When you omit a scene, eDraft replaces it on the page with an OMITTED card that keeps the scene’s number. The scene’s text stays in the file, so you can restore it later exactly as it was.' },
+			{ type: 'note', text: 'You can omit scenes only in Final Draft (.fdx) scripts. In other scripts, Omit Scene is dimmed. See If Omit Scene is dimmed.' },
+			{ type: 'h', text: 'Omit a scene' },
+			{ type: 'p', text: 'Do any of the following:' },
+			{ type: 'list', items: [
+				'In the Navigator, hold the pointer over the scene, then click the Omit Scene button (scissors).',
+				'Control-click the scene’s heading on the page, then choose Omit Scene.',
+				'Click anywhere in the scene, then choose Format > Omit Scene.'
+			] },
+			{ type: 'h', text: 'Restore a scene' },
+			{ type: 'p', text: 'Do any of the following:' },
+			{ type: 'list', items: [
+				'In the Navigator, hold the pointer over the omitted scene, then click the Restore Scene button.',
+				'Control-click the OMITTED card, then choose Restore Scene.',
+				'Click the OMITTED card, then choose Format > Restore Scene.'
+			] },
+			{ type: 'p', text: 'The scene comes back with its words and its number. To reverse either change right away, choose Edit > Undo (⌘Z).' },
+			{ type: 'h', text: 'Work around an omitted scene' },
+			{ type: 'list', items: [
+				'To read the cut text, hold the pointer over the OMITTED card, then click the arrow at the end of the line. Click it again to hide the text.',
+				'You can’t type in an omitted scene. To change its text, restore it first.',
+				'The insertion point skips over an omitted scene. You can still select across one and copy it.',
+				'A line you add at the OMITTED card goes after the omitted scene, not inside it.'
+			] },
+			{ type: 'p', text: 'In the Navigator, an omitted scene is dimmed and shows how many pages were cut.' }
+		]
+	},
+	{
+		slug: 'character-scenes',
+		title: 'See every scene a character is in',
+		category: 'scenes',
+		summary: 'Open a character’s scenes and speeches beside the page.',
+		related: ['rename-a-character', 'use-the-navigator', 'focus'],
+		blocks: [
+			{ type: 'steps', items: [
+				'In the Navigator, click Cast.',
+				'Click a character’s name.'
+			] },
+			{ type: 'p', text: 'A column opens beside the page, listing every scene the character is in and every line they speak. Click a scene heading or a line to go to it on the page.' },
+			{ type: 'p', text: 'To close the column, click the character’s name again, or click Scenes or Notes.' },
+			{ type: 'p', text: 'To change the order of the cast list, click the sort button next to the search field, then choose Lead, to list the characters who speak most first, or Alphabetical.' }
+		]
+	},
+	{
+		slug: 'rename-a-character',
+		title: 'Rename a character',
+		category: 'scenes',
+		summary: 'Change a character’s name in every cue, and in action and dialogue if you choose.',
+		related: ['character-scenes', 'use-the-navigator', 'find-a-scene'],
+		blocks: [
+			{ type: 'steps', items: [
+				'In the Navigator, click Cast, then click the character’s name.',
+				'At the top of the column that opens, click the More button (…), then choose Rename Character.',
+				'Type the new name.',
+				'If the name appears only in cues, click Rename. If it also appears in action or dialogue, click Rename Everywhere to change it there too, or Cues Only to change only the cues.'
+			] },
+			{ type: 'p', text: 'Before you rename, eDraft shows how many cues will change and how many other times the name appears. If the new name belongs to a character who already speaks, the two characters are merged.' }
+		]
+	},
+
+	// Pages & view
+
 	{
 		slug: 'pages-and-continuous',
-		title: 'Pages and Continuous',
+		title: 'View your script as pages or as one column',
 		category: 'pages',
-		summary: 'Sheets for proofing, one column for drafting. Same pagination.',
-		related: ['arrangements-and-zoom', 'page-settings', 'print'],
+		summary: 'Switch between printed pages and one continuous column.',
+		related: ['arrange-pages', 'zoom', 'page-settings'],
 		blocks: [
-			{ type: 'p', text: 'View → Pages draws your script as sheets, with their margins, exactly as they print. View → Continuous collapses the page margins into one column for drafting.' },
-			{ type: 'h', text: 'Why both' },
-			{ type: 'p', text: 'Drafting is reading a column — page margins repeated every fifty-five lines are a lot of scrolling for nothing. Proofing is the opposite: you want to see page turns, and where a scene lands.' },
-			{ type: 'p', text: 'One thing never changes: which line begins which page. Continuous marks the page boundary with the page number instead of the margin, so your clock — a page is a minute of screen time — stays honest in both views.' },
-			{ type: 'tip', text: 'The page count in the window subtitle is your running time. It only deserves trust because what you see is what prints.' }
+			{ type: 'p', text: 'Choose View > Pages to see the script as sheets of paper, with their margins, as they print. Choose View > Continuous to see it as one column, without the space between pages.' },
+			{ type: 'p', text: 'You can also choose Pages or Continuous from the More menu in the toolbar.' },
+			{ type: 'p', text: 'In Continuous, each page break is marked with the number of the page that begins there. Pages break in the same places in both views.' },
+			{ type: 'p', text: 'Below the script’s name, the window shows its page count and an estimate of its running time.' }
 		]
 	},
 	{
-		slug: 'arrangements-and-zoom',
-		title: 'Arrange and zoom the pages',
+		slug: 'arrange-pages',
+		title: 'Show one page, two pages, or a grid',
 		category: 'pages',
-		summary: 'Single, Two-page, Grid — and Preview’s zoom keys.',
-		related: ['pages-and-continuous', 'page-settings', 'keyboard-shortcuts'],
+		summary: 'Arrange the pages on screen with the Layout menu.',
+		related: ['pages-and-continuous', 'zoom', 'focus'],
 		blocks: [
-			{ type: 'p', text: 'When the script is sheets, View arranges them three ways: Single (one sheet under the next), Two-page (an open book, facing sheets with a hairline between), and Grid (a bird’s-eye of every sheet — a map, not a writing surface).' },
-			{ type: 'h', text: 'Zoom' },
-			{ type: 'table', head: ['Command', 'Shortcut'], rows: [
-				['View → Zoom In', '⌘+'],
-				['View → Zoom Out', '⌘−'],
-				['View → Actual Size', '⌘0'],
-				['View → Zoom to Fit', '⌘9']
+			{ type: 'p', text: 'Click the Layout button in the toolbar, then choose an arrangement:' },
+			{ type: 'list', items: [
+				'Single: One page after another, down the window.',
+				'Two-page: Pages side by side in pairs, like an open book. You can write on either page.',
+				'Grid: Every page as a small card, so you can see the whole script at once. You can’t type in Grid. To open a page, double-click it.'
 			] },
-			{ type: 'p', text: 'The zoom keys are the ones Preview uses, so they are already in your hands.' }
+			{ type: 'p', text: 'In Grid, clicking a scene in the Navigator highlights the page it’s on.' },
+			{ type: 'p', text: 'If you choose Two-page or Grid while the script is in Continuous, eDraft switches to Pages. Choosing View > Continuous returns to Single.' }
+		]
+	},
+	{
+		slug: 'zoom',
+		title: 'Zoom in or out',
+		category: 'pages',
+		summary: 'Make the page larger or smaller on screen.',
+		related: ['arrange-pages', 'focus', 'keyboard-shortcuts'],
+		blocks: [
+			{ type: 'p', text: 'Do any of the following:' },
+			{ type: 'list', items: [
+				'Choose View > Zoom In (⌘+) or View > Zoom Out (⌘−).',
+				'Choose View > Actual Size (⌘0) to see the page at 100%.',
+				'Choose View > Zoom to Fit to fit the page to the window.',
+				'Pinch on a trackpad.',
+				'In the zoom control in the lower-right corner of the window, click − or +.'
+			] },
+			{ type: 'p', text: 'Click the percentage in the zoom control to switch between 100% and the size you were using. Near 100%, the percentage opens a menu of sizes instead, including Fit to Screen.' },
+			{ type: 'p', text: 'The page can be shown from 100% to 200%.' }
+		]
+	},
+	{
+		slug: 'focus',
+		title: 'Write in Focus',
+		category: 'pages',
+		summary: 'Hide everything but the page.',
+		related: ['arrange-pages', 'zoom', 'dark-page'],
+		blocks: [
+			{ type: 'p', text: 'Click Focus in the toolbar to hide the Navigator, the character column, and the zoom control, so only the page is in the window. Click Focus again to bring them back.' },
+			{ type: 'tip', text: 'To fill the screen too, choose View > Enter Full Screen (⌃⌘F).' }
+		]
+	},
+	{
+		slug: 'dark-page',
+		title: 'Keep the page light or dark in Dark Mode',
+		category: 'pages',
+		summary: 'Choose whether the page darkens with the rest of the app.',
+		related: ['page-settings', 'focus', 'pages-and-continuous'],
+		blocks: [
+			{ type: 'p', text: 'When your Mac uses Dark Mode, eDraft keeps the page light, like paper. You can choose a dark page instead.' },
+			{ type: 'p', text: 'Do any of the following:' },
+			{ type: 'list', items: [
+				'Choose View > Paper or View > Dark Page.',
+				'Click the Page button in the toolbar to switch between the two.',
+				'Choose eDraft > Settings, then choose Paper or Dark Page under Appearance.'
+			] },
+			{ type: 'p', text: 'The choice applies to every open script. It makes no difference in Light Mode.' }
 		]
 	},
 	{
 		slug: 'page-settings',
-		title: 'Paper size, page numbers, and dark page',
+		title: 'Change paper size and page numbers',
 		category: 'pages',
-		summary: 'eDraft → Settings… (⌘,) holds everything about the page.',
-		related: ['pages-and-continuous', 'arrangements-and-zoom', 'title-page'],
+		summary: 'Choose US Letter or A4, and whether pages are numbered.',
+		related: ['print', 'export-pdf', 'if-page-counts-differ'],
 		blocks: [
-			{ type: 'p', text: 'Choose eDraft → Settings… (⌘,). What is true for every script lives here; what is true of one script lives in that script.' },
-			{ type: 'h', text: 'Page' },
-			{ type: 'list', items: [
-				'Paper Size — US Letter (55 lines) or A4 (58 lines), with the same margins.',
-				'Page Numbers — whether pages carry their number.'
+			{ type: 'steps', items: [
+				'Choose eDraft > Settings (⌘,).',
+				'Under Page, choose US Letter or A4 from the Paper Size menu.',
+				'To turn page numbers on or off, click Page Numbers.'
 			] },
-			{ type: 'h', text: 'Appearance' },
-			{ type: 'p', text: 'Page chooses how the sheet behaves in dark mode: Paper keeps the page light, as it prints. Dark Page darkens the sheet with the app.' },
-			{ type: 'p', text: 'A change here restyles every open window and every export — nothing needs re-opening and nothing needs saving.' },
-			{ type: 'tip', text: 'The Settings window also shows your version and a Send Feedback link, in case you ever need either.' }
+			{ type: 'p', text: 'Page numbers appear at the top right of every page after the first.' },
+			{ type: 'p', text: 'These settings apply to every script, and to every PDF and printout. Changing the paper size changes where pages break and how many pages a script has.' }
 		]
 	},
 	{
 		slug: 'title-page',
-		title: 'The title page',
+		title: 'Create a title page',
 		category: 'pages',
-		summary: 'File → Title Page… — the same sheet on Mac and iPhone.',
-		related: ['page-settings', 'export-pdf', 'print'],
+		summary: 'Add the title, writing credit, writers, and contact details.',
+		related: ['export-pdf', 'print', 'page-settings'],
 		blocks: [
-			{ type: 'p', text: 'Choose File → Title Page…. The title page is part of the document, and it prints with the script.' },
-			{ type: 'p', text: 'The Mac presents the same sheet the iPhone does — one form, not two. What you fill in on one device is what you see on the other.' },
-			{ type: 'tip', text: 'The title page travels with the file through FDX and Fountain exports, so other tools see it too.' }
+			{ type: 'steps', items: [
+				'Choose File > Title Page, or click Title Page in the toolbar.',
+				'Click Title, Credit, or Writers to fill them in. To add a credit such as Based On, click Add Credit.',
+				'To add your name, email, phone, and address, click Contact Information.',
+				'Click Done.'
+			] },
+			{ type: 'p', text: 'In the Writers list, & joins writers who worked as a team, and “and” joins writers of separate drafts.' },
+			{ type: 'p', text: 'The title page prints before the first page of the script. To leave it out of PDFs and printouts, turn off Include in PDF Export.' }
 		]
 	},
+
+	// Final Draft & files
+
 	{
 		slug: 'where-files-live',
-		title: 'Where your scripts live',
+		title: 'Save scripts in iCloud Drive or on your Mac',
 		category: 'files',
-		summary: '.draft documents anywhere you save them, iCloud Drive, files you own forever.',
-		related: ['open-and-manage', 'fountain-and-fdx', 'page-settings'],
+		summary: 'Where eDraft keeps your scripts, and how they’re saved.',
+		related: ['open-and-manage', 'versions', 'privacy'],
 		blocks: [
-			{ type: 'p', text: 'Your scripts are files — .draft documents that belong to you, saved wherever you choose: on your Mac, or in iCloud Drive.' },
-			{ type: 'h', text: 'iCloud' },
-			{ type: 'p', text: 'When you save into iCloud Drive, eDraft reads and writes only inside its own container, named iCloud.xyz.edraft. Sync between your devices runs through your own Apple account. eDraft has no server and receives no copy of your files.' },
-			{ type: 'h', text: 'Files you own forever' },
-			{ type: 'p', text: 'There is no lock-in and no library to export from. A script is a document in a folder, like any other file on your Mac. Move it, copy it, back it up — it is yours.' },
-			{ type: 'tip', text: 'eDraft collects no data at all. The App Store disclosure is Data Not Collected — no analytics, no crash reporting, no accounts.' }
+			{ type: 'p', text: 'An eDraft script is a file with the .draft extension. You can keep it in any folder on your Mac or in iCloud Drive.' },
+			{ type: 'p', text: 'When you save a new script, eDraft suggests the eDraft folder in iCloud Drive. Files in iCloud Drive are available on your other devices signed in to the same Apple Account.' },
+			{ type: 'p', text: 'After you save a script the first time, eDraft saves your changes as you work.' },
+			{ type: 'p', text: 'A .draft file is plain text in the Fountain screenplay format, so other apps that read Fountain can open it. See Work with Fountain files.' }
 		]
 	},
 	{
-		slug: 'fountain-and-fdx',
-		title: 'Fountain and Final Draft files',
+		slug: 'open-and-manage',
+		title: 'Rename, move, or duplicate a script',
 		category: 'files',
-		summary: 'What moves cleanly between apps, and what to check.',
-		related: ['import-final-draft', 'export-final-draft', 'export-fountain-text'],
+		summary: 'File menu commands for the open script.',
+		related: ['use-the-library', 'where-files-live', 'versions'],
 		blocks: [
-			{ type: 'p', text: 'eDraft speaks two interchange formats, and is honest about both.' },
-			{ type: 'h', text: 'Fountain — plain text' },
-			{ type: 'p', text: 'Fountain files are plain text with simple conventions: INT. and EXT. for headings, capitalized names for characters, [[ ]] for notes. Any text editor can open one, and the words are never trapped.' },
-			{ type: 'h', text: 'Final Draft — a bounded subset' },
-			{ type: 'p', text: 'FDX support covers a defined subset of the format — screenplay content, scene numbers, notes, and title page. eDraft imports and exports that subset with explicit warnings when something falls outside it, instead of guessing.' },
-			{ type: 'p', text: 'Files exported under eDraft’s former name still open; a rename is our problem, never a writer’s.' },
-			{ type: 'tip', text: 'For a production script, review the import or export report and keep the original file until the round trip is verified.' }
+			{ type: 'p', text: 'With the script open, choose any of the following from the File menu:' },
+			{ type: 'list', items: [
+				'Rename: Changes the script’s name. The file stays in the same folder.',
+				'Move To: Moves the file to another folder.',
+				'Duplicate (⇧⌘S): Opens a copy of the script.',
+				'Show in Finder: Shows the file in its folder. This command is dimmed until you save the script.',
+				'Open Recent: Lists the scripts you opened most recently. To empty the list, choose Clear Menu.'
+			] },
+			{ type: 'p', text: 'You can also rename, duplicate, or move a script to the Trash from the library. See Find and manage scripts in the library.' }
 		]
 	},
+	{
+		slug: 'versions',
+		title: 'Go back to an earlier version',
+		category: 'files',
+		summary: 'Return to the last save, or browse earlier versions.',
+		related: ['open-and-manage', 'where-files-live', 'omit-a-scene'],
+		blocks: [
+			{ type: 'p', text: 'eDraft saves versions of a script as you work, so you can go back if a change goes wrong.' },
+			{ type: 'list', items: [
+				'To discard the changes made since you last saved, choose File > Revert To > Last Saved.',
+				'To look through earlier versions, choose File > Revert To > Browse All Versions. Select a version, then click Restore. To leave without changing anything, click Done.'
+			] }
+		]
+	},
+	{
+		slug: 'final-draft-files',
+		title: 'Intro to Final Draft files in eDraft',
+		category: 'files',
+		summary: 'What eDraft shows, what it keeps, and how it saves a .fdx file.',
+		related: ['import-final-draft', 'final-draft-page-locks', 'share-with-final-draft-users'],
+		blocks: [
+			{ type: 'p', text: 'When you open a Final Draft file (.fdx) in eDraft, you work in the file itself. Your changes are saved back to it as a Final Draft file.' },
+			{ type: 'h', text: 'What you can work with' },
+			{ type: 'list', items: [
+				'The script’s text and elements, its scene numbers, and its title page.',
+				'Notes. Notes you add are saved as Final Draft notes with your name. Notes written in Final Draft can be read but not changed.',
+				'Omitted scenes. You can omit and restore scenes, and the file keeps them as Final Draft omissions.'
+			] },
+			{ type: 'h', text: 'What eDraft keeps without showing' },
+			{ type: 'p', text: 'A Final Draft file can hold revisions, locked pages, and tags. eDraft doesn’t show these, but it keeps them in the file. When it saves, it rewrites only the parts of the script you changed.' },
+			{ type: 'note', text: 'eDraft doesn’t yet move locked pages to follow your edits. See Edit a Final Draft script with locked pages.' },
+			{ type: 'p', text: 'To give the script to someone who uses Final Draft, see Send a script to a Final Draft user.' }
+		]
+	},
+	{
+		slug: 'final-draft-page-locks',
+		title: 'Edit a Final Draft script with locked pages',
+		category: 'files',
+		summary: 'What eDraft does with Final Draft’s locked pages, and what to check.',
+		related: ['final-draft-files', 'import-final-draft', 'share-with-final-draft-users'],
+		blocks: [
+			{ type: 'p', text: 'In Final Draft, a production can lock a script’s pages, so that later changes don’t move the text on any locked page. As the script is edited, Final Draft moves each lock along with the text.' },
+			{ type: 'p', text: 'eDraft keeps a file’s locked pages when it saves, but it doesn’t move them with your edits yet. After you add or remove text above a locked page, that page can start in the wrong place when the file is opened in Final Draft.' },
+			{ type: 'h', text: 'The notice' },
+			{ type: 'p', text: 'The first time you edit a Final Draft script that has locked pages, a notice appears below the toolbar: “This script has Final Draft page locks.” It appears once each time you open the script, and doesn’t change the file. To close it, click the Dismiss button (X).' },
+			{ type: 'h', text: 'What to do' },
+			{ type: 'list', items: [
+				'If the pages are locked for production, make your changes in Final Draft, so the locks follow the text.',
+				'If you edit the script in eDraft, open it in Final Draft before you send it, and check that each locked page starts where it should.',
+				'To keep an untouched copy, duplicate the file in the Finder before you edit it.'
+			] },
+			{ type: 'p', text: 'Opening the script, reading it, and saving it without changes leave the locks exactly as they were.' }
+		]
+	},
+	{
+		slug: 'share-with-final-draft-users',
+		title: 'Send a script to a Final Draft user',
+		category: 'files',
+		summary: 'Choose the right file to send, and what arrives with it.',
+		related: ['final-draft-files', 'export-final-draft', 'final-draft-page-locks'],
+		blocks: [
+			{ type: 'p', text: 'Which file to send depends on the kind of script:' },
+			{ type: 'list', items: [
+				'If you opened the script from a Final Draft file (.fdx): Send that file. eDraft has already saved your changes to it. To find it, choose File > Show in Finder.',
+				'If the script is an eDraft script (.draft): Choose File > Export > Final Draft, then send the .fdx file you save.'
+			] },
+			{ type: 'p', text: 'Notes you add to a .fdx file appear in Final Draft as notes titled [eDraft], with your name as their author.' },
+			{ type: 'note', text: 'Final Draft removes eDraft highlights when it saves a file. If the script has locked pages, see Edit a Final Draft script with locked pages before you send it.' }
+		]
+	},
+	{
+		slug: 'fountain-files',
+		title: 'Work with Fountain files',
+		category: 'files',
+		summary: 'Plain-text scripts, and the Fountain format at a glance.',
+		related: ['where-files-live', 'export-fountain-text', 'if-omit-scene-is-dimmed'],
+		blocks: [
+			{ type: 'p', text: 'Fountain is a plain-text format for screenplays. eDraft scripts (.draft) are saved in Fountain, so other apps that read Fountain can open them. eDraft also opens plain-text files (.txt).' },
+			{ type: 'h', text: 'Fountain at a glance' },
+			{ type: 'table', head: ['For', 'Type'], rows: [
+				['A scene heading', 'A line starting with INT. or EXT.'],
+				['A character', 'A name in capitals, with dialogue on the next line'],
+				['A parenthetical', '(quietly) on the line after the character'],
+				['A transition', 'A line in capitals ending in TO:, such as CUT TO:'],
+				['Centered text', '> THE END <'],
+				['Lyrics', '~ at the start of the line'],
+				['A note', '[[your note]]'],
+				['Bold, italic, underline', '**bold**, *italic*, _underline_'],
+				['A heading that doesn’t start with INT. or EXT.', 'A period first: .FLASHBACK'],
+				['A page break', '=== on a line by itself']
+			] },
+			{ type: 'p', text: 'Fountain has no way to record an omitted scene or a highlight, so in .draft and Fountain scripts, Omit Scene is dimmed and highlights aren’t kept.' }
+		]
+	},
+	{
+		slug: 'privacy',
+		title: 'Privacy and your scripts',
+		category: 'files',
+		summary: 'eDraft has no account and no server.',
+		related: ['where-files-live', 'contact', 'writing-suggestions'],
+		blocks: [
+			{ type: 'list', items: [
+				'eDraft has no account and no sign-in.',
+				'Your scripts are files on your Mac or in your iCloud Drive. eDraft has no server, and nobody at eDraft receives your scripts or notes.',
+				'iCloud Drive is synced by Apple, through your Apple Account.',
+				'Writing suggestions are made on your Mac, from your own script.',
+				'The name you give for notes is kept on this Mac and in the notes you write.',
+				'eDraft doesn’t use analytics, crash reporting, or advertising. Its App Store privacy label is Data Not Collected.'
+			] },
+			{ type: 'p', text: 'The full privacy policy is on the eDraft website.' }
+		]
+	},
+
+	// Export & print
+
 	{
 		slug: 'export-pdf',
 		title: 'Export a PDF',
 		category: 'export',
-		summary: 'Formatted pages for reading and sharing.',
-		related: ['print', 'title-page', 'omit-a-scene'],
+		summary: 'Save the script as a PDF for reading and sharing.',
+		related: ['print', 'title-page', 'page-settings'],
 		blocks: [
 			{ type: 'steps', items: [
-				'Choose File → Export → PDF….',
-				'Pick a name and a folder.',
-				'Done — the pages are exactly what you saw on screen.'
+				'Choose File > Export > PDF, or click Export in the toolbar and choose PDF.',
+				'Enter a name, choose where to save the PDF, then click Save.'
 			] },
-			{ type: 'p', text: 'Pagination is decided by the engine, not by screen pixels, so the exported pages match the page count in the window subtitle. Omitted scenes stay out of the PDF, marked by their OMITTED card.' },
-			{ type: 'tip', text: 'The title page prints with the script.' }
+			{ type: 'p', text: 'The PDF uses the paper size and page numbers set in eDraft > Settings, and prints scene numbers in both margins.' },
+			{ type: 'list', items: [
+				'The title page comes first, if it has content and Include in PDF Export is turned on. See Create a title page.',
+				'Highlights print in yellow.',
+				'Notes don’t print.'
+			] }
 		]
 	},
 	{
 		slug: 'export-final-draft',
-		title: 'Export to Final Draft',
+		title: 'Export a Final Draft file',
 		category: 'export',
-		summary: 'A .fdx another app can open. Review the report.',
-		related: ['import-final-draft', 'fountain-and-fdx', 'export-pdf'],
+		summary: 'Save a copy of the script as a .fdx file.',
+		related: ['share-with-final-draft-users', 'final-draft-files', 'export-pdf'],
 		blocks: [
 			{ type: 'steps', items: [
-				'Choose File → Export → Final Draft….',
-				'Pick a name and a folder — the file gets the .fdx extension.',
-				'Open it in Final Draft and check the pages.'
+				'Choose File > Export > Final Draft, or click Export in the toolbar and choose Final Draft.',
+				'Enter a name, choose where to save the file, then click Save. The file has the .fdx extension.'
 			] },
-			{ type: 'p', text: 'The export writes the screenplay content of the FDX subset — elements, scene numbers, notes, title page. Anything outside the subset is reported, not guessed.' },
-			{ type: 'tip', text: 'Keep your .draft as the working file and treat the .fdx as what you hand over.' }
+			{ type: 'note', text: 'Exporting creates a new file from the script. If you opened the script from a Final Draft file, the export doesn’t include the revisions, locked pages, or tags that the original file keeps. To give someone the complete file, send the original .fdx instead. See Send a script to a Final Draft user.' }
 		]
 	},
 	{
 		slug: 'export-fountain-text',
 		title: 'Export Fountain or plain text',
 		category: 'export',
-		summary: 'Readable plain text any tool opens.',
-		related: ['fountain-and-fdx', 'export-pdf', 'where-notes-live'],
+		summary: 'Save the script as a Fountain file or as plain text.',
+		related: ['fountain-files', 'export-pdf', 'export-final-draft'],
 		blocks: [
-			{ type: 'p', text: 'Two exports for when the words matter more than the layout.' },
 			{ type: 'list', items: [
-				'File → Export → Fountain… writes the screenplay as plain text with Fountain conventions — notes as [[ ]], ready for any Fountain-aware tool.',
-				'File → Export → Plain Text… writes the script as readable text with no conventions at all.'
+				'To save a Fountain file, choose File > Export > Fountain. Other apps that read Fountain can open it.',
+				'To save plain text, choose File > Export > Plain Text. The text is laid out like the printed pages, with each element indented as it prints.'
 			] },
-			{ type: 'p', text: 'Both open in any text editor, on any platform, now and in twenty years.' }
+			{ type: 'p', text: 'You can also click Export in the toolbar and choose Fountain or Plain Text.' }
 		]
 	},
 	{
 		slug: 'print',
-		title: 'Print and Page Setup',
+		title: 'Print a script',
 		category: 'export',
-		summary: '⌘P prints. ⇧⌘P sets the paper.',
-		related: ['export-pdf', 'page-settings', 'pages-and-continuous'],
+		summary: 'Print the same pages as the PDF.',
+		related: ['export-pdf', 'page-settings', 'title-page'],
 		blocks: [
 			{ type: 'steps', items: [
-				'Choose File → Page Setup… (⇧⌘P) to confirm the paper and orientation.',
-				'Choose File → Print… (⌘P) and print as you would from any Mac app.'
+				'Choose File > Print (⌘P).',
+				'Choose a printer and any options, then click Print.'
 			] },
-			{ type: 'p', text: 'What prints is the Pages layout — the sheets, their margins, and the page numbers, exactly as on screen. Omitted scenes print as their OMITTED card.' }
+			{ type: 'p', text: 'eDraft prints the same pages it exports as a PDF, including the title page if Include in PDF Export is turned on.' },
+			{ type: 'p', text: 'Pages break according to the paper size in eDraft > Settings. If the printer’s paper is a different size, the pages are scaled to fit it.' }
 		]
 	},
+
+	// Shortcuts & support
+
 	{
 		slug: 'keyboard-shortcuts',
 		title: 'Keyboard shortcuts',
 		category: 'support',
-		summary: 'Every eDraft shortcut in one table.',
-		related: ['tab-and-return', 'writing-suggestions', 'find-a-scene'],
+		summary: 'Every eDraft shortcut, while writing and by menu.',
+		related: ['tab-and-return', 'change-an-element', 'find-a-scene'],
 		blocks: [
-			{ type: 'p', text: 'Every shortcut eDraft defines, by menu. Standard Mac shortcuts — copy, paste, quit — are not listed; they are the ones every app uses.' },
-			{ type: 'table', head: ['Command', 'Shortcut'], rows: [
-				['File → New', '⌘N'],
-				['File → Open…', '⌘O'],
-				['File → Close', '⌘W'],
-				['File → Save', '⌘S'],
-				['File → Duplicate', '⇧⌘S'],
-				['File → Page Setup…', '⇧⌘P'],
-				['File → Print…', '⌘P'],
-				['Edit → Undo / Redo', '⌘Z / ⇧⌘Z'],
-				['Edit → Accept Suggestion', '⌘→'],
-				['Edit → Add Note', '⇧⌘K'],
-				['Edit → Find…', '⌘F'],
-				['Edit → Find Next / Previous', '⌘G / ⇧⌘G'],
-				['Edit → Find Scene', '⌘L'],
-				['Format → Scene Heading', '⌘1'],
-				['Format → Action', '⌘2'],
-				['Format → Character', '⌘3'],
-				['Format → Parenthetical', '⌘4'],
-				['Format → Dialogue', '⌘5'],
-				['Format → Transition', '⌘6'],
-				['Format → Shot', '⌘7'],
-				['Format → General', '⌘8'],
-				['Format → Lyrics', '⌘9'],
-				['View → Zoom In / Out', '⌘+ / ⌘−'],
-				['View → Actual Size', '⌘0'],
-				['View → Zoom to Fit', '⌘9'],
-				['View → Show Sidebar', '⌃⌘S'],
-				['View → Enter Full Screen', '⌃⌘F'],
-				['eDraft → Settings…', '⌘,'],
-				['Help → eDraft Help', '⌘?']
+			{ type: 'p', text: 'Standard Mac shortcuts, such as Copy (⌘C) and Paste (⌘V), work in eDraft as they do in other apps.' },
+			{ type: 'h', text: 'While writing' },
+			{ type: 'table', head: ['Action', 'Shortcut'], rows: [
+				['Change the current line’s element', 'Tab'],
+				['Step back through elements', '⇧Tab'],
+				['Start the next line', 'Return'],
+				['Accept a suggestion', '⌘→, or Space at the end of the line'],
+				['Add a note', '⇧⌘K']
 			] },
-			{ type: 'tip', text: 'Press ? inside the app for the same list, without leaving the page.' }
+			{ type: 'h', text: 'Menu commands' },
+			{ type: 'table', head: ['Command', 'Shortcut'], rows: [
+				['File > New', '⌘N'],
+				['File > Open', '⌘O'],
+				['File > Close', '⌘W'],
+				['File > Save', '⌘S'],
+				['File > Duplicate', '⇧⌘S'],
+				['File > Page Setup', '⇧⌘P'],
+				['File > Print', '⌘P'],
+				['Edit > Undo', '⌘Z'],
+				['Edit > Redo', '⇧⌘Z'],
+				['Edit > Accept Suggestion', '⌘→'],
+				['Edit > Add Note', '⇧⌘K'],
+				['Edit > Find > Find', '⌘F'],
+				['Edit > Find > Find Next', '⌘G'],
+				['Edit > Find > Find Previous', '⇧⌘G'],
+				['Edit > Find Scene', '⌘L'],
+				['Edit > Emoji & Symbols', '⌃⌘Space'],
+				['Format > Element > Scene Heading', '⌘1'],
+				['Format > Element > Action', '⌘2'],
+				['Format > Element > Character', '⌘3'],
+				['Format > Element > Parenthetical', '⌘4'],
+				['Format > Element > Dialogue', '⌘5'],
+				['Format > Element > Transition', '⌘6'],
+				['Format > Element > Shot', '⌘7'],
+				['Format > Element > General', '⌘8'],
+				['Format > Element > Lyrics', '⌘9'],
+				['View > Zoom In', '⌘+'],
+				['View > Zoom Out', '⌘−'],
+				['View > Actual Size', '⌘0'],
+				['View > Show Sidebar', '⌃⌘S'],
+				['View > Enter Full Screen', '⌃⌘F'],
+				['eDraft > Settings', '⌘,']
+			] }
 		]
 	},
 	{
-		slug: 'troubleshooting',
-		title: 'Troubleshooting',
+		slug: 'if-omit-scene-is-dimmed',
+		title: 'If Omit Scene is dimmed',
 		category: 'support',
-		summary: 'The four things to try before anything else.',
-		related: ['contact', 'import-final-draft', 'open-and-manage'],
+		summary: 'Why a scene can’t be omitted, and what to check.',
+		related: ['omit-a-scene', 'final-draft-files', 'fountain-files'],
 		blocks: [
-			{ type: 'h', text: 'A change went wrong' },
-			{ type: 'p', text: 'File → Revert To → Last Saved returns to the last saved state, and Browse All Versions… lets you pull from earlier saves.' },
-			{ type: 'h', text: 'An FDX file looks off' },
-			{ type: 'p', text: 'Check the import report first — eDraft warns instead of guessing when a file is outside the supported subset. Keep the original and compare against it.' },
-			{ type: 'h', text: 'Pages do not match another app' },
-			{ type: 'p', text: 'Pagination follows the paper size and margins in eDraft → Settings…. Confirm Paper Size matches the other app’s setup before comparing page counts.' },
-			{ type: 'h', text: 'Something feels broken' },
-			{ type: 'p', text: 'Note your version — eDraft → Settings… shows it — and tell us what you expected. A screenshot and the steps are usually enough.' },
-			{ type: 'tip', text: 'Still stuck? The contact article lists the ways to reach a person.' }
+			{ type: 'p', text: 'Omit Scene is available only when eDraft can save the omission. Check the following:' },
+			{ type: 'list', items: [
+				'The script is a Final Draft file (.fdx). eDraft scripts (.draft) and Fountain files can’t store omitted scenes. To see the reason, hold the pointer over Format > Omit Scene.',
+				'The insertion point is in a scene. Omit Scene is dimmed above the first scene heading.',
+				'The scene heading has text. A scene with an empty heading can’t be omitted.',
+				'The line isn’t already an OMITTED card. On a card, the command is Restore Scene.'
+			] },
+			{ type: 'p', text: 'If a Final Draft file’s omitted scenes can’t be matched to its text, eDraft turns omitting off for that file and gives the reason in the same place.' }
+		]
+	},
+	{
+		slug: 'if-final-draft-opens-instead',
+		title: 'If a Final Draft file opens in Final Draft',
+		category: 'support',
+		summary: 'Open a .fdx file in eDraft when Final Draft is installed.',
+		related: ['import-final-draft', 'final-draft-files', 'share-with-final-draft-users'],
+		blocks: [
+			{ type: 'p', text: 'If Final Draft is installed on your Mac, double-clicking a .fdx file can open it in Final Draft. To open it in eDraft, do one of the following:' },
+			{ type: 'list', items: [
+				'In eDraft, choose File > Open, select the file, then click Open.',
+				'In the Finder, Control-click the file, then choose Open With > eDraft.'
+			] },
+			{ type: 'p', text: 'To always open .fdx files in eDraft, select one in the Finder and choose File > Get Info. Choose eDraft from the “Open with” menu, then click Change All.' }
+		]
+	},
+	{
+		slug: 'if-page-counts-differ',
+		title: 'If page counts don’t match Final Draft',
+		category: 'support',
+		summary: 'Why the same script can have a different page count.',
+		related: ['page-settings', 'final-draft-files', 'final-draft-page-locks'],
+		blocks: [
+			{ type: 'list', items: [
+				'Check the paper size. Choose eDraft > Settings, then make sure Paper Size matches the paper size used in Final Draft.',
+				'eDraft decides where pages break by its own rules, which can differ from Final Draft’s. The same script can come out a little longer or shorter in each app.'
+			] },
+			{ type: 'p', text: 'For a script with locked pages, see Edit a Final Draft script with locked pages.' }
 		]
 	},
 	{
 		slug: 'contact',
-		title: 'Contact support',
+		title: 'Contact eDraft support',
 		category: 'support',
-		summary: 'Email, GitHub issues, and Send Feedback.',
-		related: ['troubleshooting', 'keyboard-shortcuts'],
+		summary: 'Email support, send feedback, or report a problem.',
+		related: ['keyboard-shortcuts', 'privacy', 'if-page-counts-differ'],
 		blocks: [
-			{ type: 'p', text: 'Two ways to reach us, and both go to a person.' },
 			{ type: 'list', items: [
-				'Email [SUPPORT EMAIL] — for anything about your work, your files, or your privacy.',
-				'GitHub issues at github.com/Yasirdora/edraft/issues — for bugs, with a screenshot and your version from eDraft → Settings….'
+				'Email support@edraft.xyz with questions about eDraft, your files, or your privacy.',
+				'To send feedback from eDraft, choose eDraft > Settings, then click Send Feedback. A new email message opens.',
+				'To report a problem, open an issue at github.com/Yasirdora/eDraft/issues. Include what you did, what you expected, and your eDraft version, which is shown in eDraft > Settings.'
 			] },
-			{ type: 'p', text: 'Prefer not to leave the app? eDraft → Settings… has a Send Feedback link that opens a addressed message.' },
-			{ type: 'tip', text: 'Security issues should not be posted publicly — use GitHub private vulnerability reporting instead.' }
+			{ type: 'note', text: 'Don’t post security problems publicly. Report them privately at github.com/Yasirdora/eDraft/security.' }
 		]
 	}
 ];
@@ -531,7 +932,7 @@ function indexText(article: HelpArticle): string {
 	for (const block of article.blocks) {
 		if (block.type === 'table') {
 			parts.push(...block.head, ...block.rows.flat());
-		} else if (block.type === 'p' || block.type === 'h' || block.type === 'tip') {
+		} else if (block.type === 'p' || block.type === 'h' || block.type === 'tip' || block.type === 'note') {
 			parts.push(block.text);
 		} else {
 			parts.push(...block.items);

@@ -1,0 +1,108 @@
+schemaVersion: 1
+id: IL-0097
+status: verified
+utterance: |-
+  the eDraft Help Center. Two stages — a read-only review report first, then a lock for the rewrite. Do not edit anything in stage 1.
+  What exists: the help content is one structured module, `src/lib/help/articles.ts` (categories, articles, body blocks as plain data — this same data will later generate the Apple Help Book, so it must stay serializable; renderers in `src/routes/help/` and `src/lib/help/*.svelte` never invent content). Treat that architecture as fixed and good.
+  The standard you are writing to: Apple's own help. Study how Apple structures help for its pro apps (support.apple.com/guide/final-cut-pro, /guide/pages — task-based titles as gerunds or imperatives, one task per article, numbered steps, second person, short sentences, zero marketing voice, a "Tip" only when it genuinely saves the reader). eDraft is an Apple-platform app and its help must feel like it ships from Apple, per docs/MACOS-DESIGN.md's voice.
+  Stage 1 — review report, covering:
+
+  1. Accuracy audit (the priority): check every factual claim in every article against the actual code — menu paths, shortcuts, button names, behaviors, with file:line evidence. Flag every claim that's wrong, stale, or unverifiable. Recent behavior you must reflect: IL-0095's collapsed-cut editing rules, the IL-0094 two-page sheets (no flag anymore), omit/restore via Navigator hover / context menu / Format menu, the page-lock notice (IL-0090).
+  2. Coverage gaps: compare the category map against the app's actual feature surface (menus in MainMenu.swift, the Format/Element menu, launch window actions). Notably missing today: page locks / Freeze Page state (the IL-0090 notice will need a "Learn More" article — slug it now), act breaks, the two-page/grid/continuous views in depth, Revert To / versions.
+  3. Competitive scan (web research): how Final Draft's knowledge base, Arc Studio, Highland 2, Slugline, Fade In, WriterDuet, and Scrivener structure their help and what topics they consider essential for screenwriters that we're missing (e.g. production workflows, revision colors, watermarks, collaboration handoff). Also tryarqo.com. One paragraph per competitor: structure, voice, what to steal, what to avoid. Never copy their text — insights only.
+  4. IA + style verdict: are the 8 categories and popular-articles list the right ones? Are titles task-based? Where does the voice slip into marketing?
+
+  Deliver the report as your reply with a concrete proposed article map (slug → title → category → one-line scope), including what to rewrite, what to add, what to delete. Then STOP and present a Vibe Check for stage 2 (the rewrite/expansion lock, budget covering articles.ts and only touching renderers if a new block type is truly needed). Wait for my yes before stage 2.
+  House rules: Code Director lock for any file change, no commit without my explicit word, don't touch other sessions' files (apple/** is another session's active area — read it for evidence only).
+goal: "Stage 2: the eDraft Help Center content in src/lib/help/articles.ts is rewritten and expanded to the stage-1 article map — every factual claim true of the Mac app at the lock's HEAD (menu paths, shortcuts, names, behaviors), titles task-based in Apple's style (imperatives; \"Intro to…\" for concepts), second person, no marketing voice, Tips only where they save the reader; unbuilt features (note threads, resolve, notes report) removed; the IL-0090 page-lock Learn More article exists at a fixed slug; the data stays plain and serializable; a help-data integrity test pins slugs, related links, popular list and serializability. A `note` block (Apple's Note callout, distinct from Tip) is added to the HelpBlock union and rendered by Blocks.svelte — the one renderer change, approved by the owner."
+interpretation: |
+  THE MAP. articles.ts becomes the stage-1 article map, 44 articles in the
+  same 8 category ids (so the renderer's icon map is untouched): 21 kept
+  slugs rewritten, 23 new, 5 deleted (note-threads, notes-report,
+  arrangements-and-zoom, fountain-and-fdx, troubleshooting). Four category
+  names change: Write; Scenes & structure; Pages & view; Final Draft & files.
+  popularArticles = import-final-draft, tab-and-return, omit-a-scene,
+  export-pdf, keyboard-shortcuts. The IL-0090 Learn More target is the slug
+  final-draft-page-locks.
+
+  THE STANDARD. Apple's help: imperative task titles, "Intro to …" for
+  concepts, "If …" for troubleshooting; second person; short sentences;
+  numbered steps for sequences; menu paths written "File > Export > PDF…";
+  "choose" menus, "click" buttons, "press" keys; the app's own nouns
+  (library, Navigator, Scenes, Cast, Notes, Element, OMITTED card,
+  Two-page, Dark Page, Focus). No marketing, no design rationale, no
+  implementation words (engine, paginator, model, choreography). A Tip only
+  where it saves the reader; caveats are Notes.
+
+  THE EVIDENCE RULE. Every behaviour claim is true of the Mac app at HEAD
+  3446dee, traced to code. A claim that cannot be proven from code is left
+  out, not guessed (⇧Return, Escape in the note card, what Page Setup
+  changes, Duplicate's naming). Known app bugs are not documented as
+  behaviour: nothing is said about how omitted scenes print; Zoom to Fit is
+  given no ⌘9; act-breaks is written but kept out of helpArticles until
+  IL-0096 lands (held in the report, not in the data).
+
+  SCOPE. The Mac app. iPhone, iPad and the web editor are out; no article
+  claims they behave the same.
+
+  THE TEST. src/lib/help/articles.test.ts pins: unique kebab-case slugs;
+  every article's category exists and every category has articles; every
+  related and popular slug resolves and none points at itself; the module
+  round-trips through JSON unchanged; final-draft-page-locks exists; no
+  article text carries "→" menu paths or a [PLACEHOLDER].
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the data stays plain and serializable — only strings, arrays and plain objects; the exported functions (articlesInCategory, getArticle, getCategory, searchArticles) keep their signatures, so the routes compile unchanged
+  - kind: custom
+    text: the 8 category ids stay as they are (getting-started, writing, notes, scenes, pages, files, export, support) — the help home page keys its icons by them
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the IL-0096 lock, the root PNGs) is left exactly as found
+deny:
+  - apple/**
+  - packages/**
+  - src/routes/**
+  - src/lib/components/**
+  - src/lib/screenplay/**
+  - src/lib/site/**
+  - src/lib/utils/**
+  - src/lib/help/HelpLayout.svelte
+  - src/app.css
+  - src/app.html
+  - docs/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - vite.config.ts
+  - tsconfig.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: The Help Center's articles are rewritten and expanded to the stage-1 map — accurate to the Mac app, in Apple's help voice — with a Note block for caveats and an integrity test over the help data.
+verifyCommand: npm run check && npx vitest run src/lib/help && npx vite build
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - src/lib/help/articles.ts
+    - src/lib/help/articles.test.ts
+    - src/lib/help/Blocks.svelte
+  symbols: []
+  maxFiles: 3
+  maxLines: 2000
+accept: []
+assumptions:
+  - text: "HEAD is 3446dee. Foreign dirt: the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the IL-0096 draft lock, the root PNGs — none touched; the baseline is the proof. The root tsc and npm run check both pass before this lock (checked 2026-09-23)."
+    source: system
+    confirmed: false
+  - text: "The owner approved all five stage-1 recommendations on 2026-09-23 (\"Yes to all five recommendations — decision 4 as a separate lock\"): Mac-only scope; a note block type; known app bugs left out of the help, act-breaks held until IL-0096 lands; renderer copy ([SUPPORT EMAIL] in the two route files, the 'people look for most' heading) left for a separate lock; claims unverifiable from code left out."
+    source: user
+    confirmed: true
+  - text: "The owner gave the support address and the issue tracker on 2026-09-23: support@edraft.xyz, github.com/Yasirdora/eDraft."
+    source: user
+    confirmed: true
+  - text: cdir's automatic draft anchored on name fragments (EditorView.present, ScanPresenter.report/scan, ElementCaseMemory.text) and proposed five apple/** files and a route file — none fit; the budget and deny list were set by hand from the stage-1 review, as shown to the owner.
+    source: system
+    confirmed: false
+createdAt: 2026-09-23T14:29:10.008Z
+createdBy: Yasirdora

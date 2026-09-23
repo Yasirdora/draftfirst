@@ -42,6 +42,10 @@
 		<aside class="tip" aria-label="Tip">
 			<p>{block.text}</p>
 		</aside>
+	{:else if block.type === 'note'}
+		<aside class="note" aria-label="Note">
+			<p>{block.text}</p>
+		</aside>
 	{/if}
 {/each}
 
@@ -62,4 +66,7 @@
 	.tip { margin-top: 26px; padding: 16px 20px; background: #f0f7ff; border: 1px solid #d3e5f8; border-radius: 12px; max-width: 680px; }
 	.tip p { margin: 0; font-size: 14px; line-height: 1.6; color: #1f4e79; }
 	.tip::before { content: 'Tip'; display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #1477c9; margin-bottom: 6px; }
+	.note { margin-top: 26px; padding: 16px 20px; background: #f5f5f7; border: 1px solid #e3e3e8; border-radius: 12px; max-width: 680px; }
+	.note p { margin: 0; font-size: 14px; line-height: 1.6; color: #3a3a3f; }
+	.note::before { content: 'Note'; display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6e6e73; margin-bottom: 6px; }
 </style>
