@@ -1,0 +1,116 @@
+schemaVersion: 1
+id: IL-0091
+status: verified
+utterance: "Finish the two-page migration: prove it, flip it, retire the legacy path. We do not patch the legacy two-page path. We finish the new one, prove it, make it the default, and retire the old one. Phase 1 — the proof: cross-sheet drag selection and copy; focus/tab order; IME; editing churn across a sheet boundary and at a page break with caret and viewport holding; performance on the 115-page synthetic and sample02, before vs after the flip, no regression past noise. Fail-before recorded. Phase 2 — the flip and the retirement: the PageSheet path becomes the only pages-mode path, the env flag and #if DEBUG gate go away, multiContainerSpreadEnabled ceases to exist; the legacy container code is removed unless something still depends on it — name every dependent and propose the cut line; behaviour parity table. Code Director lock after a Vibe Check I approve; budget by hand; every claim a failing-before test or a measurement."
+goal: "The page-sheet two-page path is fit to be the only one: typing on a feature-length script costs no more per keystroke than the legacy fold (no whole-document layout per keystroke), keyboard focus treats the page as one stop, and every Phase 1 check and parity behaviour is pinned by a test on the sheet path — so the flip (a second lock) removes nothing it cannot prove."
+interpretation: |
+  PHASE 1 WAS RUN FIRST (scratch clone of the tree, c1cc7bc + IL-0090;
+  both paths, native input — AppKit mouse tracking, insertText,
+  setMarkedText, deleteBackward, undo).
+
+  | check | page sheets | legacy fold |
+  | 1 drag left→right sheet, then Copy | PASS: {208,498} exact, spans the boundary, copy = selection | FAIL: selects {45,140}, never crosses the boundary (the view's own hit-test maps the points to 208/706 — AppKit's drag tracking ignores the fold) |
+  | 2 focus entering Two Pages | PASS: caret's sheet is first responder, selection kept | PASS |
+  | 2 key-view ring | every sheet is its own stop (next = another sheet) | one stop |
+  | 3 IME, marked text mid-word, right page | PASS: inserted once, caret after, model in sync, candidate 0 pt drift | PASS |
+  | 4 type across the sheet boundary | PASS: caret, responder follows, viewport 0 pt | FAIL: viewport jumps 432 pt |
+  | 4 delete back; undo both | PASS | PASS |
+  | 4 Return at a page break; undo | PASS: viewport 0 pt | FAIL: viewport jumps −342 pt |
+  | 5 keystroke, 115-page synthetic | FAIL: 102 ms median (pagination 1.4) | 6.4 ms |
+  | 5 keystroke, sample02 (28 pp) | FAIL: 14.5 ms (pagination 2.5) | 3.3 ms |
+
+  Check 5 is the one the new path fails, and the cost is named: per
+  keystroke `layOutPageSheets` calls `ensureLayout` on EVERY sheet's
+  container (88 of 103 ms on 115 pages — a whole-document layout per key),
+  `canvas.layoutSheets` measures every sheet's ink height (9.8 ms), and
+  notes/wash re-place across all sheets (2.4 ms on sample02). Pagination
+  stays incremental on both paths (20/20, no full passes).
+
+  THIS LOCK FINISHES THE SHEET PATH; THE FLAG STAYS (the flip is IL-0092):
+  1. Per-keystroke work bounded to what is on screen: lay out only the
+     visible sheets and the caret's, let the rest lay out when drawn; size a
+     sheet's view from the page's text block, not its measured ink; place
+     note marks and washes for visible sheets only. A structural test pins
+     it (sheets laid out per keystroke ≤ visible + caret's), and the IL-0089
+     probe is re-run: sheets must come within noise of the legacy fold on
+     both documents.
+  2. Keyboard focus treats the page as ONE stop: only the sheet holding the
+     selection is in the key-view loop (legacy parity). Test.
+  3. The proof becomes permanent tests on the sheet path: drag + copy
+     (private pasteboard, the view's own writable types), focus entering Two
+     Pages, IME marked text, the churn cases.
+  4. Parity gaps closed with tests: zoom on page sheets, notes wash on page
+     sheets. (Page-break markers are drawn in Continuous only — not
+     applicable to either pages path.)
+
+  CUT LINE PROPOSED FOR IL-0092 (named dependents, per the brief): the
+  flag, `multiContainerSpreadEnabled`, `SpreadFold`, ArrangedTextView's
+  fold, and the legacy spread branches go. `PageGapContainer` STAYS — its
+  dependents are Single pages (the gap bands place each page), Grid
+  (previews are drawn from that gapped layout, `drawGridPageGlyphs`), and
+  Continuous (the same container, no bands). Removing it is the RFC's
+  Stage 4/5 (Single and Grid onto sheets) — its own stage.
+
+  MANUAL (stated as manual, not claimed): a physical drag's feel and
+  autoscroll past the viewport; a real input method's candidate window;
+  VoiceOver across sheets; first click into an inactive window.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the flag stays and its default stays OFF in this lock; legacy paths behave byte-for-byte as before; the full surface suite stays green
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (IL-0090's six files, IL-0086's plists/pbxproj/xcscheme) is left exactly as found
+deny:
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/eDraftEngine/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/*/Package.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptWindowController.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageLockNotice.swift
+  - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/PageLockNoticeSurfaceTests.swift
+  - packages/**
+  - src/**
+  - static/**
+  - scripts/**
+  - docs/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - "**/DerivedData/**"
+change: The page-sheet two-page path does per-keystroke work only for what is on screen, treats the page as one keyboard stop, and has its Phase 1 checks and parity gaps pinned by tests.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageSheet.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/TwoPageSheetProofTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/TwoPageSheetCostTests.swift
+  symbols: []
+  maxFiles: 5
+  maxLines: 700
+accept:
+  - "COST: on the 115-page synthetic and sample02, a keystroke in Two Pages on sheets costs within noise of the legacy fold (IL-0089 method: medians of 20 after 5 warm-up) — measured and reported, both before and after."
+  - "BOUNDED: a test proves a keystroke lays out only the visible sheets and the caret's — it fails on the old code (every sheet)."
+  - "ONE STOP: a test proves only the sheet holding the selection is in the key-view loop — it fails on the old code (every sheet)."
+  - "PROOF PINNED: drag across sheets + copy, focus entering Two Pages, IME marked text, and the churn cases are tests on the sheet path."
+  - "PARITY: zoom and notes wash on page sheets are tested."
+  - "UNCHANGED: flag default OFF; legacy paths untouched; full surface suite green; macOS Debug build succeeds."
+assumptions:
+  - text: "HEAD is 247095b: IL-0090 committed; IL-0086 committed by its own session (85fe3c6); IL-0093 repaired the repo-wide tsc gate (9e1a60a), so a run can read clean again. Remaining foreign dirt: the xcscheme, mcp.log, the IL-0077 seal, the root PNGs — none touched; the baseline is the proof."
+    source: system
+    confirmed: false
+  - text: The flip and the retirement are IL-0092, drafted after this lock's measurements, so it removes only what this lock has proven replaceable.
+    source: system
+    confirmed: false
+createdAt: 2026-09-23T00:10:15.979Z
+createdBy: Yasirdora

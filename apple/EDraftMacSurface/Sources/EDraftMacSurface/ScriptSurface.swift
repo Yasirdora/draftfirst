@@ -358,6 +358,8 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         // The bar floats over the page, and the page moves under it on every
         // scroll tick, resize and pinch frame. One observer hears all three:
         // the clip view's bounds is the scroll view's name for all of them.
+        // Carries the page sheets' boundaries through each edit (IL-0091).
+        textStorage.delegate = self
         scrollView.contentView.postsBoundsChangedNotifications = true
         clipBoundsObserver = NotificationCenter.default.addObserver(
             forName: NSView.boundsDidChangeNotification,
@@ -366,6 +368,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             MainActor.assumeIsolated {
                 self?.repositionFormatBar()
                 self?.canvas.refreshVisibleGridPreviews()
+                if let self, self.usesPageSheets { self.canvas.measureVisibleSheets(self.sheets) }
             }
         }
         for (name, live) in [
@@ -923,12 +926,22 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             }
         }
         for sheet in sheets {
-            sheet.textView.delegate = self
-            sheet.textView.isEditable = true
-            sheet.textView.isSelectable = true
-            sheet.textView.allowsUndo = true
-            layoutManager.ensureLayout(for: sheet.textContainer)
+            let view = sheet.textView
+            if view.delegate !== self { view.delegate = self }
+            if !view.isEditable { view.isEditable = true }
+            if !view.isSelectable { view.isSelectable = true }
+            if !view.allowsUndo { view.allowsUndo = true }
+            (view as? PageSheetTextView)?.isKeyStop = { [weak self, weak view] in
+                guard let self, let view else { return true }
+                return self.selectionTextView === view
+            }
         }
+        /* The caret's sheet is laid out here; the canvas measures the sheets
+           in view; every other sheet lays out when it is drawn. Laying all of
+           them out re-laid the script after the edit point on every
+           keystroke (IL-0091). */
+        let caretSheet = textView(atCharacter: savedSelection.location)
+        if let container = caretSheet.textContainer { layoutManager.ensureLayout(for: container) }
         canvas.layoutSheets(sheets, viewport: visibleViewport())
         hideGhost()
         canvas.showBreaks(at: [])
@@ -2487,6 +2500,9 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     /// Which sheet holds this character, from the engine's page starts.
     private func pageIndex(containing location: Int) -> Int {
+        /* The sheets carry their starts; asking the pagination again walked
+           the whole script once per note mark on every keystroke. */
+        if usesPageSheets { return sheets.lastIndex(where: { $0.startLocation <= location }) ?? 0 }
         let starts = pagination(for: lastLaidElements).locations
         guard starts.count > 1 else { return 0 }
         var index = 0
@@ -4147,6 +4163,30 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     }
 
 
+}
+
+/// The sheets' boundaries move with the text as the storage processes an
+/// edit — before the layout manager hears of it (IL-0091; `PageSheet.follow`).
+extension ScriptSurface: NSTextStorageDelegate {
+    nonisolated public func textStorage(
+        _ textStorage: NSTextStorage,
+        didProcessEditing editedMask: NSTextStorageEditActions,
+        range editedRange: NSRange,
+        changeInLength delta: Int
+    ) {
+        guard editedMask.contains(.editedCharacters) else { return }
+        MainActor.assumeIsolated { followEdit(editedRange, changeInLength: delta) }
+    }
+
+    private func followEdit(_ edited: NSRange, changeInLength delta: Int) {
+        /* A whole-document render replaces the storage and then lays every
+           sheet out from the new pagination; there is nothing to carry. */
+        guard usesPageSheets, !applyingModel else { return }
+        let replaced = edited.length - delta
+        for sheet in sheets {
+            sheet.follow(editAt: edited.location, replacedLength: replaced, insertedLength: edited.length)
+        }
+    }
 }
 
 /// `CADisplayLink` retains its target; aimed at the surface, a running

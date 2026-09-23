@@ -174,29 +174,65 @@ final class PageCanvasView: NSView {
         layoutPages(pageCount: sheets.count, textHeight: 1, viewport: viewport)
         textView?.isHidden = true
         let format = PageFormat.current
-        let slack = ScreenplayPageLayout.glyphOverflow
-        let scale = Self.spreadScale(viewport: viewport, page: format.pageRect.size,
-                                     desk: canvasPadding)
+        sheetScale = Self.spreadScale(viewport: viewport, page: format.pageRect.size,
+                                      desk: canvasPadding)
+        /* Only the sheets in view are measured. Measuring a sheet lays its
+           text out, and TextKit lays containers out in order — measuring
+           them all re-laid the whole script on every keystroke (IL-0091:
+           88 of 103 ms a key on a 115-page script). A sheet out of view is
+           framed to its page's text block, which is what the engine filled
+           it to, and is measured when it scrolls in (`measureVisibleSheets`). */
+        let visible = sheetMeasuringRect()
         for (sheet, paper) in zip(sheets, pageViews) {
             let view = sheet.textView
             if view.superview !== self { addSubview(view, positioned: .above, relativeTo: paper) }
-            let manager = sheet.textContainer.layoutManager!
-            let glyphs = manager.glyphRange(for: sheet.textContainer)
-            let ink = manager.boundingRect(forGlyphRange: glyphs, in: sheet.textContainer)
-            let extra = manager.extraLineFragmentTextContainer === sheet.textContainer
-                ? manager.extraLineFragmentUsedRect.maxY : 0
-            let height = max(ink.maxY, extra, ScreenplayPageLayout.textBlockHeight(format)) + slack * 2
-            let size = CGSize(width: sheet.textContainer.size.width, height: height)
-            view.frame = CGRect(
-                x: paper.frame.minX + ScreenplayPageLayout.textLeft * scale,
-                y: paper.frame.minY + (format.textTop - slack) * scale,
-                width: size.width * scale, height: size.height * scale
-            )
-            view.setBoundsSize(size)
+            frame(sheet, on: paper, measuring: paper.frame.intersects(visible))
             view.effectiveAppearance.performAsCurrentDrawingAppearance {
                 view.insertionPointColor = NSColor.screenplayInk.usingColorSpace(.sRGB) ?? .labelColor
             }
         }
+    }
+
+    /// Measures the sheets that have scrolled into view, and gives any whose
+    /// type runs past its text block the room it needs.
+    func measureVisibleSheets(_ sheets: [PageSheet]) {
+        guard layoutMode == .pages, arrangement == .spread, !sheets.isEmpty else { return }
+        let visible = sheetMeasuringRect()
+        for (sheet, paper) in zip(sheets, pageViews) where paper.frame.intersects(visible) {
+            frame(sheet, on: paper, measuring: true)
+        }
+    }
+
+    /// The scale the sheets were last laid out at.
+    private var sheetScale: CGFloat = 1
+
+    /// What is on screen, and a row either side, so a sheet is measured
+    /// before the writer reaches it.
+    private func sheetMeasuringRect() -> CGRect {
+        let row = (pageViews.first?.frame.height ?? 0) + Self.pageGap
+        return gridVisibleRect().insetBy(dx: 0, dy: -row)
+    }
+
+    private func frame(_ sheet: PageSheet, on paper: NSView, measuring: Bool) {
+        let format = PageFormat.current
+        let slack = ScreenplayPageLayout.glyphOverflow
+        var text = ScreenplayPageLayout.textBlockHeight(format)
+        if measuring, let manager = sheet.textContainer.layoutManager {
+            let glyphs = manager.glyphRange(for: sheet.textContainer)
+            let ink = manager.boundingRect(forGlyphRange: glyphs, in: sheet.textContainer)
+            let extra = manager.extraLineFragmentTextContainer === sheet.textContainer
+                ? manager.extraLineFragmentUsedRect.maxY : 0
+            text = max(ink.maxY, extra, text)
+        }
+        let size = CGSize(width: sheet.textContainer.size.width, height: text + slack * 2)
+        let rect = CGRect(
+            x: paper.frame.minX + ScreenplayPageLayout.textLeft * sheetScale,
+            y: paper.frame.minY + (format.textTop - slack) * sheetScale,
+            width: size.width * sheetScale, height: size.height * sheetScale
+        )
+        let view = sheet.textView
+        if view.frame != rect { view.frame = rect }
+        if view.bounds.size != size { view.setBoundsSize(size) }
     }
 
     /// What the last `layoutPages` pass was asked for; a repeat is a no-op.
