@@ -1,0 +1,1 @@
+Yes to IL-0100 — IL-0096's contract carried over verbatim, the two-run restore/reapply, and the macOS build using its own DerivedData in the scratchpad. Commit under my earlier approval once verified. And note in the run record that the IL-0096 failure was a build-environment collision, not a code failure — the evidence trail matters for anyone auditing later.

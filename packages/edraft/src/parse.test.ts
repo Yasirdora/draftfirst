@@ -582,10 +582,21 @@ describe('act breaks at the Fountain boundary (RFC-ACT-BREAK §3)', () => {
 		).toContain('> ACT TWO <');
 	});
 
-	it('parses that card back as centred text — structure flattens, ink survives', () => {
-		expect(parseFountain('> ACT TWO <').elements[0]).toMatchObject({
-			type: 'centered',
-			text: 'ACT TWO'
-		});
+	it('parses an act card back as the act break it was', () => {
+		for (const card of ['ACT TWO', 'ACT 12', 'TEASER', 'COLD OPEN']) {
+			expect(parseFountain(`> ${card} <`).elements[0]).toMatchObject({ type: 'actbreak', text: card });
+		}
+		expect(parseFountain('>ACT TWO<').elements[0]).toMatchObject({ type: 'actbreak', text: 'ACT TWO' });
+	});
+
+	it('round-trips an act card through Fountain unchanged', () => {
+		const script = { titlePage: [], elements: [{ type: 'actbreak' as const, text: 'ACT ONE' }] };
+		expect(parseFountain(serialiseFountain(script)).elements).toMatchObject([{ type: 'actbreak', text: 'ACT ONE' }]);
+	});
+
+	it('keeps any other centred text centred — a custom card flattens, ink survives', () => {
+		for (const text of ['ACT TWO: THE TURN', 'act one', 'END OF ACT ONE', 'THE END']) {
+			expect(parseFountain(`> ${text} <`).elements[0]).toMatchObject({ type: 'centered', text });
+		}
 	});
 });

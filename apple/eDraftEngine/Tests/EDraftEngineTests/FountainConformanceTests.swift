@@ -2,10 +2,10 @@ import Foundation
 import Testing
 import EDraftEngine
 
-/// Conformance of `Fountain.parse` against `Fixtures/parse.json`: eleven
+/// Conformance of `Fountain.parse` against `Fixtures/parse.json`: twelve
 /// scripts (sample, edge headings, edge dialogue, structural, title page,
 /// empty, whitespace chaos, torture, 871-element feature, note brackets,
-/// asides in dialogue) parsed by the TypeScript engine, compared
+/// asides in dialogue, act cards) parsed by the TypeScript engine, compared
 /// element-for-element.
 @Suite("Fountain parse conformance")
 struct FountainParseConformanceTests {
@@ -20,7 +20,7 @@ struct FountainParseConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.count == 11)
+        #expect(Self.corpus.count == 12)
     }
 
     @Test("parse", arguments: Self.corpus)
@@ -45,7 +45,7 @@ struct FountainSerialiseConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.count == 11)
+        #expect(Self.corpus.count == 12)
     }
 
     @Test("serialise", arguments: Self.corpus)

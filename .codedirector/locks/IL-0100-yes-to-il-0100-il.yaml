@@ -1,0 +1,236 @@
+schemaVersion: 1
+id: IL-0100
+status: verified
+utterance: Yes to IL-0100 — IL-0096's contract carried over verbatim, the two-run restore/reapply, and the macOS build using its own DerivedData in the scratchpad. Commit under my earlier approval once verified. And note in the run record that the IL-0096 failure was a build-environment collision, not a code failure — the evidence trail matters for anyone auditing later.
+goal: "A Final Draft act break survives the Apple apps' Fountain boundary: both engines' Fountain parsers read a centred act card (Acts.isActCard / isActCard) as actbreak, pinned by the shared conformance corpus; a Final Draft file opens with its acts, saves and reopens with them, and exports them as New Act; a .fountain file's act cards open as act breaks with its bytes unchanged. Custom cards keep the named degradation, stated in RFC-ACT-BREAK §3. Proven on a file Final Draft wrote."
+interpretation: |
+  CARRIED FROM IL-0096, VERBATIM, BY THE OWNER'S WORD (2026-09-23): the goal,
+  the scope, the budget, the deny list, the keeps and the acceptance below are
+  IL-0096's, unchanged. One change, approved: the verify's macOS build uses its
+  own DerivedData in the session scratchpad, so no other session's build can
+  share it.
+
+  WHY A SECOND LOCK — THE IL-0096 FAILURE WAS THE BUILD ENVIRONMENT, NOT THE
+  CODE. Its run (.codedirector/runs/IL-0096-20260923-170427.json) applied the
+  15 files in scope, no violations, root tsc clean, and failed in the verify's
+  last step: xcodebuild printed "error: the following command failed with exit
+  code 0 but produced no further output". Repeated by hand at the same tree:
+  the corpus freshness check, TS package 915, Swift engine 259, EDraftCore 419,
+  Mac surface 381 (7 skipped) all passed; xcodebuild failed once more, then
+  passed twice — alone, and after the surface's swift test in the verify's own
+  order. Another session was active in the repo at the time (IL-0097 and
+  IL-0098 committed, IL-0099 drafted, all on files outside this scope); a
+  collision in the shared DerivedData is the owner's reading and the likeliest
+  cause — not proven, and no code change was made for it.
+
+  THE TWO RUNS (the IL-0039 → IL-0041 procedure): cdir counts a run's changes
+  against the tree as it found it, so a re-copy of files already applied would
+  record nothing. Run 1 restores the 15 files to HEAD (the 13 tracked ones from
+  git, the 2 new ones removed); run 2 re-applies them from the same spike and
+  runs the full verify. Same bytes as IL-0096 applied.
+
+  WHAT WAS MEASURED (2026-09-23, scratch copy at 3446dee, before drafting).
+  `ScreenplayFile.open` serialises an .fdx to Fountain; `Serialise` writes an
+  actbreak as `> CARD <`; `Parse` reads every `> … <` as centered. So:
+  - OPEN: every New Act arrives in the editor as `centered` — no acts in the
+    Navigator, no renumber, no page an act starts (StartsNewPage in FD).
+  - SAVE WITH THE ORIGIN: New Act survives a no-edit save (byte for byte), a
+    far edit, an edit next to the card, a line inserted before it, and a card
+    retyped in place — the splice keeps Final Draft's paragraph when it can
+    pair it. It is LOST when the save cannot pair the card (retyped, with a
+    line inserted before it): the paragraph is written from the model as
+    `<Paragraph Type="General" Alignment="Center">`. This corrects the brief's
+    "a save rewrites New Act as centred" to "a save that writes a card from
+    the model does".
+  - EXPORT (File ▸ Export ▸ Final Draft, from the model): 0 of N New Act.
+  - .fountain: `> ACT ONE <` opens centred (the RFC's documented behaviour).
+  The engine's own `Fdx.parse` of any saved file still reads New Act — so the
+  brief's fail-before, "parse, save, re-parse", fails at HEAD on the APP's
+  re-read (FDX → Fountain → editor), which is the one this lock tests.
+
+  THE FIX — where the continuity contract puts screenplay rules: in the
+  engines, TypeScript first (the conformance exporter's source of truth),
+  the Swift port mirroring it, pinned by the shared corpus.
+  - packages/edraft/src/parse.ts and apple/…/Fountain/Parse.swift: a centred
+    line whose text `isActCard` (canonical ACT n / ACT ONE…, TEASER, COLD
+    OPEN — exact, case-sensitive; the paste route's rule, RFC §5) is pushed
+    as `actbreak`; anything else stays `centered`. Serialisers unchanged
+    (comment only). EDraftCore needs no source change.
+  - Corpus: an `act-cards` case in scripts/engine-conformance-export.mjs —
+    parse, serialise and paginate (an act break starts its page). The
+    regenerated fixtures change by ADDITIONS ONLY (+363 lines: parse.json,
+    serialise.json, paginate.json, and draft.json's derived corpus entry);
+    no existing expectation moves; fdx.json is unchanged.
+  - The TS test that pinned the old flattening (parse.test.ts "parses that
+    card back as centred text") is rewritten to the new rule: act cards read
+    back as act breaks, round-trip unchanged; custom, lowercase, END and
+    other centred text stay centred. Swift corpus-size guards 11 → 12.
+  - RFC-ACT-BREAK §3 "Fountain" amended: the rule, the dated correction with
+    the measurements above, what stays degraded for a custom card and where,
+    and Fountain's one ambiguity (a plain-text `> ACT ONE <` is now an act).
+
+  SIZED BY A SPIKE: TS/Swift/corpus/RFC +488 / −29 over 13 files, a new
+  EDraftCore test of 170 lines. TS package 915 passed; Swift engine 259;
+  EDraftCore 417; Mac surface 381 (7 skipped); all 0 failures.
+
+  TESTS — ActBreakRoundTripTests (EDraftCore, new), through the app's own
+  road (`ScreenplayFile.open` → `EditorState` → `lastKnownSource` →
+  `ScreenplayFile.encode` with the origin), on a file Final Draft wrote:
+  open keeps the acts (and the Navigator's `acts`); open → edit → save →
+  reopen keeps them; a card the save writes from the model is a New Act;
+  Export writes New Act; a .fountain file's act cards open as acts and its
+  bytes save unchanged. Pins, passing at both: the fixture carries its acts;
+  a no-edit save is the file byte for byte; a custom card opens centred; a
+  custom card retyped in place keeps its New Act; one the save writes from
+  the model is centred General text (the named degradation).
+  FAIL-BEFORE (spike, stand-in file, clean HEAD copy): 5 of 10 fail at HEAD
+  (open, open-save-reopen, a card written from the model, Export, the
+  .fountain path); 10 of 10 pass after. To be re-run on the real file.
+
+  THE FIXTURE, AS SUPPLIED. Source: ~/Documents/finaldraft-acts.fdx, the
+  owner's File ▸ Save As in Final Draft 13 at 2026-09-23 17:04:22 (sha256
+  8aa47ca8…a644bd0bc, 824,556 bytes, left where it is) — real script text, so
+  anonymised before it can enter this public repo. ~/Documents/anonymiser has
+  no FDX support and the IL-0027 v2 script no longer exists, so v2 was
+  rebuilt as scratchpad anonymise_fdx.py and gated:
+  - GATE (a) — it rebuilds the current fixture: strict v2 on
+    ~/Documents/sample.fdx reproduces all 6,888 lines of
+    finaldraft-sample02.fdx; the one extra hunk is 5 lines sample.fdx has and
+    the fixture's source did not (an eDraft note of 2026-09-20). With the
+    exemptions, the only further differences are the 622 DefId lines.
+  - THREE EXEMPTIONS from v2, approved by the owner: DefId values verbatim
+    (v2 x'd them and broke all 622 tag references in finaldraft-sample02.fdx,
+    whose header claims "Ids verbatim"); New Act card text verbatim; the
+    "[eDraft]" note-title marker verbatim (the app's metadata — without it the
+    engine does not read the note as eDraft's).
+  - GATE (b), structure: 18,340 tokens paired with the 17:04 save, 0
+    failures — 9,164 text nodes same length and non-letters; 8,887 structural
+    attribute values byte for byte (ids, TagNumbers, RevisionIDs, dates);
+    622 DefIds and the 4 act cards verbatim; 600 anonymised attribute values
+    same shape; 12 WriterNames → Writer A–C; the image emptied. The engine
+    reads 797 elements from each, identical in type, length, dual, scene
+    number, depth, anchor shape and runs, act breaks, omissions and 11 notes,
+    once v2's writer labels are applied to the original (the one raw
+    difference is an eDraft note whose composed text carries its writer).
+  - GATE (b), readable words: 0 of the original's 32,508 content words in
+    any content position of the output; every non-x letter there is a
+    grammar word in a v2 place, an act-card word, Re/eDraft in a note title,
+    a writer label or GUID hex. Coincidences only outside content — inside
+    GUIDs (165), in Final Draft's structural values (38) and markup names
+    (27), all byte-identical to the original's markup. No /Users/ path.
+  The fixture carries a header stating all of this, like finaldraft-sample02.
+  FINAL DRAFT'S REAL SHAPE — differs from the spike's stand-in: FD 13 writes
+  each New Act as a PAIR sharing one id, an empty self-closing paragraph then
+  the card. Both FDX readers read the empty one as an act break of its own
+  (8 for 4 cards), and the Apple apps open it as a blank centred line. By the
+  owner's decision this is NOT fixed here: two tests state it exactly as it
+  reads today (testKnownGap…), and the lock after IL-0096 flips them.
+  FAIL-BEFORE ON THE REAL FILE: 5 of 12 fail at 3446dee (open,
+  open-save-reopen, a card written from the model, Export, the .fountain
+  path); 12 of 12 pass after. The 7 that pass at both: the fixture's
+  provenance (four pairs, shared ids), a no-edit save byte for byte, three
+  custom-card pins, the two known-gap pins.
+
+  NOT IN THIS LOCK: the Navigator/Mac UI (unchanged — it already renders
+  acts); the FDX engine (Fdx.swift / fdx.ts) and its fixture fdx.json — the
+  empty-twin reading is the NEXT lock; any new spelling for custom cards;
+  END-card handling in Fountain; finaldraft-sample02.fdx's broken DefIds /
+  header claim (queued with the batch); committing the anonymiser (it lives in
+  the session scratchpad — worth keeping, not in this budget).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the conformance corpus is fresh — regenerated from the built TypeScript engine it matches the committed-to-be fixtures exactly, and the Swift engine reproduces every case
+  - kind: custom
+    text: existing corpus expectations do not move — the fixture diff is additions only (the act-cards case and draft.json's derived entry)
+  - kind: custom
+    text: EDraftCore, the FDX engines (Fdx.swift, fdx.ts) and every app surface keep their source; the fix is the two Fountain parsers
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the root PNGs) is left exactly as found
+deny:
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/*/Package.swift
+  - apple/eDraftEngine/Sources/EDraftEngine/Fdx/**
+  - apple/eDraftEngine/Sources/EDraftEngine/Model/**
+  - apple/eDraftEngine/Fixtures/fdx.json
+  - apple/eDraftEngine/Fixtures/acts.json
+  - apple/eDraftEngine/Fixtures/finaldraft-sample01.fdx
+  - apple/eDraftEngine/Fixtures/finaldraft-sample02.fdx
+  - apple/eDraftEngine/Fixtures/sample0-2.fdx
+  - packages/edraft/src/fdx.ts
+  - packages/edraft/src/acts.ts
+  - packages/edraft/package.json
+  - src/**
+  - static/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Package.resolved
+  - "**/DerivedData/**"
+change: Both Fountain parsers read a centred act card as an act break; the shared corpus pins it; a Final Draft file's acts survive open, save, reopen and export through the Apple apps; RFC-ACT-BREAK §3 names what custom cards still lose.
+verifyCommand: rm -rf /private/tmp/claude-501/-Users-x-Documents-edraft/9f6ec2b7-53de-45eb-913a-4c95a23c7edd/scratchpad/il0096-fixtures && mkdir -p /private/tmp/claude-501/-Users-x-Documents-edraft/9f6ec2b7-53de-45eb-913a-4c95a23c7edd/scratchpad/il0096-fixtures && cp -R apple/eDraftEngine/Fixtures /private/tmp/claude-501/-Users-x-Documents-edraft/9f6ec2b7-53de-45eb-913a-4c95a23c7edd/scratchpad/il0096-fixtures/ && npm run --silent package:build && node scripts/engine-conformance-export.mjs && diff -r /private/tmp/claude-501/-Users-x-Documents-edraft/9f6ec2b7-53de-45eb-913a-4c95a23c7edd/scratchpad/il0096-fixtures/Fixtures apple/eDraftEngine/Fixtures && rm -rf /private/tmp/claude-501/-Users-x-Documents-edraft/9f6ec2b7-53de-45eb-913a-4c95a23c7edd/scratchpad/il0096-fixtures && npm run --silent test:package && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/9f6ec2b7-53de-45eb-913a-4c95a23c7edd/scratchpad/il0100-deriveddata -quiet build
+verifyTimeoutMs: 3600000
+budget:
+  files:
+    - packages/edraft/src/parse.ts
+    - packages/edraft/src/serialise.ts
+    - packages/edraft/src/parse.test.ts
+    - scripts/engine-conformance-export.mjs
+    - apple/eDraftEngine/Sources/EDraftEngine/Fountain/Parse.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fountain/Serialise.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FountainConformanceTests.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/PaginateConformanceTests.swift
+    - apple/eDraftEngine/Fixtures/parse.json
+    - apple/eDraftEngine/Fixtures/serialise.json
+    - apple/eDraftEngine/Fixtures/paginate.json
+    - apple/eDraftEngine/Fixtures/draft.json
+    - apple/eDraftEngine/Fixtures/finaldraft-acts.fdx
+    - apple/EDraftCore/Tests/EDraftCoreTests/ActBreakRoundTripTests.swift
+    - docs/RFC-ACT-BREAK.md
+  symbols: []
+  maxFiles: 15
+  maxLines: 7900
+accept:
+  - "OPEN: a Final Draft file opens in the editor with every act card as an act break, and the Navigator's acts — fails at 3446dee, passes after."
+  - "SAVE AND REOPEN: open → edit → save → reopen through ScreenplayFile and EditorState keeps every act break in the file and in the editor — fails at 3446dee, passes after."
+  - "WRITTEN FROM THE MODEL: a canonical card the save cannot pair is written as New Act, not centred General; File ▸ Export ▸ Final Draft writes New Act — both fail at 3446dee, pass after."
+  - "FOUNTAIN: a .fountain file's act cards open as act breaks and its bytes save unchanged — fails at 3446dee, passes after."
+  - "NAMED: a custom card opens centred, keeps its New Act when the save pairs it, and is written as centred General text when the save writes it from the model — pinned, and stated in RFC-ACT-BREAK §3."
+  - "PARITY: the act-cards corpus case (parse, serialise, paginate) is produced by the TypeScript engine and reproduced by the Swift engine; the corpus is fresh; existing expectations do not move."
+  - "NO REGRESSION: TS package, Swift engine, EDraftCore and Mac surface suites green; macOS Debug build succeeds; a no-edit save of the fixture is byte for byte."
+assumptions:
+  - text: "Owner, 2026-09-23: yes to IL-0100 — IL-0096's contract carried over verbatim, the two-run restore/reapply, the macOS build on its own DerivedData in the scratchpad; commit under the earlier approval of the anonymised fixture once verified; the IL-0096 failure recorded as a build-environment collision, not a code failure (recorded here, in IL-0096's closing note and in the commit — cdir's run record is machine-written and is not edited by hand)."
+    source: user
+    confirmed: true
+  - text: "Owner, 2026-09-23: fixture by option 2 — anonymise the 17:04 Save As; gates (a) rebuild the current fixture from sample.fdx except DefId lines, (b) structure identical to the 17:04 save and no readable words beyond grammar words and the four act cards; explicit approval to commit the anonymised result on those proofs. Both gates passed (interpretation)."
+    source: user
+    confirmed: true
+  - text: "Owner, 2026-09-23: three exemptions from v2 — DefId values, New Act card text, and the [eDraft] note-title marker (the app's own metadata) stay verbatim."
+    source: user
+    confirmed: true
+  - text: "Owner, 2026-09-23: keep IL-0096 as drafted; Final Draft's empty New Act twin is the next lock, ahead of the batch; IL-0096's tests state the pairs as a known gap for that lock's fail-before to flip. The file's pass through eDraft on 2026-09-20 is accepted for act-break tests."
+    source: user
+    confirmed: true
+  - text: "HEAD is 3446dee. Foreign dirt: the xcscheme (left unstaged on the owner's word), .codedirector/mcp.log, the IL-0077 seal, the root PNGs — none touched. The verify's corpus-freshness step copies the fixtures to the session scratchpad, regenerates from the built TS engine, diffs, and removes the copy."
+    source: system
+    confirmed: false
+  - text: "Not built by the verify: the iOS app (scheme eDraft). It uses the same Swift engine and EDraftCore, so it inherits the fix; its build stays Unchecked."
+    source: system
+    confirmed: false
+  - text: cdir's automatic draft anchored on name fragments (PagePaper, PageLayoutMode, ScreenplayImport, the help route) and suggested denying every package test file — none fit; the budget and deny list were set by hand from the spike.
+    source: system
+    confirmed: false
+createdAt: 2026-09-23T17:45:00.000Z
+createdBy: Yasirdora

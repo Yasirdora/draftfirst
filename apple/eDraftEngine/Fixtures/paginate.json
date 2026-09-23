@@ -17370,6 +17370,239 @@
     }
   },
   {
+    "name": "act-cards",
+    "screenplay": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT. LAB - DAY"
+        },
+        {
+          "type": "action",
+          "text": "She waits."
+        },
+        {
+          "type": "actbreak",
+          "text": "TEASER"
+        },
+        {
+          "type": "action",
+          "text": "The kettle screams."
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "scene",
+          "text": "EXT. YARD - DUSK"
+        },
+        {
+          "type": "action",
+          "text": "Mara waits."
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT 12"
+        },
+        {
+          "type": "centered",
+          "text": "ACT TWO: THE TURN"
+        },
+        {
+          "type": "centered",
+          "text": "act one"
+        },
+        {
+          "type": "centered",
+          "text": "END OF ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "COLD OPEN"
+        },
+        {
+          "type": "centered",
+          "text": "THE END"
+        }
+      ]
+    },
+    "expected": {
+      "pages": [
+        {
+          "number": 1,
+          "lines": [
+            {
+              "text": "INT. LAB - DAY",
+              "type": "scene",
+              "indent": 0,
+              "element": 0
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 1
+            },
+            {
+              "text": "She waits.",
+              "type": "action",
+              "indent": 0,
+              "element": 1
+            }
+          ],
+          "continuedTop": false,
+          "continuedBottom": true
+        },
+        {
+          "number": 2,
+          "lines": [
+            {
+              "text": "TEASER",
+              "type": "actbreak",
+              "indent": 27,
+              "element": 2
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 3
+            },
+            {
+              "text": "The kettle screams.",
+              "type": "action",
+              "indent": 0,
+              "element": 3
+            }
+          ],
+          "continuedTop": true,
+          "continuedBottom": true
+        },
+        {
+          "number": 3,
+          "lines": [
+            {
+              "text": "ACT ONE",
+              "type": "actbreak",
+              "indent": 26,
+              "element": 4
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 5
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 5
+            },
+            {
+              "text": "EXT. YARD - DUSK",
+              "type": "scene",
+              "indent": 0,
+              "element": 5
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 6
+            },
+            {
+              "text": "Mara waits.",
+              "type": "action",
+              "indent": 0,
+              "element": 6
+            }
+          ],
+          "continuedTop": true,
+          "continuedBottom": true
+        },
+        {
+          "number": 4,
+          "lines": [
+            {
+              "text": "ACT 12",
+              "type": "actbreak",
+              "indent": 27,
+              "element": 7
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 8
+            },
+            {
+              "text": "ACT TWO: THE TURN",
+              "type": "centered",
+              "indent": 21,
+              "element": 8
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 9
+            },
+            {
+              "text": "act one",
+              "type": "centered",
+              "indent": 26,
+              "element": 9
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 10
+            },
+            {
+              "text": "END OF ACT ONE",
+              "type": "centered",
+              "indent": 23,
+              "element": 10
+            }
+          ],
+          "continuedTop": true,
+          "continuedBottom": true
+        },
+        {
+          "number": 5,
+          "lines": [
+            {
+              "text": "COLD OPEN",
+              "type": "actbreak",
+              "indent": 25,
+              "element": 11
+            },
+            {
+              "text": "",
+              "type": "blank",
+              "indent": 0,
+              "element": 12
+            },
+            {
+              "text": "THE END",
+              "type": "centered",
+              "indent": 26,
+              "element": 12
+            }
+          ],
+          "continuedTop": true,
+          "continuedBottom": false
+        }
+      ],
+      "runtime": "~5 minutes",
+      "printedLines": 13
+    }
+  },
+  {
     "name": "styled-equals-plain",
     "screenplay": {
       "titlePage": [],

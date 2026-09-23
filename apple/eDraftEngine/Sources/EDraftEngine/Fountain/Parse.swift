@@ -447,10 +447,16 @@ public enum Fountain {
                 continue
             }
 
-            /* centered  > THE END < */
+            /* centered  > THE END < — or an act break. Fountain has no act
+               spelling, so the serialiser writes a card centred; a centred
+               line that is an act card (`Acts.isActCard`: ACT ONE, TEASER,
+               COLD OPEN — exact and case-sensitive) reads back as the break
+               it was, which is what the paste route has always done
+               (RFC-ACT-BREAK §3, §5). Any other centred text stays centred. */
             if let centered = centeredMatch(line) {
-                push(.centered, centered)
-                prev = .centered
+                let kind: ElementKind = Acts.isActCard(centered) ? .actbreak : .centered
+                push(kind, centered)
+                prev = kind
                 i += 1
                 continue
             }

@@ -5,7 +5,7 @@
  * title page, scene headings (detected + forced `.`), action (forced `!`),
  * character cues (ALL CAPS, forced `@`, extensions, dual `^`), dialogue,
  * parentheticals, transitions (`TO:`, the FADE opener/closer family, forced `>`),
- * centered `> <`, lyrics `~`, notes [[ ]], boneyard (omitted), sections #,
+ * centered `> <` (an act card there is an act break), lyrics `~`, notes [[ ]], boneyard (omitted), sections #,
  * synopses =, page breaks ===. Title pages open on known keys (`Title:`,
  * `Credit:`…) or on any run of 2+ keys — a lone `FADE IN:` is never metadata.
  * Beyond the spec: isolated known shot language (ANGLE ON, INSERT, … SHOT)
@@ -25,6 +25,7 @@ import { readNoteHeader } from './noteanchor.js';
 import type { LegacyTitlePageEntry } from './titlepage.js';
 import { titlePageLinesFromEntries } from './titlepage.js';
 import { parseEmphasis } from './style.js';
+import { isActCard } from './acts.js';
 
 export interface FountainParseOptions {
 	/** Maximum UTF-16 code units accepted from one document. Default: 16 MiB. */
@@ -408,11 +409,17 @@ export function parseFountain(source: string, options: FountainParseOptions = {}
 			continue;
 		}
 
-		/* centered  > THE END < */
+		/* centered  > THE END < — or an act break. Fountain has no act
+		   spelling, so the serialiser writes a card centred; a centred line
+		   that is an act card (`isActCard`: ACT ONE, TEASER, COLD OPEN — exact
+		   and case-sensitive) reads back as the break it was, which is what
+		   the paste route has always done (RFC-ACT-BREAK §3, §5). Any other
+		   centred text stays centred. */
 		const c = centeredMatch(line);
 		if (c) {
-			push('centered', c[1]);
-			prev = 'centered';
+			const kind = isActCard(c[1]) ? 'actbreak' : 'centered';
+			push(kind, c[1]);
+			prev = kind;
 			continue;
 		}
 

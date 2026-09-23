@@ -117,12 +117,34 @@ pinned to the same commit — the port is a port, not a fork.
 
 ### Fountain
 
-Out: the card as centred text, `>ACT TWO<` — it prints correctly in every
-Fountain tool. In: centred text stays centred; the act structure flattens.
-Named and accepted: Fountain has no act spelling, exactly as it has no
-revision marks and no locked pages. This is what `.draft` is for. A
-standalone pasted line reading `ACT ONE` still routes to `actbreak` (§5) —
-the paste boundary is smarter than the format.
+Out: the card as centred text, `> ACT TWO <` — it prints correctly in every
+Fountain tool. In: a centred line that is an act card — `isActCard`, the
+paste route's own rule (§5): a canonical card (`ACT ONE`, `ACT 12`) or
+`TEASER` / `COLD OPEN`, exact and case-sensitive — reads back as
+`actbreak`. Any other centred text stays centred.
+
+*Amended 2026-09-23 (IL-0096):* this section said every centred line stays
+centred and the act structure flattens. It mattered more than it read: the
+Apple apps carry an .fdx through Fountain on the way in, so every Final
+Draft file opened with no acts — none in the Navigator, no renumber, no
+page an act starts — and every road that writes from the model said so in
+the file. Export wrote each `New Act` as centred General text, and so did a
+save that could not pair a card with Final Draft's paragraph (a card retyped
+with a line inserted before it). Measured on a file Final Draft wrote; pinned
+by `ActBreakRoundTripTests` and the `act-cards` case in `parse.json`.
+
+What stays degraded, named: a **custom card** — `ACT TWO: THE TURN`, a
+lowercase `act one` — is the writer's text, and Fountain has no spelling that
+could carry it as an act. It reads back centred. From an .fdx it opens as a
+centred line, not an act; a save that pairs it with Final Draft's paragraph
+keeps that paragraph's `New Act`, one that cannot writes centred General
+text, and Export writes centred General text. `.draft` keeps it as an act.
+
+The one ambiguity is Fountain's own: a writer who centred `> ACT ONE <` as
+plain text now has an act break — a page of its own, and a place in the
+renumber rule. Fountain cannot tell the two apart, and the card says what it
+is. An END card (`> END OF ACT ONE <`) stays centred text; only the FDX
+boundary absorbs them (above).
 
 ### .draft
 

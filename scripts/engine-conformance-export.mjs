@@ -525,6 +525,54 @@ for (const { name, source } of SCRIPTS) {
 	serialiseFixture.push({ name, screenplay, expected: serialiseFountain(screenplay) });
 }
 
+/* Act cards at the Fountain boundary (RFC-ACT-BREAK §3). Fountain has no
+   act spelling: the serialiser writes a card centred, and a centred line
+   that is an act card — ACT ONE, ACT 12, TEASER, COLD OPEN, exact and
+   case-sensitive — reads back as the act break it was. A custom card, a
+   lowercase one and an END card stay centred: the named degradation.
+   Paginated too, because an act break starts its page and a centred line
+   does not. */
+{
+	const name = 'act-cards';
+	const source = [
+		'INT. LAB - DAY',
+		'',
+		'She waits.',
+		'',
+		'> TEASER <',
+		'',
+		'The kettle screams.',
+		'',
+		'> ACT ONE <',
+		'',
+		'EXT. YARD - DUSK',
+		'',
+		'Mara waits.',
+		'',
+		'>ACT 12<',
+		'',
+		'> ACT TWO: THE TURN <',
+		'',
+		'> act one <',
+		'',
+		'> END OF ACT ONE <',
+		'',
+		'> COLD OPEN <',
+		'',
+		'> THE END <',
+		''
+	].join('\n');
+	const screenplay = parseFountain(source);
+	parseFixture.push({ name, source, expected: screenplay });
+	serialiseFixture.push({ name, screenplay, expected: serialiseFountain(screenplay) });
+	const pages = paginate(screenplay);
+	paginateFixture.push({
+		name,
+		screenplay,
+		expected: { pages, runtime: estimateRuntime(pages), printedLines: printedLineCount(pages) }
+	});
+}
+
 /* Styled pagination must be identical to the plain twin — the paginator
    measures content, and Courier's fixed advance means style never changes
    geometry. The expected values are computed from the PLAIN twin so the

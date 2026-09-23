@@ -155,9 +155,10 @@ extension Fountain {
             return "> \(body) <"
 
         case .actbreak:
-            /* Fountain has no act spelling; the centred card prints correctly
-               everywhere and re-imports as centered — the named degradation,
-               RFC-ACT-BREAK §3. The paste route is smarter than the format. */
+            /* Fountain has no act spelling; the card goes out centred, which
+               prints correctly everywhere. An act card (ACT ONE, TEASER, COLD
+               OPEN) reads back as the break; a custom card reads back centred —
+               the named degradation, RFC-ACT-BREAK §3. */
             return "> \(body) <"
 
         case .lyrics:

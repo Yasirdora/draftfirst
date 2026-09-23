@@ -4365,5 +4365,66 @@
         }
       ]
     }
+  },
+  {
+    "name": "act-cards",
+    "source": "INT. LAB - DAY\n\nShe waits.\n\n> TEASER <\n\nThe kettle screams.\n\n> ACT ONE <\n\nEXT. YARD - DUSK\n\nMara waits.\n\n>ACT 12<\n\n> ACT TWO: THE TURN <\n\n> act one <\n\n> END OF ACT ONE <\n\n> COLD OPEN <\n\n> THE END <\n",
+    "expected": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT. LAB - DAY"
+        },
+        {
+          "type": "action",
+          "text": "She waits."
+        },
+        {
+          "type": "actbreak",
+          "text": "TEASER"
+        },
+        {
+          "type": "action",
+          "text": "The kettle screams."
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT ONE"
+        },
+        {
+          "type": "scene",
+          "text": "EXT. YARD - DUSK"
+        },
+        {
+          "type": "action",
+          "text": "Mara waits."
+        },
+        {
+          "type": "actbreak",
+          "text": "ACT 12"
+        },
+        {
+          "type": "centered",
+          "text": "ACT TWO: THE TURN"
+        },
+        {
+          "type": "centered",
+          "text": "act one"
+        },
+        {
+          "type": "centered",
+          "text": "END OF ACT ONE"
+        },
+        {
+          "type": "actbreak",
+          "text": "COLD OPEN"
+        },
+        {
+          "type": "centered",
+          "text": "THE END"
+        }
+      ]
+    }
   }
 ]
