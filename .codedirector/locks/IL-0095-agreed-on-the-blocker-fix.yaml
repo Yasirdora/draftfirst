@@ -1,0 +1,157 @@
+schemaVersion: 1
+id: IL-0095
+status: verified
+utterance: Agreed on the blocker — fix it first, before anything else, as its own lock. Use your scratchpad probe as the fail-before (Return, Backspace at element start, paste, dead key — below a collapsed cut, both layout paths). The planner and the fallback sync must work in on-screen coordinates over laidElements, with hidden elements restored at their indices after the edit. Also cover the same-cause caret misplacement in insertElements/insertActBreak/renumberActCardsIfNeeded. Vibe Check first, wait for my yes.
+goal: "An edit below a collapsed cut scene never touches the cut: the Mac surface's structural planner, its fallback native-text sync and its element lookup work in on-screen coordinates over laidElements, the hidden lines go back beside their card after every edit, and insertElements/insertActBreak/renumberActCardsIfNeeded place the caret by on-screen ranges. Proven fail-before by tests for Return, Backspace at element start, paste, dead key, typing at the card's end and Insert Act Break, on Single pages and Two Pages."
+interpretation: |
+  THE BLOCKER FROM THE 2026-09-23 REVIEW (finding #1). A collapsed cut
+  scene's lines are in the model (`editor.screenplay.elements`) and not in
+  the text storage (`ScriptLayout.attributedScript` gives them no row). Three
+  places in ScriptSurface measured a storage position against every element:
+  `applyStructuralReplacement` and `synchronizeModelFromNativeText` hand the
+  planner all elements, and `insertElements` / `insertActBreak` /
+  `renumberActCardsIfNeeded` compute the caret with
+  `ScreenplayEditPlanner.ranges(for:)` over all elements. Collapse arrived in
+  28aaf8d (IL-0076); f538605 (IL-0088) made it reachable for any scene the
+  writer omits.
+
+  SIZED BY A SPIKE, NOT GUESSED: the whole change was made in a scratch copy
+  of the five Swift packages at HEAD 640db36 — ScriptSurface.swift +103 / −38,
+  one new test file of 330 lines. Full surface suite 381 tests, 7 skipped,
+  0 failures. Nothing in the tree is touched until this lock is active; the
+  run copies the spike's two files in.
+
+  THE FIX (ScriptSurface.swift only):
+  - The planner is given `laidElements(all)` — the lines the storage holds,
+    which is what the edit range indexes — in `applyStructuralReplacement`
+    and in `synchronizeModelFromNativeText`, whose diff is now taken against
+    `flattenedText(laid)` rather than every element.
+  - `restoringHidden(_:from:laid:)` (internal static, unit-tested) puts the
+    hidden lines back into the planned list: each hidden run after the line
+    it followed — its card — or, if the edit took that line away, after the
+    nearest line before it that survived. Never dropped, never reordered.
+    This is how "hidden elements restored at their indices" is read: a
+    literal index moves whenever an edit above adds or removes a line, so the
+    run's place is held relative to its card.
+  - `laidLocation(of:in:)` gives insertElements, insertActBreak and
+    renumberActCardsIfNeeded the caret's location in the laid lines.
+  - `hiddenElementIDs`, set in `render` beside `ranges`, lets
+    `elementRange(at:)` skip the hidden lines. (Addition — see below.)
+  - `insertionIndex(in:)`: insertElements and insertActBreak insert after
+    the caret's line and past any cut scene's lines behind it, open or
+    closed. (Addition — see below.)
+  Documents with no omissions take the path they took before:
+  `laidElements` returns the list unchanged, `restoringHidden` returns the
+  plan unchanged, `hiddenElementIDs` is empty.
+
+  TWO ADDITIONS BEYOND THE BRIEF — SAME CAUSE, FOUND WHILE SCOPING, EACH
+  NEEDS THE OWNER'S YES:
+  (a) Typing at the end of the OMITTED card replaced the hidden scene
+      heading ("EXT. THE YARD - DUSK" became "X"): the hidden lines' empty
+      ranges sit at the card's end, and `elementRange(at:)` answered the
+      first of them. Fixed by the lookup skipping hidden lines.
+  (b) Insert Act Break (or Add Pages) with the caret on a card inserted
+      between the card and its scene; `Omissions.spans` then cannot find the
+      cut and the save writes it live. Fixed by `insertionIndex`.
+
+  TESTS — CollapsedCutEditTests.swift (new), every case on Single pages and
+  on Two Pages' page sheets. The oracle is the same file with the cut
+  opened: open, every line is on the page and positions agree, so the closed
+  result must equal the open one — the same lines, the caret on the same
+  line at the same column — and the cut must stand whole behind its card
+  with `Omissions.spans` still finding it.
+  - Return, Backspace at an element start, a multi-line paste, a dead key
+    (⌥E, e — marked text then commit, a real window's first responder),
+    typing at the card's end; Insert Act Break, Insert lines, the act
+    renumber (two breaks inserted, ACT ONE deleted, ACT TWO renumbered);
+    an act break inserted on the card, cut open and closed; the pure
+    `restoringHidden` rule; undo of an edit below a closed cut.
+  - The page arrangement is put back after each test (one defaults domain).
+
+  FAIL-BEFORE (the spike's tests run against a clean copy of HEAD 640db36):
+  10 of 11 fail — every edit test and the restore rule (a do-nothing stand-in
+  at HEAD). The undo test passes at HEAD and after: it is a guard that undo
+  still puts every line back through the restore step, not a fail-before.
+  ABLATION: with only the renumber line reverted, the renumber test fails on
+  both paths (caret at the end of "It boils over." instead of the end of
+  "The kettle screams.") — that line carries its own weight.
+
+  NOT IN THIS LOCK — FOUND WHILE SCOPING, FOR THE BATCH:
+  - Backspace at the start of the line directly after a cut. Closed (after
+    this fix) it joins that line to the card: "OMITTEDTHE KETTLE SCREAMS.".
+    Open (today, unchanged) it joins it to the cut's last line —
+    "Mara waits.The kettle screams." — and the writer's live words become
+    cut text. Neither is obviously right; a behaviour decision.
+  - With the cut open, Return at the card's end puts a new line between the
+    card and its scene (the planner, not a coordinate bug).
+  - An edit that removes the card itself keeps the hidden lines (never
+    dropped), but card-less; `Omissions.spans` then drops the scene and the
+    save writes it live — the silent-drop behaviour of review finding #3's
+    family.
+  - The MACOS-DESIGN §1.1/§6 amendment is its own tiny lock, after this one.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: EDraftCore is untouched — the planner, Omissions and the iPhone surface keep their code; the fix is the Mac surface choosing what it hands the planner
+  - kind: custom
+    text: a document with no omitted scenes takes the same path as before (laidElements returns the list unchanged, restoringHidden returns the plan unchanged, hiddenElementIDs is empty), and the full surface suite stays green
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the root PNGs) is left exactly as found
+deny:
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/eDraftEngine/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/*/Package.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptLayout.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageCanvasView.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/PageSheet.swift
+  - docs/**
+  - packages/**
+  - src/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Package.resolved
+  - "**/DerivedData/**"
+change: The Mac surface plans edits, syncs native text and looks up elements over the laid lines, restores a collapsed cut's hidden lines behind their card after every edit, and places inserted lines and the caret by on-screen ranges; CollapsedCutEditTests proves it on both layout paths.
+verifyCommand: swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/CollapsedCutEditTests.swift
+  symbols: []
+  maxFiles: 2
+  maxLines: 520
+accept:
+  - "FAIL-BEFORE: CollapsedCutEditTests — 10 of 11 fail at 640db36 (Return, Backspace at element start, paste, dead key, typing at the card's end, Insert Act Break, Insert lines, act renumber, act break on the card, the restore rule); all 11 pass after, on Single pages and Two Pages. The undo guard passes at both."
+  - "ORACLE: every edit below a closed cut yields the same lines and the same caret place (line and column) as the same edit with the cut open, and the cut stands whole behind its card with Omissions.spans finding it."
+  - "LOAD-BEARING: reverting only the renumber line makes the renumber test fail on both paths."
+  - "NO REGRESSION: full surface suite green (spike: 381 tests, 7 skipped, 0 failures); macOS Debug build succeeds; EDraftCore untouched."
+assumptions:
+  - text: "HEAD is 640db36. Foreign dirt: the xcscheme (Xcode's reformat, left unstaged on the owner's word), .codedirector/mcp.log, the IL-0077 seal, the root PNGs — none touched; the baseline is the proof. The root tsc passes (checked before drafting)."
+    source: system
+    confirmed: false
+  - text: Additions (a) typing at the card's end and (b) the insertion point on a card are outside the brief's list; the owner approved both on 2026-09-23 ("Yes to IL-0095 as drafted, with both additions").
+    source: user
+    confirmed: true
+  - text: '"Hidden elements restored at their indices" means back behind their card — confirmed by the owner on 2026-09-23. The four behaviour decisions under NOT IN THIS LOCK stay out; they are batched after, with the MACOS-DESIGN amendment, for the owner to decide with the app in front of them.'
+    source: user
+    confirmed: true
+  - text: cdir's automatic draft anchored on name fragments (Omissions.restored, SceneHeadingSeparator.collapsed, EDraftCore paste tests) — none touched by this fix; the budget and deny list were set by hand from the spike.
+    source: system
+    confirmed: false
+createdAt: 2026-09-23T10:13:17.341Z
+createdBy: Yasirdora

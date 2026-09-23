@@ -101,6 +101,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// array by element index and the two must stay in step (§7.3).
     private(set) var ranges: [ScriptLayout.ElementRange] = []
 
+    /// The lines a collapsed cut hides: in the model, not in the text. Their
+    /// empty ranges sit at the card's end, which is a place a caret can
+    /// stand — so no lookup by location may answer one of them (IL-0095).
+    private var hiddenElementIDs: Set<UUID> = []
+
     /// Cut scenes the writer has opened. Surface state: not in the
     /// document, not in the file, not in defaults — so a close and reopen
     /// comes back collapsed, which is what a cut scene should be.
@@ -530,6 +535,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             expanded: expandedOmissions
         )
         ranges = script.ranges
+        hiddenElementIDs = hiddenIDs(in: elements)
         omittedRegions = script.regions
         lastLaidElements = elements
         textStorage.setAttributedString(script.text)
@@ -1182,6 +1188,54 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
                   editor.omittedScenes.contains(element) else { return true }
             return expandedOmissions.contains(scene.key)
         }
+    }
+
+    /// The elements `laidElements` leaves out — the lines a collapsed cut
+    /// hides. Empty for every document with none, at no cost.
+    private func hiddenIDs(in elements: [ScriptElement]) -> Set<UUID> {
+        guard let editor, !editor.omittedScenes.isEmpty else { return [] }
+        let laid = Set(laidElements(elements).map(\.id))
+        return Set(elements.lazy.map(\.id).filter { !laid.contains($0) })
+    }
+
+    /// An edit planned over the lines on the page, with the lines a collapsed
+    /// cut hides put back where they stood (IL-0095).
+    ///
+    /// The planner reckons character positions over the elements it is
+    /// given, and the text view holds only the laid ones — so it is given
+    /// only those, and never sees a hidden line to split, merge or overwrite.
+    /// Each hidden run then goes back after the line it followed, which is
+    /// its card; if the edit took that line away, after the nearest line
+    /// before it that is still there. Never dropped, never reordered.
+    static func restoringHidden(
+        _ edited: [ScriptElement], from all: [ScriptElement], laid: [ScriptElement]
+    ) -> [ScriptElement] {
+        guard all.count != laid.count else { return edited }
+        let onPage = Set(laid.map(\.id))
+        let kept = Set(edited.map(\.id))
+        var behind: [UUID?: [ScriptElement]] = [:]
+        var anchor: UUID?
+        for element in all {
+            if !onPage.contains(element.id) {
+                behind[anchor, default: []].append(element)
+            } else if kept.contains(element.id) {
+                anchor = element.id
+            }
+        }
+        var result = behind[UUID?.none] ?? []
+        result.reserveCapacity(edited.count + all.count - laid.count)
+        for element in edited {
+            result.append(element)
+            if let lines = behind[element.id] { result += lines }
+        }
+        return result
+    }
+
+    /// Where the caret lands after an edit, in the text the page will hold:
+    /// the element's start in the laid lines, never in the model's (IL-0095).
+    private func laidLocation(of id: UUID, in elements: [ScriptElement]) -> Int {
+        ScreenplayEditPlanner.ranges(for: laidElements(elements))
+            .first(where: { $0.id == id })?.range.location ?? 0
     }
 
     private func pagination(for all: [ScriptElement]) -> Pagination {
@@ -3124,7 +3178,11 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
     private func synchronizeModelFromNativeText() {
         guard let editor else { return }
-        let previousText = ScreenplayEditPlanner.flattenedText(editor.screenplay.elements)
+        /* The storage holds the laid lines; compared with every element, a
+           collapsed cut's body read as deleted text (IL-0095). */
+        let all = editor.screenplay.elements
+        let laid = laidElements(all)
+        let previousText = ScreenplayEditPlanner.flattenedText(laid)
         guard let difference = ScreenplayEditPlanner.replacementBetween(
             previousText,
             textStorage.string
@@ -3150,7 +3208,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
 
         let nativeSelection = selectionTextView.selectedRange()
         guard let plan = ScreenplayEditPlanner.plan(
-            elements: editor.screenplay.elements,
+            elements: laid,
             replacing: difference.0,
             with: difference.1,
             intent: .replacement,
@@ -3159,7 +3217,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
             }
         ) else { return }
         editor.replaceAllElements(
-            plan.elements,
+            Self.restoringHidden(plan.elements, from: all, laid: laid),
             activeID: plan.activeElementID,
             offset: plan.activeOffset,
             structural: false,
@@ -3177,25 +3235,28 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         intent: ScreenplayEditPlanner.Intent,
         actionName: String
     ) -> Bool {
-        guard let editor,
-              let plan = ScreenplayEditPlanner.plan(
-                elements: editor.screenplay.elements,
-                replacing: range,
-                with: replacement,
-                intent: intent,
-                kindForNewElement: { previous, text, depth, attached in
-                    // A paste is not typing: a line no signal claims is
-                    // prose, not the choreography's next guess (the writer
-                    // never pressed those Returns).
-                    editor.kindForInsertedElement(
-                        after: previous, text: text, pasteDepth: depth,
-                        attached: attached,
-                        fallback: intent == .multilinePaste ? .action : nil
-                    )
-                }
-              ) else { return false }
+        /* Planned over the laid lines, the ones `range` indexes (IL-0095). */
+        guard let editor else { return false }
+        let all = editor.screenplay.elements
+        let laid = laidElements(all)
+        guard let plan = ScreenplayEditPlanner.plan(
+            elements: laid,
+            replacing: range,
+            with: replacement,
+            intent: intent,
+            kindForNewElement: { previous, text, depth, attached in
+                // A paste is not typing: a line no signal claims is
+                // prose, not the choreography's next guess (the writer
+                // never pressed those Returns).
+                editor.kindForInsertedElement(
+                    after: previous, text: text, pasteDepth: depth,
+                    attached: attached,
+                    fallback: intent == .multilinePaste ? .action : nil
+                )
+            }
+        ) else { return false }
         applyModelEdit(
-            plan.elements,
+            Self.restoringHidden(plan.elements, from: all, laid: laid),
             activeID: plan.activeElementID,
             offset: plan.activeOffset,
             selection: plan.selection,
@@ -3733,18 +3794,25 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         )
     }
 
+    /// Where an inserted line goes: after the caret's element — and after
+    /// the lines of a cut scene behind it, open or closed, so nothing lands
+    /// between a card and its scene, where the save could no longer find
+    /// the cut (IL-0095).
+    private func insertionIndex(in elements: [ScriptElement]) -> Int {
+        guard let editor else { return elements.count }
+        var index = min(editor.activeElementIndex.map { $0 + 1 } ?? elements.count, elements.count)
+        while index < elements.count, editor.omittedScenes.contains(elements[index]) { index += 1 }
+        return index
+    }
+
     private func insertElements(_ incoming: [ScriptElement]) {
         let pages = incoming.map { $0.copyForInsertion() }
         guard let editor, let last = pages.last else { return }
         var elements = editor.screenplay.elements
-        let index = min(
-            editor.activeElementIndex.map { $0 + 1 } ?? elements.count,
-            elements.count
-        )
+        let index = insertionIndex(in: elements)
         elements.insert(contentsOf: pages, at: index)
         let offset = (last.text as NSString).length
-        let placed = index + pages.count - 1
-        let location = ScreenplayEditPlanner.ranges(for: elements)[placed].range.location
+        let location = laidLocation(of: last.id, in: elements)
         applyModelEdit(
             elements,
             activeID: last.id,
@@ -3767,15 +3835,12 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         let card = ScreenplayEditPlanner.defaultActCard(forInsertionInto: elements)
         let actBreak = ScriptElement(type: .actbreak, text: card)
         let after = ScriptElement(type: .action, text: "")
-        let index = min(
-            editor.activeElementIndex.map { $0 + 1 } ?? elements.count,
-            elements.count
-        )
+        let index = insertionIndex(in: elements)
         elements.insert(contentsOf: [actBreak, after], at: index)
         for (changed, text) in ScreenplayEditPlanner.renumberedActCards(in: elements) {
             elements[changed].text = text
         }
-        let location = ScreenplayEditPlanner.ranges(for: elements)[index + 1].range.location
+        let location = laidLocation(of: after.id, in: elements)
         applyModelEdit(
             elements,
             activeID: after.id,
@@ -3806,8 +3871,7 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
         for (index, text) in delta { updated[index].text = text }
         guard let activeID = editor.activeElementID ?? updated.first?.id else { return }
         let offset = editor.selectionOffset
-        let location = ScreenplayEditPlanner.ranges(for: updated)
-            .first(where: { $0.id == activeID })?.range.location ?? 0
+        let location = laidLocation(of: activeID, in: updated)
         applyModelEdit(
             updated,
             activeID: activeID,
@@ -3988,15 +4052,21 @@ public final class ScriptSurface: NSObject, NSTextViewDelegate, NSPopoverDelegat
     /// not `NSLocationInRange`), and a caret sitting on the joining newline
     /// belongs to the element it just finished, not the one it is about to
     /// start.
+    ///
+    /// A collapsed cut's hidden lines are never the answer: their empty
+    /// ranges sit at the card's end, where a caret can stand, and a keystroke
+    /// there overwrote the cut heading (IL-0095). The card is the answer.
     private func elementRange(at location: Int) -> ScriptLayout.ElementRange? {
+        let hidden = hiddenElementIDs
         if let exact = ranges.first(where: {
-            ($0.range.length == 0 && $0.range.location == location)
-                || NSLocationInRange(location, $0.range)
+            !hidden.contains($0.id)
+                && (($0.range.length == 0 && $0.range.location == location)
+                    || NSLocationInRange(location, $0.range))
         }) { return exact }
-        if let preceding = ranges.last(where: { NSMaxRange($0.range) <= location }) {
+        if let preceding = ranges.last(where: { !hidden.contains($0.id) && NSMaxRange($0.range) <= location }) {
             return preceding
         }
-        return ranges.first
+        return ranges.first { !hidden.contains($0.id) }
     }
 
     private func adjustRange(at index: Int, length: Int, shiftLaterBy delta: Int) {
