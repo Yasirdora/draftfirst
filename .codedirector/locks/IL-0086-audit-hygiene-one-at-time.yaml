@@ -1,0 +1,83 @@
+schemaVersion: 1
+id: IL-0086
+status: verified
+utterance: "Audit hygiene, one at a time: add ITSAppUsesNonExemptEncryption = NO to both Info.plists (S3 — the crypto audit found no encryption, so export compliance is answered in the plist, not per upload), and set MARKETING_VERSION to 1.0 for both app targets (S2 — the store listing will say 1.0). CURRENT_PROJECT_VERSION stays 1."
+goal: apple/macOS/Info.plist and apple/eDraft/Resources/Info.plist both carry ITSAppUsesNonExemptEncryption = false; MARKETING_VERSION is 1.0 in all four app-target build configurations; nothing else in the plists or the project moves.
+interpretation: |
+  TWO SURGICAL EDITS FROM THE READINESS AUDIT (IL-0078, 7fae8a2).
+
+  S3 — EXPORT COMPLIANCE. The audit verified the app uses no encryption
+  (no CryptoKit, CommonCrypto, or SecKey anywhere; Zip.swift only rejects
+  encrypted members and decompresses). Adding ITSAppUsesNonExemptEncryption
+  = false to both plists answers App Store Connect's export question once,
+  in the bundle, instead of per upload. Placed in each plist's top-level
+  dict, alphabetical position respected.
+
+  S2 — VERSION. project.pbxproj carries MARKETING_VERSION = 0.1.0 in four
+  places (iOS Debug/Release ~477/501, macOS Debug/Release ~570/599). All
+  four become 1.0. CURRENT_PROJECT_VERSION is untouched (1 is a valid
+  first build number). No other build setting changes. The xcscheme's
+  foreign dirt stays foreign.
+
+  PROOF. plutil -lint on both plists; grep confirms exactly four
+  MARKETING_VERSION = 1.0 and zero 0.1.0; the macOS Debug build succeeds
+  and the app's bundle reports 1.0 (defaults read on the built Info.plist).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: no file outside the three in budget changes; the xcscheme, mcp.log, the root PNGs and any other working-tree items are left exactly as found
+  - kind: custom
+    text: no other key in either plist and no other build setting in the project changes; CURRENT_PROJECT_VERSION stays 1
+deny:
+  - apple/eDraftEngine/**
+  - packages/**
+  - apple/EDraftCore/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/EDraftMacSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/*.swift
+  - apple/iOS/**
+  - apple/eDraft/*.swift
+  - apple/eDraft/App/**
+  - apple/eDraft/Views/**
+  - apple/eDraft/Document/**
+  - apple/eDraft/eDraft.entitlements
+  - apple/macOS/eDraft.entitlements
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/xcshareddata/**
+  - src/**
+  - scripts/**
+  - docs/**
+  - static/**
+  - Github showcase/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: Both plists gain ITSAppUsesNonExemptEncryption = false; MARKETING_VERSION becomes 1.0 in the four app-target configurations.
+verifyCommand: plutil -lint apple/macOS/Info.plist apple/eDraft/Resources/Info.plist && grep -c 'ITSAppUsesNonExemptEncryption' apple/macOS/Info.plist apple/eDraft/Resources/Info.plist && ! grep -q '0.1.0' apple/eDraft.xcodeproj/project.pbxproj && test $(grep -c 'MARKETING_VERSION = 1.0' apple/eDraft.xcodeproj/project.pbxproj) -eq 4 && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -quiet build && defaults read $PWD/build/Debug/eDraft.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null | grep -q 1.0 || defaults read "$(xcodebuild -project apple/eDraft.xcodeproj -scheme 'eDraft (macOS)' -configuration Debug -showBuildSettings 2>/dev/null | grep -m1 ' TARGET_BUILD_DIR' | awk '{print $3}')/eDraft.app/Contents/Info.plist" CFBundleShortVersionString | grep -q 1.0
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/macOS/Info.plist
+    - apple/eDraft/Resources/Info.plist
+    - apple/eDraft.xcodeproj/project.pbxproj
+  symbols: []
+  maxFiles: 3
+  maxLines: 30
+accept:
+  - "S3: both Info.plists lint clean and declare ITSAppUsesNonExemptEncryption = false."
+  - "S2: MARKETING_VERSION = 1.0 in exactly four configurations; no 0.1.0 remains in the project; CURRENT_PROJECT_VERSION unchanged."
+  - The macOS Debug build succeeds and the built bundle reports CFBundleShortVersionString 1.0.
+  - Nothing outside the three budgeted files changes.
+assumptions:
+  - text: HEAD is 7fae8a2 on rename/edraft. Foreign dirt (xcscheme, mcp.log, root PNGs) predates this lock and is never touched.
+    source: system
+    confirmed: false
+  - text: "The crypto audit result stands: no encryption APIs in the codebase, so ITSAppUsesNonExemptEncryption = false is the truthful answer."
+    source: system
+    confirmed: true
+createdAt: 2026-09-22T13:00:00.000Z
+createdBy: Yasirdora

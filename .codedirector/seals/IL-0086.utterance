@@ -1,0 +1,1 @@
+Audit hygiene, one at a time: add ITSAppUsesNonExemptEncryption = NO to both Info.plists (S3 — the crypto audit found no encryption, so export compliance is answered in the plist, not per upload), and set MARKETING_VERSION to 1.0 for both app targets (S2 — the store listing will say 1.0). CURRENT_PROJECT_VERSION stays 1.
