@@ -2,71 +2,97 @@
 	/**
 	 * Renders help article body blocks as plain elements — no {@html},
 	 * so article data stays inert text end to end.
+	 *
+	 * Apple's user-guide type: 17/26 text, quiet section headings, a Note
+	 * or Tip as a paragraph that opens with the word in bold — no boxes, no
+	 * tint, blue kept for links. Keyboard shortcuts are set as keycaps —
+	 * glyph-led ones anywhere, bare Tab, Return and Space only in tables
+	 * (see `keyRuns`); everything else stays text.
 	 */
 	import type { HelpBlock } from './articles';
+	import { anchorFor, keyRuns } from './guide';
 
 	let { blocks }: { blocks: HelpBlock[] } = $props();
+
+	/* A table whose last column holds shortcuts gets a fixed shortcut column,
+	   so every shortcut table on a page lines up with the next. */
+	const keyed = (rows: string[][]) => rows.some((row) => keyRuns(row[row.length - 1] ?? '', { bareKeys: true }).some((run) => run.key));
 </script>
+
+{#snippet text(value: string, bareKeys = false)}
+	{#each keyRuns(value, { bareKeys }) as run}{#if run.key}<kbd>{run.text}</kbd>{:else}{run.text}{/if}{/each}
+{/snippet}
 
 {#each blocks as block}
 	{#if block.type === 'h'}
-		<h2>{block.text}</h2>
+		<h2 id={anchorFor(block.text)}>{block.text}</h2>
 	{:else if block.type === 'p'}
-		<p>{block.text}</p>
+		<p>{@render text(block.text)}</p>
 	{:else if block.type === 'list'}
 		<ul>
 			{#each block.items as item}
-				<li>{item}</li>
+				<li>{@render text(item)}</li>
 			{/each}
 		</ul>
 	{:else if block.type === 'steps'}
 		<ol>
 			{#each block.items as item}
-				<li>{item}</li>
+				<li>{@render text(item)}</li>
 			{/each}
 		</ol>
 	{:else if block.type === 'table'}
-		<div class="table-scroll" role="region" aria-label="Table">
-			<table>
+		<div class="table-scroll" role="region" aria-label="Table" tabindex="-1">
+			<table class:keyed={keyed(block.rows)}>
 				<thead>
 					<tr>{#each block.head as cell}<th scope="col">{cell}</th>{/each}</tr>
 				</thead>
 				<tbody>
 					{#each block.rows as row}
-						<tr>{#each row as cell}<td>{cell}</td>{/each}</tr>
+						<tr>
+							{#each row as cell}
+								<td>{@render text(cell, true)}</td>
+							{/each}
+						</tr>
 					{/each}
 				</tbody>
 			</table>
 		</div>
 	{:else if block.type === 'tip'}
-		<aside class="tip" aria-label="Tip">
-			<p>{block.text}</p>
-		</aside>
+		<p class="callout"><strong>Tip:</strong> {@render text(block.text)}</p>
 	{:else if block.type === 'note'}
-		<aside class="note" aria-label="Note">
-			<p>{block.text}</p>
-		</aside>
+		<p class="callout"><strong>Note:</strong> {@render text(block.text)}</p>
 	{/if}
 {/each}
 
 <style>
-	h2 { font-size: 21px; font-weight: 600; letter-spacing: -.02em; line-height: 1.3; margin-top: 34px; }
-	p { font-size: 16px; line-height: 1.7; color: #3a3a3f; margin-top: 16px; max-width: 680px; }
-	ul, ol { margin: 16px 0 0; padding-left: 24px; max-width: 680px; }
-	li { font-size: 16px; line-height: 1.65; color: #3a3a3f; margin-top: 8px; }
-	ol li::marker { font-weight: 600; color: #1477c9; }
-	.table-scroll { margin-top: 20px; overflow-x: auto; border: 1px solid #e3e3e8; border-radius: 12px; }
-	table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 460px; }
-	th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid #ececf0; vertical-align: top; }
-	th { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #6e6e73; background: #fbfbfd; }
-	tr:last-child td { border-bottom: 0; }
-	tbody tr:nth-child(even) { background: #fafafc; }
-	td:first-child { white-space: nowrap; font-weight: 500; color: #1d1d1f; }
-	td:last-child { color: #3a3a3f; }
-	.tip { margin-top: 26px; padding: 16px 20px; background: #f0f7ff; border: 1px solid #d3e5f8; border-radius: 12px; max-width: 680px; }
-	.tip p { margin: 0; font-size: 14px; line-height: 1.6; color: #1f4e79; }
-	.tip::before { content: 'Tip'; display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #1477c9; margin-bottom: 6px; }
-	.note { margin-top: 26px; padding: 16px 20px; background: #f5f5f7; border: 1px solid #e3e3e8; border-radius: 12px; max-width: 680px; }
-	.note p { margin: 0; font-size: 14px; line-height: 1.6; color: #3a3a3f; }
-	.note::before { content: 'Note'; display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6e6e73; margin-bottom: 6px; }
+	h2 { font-size: 24px; font-weight: 500; letter-spacing: -.012em; line-height: 1.25; margin-top: 44px; color: #1d1d1f; text-wrap: balance; scroll-margin-top: 96px; }
+	p, li { font-size: 17px; line-height: 26px; letter-spacing: -.022em; color: #1d1d1f; text-wrap: pretty; }
+	p { margin-top: 17px; }
+	ul, ol { margin: 17px 0 0; padding-left: 1.3em; }
+	li { margin-top: 9px; padding-left: .2em; }
+	ol li::marker { color: #1d1d1f; font-variant-numeric: tabular-nums; }
+	ul li::marker { color: #86868b; }
+	.callout strong { font-weight: 600; }
+
+	.table-scroll { margin-top: 24px; overflow-x: auto; }
+	.table-scroll:focus-visible { outline: 3px solid #0071e3; outline-offset: 4px; }
+	table { width: 100%; border-collapse: collapse; min-width: 420px; }
+	th, td { text-align: left; vertical-align: top; padding: 11px 24px 11px 0; font-size: 15px; line-height: 21px; letter-spacing: -.01em; }
+	th { font-weight: 600; color: #1d1d1f; border-bottom: 1px solid #d2d2d7; }
+	td { color: #1d1d1f; border-bottom: 1px solid #e8e8ed; }
+	th:last-child, td:last-child { padding-right: 0; }
+	tbody tr:last-child td { border-bottom: 0; }
+	.keyed th:last-child, .keyed td:last-child { width: 36%; }
+
+	/* A keycap: the glyphs as a menu shows them, on a key. */
+	kbd { display: inline-block; min-width: 1.6em; padding: 0 6px; margin: 0 1px; border: 1px solid #d2d2d7; border-bottom-width: 2px; border-radius: 6px; background: #fbfbfd; font: 500 14px/20px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: .06em; text-align: center; color: #1d1d1f; white-space: nowrap; }
+
+	@media (max-width: 600px) {
+		h2 { font-size: 21px; margin-top: 36px; }
+		/* On a phone a two-column table wraps inside the column rather than
+		   scrolling sideways; only a table wider than its words still scrolls. */
+		table { min-width: 0; }
+		th, td { padding-right: 14px; }
+		.keyed th:last-child, .keyed td:last-child { width: 42%; }
+	}
 </style>

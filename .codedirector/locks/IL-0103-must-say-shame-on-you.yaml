@@ -1,0 +1,113 @@
+schemaVersion: 1
+id: IL-0103
+status: verified
+utterance: I must say shame on you, it is not even close every topic should have its own page
+goal: "Every Help Center topic has its own page at /help/<topic-id> — Apple's product-support grammar: the topic's line icon, name and description; every article in the topic as a tile (title, summary); a search for more topics; the other topics as a row of icons; a way back. Every route to a topic — the home's icons and All topics headings, the guide's Table of Contents chapters, the article breadcrumb — opens that page. The \"Was this helpful?\" Yes/No block IL-0102 removed is restored on every article, exactly as it was before IL-0102. Built on IL-0102's uncommitted work; article content (articles.ts) untouched."
+interpretation: |
+  THE GAP. IL-0102's home sends each topic icon to an anchor further down
+  the same page. Apple's icons open a page per product. Every topic gets
+  its own page.
+
+  THE URL. /help/<topic-id> — /help/writing, /help/files — served by the
+  existing [slug] route: a slug that names a category loads the topic page,
+  one that names an article loads the article. No new route folder (cdir
+  0.4.5 misjudges a new file inside a new untracked folder). Category ids
+  and article slugs are disjoint today (checked); guide.test.ts pins it, so
+  a future slug can never shadow a topic.
+
+  THE TOPIC PAGE (TopicPage.svelte, new) — Apple's product-support grammar,
+  every word from the data: breadcrumb (Help Center › topic); the topic's
+  line icon, its name as the title, its description; each of its articles
+  as a tile — title and summary, the whole tile one link, in guide order;
+  "Search for more topics" (GET /help?q=); the other seven topics as a row
+  of line icons, each opening its page; one quiet contact line.
+
+  THE ARTICLE VIEW moves into ArticlePage.svelte so the [slug] page is a
+  two-way switch; its breadcrumb's topic link becomes /help/<topic-id>.
+
+  FEEDBACK RESTORED (owner, 2026-09-24). The "Was this helpful?" block that
+  IL-0102 removed comes back on every article, as it was before IL-0102:
+  the heading, Yes and No buttons, "Thanks for letting us know." after a
+  press — the same markup and styles, placed after the article body.
+
+  EVERY ROUTE TO A TOPIC opens its page: the home's icons, the home's All
+  topics headings, the Table of Contents chapter names in the guide bar,
+  and the article breadcrumb. The topic glyphs move from the home page to
+  icons.ts so the home and the topic pages draw the same ones.
+
+  NOT CHANGED. articles.ts and its test (content), the shared site chrome,
+  every other route.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: article content is untouched — src/lib/help/articles.ts and articles.test.ts are byte-identical to HEAD
+  - kind: custom
+    text: every article URL still resolves to the same article; the eight topic URLs are added, nothing else
+  - kind: custom
+    text: every help page still works with JavaScript off — topic pages are prerendered, every tile and icon is a plain link
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the root PNGs) is left exactly as found
+deny:
+  - apple/**
+  - packages/**
+  - src/lib/help/articles.ts
+  - src/lib/help/articles.test.ts
+  - src/lib/help/HelpLayout.svelte
+  - src/lib/site/**
+  - src/lib/components/**
+  - src/lib/screenplay/**
+  - src/lib/utils/**
+  - src/routes/+page.svelte
+  - src/routes/+layout.svelte
+  - src/routes/+layout.ts
+  - src/routes/404/**
+  - src/routes/features/**
+  - src/routes/privacy/**
+  - src/routes/screenplay/**
+  - src/app.css
+  - src/app.html
+  - docs/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - vite.config.ts
+  - tsconfig.json
+  - .gitignore
+  - .codedirector/**
+  - .claude/worktrees/**
+  - edraft logo.png
+  - screenshot.png
+change: Every Help Center topic has its own page at /help/<topic-id>, every route to a topic opens it, and the article feedback block is restored.
+verifyCommand: npm run check && npx vitest run src/lib/help && npx vite build && test -f build/help/writing.html && test -f build/help/files.html && test -f build/help/omit-a-scene.html
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - src/routes/help/[slug]/+page.ts
+    - src/routes/help/[slug]/+page.svelte
+    - src/lib/help/ArticlePage.svelte
+    - src/lib/help/TopicPage.svelte
+    - src/lib/help/icons.ts
+    - src/routes/help/+page.svelte
+    - src/lib/help/GuideBar.svelte
+    - src/lib/help/guide.ts
+    - src/lib/help/guide.test.ts
+  symbols: []
+  maxFiles: 9
+  maxLines: 700
+accept: []
+assumptions:
+  - text: "Builds on IL-0102 (verified, uncommitted): its files are this lock's baseline dirt, so the Change Report shows this lock's delta. HEAD is 752be63."
+    source: system
+    confirmed: false
+  - text: "The owner, on IL-0102's result (2026-09-24): \"I must say shame on you, it is not even close every topic should have its own page\"."
+    source: user
+    confirmed: true
+  - text: "The owner, on IL-0102's removal of the feedback block (2026-09-24): \"you removed the feedback button\" — restore it."
+    source: user
+    confirmed: true
+  - text: cdir's automatic draft anchored on name fragments (MultiContainerEquivalenceTests.page, ImportedNoteRowTests.own) and its deny list would have blocked the help tests; budget and deny set by hand.
+    source: system
+    confirmed: false
+createdAt: 2026-09-24T10:30:00.000Z
+createdBy: Yasirdora

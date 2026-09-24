@@ -153,6 +153,8 @@
 		.brand { font-size: 19px; }
 		.mark { display: none; }
 		.nav-links { display: none; }
+		/* The links held the buttons right; hidden, the buttons would sit by the logo. */
+		.nav-actions { margin-left: auto; }
 		.menu-toggle { display: block; }
 		.footer-row { flex-direction: column; gap: 28px; }
 		.footer-columns { margin-left: 0; gap: 48px; }

@@ -1,0 +1,130 @@
+schemaVersion: 1
+id: IL-0102
+status: verified
+utterance: look at apple's it look next level professional, ours feel like mvp done by intern — [on who owns the uncommitted 11:16 help edits] a (they're mine or another tool's; take over and build on them)
+goal: "The Help Center looks and reads like Apple's own support site: the /help home follows Apple Support's landing grammar (centred title and search, bare line icons, one grey panel, links written \"Title ›\", a quiet all-topics index), and every article sits in an Apple-style user-guide frame (\"eDraft User Guide for Mac\" bar with guide search and a Table of Contents, See also, Previous/Next in book order, breadcrumbs) with Apple's type scale (34/500 titles, 17/26 body, Note/Tip as bold inline lead-ins, plain tables, blue only for links). The feedback widget that records nothing is removed. Article content (articles.ts) is untouched; the owner's uncommitted 11:16 edits to the three help files are adopted as the starting point."
+interpretation: |
+  THE REFERENCE, MEASURED (support.apple.com, 2026-09-24). Guide pages: a
+  "<App> User Guide for Mac" bar at 24/500, a "Search this guide" field, a
+  collapsed "Table of Contents"; article title 34/500; section headings
+  22-28/500; body 17/26; links #0070c9 at 400; "Note:" is a plain body
+  paragraph with a bold lead-in, no box; See also is a plain link list;
+  Previous/Next name the neighbouring articles; breadcrumbs sit at the foot.
+  Support landing (support.apple.com/contact): a centred title, bare 60 px
+  line icons with a link under each, one grey rounded panel, two text
+  columns, "More topics" as centred "Title ›" links. No borders, no
+  uppercase labels, blue only for links.
+
+  THE STARTING POINT. The owner's uncommitted edits to Blocks.svelte,
+  help/+page.svelte and help/[slug]/+page.svelte (11:16-11:17, no lock;
+  adopted on the owner's word "a") are the baseline this lock builds on.
+  cdir nets pre-existing dirt out of the Change Report, so the report shows
+  this lock's delta; the commit carries both, and says so.
+
+  HOME (/help). Title and guide search centred; "Get the help you need" with
+  the eight categories as bare line icons; one grey rounded panel introducing
+  the eDraft User Guide (app mark, one sentence, "Read the guide ›" to the
+  first article in book order); two columns — "Common tasks" (the
+  popularArticles, as "Title ›" links) and "Contact support" (email and
+  GitHub as "›" links); then "All topics": each category's articles as
+  plain links, no summaries, so the page still navigates with JavaScript
+  off. Removed: the grey two-column popular band, the pill button, the
+  uppercase label, card-style rows.
+
+  ARTICLE (/help/[slug]). GuideBar.svelte (new): "eDraft User Guide for Mac"
+  linking to /help, a "Search this guide" GET form to /help?q=, and a
+  Table of Contents as a <details> disclosure (works without JavaScript)
+  listing every category and article in book order, the current one marked
+  with aria-current. Then: title 34/500; the summary as the opening body
+  paragraph; the blocks; "See also" as plain links (titles only); Previous /
+  Next in book order; one quiet contact line; breadcrumbs (Help Center ›
+  eDraft User Guide › category) at the foot of the article. Removed: the
+  "Was this helpful?" widget — it records nothing, and the page would be
+  pretending otherwise.
+
+  BLOCKS. h 24/500; p and li 17/26 in #1d1d1f; ordered-list numbers in the
+  text colour; tables plain — bold header row, hairline rules, no uppercase,
+  no zebra, no rounded box; Tip and Note rendered as a paragraph opening
+  with a bold "Tip:" / "Note:", no box, no colour.
+
+  BOOK ORDER. guide.ts (new) derives it from the data — helpCategories in
+  order, then articlesInCategory — and exports the table of contents and
+  each article's previous/next. guide.test.ts pins: every article appears
+  exactly once, in category order; the first has no previous and the last
+  no next; each next's previous is the article itself.
+
+  PREVIEW. .claude/launch.json (new) starts `npm run dev` so the pages can
+  be seen and compared with Apple's; .gitignore gains /.claude/launch.json
+  so the file never shows as an untracked folder in anyone's run.
+
+  NOT CHANGED. articles.ts and its test (the content and its pins),
+  HelpLayout.svelte, the shared SiteLayout (its uppercase "Help Center"
+  mark is site-wide chrome — a separate decision), every other route.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: article content is untouched — src/lib/help/articles.ts and articles.test.ts are byte-identical to HEAD, and the help-data test still passes
+  - kind: custom
+    text: every help page still works with JavaScript off — the home lists every article as a plain link, and the Table of Contents is a <details> element
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the root PNGs) is left exactly as found
+deny:
+  - apple/**
+  - packages/**
+  - src/lib/help/articles.ts
+  - src/lib/help/articles.test.ts
+  - src/lib/help/HelpLayout.svelte
+  - src/lib/site/**
+  - src/lib/components/**
+  - src/lib/screenplay/**
+  - src/lib/utils/**
+  - src/routes/+page.svelte
+  - src/routes/+layout.svelte
+  - src/routes/+layout.ts
+  - src/routes/404/**
+  - src/routes/features/**
+  - src/routes/privacy/**
+  - src/routes/screenplay/**
+  - src/routes/help/[slug]/+page.ts
+  - src/app.css
+  - src/app.html
+  - docs/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - vite.config.ts
+  - tsconfig.json
+  - .codedirector/**
+  - .claude/worktrees/**
+  - edraft logo.png
+  - screenshot.png
+change: The Help Center home follows Apple Support's landing grammar and every article sits in an Apple-style user-guide frame with Apple's type scale; book order and navigation are derived from the data and tested; the no-op feedback widget is gone.
+verifyCommand: npm run check && npx vitest run src/lib/help && npx vite build
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - src/routes/help/+page.svelte
+    - src/routes/help/[slug]/+page.svelte
+    - src/lib/help/Blocks.svelte
+    - src/lib/help/GuideBar.svelte
+    - src/lib/help/guide.ts
+    - src/lib/help/guide.test.ts
+    - .gitignore
+    - .claude/launch.json
+  symbols: []
+  maxFiles: 8
+  maxLines: 1000
+accept: []
+assumptions:
+  - text: "HEAD is 752be63 (IL-0101). Pre-existing dirt: the owner's adopted help edits (Blocks.svelte, help/+page.svelte, help/[slug]/+page.svelte) plus other sessions' xcscheme, mcp.log, IL-0077 seal and root PNGs; the baseline is the proof. IL-0098's gates passed on the help files."
+    source: system
+    confirmed: false
+  - text: "The owner judged the Help Center against Apple's (\"look at apple's it look next level professional, ours feel like mvp done by intern\") and, asked who owns the unlocked 11:16 edits, answered \"a\": theirs or another tool's — take over and build on them (2026-09-24)."
+    source: user
+    confirmed: true
+  - text: cdir's automatic draft anchored on name fragments (MainMenu.build, BlockSource.next, …) and proposed six apple/** and engine files — none fit; the budget and deny list were set by hand from the stage-1 and today's Apple measurements.
+    source: system
+    confirmed: false
+createdAt: 2026-09-24T09:45:20.580Z
+createdBy: Yasirdora

@@ -18,6 +18,9 @@ node_modules
 /docs/MILESTONE-S*.md
 /docs/RESEARCH-SCREENWRITING.md
 
+# Local preview configuration (Claude Code's Browser pane)
+/.claude/launch.json
+
 # OS
 .DS_Store
 Thumbs.db

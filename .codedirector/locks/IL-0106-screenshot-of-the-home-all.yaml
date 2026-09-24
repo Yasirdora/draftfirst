@@ -1,0 +1,108 @@
+schemaVersion: 1
+id: IL-0106
+status: verified
+utterance: "[screenshot of the home's \"All topics\" section] since we have the table of content on top we do not need all topics, also I think we should rename table of contents to all topics, and please optimise it for  mobile currently the menu is not on the right side, Also if you remember I said it should be better than Apple's own design. make sure it is clean and production ready"
+goal: The Help Center home loses its All topics section (the guide bar's index replaces it); the guide bar's "Table of Contents" is renamed "All topics"; on phones the All topics button sits at the right of the guide title and opens a compact index — the eight topics as icon rows opening their pages, with the current topic's articles listed under it — and the site header's menu button sits at the right edge. Clean, production-ready, and still fully usable without JavaScript.
+interpretation: |
+  1. HOME: the "All topics" section and its styles go. The guide bar's
+  index lists every article on every help page, so the home keeps a full,
+  JavaScript-free index; the topic icons already open each topic's page.
+
+  2. RENAME: the guide bar's disclosure reads "All topics" (its summary and
+  its nav's accessible name).
+
+  3. THE INDEX, ON EVERY SIZE. Each chapter heading carries its topic's
+  line icon (icons.ts) and still links to the topic's page. Desktop: the
+  four-column index, every article listed. Phone (≤ 600 px): the "All
+  topics" button sits at the right of the guide title, on the title's
+  line, the search full width beneath; opened, the index is the eight
+  topics as tappable icon rows (name, article count, chevron) — each opens
+  its topic page — and, on an article, its own topic's articles listed
+  under that row with the current one marked. Pure CSS (the current
+  chapter carries a class); with JavaScript off every link is still there.
+
+  4. SITE HEADER ON PHONES: the "Open eDraft" button and the ≡ menu sit at
+  the right edge. Today the nav links hold them right; on phones the links
+  are hidden and the buttons fall in beside the logo. One rule in the
+  shared SiteLayout — every page on the site gets the fix; nothing else in
+  the shared chrome changes.
+
+  NOT CHANGED. Article and topic pages' content and layout, the search
+  behaviour, articles.ts and every test file.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: every article and topic is still reachable from the guide bar's All topics index with JavaScript off, on every page that has the bar
+  - kind: custom
+    text: the SiteLayout change is the one mobile rule that moves the header's buttons to the right edge — nothing else in the shared chrome
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the IL-0104 draft, the root PNGs) is left exactly as found
+deny:
+  - apple/**
+  - packages/**
+  - src/lib/help/articles.ts
+  - src/lib/help/*.test.ts
+  - src/lib/help/HelpLayout.svelte
+  - src/lib/help/ArticlePage.svelte
+  - src/lib/help/TopicPage.svelte
+  - src/lib/help/Blocks.svelte
+  - src/lib/help/guide.ts
+  - src/lib/help/icons.ts
+  - src/lib/site/CtaBand.svelte
+  - src/lib/site/PageHero.svelte
+  - src/lib/site/Pager.svelte
+  - src/lib/site/Sheet.svelte
+  - src/lib/site/Split.svelte
+  - src/lib/site/reveal.ts
+  - src/lib/components/**
+  - src/lib/screenplay/**
+  - src/lib/utils/**
+  - src/routes/+page.svelte
+  - src/routes/+layout.svelte
+  - src/routes/+layout.ts
+  - src/routes/404/**
+  - src/routes/features/**
+  - src/routes/privacy/**
+  - src/routes/screenplay/**
+  - src/routes/help/[slug]/**
+  - src/app.css
+  - src/app.html
+  - docs/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - vite.config.ts
+  - tsconfig.json
+  - .gitignore
+  - .codedirector/**
+  - .claude/worktrees/**
+  - edraft logo.png
+  - screenshot.png
+change: The home drops its All topics section; the guide bar's index is "All topics", with topic icons, and on phones sits right of the title as a compact topic list; the site header's buttons sit at the right edge on phones.
+verifyCommand: npm run check && npx vitest run src/lib/help && npx vite build && ! grep -q 'Table of Contents' build/help.html && ! grep -q 'all-topics-title' build/help.html && test "$(grep -o 'href="/help/[a-z0-9-]*"' build/help.html | sort -u | wc -l | tr -d ' ')" -ge 51
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - src/lib/help/GuideBar.svelte
+    - src/routes/help/+page.svelte
+    - src/lib/site/SiteLayout.svelte
+  symbols: []
+  maxFiles: 3
+  maxLines: 260
+accept: []
+assumptions:
+  - text: Builds on IL-0102, IL-0103 and IL-0105 (verified, uncommitted); their files are this lock's baseline dirt. HEAD is 752be63.
+    source: system
+    confirmed: false
+  - text: 'The owner, 2026-09-24: "since we have the table of content on top we do not need all topics, also I think we should rename table of contents to all topics, and please optimise it for mobile currently the menu is not on the right side ... make sure it is clean and production ready".'
+    source: user
+    confirmed: true
+  - text: "\"The menu is not on the right side\" is read two ways, both true on a phone today and both fixed here: the guide bar's index button (under the search, left) and the site header's ≡ button (beside the logo). The header fix touches shared chrome and is shown to the owner as its own item."
+    source: system
+    confirmed: false
+  - text: cdir's automatic draft anchored on name fragments (LaunchWindow.menu, CharacterThreadView.rename, …) and proposed apple/** files; budget and deny set by hand.
+    source: system
+    confirmed: false
+createdAt: 2026-09-24T15:40:00.000Z
+createdBy: Yasirdora

@@ -1,0 +1,89 @@
+schemaVersion: 1
+id: IL-0105
+status: verified
+utterance: '[screenshot of the guide bar: "eDraft User Guide for Mac", "Search this guide", "Table of Contents ⊕"] we could use this in home page of help and support'
+goal: "The Help Center home opens with the same guide bar every article has — \"eDraft User Guide for Mac\", Search this guide, Table of Contents — and the home has one search, not two: the guide bar's field filters the home's results live as the reader types (as the hero field does today), and still works as a plain GET form with JavaScript off. The hero keeps its title. On article pages the bar is unchanged."
+interpretation: |
+  THE BAR ON THE HOME. /help opens with GuideBar — the guide's name, Search
+  this guide, the Table of Contents — above the "How can we help?" title,
+  exactly as every article opens.
+
+  ONE SEARCH. The home's hero search field goes; the guide bar's field is
+  the home's search. GuideBar gains an optional bindable `query` and a
+  `live` flag: on the home it is bound to the page's query, so results
+  filter as the reader types (today's behaviour, including ↓ to the first
+  result). Submitting stays a GET to /help?q=: with JavaScript on, the home
+  reads ?q= and lists the matches (as today); with JavaScript off the
+  prerendered home reloads with its full All topics index (as today — a
+  static page cannot read the query). On article pages the bar is used
+  exactly as now and behaves as now.
+
+  NOT CHANGED. The results list, the topic icons, the guide panel, the
+  columns and All topics; topic pages; articles.ts and every test file;
+  the shared site chrome.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: the home has exactly one search field; typing in it filters live, and /help?q=<words> opens the home with those matches listed (JavaScript on), as today
+  - kind: custom
+    text: article pages render the guide bar exactly as before (same markup, same GET form)
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the IL-0104 draft, the root PNGs) is left exactly as found
+deny:
+  - apple/**
+  - packages/**
+  - src/lib/help/articles.ts
+  - src/lib/help/*.test.ts
+  - src/lib/help/HelpLayout.svelte
+  - src/lib/help/ArticlePage.svelte
+  - src/lib/help/TopicPage.svelte
+  - src/lib/help/Blocks.svelte
+  - src/lib/site/**
+  - src/lib/components/**
+  - src/lib/screenplay/**
+  - src/lib/utils/**
+  - src/routes/+page.svelte
+  - src/routes/+layout.svelte
+  - src/routes/+layout.ts
+  - src/routes/404/**
+  - src/routes/features/**
+  - src/routes/privacy/**
+  - src/routes/screenplay/**
+  - src/routes/help/[slug]/**
+  - src/app.css
+  - src/app.html
+  - docs/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - vite.config.ts
+  - tsconfig.json
+  - .gitignore
+  - .codedirector/**
+  - .claude/worktrees/**
+  - edraft logo.png
+  - screenshot.png
+change: The Help Center home opens with the guide bar, and its field is the home's one live search.
+verifyCommand: npm run check && npx vitest run src/lib/help && npx vite build && test "$(grep -o 'type="search"' build/help.html | wc -l | tr -d ' ')" = 1 && grep -q 'eDraft User Guide for Mac' build/help.html
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - src/routes/help/+page.svelte
+    - src/lib/help/GuideBar.svelte
+  symbols: []
+  maxFiles: 2
+  maxLines: 160
+accept: []
+assumptions:
+  - text: Builds on IL-0102 and IL-0103 (verified, uncommitted); their files are this lock's baseline dirt. HEAD is 752be63.
+    source: system
+    confirmed: false
+  - text: 'The owner, 2026-09-24, with a screenshot of the guide bar: "we could use this in home page of help and support".'
+    source: user
+    confirmed: true
+  - text: cdir's automatic draft anchored on name fragments (ToolbarItems.search, MultiContainerEquivalenceTests.page) and proposed apple/** files; budget and deny set by hand.
+    source: system
+    confirmed: false
+createdAt: 2026-09-24T11:05:00.000Z
+createdBy: Yasirdora
