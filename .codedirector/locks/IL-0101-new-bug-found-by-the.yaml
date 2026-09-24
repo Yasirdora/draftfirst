@@ -1,0 +1,179 @@
+schemaVersion: 1
+id: IL-0101
+status: verified
+utterance: "New bug, found by the owner on screen: save a script in Final Draft while it's open in eDraft → eDraft reloads it via ScreenplayDocument.swift:94 → applyExternalSource → the page view shows a dark gap band cutting through a line of text. The pagination and the laid text disagree after an external reload. This is the third bug in one family (page-tear IL-0089, collapsed-cut IL-0095, now external-reload) — three symptoms, one root: page geometry can be computed from a different version of the text than what's on screen. I do NOT want a patch. I want the root gone: investigate whether one invariant can be made unrepresentable — gap bands, page starts and sheet boundaries always derive from the same laid elements in one place, for EVERY entry path (edit, undo, external reload, resize, omit). If that refactor is the real fix, size it honestly and propose it. First step either way: a failing test that drives an external-source change into a multi-page document and asserts every band sits at a real page boundary of the laid text. Vibe Check first, wait for my yes."
+goal: "After Final Draft (or iCloud) changes a file open in eDraft, the reloaded page holds only printing elements: notes, sections and synopses stay beside the page as they do at open, every line sits on the paper of the page the engine counts it on, the next save writes each aside once, and the file's cut scene is still placed. EditorState.applyExternalSource aligns identities over the whole document and splits it like init; a debug assertion on the page stops any path that puts a non-printing element on it. Proven fail-before by a Mac surface test (bands, sheet starts, papers vs a fresh pagination of the text on screen) and an EDraftCore test."
+interpretation: |
+  SIZED BY A SPIKE, NOT GUESSED. A scratch copy of the Swift packages at
+  HEAD 3ef1c4e; nothing in the tree is touched until this lock is active.
+  The run applies the spike's EditorState patch and copies its two test
+  files in.
+
+  WHAT THE SPIKE FOUND — THE ROOT IS NOT THE ONE THE BRIEF NAMES.
+  `EditorState.init(source:)` lifts every non-printing element (note,
+  section, synopsis) off the page into `asides` (`ScriptAsides.split`);
+  `applyExternalSource` does not. After the reload the page holds them as
+  lines — measured on finaldraft-sample02.fdx after an UNCHANGED save: page
+  753 → 788 elements, 35 of them notes, sections and synopses — while the
+  35 old asides are still held beside it. Consequences, all measured:
+  - TextKit lays those 35 lines; the paginator, by design, never counts a
+    non-printing element. A page holds more than its paper, and its lines
+    are drawn on the desk: 29 papers for 28 pages, 36 lines off the paper in
+    Single, 7 on Two Pages. This is the owner's dark band.
+  - The next save writes every aside twice (published source 27,800 →
+    28,771 characters; the note appears twice).
+  - With the page 35 lines longer than the file, the file's cut scene can no
+    longer be placed: omittedScenes 1 → 0, so it comes back live.
+  The iPhone's iCloud delivery (EditorView.swift:151) takes the same path.
+
+  THE BANDS WERE RIGHT. Under the oracle, every gap band sat directly above
+  the line a fresh pagination says begins a page, and every sheet began at
+  one — before and after the fix. The failing assertions are "one paper per
+  page" and "no laid line off its paper". So a test of bands alone, as the
+  brief words it, passes at HEAD; the test asserts all three.
+
+  EVERY OTHER ENTRY PATH HOLDS AT HEAD. The same oracle, run on sample02
+  (with its cut scene) on Single and Two Pages: a resize, the cut opened,
+  resized and closed, Omit Scene and its undo, a model edit, Single → Two
+  Pages → back, and 200 keystrokes typed — all pass at HEAD. The surface
+  already derives bands, page starts and sheets from one laid list; the
+  reload fed it a page that broke the model's own rule.
+
+  THE FIX (EditorState.swift only, +25 / −9):
+  - applyExternalSource aligns identities over the whole old document
+    (`ScriptAsides.merge(page:asides:)`), then splits the result as `init`
+    does: the page gets what prints, `asides` gets the rest — replacing the
+    stale copy, not joining it. The caret logic reads the split page.
+  - A debug-only assertion in `screenplay.didSet` — the one place every page
+    assignment passes: the page holds only printing elements. With HEAD's
+    reload and this line alone, the core test traps ("A non-printing element
+    reached the page"). Release builds do nothing different.
+
+  TESTS
+  - EDraftCore ExternalSourceAsidesTests (new, 5): an unchanged reload keeps
+    the asides beside the page and the next save writes the file's text;
+    a note keeps its identity through a reload; a changed file's asides
+    arrive once and a removed note is gone; one undo takes back lines and
+    asides together; a Final Draft save of sample02 keeps its cut scene and
+    writes nothing twice.
+  - EDraftMacSurface ExternalReloadPageBoundaryTests (new, 12): Final Draft
+    saves of sample02 (a longer line, an added line, unchanged) on Single and
+    Two Pages, driven as ScreenplayDocument.read then ScriptPageView's update
+    pass. Oracle, independent of every surface cache: the storage equals the
+    model's laid text; a fresh full pagination of it gives the page starts;
+    every band sits directly above a page's first line (Single), every sheet
+    begins at one (Two Pages), one paper per page, no laid line off its
+    paper. Plus guards: a plain Fountain reload, every other entry path, and
+    typing, each on both layouts. The page arrangement is put back after
+    each test (one defaults domain).
+
+  FAIL-BEFORE (spike, HEAD 3ef1c4e): surface 6 of 12 fail — the three Final
+  Draft saves on both layouts; core 3 of 5 fail. The other 6 + 2 are guards
+  that pass at HEAD and after. LOAD-BEARING: reverting only the
+  whole-document alignment (page-only, as HEAD) fails the note-identity test.
+  AFTER (spike): all 17 pass; full suites EDraftCore 427 / 0 failures,
+  EDraftUI 72 / 1 skipped / 0 failures, EDraftMacSurface 399 / 7 skipped /
+  0 failures — the new assertion fired nowhere.
+
+  NOT IN THIS LOCK — THE SURFACE REFACTOR THE BRIEF ASKED TO BE SIZED
+  (estimated from reading, NOT spiked). One `LaidScript` value built once per
+  render (text, ranges, regions, hidden ids, the laid list, the pagination)
+  as the only input to layOut, the breaks, the sheets and page lookup;
+  `lastLaidElements` and the live `laidElements(_:)` filter removed;
+  `remeasure(to:)` stops taking an element list. Roughly ScriptSurface.swift
+  +150 / −90, ScriptLayout.swift ~+15, ScriptPageView.swift ~2, and 23 test
+  call sites in 11 files (17 remeasure, 6 laidElements / renderedElements),
+  with the typing-cost proofs (BreaksFixpoint, TwoPageSheetCost,
+  LayoutBenchmark) re-run, since it touches the keystroke path: ~300–400
+  lines over ~14 files. It closes latent holes (layout reads the omission
+  state live rather than as rendered; remeasure pairs a caller's list with
+  the old storage; two implementations of "what is laid") but fixes no
+  failure the spike could find, and would not have prevented this one.
+  Recommended against for now; the new oracle stays in the suite as the
+  tripwire for every entry path.
+
+  DECIDED BY THE OWNER, 2026-09-24 — THE SURFACE REFACTOR IS NOT DONE.
+  Do not re-open it on the "one root" framing of the brief: the spike showed
+  the surface already derives bands, page starts and sheets from the text on
+  screen for every entry path, and the refactor would not have prevented
+  this bug. Re-open only on new evidence — a failure of the
+  ExternalReloadPageBoundaryTests oracle, or a new entry path that fails it.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: The Mac surface's sources are untouched — ScriptSurface, ScriptLayout, PageSheet, PageGapContainer, PageCanvasView and ScriptPageView keep their code; the fix is the model keeping its own page rule
+  - kind: custom
+    text: A document with no notes, sections or synopses reloads exactly as before (ScriptAsides.split hands it back whole), and the full EDraftCore, EDraftUI and EDraftMacSurface suites stay green
+  - kind: custom
+    text: The tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the root PNGs) is left exactly as found
+deny:
+  - apple/EDraftMacSurface/Sources/**
+  - apple/EDraftUI/**
+  - apple/eDraftEngine/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/macOS/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/*/Package.swift
+  - apple/EDraftCore/Sources/EDraftCore/ScriptAsides.swift
+  - apple/EDraftCore/Sources/EDraftCore/ScreenplayFile.swift
+  - apple/EDraftCore/Sources/EDraftCore/Omissions.swift
+  - docs/**
+  - packages/**
+  - src/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: applyExternalSource splits the reloaded document into page and asides as init does, aligned over the whole document, and a debug assertion keeps non-printing elements off the page; ExternalSourceAsidesTests and ExternalReloadPageBoundaryTests prove it.
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftUI && swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/DerivedData-IL-0101 -quiet build && xcodebuild -project apple/eDraft.xcodeproj -scheme eDraft -configuration Debug -destination "generic/platform=iOS Simulator" -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/DerivedData-IL-0101-ios -quiet build
+verifyTimeoutMs: 2700000
+budget:
+  files:
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/ExternalSourceAsidesTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/ExternalReloadPageBoundaryTests.swift
+  symbols: []
+  maxFiles: 3
+  maxLines: 590
+accept:
+  - "FAIL-BEFORE: ExternalReloadPageBoundaryTests — 6 of 12 fail at 3ef1c4e (a longer line, an added line and an unchanged save from Final Draft, on Single and Two Pages: papers ≠ pages and lines off the paper); ExternalSourceAsidesTests — 3 of 5 fail (asides on the page, written twice, the cut scene lost). The rest are guards that pass at both."
+  - "ORACLE: after the reload the storage is the model's laid text, and against a fresh full pagination of it every band sits directly above a page's first line, every sheet begins at one, there is one paper per page and no laid line is off its paper."
+  - "LOAD-BEARING: reverting only the whole-document alignment fails the note-identity test; HEAD's reload with only the assertion added traps in the core test."
+  - "NO REGRESSION: EDraftCore, EDraftUI and EDraftMacSurface suites green (spike: 427 / 0, 72 / 1 skipped / 0, 399 / 7 skipped / 0); macOS Debug build and the iPhone app's iOS Simulator build (scheme eDraft) succeed; the Mac surface's sources untouched."
+assumptions:
+  - text: "HEAD is 3ef1c4e. Foreign dirt: the xcscheme, .codedirector/mcp.log, the IL-0077 seal, the root PNGs — none touched; the baseline is the proof. The root tsc passes (checked before drafting). The tree's EditorState.swift equals HEAD and the spike's patch applies cleanly (git apply --check)."
+    source: system
+    confirmed: false
+  - text: "The brief's root (\"page geometry computed from a different version of the text\") was not what the spike found: the bands, page starts and sheets were derived from the text on screen; the text itself broke the page's rule. The fix is the model's."
+    source: system
+    confirmed: false
+  - text: "The owner approved IL-0101 as drafted and declined the surface refactor on 2026-09-24: \"Yes to IL-0101 as drafted. The refactor: skip it for now — your evidence stands (it fixes nothing current and wouldn't have prevented this), and the choke-point check plus the 17 tests are the structural guard. Record the decision in the lock so no future session re-litigates it.\""
+    source: user
+    confirmed: true
+  - text: The brief's test wording (bands at real page boundaries) is kept and extended with the paper checks, because bands alone pass at HEAD.
+    source: system
+    confirmed: false
+  - text: 'The owner added the iOS Simulator build (scheme eDraft) to the verify on 2026-09-24: "the iPhone shares this bug, and cheap certainty beats a second surprise." It gets its own DerivedData, as the macOS build does.'
+    source: user
+    confirmed: true
+  - text: cdir's automatic draft anchored on a stale worktree copy (.claude/worktrees/…) and a web route — none touched by this fix; the budget and deny list were set by hand from the spike.
+    source: system
+    confirmed: false
+createdAt: 2026-09-23T19:52:32.397Z
+createdBy: Yasirdora

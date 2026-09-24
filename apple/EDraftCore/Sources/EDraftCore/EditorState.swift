@@ -13,7 +13,15 @@ public final class EditorState {
     /// heading neither prints, nor paginates, nor shifts the element indices
     /// the Navigator and the prediction engine are keyed by.
     public var screenplay: Screenplay {
-        didSet { synchronizeDraftIdentity(previous: oldValue) }
+        didSet {
+            /* The page is the printing elements (`ScriptAsides`). A path
+               that puts a note, a section or a synopsis here makes the page
+               lay a line the paginator never counts, and a save write it
+               twice — so it is stopped here, where every path passes. */
+            assert(screenplay.elements.allSatisfy(\.type.isPrinting),
+                   "A non-printing element reached the page; split it into asides first")
+            synchronizeDraftIdentity(previous: oldValue)
+        }
     }
     @ObservationIgnored private var documentIdentity = DocumentIdentity()
     @ObservationIgnored private var synchronizingIdentity = false
@@ -1309,8 +1317,10 @@ public final class EditorState {
         }
         let fresh = Screenplay(engineModel: parsed)
 
-        // Monotonic alignment: each old element lends its identity to the
-        // earliest unclaimed fresh element of the same type and text.
+        // Monotonic alignment over the whole document — the page and what
+        // sits beside it: each old element lends its identity to the
+        // earliest unclaimed fresh element of the same type and text, so a
+        // note keeps its identity through a reload as a line does.
         var lists: [String: [Int]] = [:]
         for (index, element) in fresh.elements.enumerated() {
             lists[Self.identityKey(for: element), default: []].append(index)
@@ -1318,7 +1328,7 @@ public final class EditorState {
         var offsets: [String: Int] = [:]
         var merged = fresh.elements
         var lastUsed = -1
-        for old in screenplay.elements {
+        for old in ScriptAsides.merge(page: screenplay.elements, asides: asides) {
             let key = Self.identityKey(for: old)
             guard let list = lists[key] else { continue }
             var cursor = offsets[key] ?? 0
@@ -1329,14 +1339,19 @@ public final class EditorState {
             lastUsed = list[cursor]
             offsets[key] = cursor + 1
         }
+        // Then split as the file was split at open: the page sets only what
+        // prints, and the rest goes back beside it — never onto the page,
+        // and never beside the copy still held from before the reload.
+        let split = ScriptAsides.split(merged)
+        let page = split.page
 
         // The caret keeps its element when the element survived; otherwise it
         // falls back to the nearest surviving predecessor, then the top.
-        let survivingIDs = Set(merged.map(\.id))
+        let survivingIDs = Set(page.map(\.id))
         let caretID: UUID?
         let caretOffset: Int
         if let activeElementID, survivingIDs.contains(activeElementID),
-           let element = merged.first(where: { $0.id == activeElementID }) {
+           let element = page.first(where: { $0.id == activeElementID }) {
             caretID = activeElementID
             caretOffset = min(selectionOffset, element.text.utf16.count)
         } else if let activeElementID,
@@ -1345,9 +1360,9 @@ public final class EditorState {
                       .reversed()
                       .first(where: { survivingIDs.contains($0.id) }) {
             caretID = predecessor.id
-            caretOffset = merged.first(where: { $0.id == predecessor.id })?.text.utf16.count ?? 0
+            caretOffset = page.first(where: { $0.id == predecessor.id })?.text.utf16.count ?? 0
         } else {
-            caretID = merged.first?.id
+            caretID = page.first?.id
             caretOffset = 0
         }
 
@@ -1355,7 +1370,8 @@ public final class EditorState {
         // is deliberately left alone — that history is the writer's.
         recordSnapshot(structural: true)
         screenplay.titlePage = fresh.titlePage
-        screenplay.elements = merged.isEmpty ? [ScriptElement(type: .action, text: "")] : merged
+        asides = split.asides
+        screenplay.elements = page.isEmpty ? [ScriptElement(type: .action, text: "")] : page
         caseMemory.prune(toAlive: Set(screenplay.elements.map(\.id)))
         activeElementID = caretID
         selectionOffset = max(0, caretOffset)
