@@ -3,6 +3,7 @@
  * article and per topic, a valid bundle Info.plist, escaped text, and no
  * internal link that points nowhere.
  */
+import macOSInfoPlist from '../../../apple/macOS/Info.plist?raw';
 import { describe, expect, it } from 'vitest';
 import { helpArticles, helpCategories } from './articles';
 import { buildBookFiles, renderBlocks, BOOK_IDENTIFIER, BOOK_TITLE } from './helpbook';
@@ -29,6 +30,13 @@ function internalHrefs(html: string): string[] {
 		.map((match) => match[1])
 		.filter((href) => !href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('mailto:'));
 }
+
+describe('macOS app registration', () => {
+	it('uses the generated book identifier and folder', () => {
+		expect(macOSInfoPlist).toContain('<key>CFBundleHelpBookFolder</key>\n\t<string>eDraft.help</string>');
+		expect(macOSInfoPlist).toContain(`<key>CFBundleHelpBookName</key>\n\t<string>${BOOK_IDENTIFIER}</string>`);
+	});
+});
 
 describe('buildBookFiles', () => {
 	it('emits a page for every article and every topic, plus the bundle parts', () => {

@@ -277,6 +277,7 @@
 				DF2900000000000000000201 /* Sources */,
 				DF2900000000000000000202 /* Frameworks */,
 				DF2900000000000000000203 /* Resources */,
+				DF2900000000000000000210 /* Build Help Book */,
 			);
 			buildRules = (
 			);
@@ -338,6 +339,24 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		DF2900000000000000000210 /* Build Help Book */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Build Help Book";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/eDraft.help",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\ncd \"$SRCROOT/..\"\nnpm run build:help-book\nrm -rf \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/eDraft.help\"\nditto build/help-book/eDraft.help \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/eDraft.help\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXResourcesBuildPhase section */
 		DF2600000000000000000203 /* Resources */ = {

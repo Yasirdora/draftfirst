@@ -1,0 +1,55 @@
+schemaVersion: 1
+id: IL-0113
+status: verified
+utterance: "IL-0113: wire the Apple Help Book into the Mac app — register eDraft.help with CFBundleHelpBookFolder eDraft.help and CFBundleHelpBookName xyz.edraft.help, build it fresh from npm run build:help-book into the macOS app Resources without committed generated artifacts, add a guard that the plist name equals BOOK_IDENTIFIER, and verify clean-clone macOS launch/help menu/search/rendering plus macOS Debug and iOS Simulator builds. Commit IL-0108 first and push it."
+goal: Make Help ▸ eDraft Help open the generated offline Apple Help Book in Help Viewer, with registration and build-time resource packaging wired correctly; prove it from a clean clone and keep the book macOS-only.
+interpretation: TODO — the system's operationalization of the goal (edit to correct it)
+keep:
+  - kind: no-new-dependency
+deny:
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+  - .codedirector/mcp.log
+  - apple/eDraft.xcodeproj/xcshareddata/xcschemes/eDraft.xcscheme
+  - .codedirector/seals/IL-0077.utterance
+  - .codedirector/locks/IL-0104-il-0101-has-since-landed.yaml
+  - .codedirector/locks/IL-0109-task-the-app-bug-batch.yaml
+  - .codedirector/locks/IL-0110-task-the-app-bug-batch.yaml
+  - .codedirector/locks/IL-0111-claude-commits-il-0107-feedback.yaml
+  - edraft logo.png
+  - screenshot.png
+  - build/**
+  - "**/DerivedData/**"
+change: TODO — one-line scope description
+verifyCommand: npm run test:app -- src/lib/help/helpbook.test.ts && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -derivedDataPath "$TMPDIR/edraft-il0113-macos" build && xcodebuild -project apple/eDraft.xcodeproj -scheme eDraft -configuration Debug -destination "generic/platform=iOS Simulator" -derivedDataPath "$TMPDIR/edraft-il0113-ios" build
+budget:
+  files:
+    - apple/macOS/Info.plist
+    - apple/eDraft.xcodeproj/project.pbxproj
+    - src/lib/help/helpbook.ts
+    - src/lib/help/helpbook.test.ts
+    - scripts/build-help-book.mjs
+  symbols: []
+  maxFiles: 5
+  maxLines: 400
+accept: []
+assumptions:
+  - text: Anchors defended — EditorView.wire — .claude/worktrees/objective-mirzakhani-f6690a/ios/DraftFirst/Views/EditorView.swift (Swift); "wire" is its whole name · Array+extension.push — .claude/worktrees/objective-mirzakhani-f6690a/ios/DraftFirstEngine/Sources/DraftFirstEngine/Fountain/Serialise.swift (Swift); "push" is its whole name · DiagnosticCollector.add — .claude/worktrees/objective-mirzakhani-f6690a/packages/draftfirst/src/fdx.ts (TypeScript); "add" is its whole name · EditorView.wire — apple/eDraft/Views/EditorView.swift (Swift); "wire" is its whole name · ScreenplayTranscription.build — apple/eDraftEngine/Sources/EDraftEngine/Fountain/ScreenplayTranscription.swift (Swift); "build" is its whole name
+    source: system
+    confirmed: false
+  - text: "Budget proposed automatically from anchors: EditorView.wire, Array+extension.push, DiagnosticCollector.add, EditorView.wire, ScreenplayTranscription.build (blast-radius analysis, anchor strength: name; review before activating)"
+    source: system
+    confirmed: false
+  - text: Deny list suggested automatically (manifests, unrelated test files); review before activating
+    source: system
+    confirmed: false
+createdAt: 2026-09-25T14:50:28.994Z
+createdBy: Yasirdora
