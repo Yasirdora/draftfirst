@@ -1,0 +1,108 @@
+schemaVersion: 1
+id: IL-0112
+status: verified
+utterance: "The app's Help menu says \"help isn't available for eDraft\" — the app has no Apple Help Book registered. Kimi builds the generator half: an offline Apple Help Book generated from the same articles.ts the website uses, so web help and in-app help can never drift. One source, three outputs: website, in-app book, Help menu search. The Xcode/Info.plist wiring is a separate lock (Claude)."
+goal: "A generator turns src/lib/help/articles.ts into a complete offline Apple Help Book at build/help-book/eDraft.help (gitignored): an access page, one page per topic, one page per article, a shared stylesheet, the bundle Info.plist, and a hiutil search index. Every page links its online twin at edraft.xyz/help. Pure generator + tests; no site, app, or content change. articles.ts is untouched."
+interpretation: |
+  THE HOLE. macOS shows "Help isn't available for eDraft" because the app
+  bundle carries no registered help book. The content already exists as data
+  (articles.ts was written for this: "The same data will later generate the
+  Apple Help Book"). This lock builds the generator only; registering the
+  book in the app's Info.plist and adding it to the Xcode bundle is the
+  follow-up wiring lock.
+
+  THE BOOK (Apple Help Programming Guide layout):
+  - build/help-book/eDraft.help/Contents/Info.plist — CFBundleIdentifier
+    xyz.edraft.help, HPDBookTitle "eDraft Help", HPDBookAccessPath
+    index.html, HPDBookIndexPath search.helpindex.
+  - Contents/Resources/en.lproj/index.html — the access page: title, the
+    eight topics with their descriptions, a "view online" link.
+  - topic/<id>.html per category; article/<slug>.html per article with
+    breadcrumb, body blocks (h/p/list/steps/table/tip/note), See also, and
+    its online twin link.
+  - shrd/help.css — Apple help voice: system font, 17px body, semibold
+    titles, blue only for links.
+  - search.helpindex built by /usr/bin/hiutil when present (skipped with a
+    printed note where it is not), so Help menu search works once wired.
+
+  ESCAPING IS THE RISK. Article text contains &, <, >, ⌘, curly quotes.
+  helpbook.ts escapes every text node; the test pins it.
+
+  TESTS — src/lib/help/helpbook.test.ts (new):
+  - every article and every category produces a page; the access page links
+    all 8 topics; every See-also/related slug resolves to a real page;
+  - escaping: a text with &, <, >, " renders escaped;
+  - the bundle Info.plist carries identifier, title, access path, index path;
+  - every internal href points at a file the book contains.
+  RUNNER. scripts/build-help-book.mjs compiles the TS entry with the repo's
+  own esbuild (already a devDependency — no new dependency) into a temp file
+  and runs it; npm script "build:help-book" added to package.json.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: articles.ts and every website file render unchanged — npm run build after the change produces the same help pages as before
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (.codedirector/mcp.log, the xcscheme, the IL-0077 seal, the two root PNGs, other locks' drafts) is left exactly as found
+deny:
+  - apple/**
+  - packages/**
+  - src/routes/**
+  - src/lib/help/articles.ts
+  - src/lib/help/articles.test.ts
+  - src/lib/help/Blocks.svelte
+  - src/lib/help/HelpLayout.svelte
+  - src/lib/help/ArticlePage.svelte
+  - src/lib/help/GuideBar.svelte
+  - src/lib/help/TopicPage.svelte
+  - src/lib/help/guide.ts
+  - src/lib/help/guide.test.ts
+  - src/lib/help/icons.ts
+  - src/lib/site/**
+  - static/**
+  - docs/**
+  - package-lock.json
+  - .gitignore
+  - .claude/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: A generator (helpbook.ts + runner + tests) emits a complete offline Apple Help Book from articles.ts into gitignored build/help-book/eDraft.help, with a hiutil search index and online links; package.json gains the build:help-book script.
+verifyCommand: npm run check && npx vitest run src/lib/help && node scripts/build-help-book.mjs && npm run build
+verifyTimeoutMs: 1800000
+budget:
+  files:
+    - scripts/build-help-book.mjs
+    - scripts/help-book-entry.ts
+    - src/lib/help/helpbook.ts
+    - src/lib/help/helpbook.test.ts
+    - package.json
+  symbols: []
+  maxFiles: 5
+  maxLines: 700
+accept:
+  - "npm run check: 0 errors, 0 warnings."
+  - "npx vitest run src/lib/help: all green, including the new helpbook tests."
+  - "node scripts/build-help-book.mjs: writes build/help-book/eDraft.help with an access page, 8 topic pages, one page per article, shrd/help.css, Contents/Info.plist, and search.helpindex (or a printed note that hiutil is absent)."
+  - "npm run build: the site builds; the book is not part of the site output."
+  - "GENERATOR TRUTH: every internal href in the book resolves to a file in the book; every related slug resolves."
+assumptions:
+  - text: The site's public address is https://edraft.xyz (the support address is support@edraft.xyz); the book's online links point there. If the domain differs, only the constant in helpbook.ts changes.
+    source: system
+    confirmed: false
+  - text: "The owner, 2026-09-25: 'please go a head build it' — approving Kimi building the generator half of the Apple Help Book; the app wiring is a separate Claude lock."
+    source: user
+    confirmed: true
+  - text: HEAD is aa23a72 plus IL-0107/IL-0108 commits by another session; this lock touches no file any other lock touches.
+    source: system
+    confirmed: false
+createdAt: 2026-09-25T12:55:00.000Z
+createdBy: Yasirdora

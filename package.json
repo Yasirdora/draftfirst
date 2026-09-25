@@ -28,7 +28,8 @@
     "engine:conformance": "node scripts/engine-conformance-export.mjs",
     "check:conformance": "node scripts/check-conformance-freshness.mjs",
     "check:paste-corpus": "node scripts/paste-corpus-gate.mjs",
-    "check:boundaries": "node scripts/check-swift-boundaries.mjs"
+    "check:boundaries": "node scripts/check-swift-boundaries.mjs",
+    "build:help-book": "node scripts/build-help-book.mjs"
   },
   "dependencies": {
     "@edraft/core": "0.1.0"
