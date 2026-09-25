@@ -97,7 +97,7 @@ private struct MacSettingsView: View {
                     Spacer()
                 }
                 .padding(.vertical, 4)
-                Link(destination: URL(string: "mailto:feedback@edraft.xyz")!) {
+                Link(destination: SupportContact.mailto) {
                     Label("Send Feedback", systemImage: "envelope")
                 }
             }

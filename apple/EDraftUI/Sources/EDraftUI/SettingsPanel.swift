@@ -64,7 +64,7 @@ public struct SettingsPanel: View {
                 }
 
                 Section {
-                    Link(destination: URL(string: "mailto:feedback@edraft.xyz")!) {
+                    Link(destination: SupportContact.mailto) {
                         Label("Send Feedback", systemImage: "envelope")
                     }
                 }

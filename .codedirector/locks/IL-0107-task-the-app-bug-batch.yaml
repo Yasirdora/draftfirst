@@ -1,0 +1,121 @@
+schemaVersion: 1
+id: IL-0107
+status: verified
+utterance: |-
+  Task: the app-bug batch — five real defects, each pinned by a failing test before you fix it.
+  This project requires a Code Director lock for every code change (see CLAUDE.md). Draft the locks, show me the Vibe Check for each, and wait for my yes before editing. Do not touch uncommitted work from other sessions (.codedirector/mcp.log, the xcscheme, the IL-0077 seal, the two root PNGs, the IL-0104 draft if still uncommitted). HEAD is aa23a72.
+  The five bugs, from the audit and from my own use:
+  ⌘9 is double-bound. The same shortcut fires two commands (check the key equivalents in MainMenu / command definitions). One shortcut, one action. Find every duplicate key equivalent in the app, not just this one, and report the full list before fixing.
+  Omitted scenes leak into print, PDF, and export. §7.3 says an omitted scene must not print. The collapse hides the body on screen, but ScreenplayPageRenderer and the export paths still emit it. Every output path — print, PDF, Final Draft export, Fountain export, plain text — must be audited and pinned by tests: an omitted scene's body appears in none of them; its OMITTED card follows each format's own convention (Final Draft writes the scene heading with OMITTED; check what Final Draft itself does on export and match it).
+  Export drops notes and outline sections. A no-edit round trip through export loses Final Draft notes and/or section+synopsis outline data. Round-trip tests against the anonymised fixture: everything Final Draft wrote comes back byte-meaningful, nothing silently dropped.
+  Highlights are lost in .draft saves. Text highlights survive in .fdx but not in the native .draft format. Pin the loss with a test, then fix the format — not a workaround.
+  Send Feedback emails the wrong address. In-app feedback goes to  feedback@edraft.xyz; the site and App Store materials say  support@edraft.xyz. One address everywhere:  support@edraft.xyz.
+  How I want it done:
+  One lock per bug, or one lock with an explicit per-bug budget — your proposal, but each bug gets its own fail-before test that you show failing at HEAD first.
+  No patches, no shortcuts. If the right fix is a refactor (I suspect print/export share a "what's visible on the page" decision that should exist in exactly one place), do the refactor properly and say so in the Vibe Check.
+  Follow docs/MACOS-DESIGN.md. Where a fix changes what a writer sees, quote the design doc section that covers it, or propose an amendment first.
+  Verify: the relevant suites plus macOS Debug and iOS Simulator builds, each into its own scratchpad DerivedData — never the shared one.
+  After all five land: rebuild from a clean clone at the final HEAD and hand me the binary path with a short manual-test list for each bug.
+  Start by confirming each bug reproduces at HEAD, and tell me which ones don't — a bug that doesn't reproduce gets investigated, not assumed.
+goal: "Bug 5 of the batch: every contact address eDraft ships is support@edraft.xyz. Both apps' Send Feedback link to one EDraftCore constant, SupportContact.mailto, and a test that reads every shipped file — both apps, the site, the docs — finds no other @edraft.xyz address."
+interpretation: |
+  BUG 5 OF FIVE (the batch: IL-0107 bug 5, IL-0108 bug 1, IL-0109 bugs 2+3,
+  IL-0110 bug 4). SIZED BY A SPIKE on a full export of aa23a72; nothing in
+  the tree is touched until this lock is active.
+
+  REPRODUCED AT aa23a72. Both apps' Settings ▸ Send Feedback mail
+  feedback@edraft.xyz — apple/macOS/SettingsWindow.swift:100 and
+  apple/EDraftUI/Sources/EDraftUI/SettingsPanel.swift:67, each a literal
+  `mailto:`. Everything else eDraft ships says support@edraft.xyz: the Help
+  Center (ArticlePage, TopicPage, articles.ts, the help home), the privacy
+  page and both copies of the privacy policy (IL-0098). The repository holds
+  no App Store listing text; docs/APP-STORE-READINESS.md records only the old
+  [SUPPORT EMAIL] placeholder, which IL-0098 replaced.
+
+  THE FIX (one address, one place):
+  - EDraftCore gains SupportContact (address, mailto) — the one spelling.
+  - Both Settings views link to SupportContact.mailto. Label, icon and
+    placement unchanged ("Send Feedback", envelope).
+  MACOS-DESIGN.md does not cover Settings; the change is the address in the
+  mail a writer's click opens, not what the window shows.
+
+  TESTS — EDraftCore SupportContactTests (new, 2):
+  - the constant is support@edraft.xyz, written out in the test so the
+    constant cannot agree with itself;
+  - every @edraft.xyz address in the files eDraft ships (the repository less
+    .git, node_modules, build output, .codedirector, .claude, test folders
+    and fixtures; .swift .plist .strings .svelte .ts .js .html .txt .md
+    .json) is support@edraft.xyz, and the scan found at least one — it read
+    something.
+  FAIL-BEFORE (spike, aa23a72 with a stand-in SupportContact holding today's
+  address): both fail; the scan names exactly SettingsWindow.swift and
+  SettingsPanel.swift (plus the stand-in). AFTER: 2/2 pass.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: Send Feedback's label, icon and place are unchanged on both platforms; only the address changes
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (.codedirector/mcp.log, the xcscheme, the IL-0077 seal, the two root PNGs, the IL-0104 draft) is left exactly as found
+deny:
+  - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUIKitSurface/**
+  - apple/eDraftEngine/**
+  - apple/SplitWindowKit/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/eDraft.xcodeproj/**
+  - apple/*/Package.swift
+  - packages/**
+  - src/**
+  - static/**
+  - scripts/**
+  - docs/**
+  - package.json
+  - package-lock.json
+  - .gitignore
+  - .claude/**
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: Both apps' Send Feedback mail support@edraft.xyz from one EDraftCore constant, and a test reading every shipped file finds no other eDraft address.
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftUI && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/DerivedData-IL-0107 -quiet build && xcodebuild -project apple/eDraft.xcodeproj -scheme eDraft -configuration Debug -destination "generic/platform=iOS Simulator" -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/DerivedData-IL-0107-ios -quiet build
+verifyTimeoutMs: 3600000
+budget:
+  files:
+    - apple/EDraftCore/Sources/EDraftCore/SupportContact.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/SupportContactTests.swift
+    - apple/macOS/SettingsWindow.swift
+    - apple/EDraftUI/Sources/EDraftUI/SettingsPanel.swift
+  symbols: []
+  maxFiles: 4
+  maxLines: 90
+accept:
+  - "FAIL-BEFORE: SupportContactTests fail at aa23a72 with a stand-in holding today's address; the scan names SettingsWindow.swift and SettingsPanel.swift. Both pass after."
+  - "ONE ADDRESS: no @edraft.xyz address other than support@edraft.xyz in anything eDraft ships."
+  - "NO REGRESSION: EDraftCore and EDraftUI suites green; macOS Debug and iOS Simulator builds succeed, each into its own scratchpad DerivedData."
+assumptions:
+  - text: "HEAD is aa23a72. Foreign dirt: .codedirector/mcp.log, the xcscheme, the IL-0077 seal, the root PNGs, and IL-0104's draft (another session's) — none touched; the baseline is the proof."
+    source: system
+    confirmed: false
+  - text: The owner chose support@edraft.xyz as the one address on 2026-09-24 (the batch brief) — as for the site in IL-0098.
+    source: user
+    confirmed: true
+  - text: 'The owner approved IL-0107 as drafted on 2026-09-25: "Yes to IL-0107 — run it now."'
+    source: user
+    confirmed: true
+  - text: cdir's automatic draft anchored on a stale worktree copy (.claude/worktrees/…) — none of it touched; the budget and deny list were set by hand from the spike.
+    source: system
+    confirmed: false
+createdAt: 2026-09-24T21:53:43.642Z
+createdBy: Yasirdora
