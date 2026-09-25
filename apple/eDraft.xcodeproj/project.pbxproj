@@ -36,7 +36,6 @@
 		DF2900000000000000000112 /* EDraftUI in Frameworks */ = {isa = PBXBuildFile; productRef = DF2900000000000000000902 /* EDraftUI */; };
 		DF2900000000000000000113 /* EDraftMacSurface in Frameworks */ = {isa = PBXBuildFile; productRef = DF2900000000000000000903 /* EDraftMacSurface */; };
 		DF2900000000000000000122 /* ScreenplayDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2900000000000000000120 /* ScreenplayDocument.swift */; };
-		DF2900000000000000000123 /* MainMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2900000000000000000121 /* MainMenu.swift */; };
 		DF2A00000000000000000005 /* eDraft.icon in Resources */ = {isa = PBXBuildFile; fileRef = DF2A00000000000000000001 /* eDraft.icon */; };
 		DF2A00000000000000000007 /* SettingsWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2A00000000000000000006 /* SettingsWindow.swift */; };
 		DF2A00000000000000000008 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = DF2600000000000000000012 /* PrivacyInfo.xcprivacy */; };
@@ -77,7 +76,6 @@
 		DF290000000000000000000E /* eDraft (macOS).app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = "eDraft (macOS).app"; path = eDraft.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF2900000000000000000100 /* EDraftMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EDraftMacApp.swift; sourceTree = "<group>"; };
 		DF2900000000000000000120 /* ScreenplayDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenplayDocument.swift; sourceTree = "<group>"; };
-		DF2900000000000000000121 /* MainMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenu.swift; sourceTree = "<group>"; };
 		DF2A00000000000000000001 /* eDraft.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = eDraft.icon; sourceTree = "<group>"; };
 		DF2A00000000000000000006 /* SettingsWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindow.swift; sourceTree = "<group>"; };
 		DF2A00000000000000000009 /* eDraft.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = eDraft.entitlements; sourceTree = "<group>"; };
@@ -223,7 +221,6 @@
 			children = (
 				DF2900000000000000000100 /* EDraftMacApp.swift */,
 				DF2900000000000000000120 /* ScreenplayDocument.swift */,
-				DF2900000000000000000121 /* MainMenu.swift */,
 				DF2A00000000000000000006 /* SettingsWindow.swift */,
 				DF2A00000000000000000009 /* eDraft.entitlements */,
 			);
@@ -401,7 +398,6 @@
 			files = (
 				DF2900000000000000000101 /* EDraftMacApp.swift in Sources */,
 				DF2900000000000000000122 /* ScreenplayDocument.swift in Sources */,
-				DF2900000000000000000123 /* MainMenu.swift in Sources */,
 				DF2A00000000000000000007 /* SettingsWindow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

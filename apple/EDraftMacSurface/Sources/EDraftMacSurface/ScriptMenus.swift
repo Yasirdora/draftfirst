@@ -9,11 +9,10 @@ import EDraftCore
 /// when no script window is key: nothing answers, so AppKit disables the item.
 public enum ScriptMenus {
 
-    /// The kinds a writer converts between, in the order ⌘1–⌘9 number them.
-    static let keyedKinds: [(kind: ScreenplayKind, key: String)] = [
-        (.scene, "1"), (.action, "2"), (.character, "3"), (.parenthetical, "4"),
-        (.dialogue, "5"), (.transition, "6"), (.shot, "7"), (.general, "8"), (.lyrics, "9")
-    ]
+    /// The kinds a writer converts between, in the order ⌘1–⌘9 number them —
+    /// the table the iPad's keyboard reads too.
+    static let keyedKinds: [(kind: ScreenplayKind, key: String)] =
+        ScreenplayKind.shortcutKinds.enumerated().map { ($0.element, String($0.offset + 1)) }
 
     // MARK: Element
 
@@ -126,13 +125,17 @@ public enum ScriptMenus {
         )
     }
 
-    /// Zoom In · Zoom Out · Actual Size · Zoom to Fit, with Preview's keys.
+    /// Zoom In · Zoom Out · Actual Size with Preview's keys, and Zoom to Fit
+    /// on ⌥⌘0, beside Actual Size: ⌘9 is Lyrics, the last of the element keys
+    /// (MACOS-DESIGN §3.4).
     public static func zoomItems() -> [NSMenuItem] {
-        [
+        let fit = NSMenuItem(title: "Zoom to Fit", action: #selector(ScriptWindowController.zoomToFit(_:)), keyEquivalent: "0")
+        fit.keyEquivalentModifierMask = [.command, .option]
+        return [
             NSMenuItem(title: "Zoom In", action: #selector(ScriptWindowController.zoomIn(_:)), keyEquivalent: "+"),
             NSMenuItem(title: "Zoom Out", action: #selector(ScriptWindowController.zoomOut(_:)), keyEquivalent: "-"),
             NSMenuItem(title: "Actual Size", action: #selector(ScriptWindowController.actualSize(_:)), keyEquivalent: "0"),
-            NSMenuItem(title: "Zoom to Fit", action: #selector(ScriptWindowController.zoomToFit(_:)), keyEquivalent: "9")
+            fit
         ]
     }
 

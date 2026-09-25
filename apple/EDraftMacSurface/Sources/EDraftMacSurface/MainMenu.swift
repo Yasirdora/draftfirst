@@ -1,6 +1,5 @@
 import AppKit
 import EDraftCore
-import EDraftMacSurface
 
 /// The menu bar, built in code.
 ///
@@ -16,9 +15,17 @@ import EDraftMacSurface
 /// element conversion under Format with ⌘1–⌘9, how the page is drawn under
 /// View, and the document's life under File. Nothing is added to the toolbar
 /// that this menu could not carry.
-enum MainMenu {
+///
+/// It lives in the surface package, not the app, so a test can build the bar
+/// as declared and walk every item: one shortcut, one command (IL-0108). The
+/// live bar cannot be asked — AppKit silently blanks the second of two
+/// identical key equivalents, which is how ⌘9 came to be Lyrics and Zoom to
+/// Fit at once with only Lyrics answering. The app delegate's three actions
+/// are named by selector: the responder chain finds `MacAppDelegate` as it
+/// always did, and this package does not know the app.
+public enum MainMenu {
 
-    static func build() -> NSMenu {
+    public static func build() -> NSMenu {
         let bar = NSMenu()
         bar.addItem(submenu("eDraft", appMenu()))
         bar.addItem(submenu("File", fileMenu()))
@@ -44,7 +51,7 @@ enum MainMenu {
         menu.addItem(item("About eDraft", #selector(NSApplication.orderFrontStandardAboutPanel(_:))))
         menu.addItem(.separator())
         // Between About and Services, on ⌘, — where the platform keeps it.
-        menu.addItem(item("Settings…", #selector(MacAppDelegate.showSettings(_:)), ","))
+        menu.addItem(item("Settings…", AppActions.showSettings, ","))
         menu.addItem(.separator())
         let services = NSMenu(title: "Services")
         menu.addItem(submenu("Services", services))
@@ -142,7 +149,7 @@ enum MainMenu {
         // control that disappears is harder to find than one that is simply
         // not doing anything yet.
         for paper in PagePaper.allCases {
-            let choice = item(paper.title, #selector(MacAppDelegate.setPagePaper(_:)))
+            let choice = item(paper.title, AppActions.setPagePaper)
             choice.representedObject = paper
             menu.addItem(choice)
         }
@@ -167,6 +174,13 @@ enum MainMenu {
     }
 
     // MARK: Building
+
+    /// What the app delegate answers, named — see the type's comment.
+    enum AppActions {
+        static let showSettings = Selector(("showSettings:"))
+        static let setPagePaper = Selector(("setPagePaper:"))
+        static let openRecent = Selector(("openRecent:"))
+    }
 
     private static var rightArrow: String {
         String(utf16CodeUnits: [unichar(NSRightArrowFunctionKey)], count: 1)
@@ -199,7 +213,7 @@ enum MainMenu {
 /// system's copy is removed at launch (see `MacAppDelegate`), and
 /// `NSDocumentController` has kept the list correctly for thirty years, so
 /// there is no reason to keep a second one.
-final class RecentDocumentsMenu: NSObject, NSMenuDelegate {
+public final class RecentDocumentsMenu: NSObject, NSMenuDelegate {
     static let shared = RecentDocumentsMenu()
     private override init() { super.init() }
 
@@ -209,12 +223,12 @@ final class RecentDocumentsMenu: NSObject, NSMenuDelegate {
         return menu
     }
 
-    func menuNeedsUpdate(_ menu: NSMenu) {
+    public func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         for url in NSDocumentController.shared.recentDocumentURLs {
             let item = NSMenuItem(
                 title: url.deletingPathExtension().lastPathComponent,
-                action: #selector(MacAppDelegate.openRecent(_:)),
+                action: MainMenu.AppActions.openRecent,
                 keyEquivalent: ""
             )
             item.representedObject = url

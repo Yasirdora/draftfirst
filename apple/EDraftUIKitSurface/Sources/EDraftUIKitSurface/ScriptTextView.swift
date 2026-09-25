@@ -2376,13 +2376,14 @@ final class ScreenplayTextView: UITextView {
     var onTab: ((Bool) -> Void)?
     var onAcceptPrediction: (() -> Void)?
     var onLayout: ((CGFloat, UITraitCollection) -> Void)?
-    /// A hardware ⌘1–9 press, as an index into `ScreenplayKind.editorKinds`.
+    /// A hardware ⌘1–9 press, as an index into `ScreenplayKind.shortcutKinds`.
     var onSelectElementKind: ((ScreenplayKind) -> Void)?
 
     /// Every command carries a title, which is the whole of its
     /// discoverability: iPad draws the hold-⌘ overlay from these strings, and
-    /// an untitled command is invisible there. ⌘1–9 mirror the web editor's
-    /// element order exactly, so a writer's fingers work on either surface.
+    /// an untitled command is invisible there. ⌘1–9 are the Mac's Format ▸
+    /// Element keys, from the same table, so a writer's fingers work on
+    /// either device.
     override var keyCommands: [UIKeyCommand]? {
         var commands = [
             UIKeyCommand(
@@ -2416,7 +2417,7 @@ final class ScreenplayTextView: UITextView {
         ]
         // One selector serves all nine: the digit the writer pressed is the
         // command's own input, so there is no parallel mapping to keep true.
-        for (index, kind) in ScreenplayKind.editorKinds.prefix(9).enumerated() {
+        for (index, kind) in ScreenplayKind.shortcutKinds.enumerated() {
             commands.append(UIKeyCommand(
                 title: kind.title,
                 image: UIImage(systemName: kind.symbol),
@@ -2487,8 +2488,8 @@ final class ScreenplayTextView: UITextView {
     @objc private func selectElementKind(_ sender: UIKeyCommand) {
         guard let digit = sender.input.flatMap(Int.init) else { return }
         let index = digit - 1
-        guard ScreenplayKind.editorKinds.indices.contains(index) else { return }
-        onSelectElementKind?(ScreenplayKind.editorKinds[index])
+        guard ScreenplayKind.shortcutKinds.indices.contains(index) else { return }
+        onSelectElementKind?(ScreenplayKind.shortcutKinds[index])
     }
 
     /// A caret belongs to exactly one line: the line fragment of the glyph at

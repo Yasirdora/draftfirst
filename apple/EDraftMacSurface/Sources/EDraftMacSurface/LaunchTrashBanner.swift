@@ -21,6 +21,20 @@ public nonisolated struct LaunchTrashUndo: Equatable, Sendable {
 
     public var message: String { "“\(name)” moved to Trash" }
 
+    /// What Edit ▸ Undo says while this can be put back: "Undo Move to Trash".
+    public static let actionName = "Move to Trash"
+
+    /// Offers this Move to Trash to Edit ▸ Undo — ⌘Z — as Finder does
+    /// (IL-0108). The banner's Undo is a second door to the same command,
+    /// not a ⌘Z of its own: one shortcut means one thing in every window.
+    @MainActor
+    public func registerUndo(on undoManager: UndoManager, putBack: @escaping @MainActor (LaunchTrashUndo) -> Void) {
+        undoManager.registerUndo(withTarget: undoManager) { _ in
+            MainActor.assumeIsolated { putBack(self) }
+        }
+        undoManager.setActionName(Self.actionName)
+    }
+
     public var announcement: String { "\(message). Undo" }
 
     public func canPutBack(
@@ -58,11 +72,12 @@ struct LaunchTrashBanner: View {
                 .font(.subheadline)
                 .lineLimit(1)
             Spacer(minLength: 8)
+            // No ⌘Z here: the key is Edit ▸ Undo's, which this button also
+            // sends (IL-0108).
             Button("Undo", action: onUndo)
                 .disabled(!item.canPutBack())
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .keyboardShortcut("z", modifiers: .command)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)

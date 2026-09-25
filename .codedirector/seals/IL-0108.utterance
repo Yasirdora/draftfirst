@@ -1,0 +1,15 @@
+Task: the app-bug batch — five real defects, each pinned by a failing test before you fix it.
+This project requires a Code Director lock for every code change (see CLAUDE.md). Draft the locks, show me the Vibe Check for each, and wait for my yes before editing. Do not touch uncommitted work from other sessions (.codedirector/mcp.log, the xcscheme, the IL-0077 seal, the two root PNGs, the IL-0104 draft if still uncommitted). HEAD is aa23a72.
+The five bugs, from the audit and from my own use:
+⌘9 is double-bound. The same shortcut fires two commands (check the key equivalents in MainMenu / command definitions). One shortcut, one action. Find every duplicate key equivalent in the app, not just this one, and report the full list before fixing.
+Omitted scenes leak into print, PDF, and export. §7.3 says an omitted scene must not print. The collapse hides the body on screen, but ScreenplayPageRenderer and the export paths still emit it. Every output path — print, PDF, Final Draft export, Fountain export, plain text — must be audited and pinned by tests: an omitted scene's body appears in none of them; its OMITTED card follows each format's own convention (Final Draft writes the scene heading with OMITTED; check what Final Draft itself does on export and match it).
+Export drops notes and outline sections. A no-edit round trip through export loses Final Draft notes and/or section+synopsis outline data. Round-trip tests against the anonymised fixture: everything Final Draft wrote comes back byte-meaningful, nothing silently dropped.
+Highlights are lost in .draft saves. Text highlights survive in .fdx but not in the native .draft format. Pin the loss with a test, then fix the format — not a workaround.
+Send Feedback emails the wrong address. In-app feedback goes to  feedback@edraft.xyz; the site and App Store materials say  support@edraft.xyz. One address everywhere:  support@edraft.xyz.
+How I want it done:
+One lock per bug, or one lock with an explicit per-bug budget — your proposal, but each bug gets its own fail-before test that you show failing at HEAD first.
+No patches, no shortcuts. If the right fix is a refactor (I suspect print/export share a "what's visible on the page" decision that should exist in exactly one place), do the refactor properly and say so in the Vibe Check.
+Follow docs/MACOS-DESIGN.md. Where a fix changes what a writer sees, quote the design doc section that covers it, or propose an amendment first.
+Verify: the relevant suites plus macOS Debug and iOS Simulator builds, each into its own scratchpad DerivedData — never the shared one.
+After all five land: rebuild from a clean clone at the final HEAD and hand me the binary path with a short manual-test list for each bug.
+Start by confirming each bug reproduces at HEAD, and tell me which ones don't — a bug that doesn't reproduce gets investigated, not assumed.

@@ -116,6 +116,16 @@ public enum ScreenplayKind: String, Codable, CaseIterable, Identifiable, Sendabl
         .scene, .action, .character, .parenthetical, .dialogue,
         .transition, .shot, .general, .centered
     ]
+
+    /// The kinds ⌘1–⌘9 set, in that order — the Mac's Format ▸ Element and
+    /// the iPad's hardware keyboard both read this, so a key means one kind on
+    /// either device (IL-0108). ⌘1–⌘7 are Final Draft's own; ⌘8 General and
+    /// ⌘9 Lyrics are eDraft's. Not `editorKinds`: that is the picker's list,
+    /// and a picker offers kinds — Centered — that no key needs to reach.
+    public static let shortcutKinds: [ScreenplayKind] = [
+        .scene, .action, .character, .parenthetical, .dialogue,
+        .transition, .shot, .general, .lyrics
+    ]
 }
 
 /// One paragraph of the screenplay. Data, not state: `nonisolated` so the

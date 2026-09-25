@@ -170,6 +170,8 @@ public struct LaunchWindow: View {
     @State private var renaming: RecentScript?
     @State private var newName = ""
     @State private var trashUndo: LaunchTrashUndo?
+    /// The window's, so a Move to Trash is Edit ▸ Undo's to take back.
+    @Environment(\.undoManager) private var undoManager
 
     public init(recents: [RecentScript], query: String, showsGrid: Bool, actions: LaunchActions) {
         self.recents = recents
@@ -223,19 +225,40 @@ public struct LaunchWindow: View {
     }
 
     private func moveToTrash(_ script: RecentScript) {
-        guard let trashURL = actions.trash(script.url) else { return }
-        trashUndo = LaunchTrashUndo(
-            name: script.name,
-            originalURL: script.url,
-            trashURL: trashURL
-        )
+        trash(named: script.name, at: script.url)
     }
 
+    /// Trashes a script, shows the banner, and offers Undo in the Edit menu.
+    private func trash(named name: String, at url: URL) {
+        guard let trashURL = actions.trash(url) else { return }
+        let item = LaunchTrashUndo(name: name, originalURL: url, trashURL: trashURL)
+        trashUndo = item
+        if let undoManager {
+            item.registerUndo(on: undoManager) { putBack($0) }
+        }
+    }
+
+    /// The banner's button sends Edit ▸ Undo, so the button and ⌘Z are one
+    /// command and the stack stays true. Without an undo manager — a view
+    /// hosted outside a window — it puts the script back itself.
     private func undoTrash() {
-        guard let item = trashUndo else { return }
+        if let undoManager, undoManager.canUndo {
+            undoManager.undo()
+        } else if let item = trashUndo {
+            putBack(item)
+        }
+    }
+
+    private func putBack(_ item: LaunchTrashUndo) {
         guard item.putBack() else { return }
         actions.restored(item.originalURL)
-        trashUndo = nil
+        if trashUndo?.trashURL == item.trashURL { trashUndo = nil }
+        // Redo moves it to the Trash again, as Finder's does.
+        guard let undoManager else { return }
+        undoManager.registerUndo(withTarget: undoManager) { _ in
+            MainActor.assumeIsolated { trash(named: item.name, at: item.originalURL) }
+        }
+        undoManager.setActionName(LaunchTrashUndo.actionName)
     }
 
     private func dismissTrashBanner(_ item: LaunchTrashUndo) {

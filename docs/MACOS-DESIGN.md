@@ -229,9 +229,9 @@ in the menu bar, where Mac users look for it:
 | Menu | Contents | Today |
 |---|---|---|
 | File | New, Open, Save, Revert, Title Page, Export (PDF · FDX · Fountain · Text), Print | all present |
-| Edit | Undo/Redo, Find (⌘F), Find Scene (⌘L), Accept Suggestion | all present |
-| Format | Element ⌘1–⌘9, Scene Numbers, Revision | elements and numbers present; Revision is M4 |
-| View | Sidebar, Page/Typewriter/Focus, Zoom | Zoom present (⌘+ ⌘− ⌘0 actual size, ⌘9 fit); sidebar and view modes still missing |
+| Edit | Undo/Redo, Find (⌘F), Find Scene (⌘L), Accept Suggestion | all present; Undo also takes back a Move to Trash in the launch window |
+| Format | Element ⌘1–⌘9 (the same nine on iPad), Scene Numbers, Revision | elements and numbers present; Revision is M4 |
+| View | Sidebar, Page/Typewriter/Focus, Zoom | Zoom present (⌘+ ⌘− ⌘0 actual size, ⌥⌘0 fit); sidebar and view modes still missing |
 | Window, Help | Standard | standard |
 
 The third column is not decoration. Read against the running app on
@@ -243,6 +243,19 @@ a page drawn at its own metrics comes out 4.1 inches wide, 48% of life size,
 with 12-point Courier reading as under six. §3.2's claim that the page prints
 what it shows is about metrics, and holds; the *scale* is a display question,
 and the page now fits the window by default rather than pretending otherwise.
+
+**One shortcut, one command** (amended 2026-09-25, IL-0108). This table used
+to give ⌘9 to both Element and Zoom to Fit. The running app never showed it:
+AppKit silently drops the second of two identical key equivalents when the
+menu bar is installed, so Zoom to Fit had no key at all and ⌘9 was only ever
+Lyrics. The element row keeps ⌘1–⌘9 — ⌘1–⌘7 are Final Draft's own, and a
+writer's fingers are worth more than a symmetric View menu — and Zoom to Fit
+moves to ⌥⌘0, beside Actual Size: a choice, not a platform convention. The
+nine element keys are one table (`ScreenplayKind.shortcutKinds`), read by this
+menu and by the iPad's hardware keyboard, so ⌘9 is Lyrics on both. The launch
+window's Undo is Edit ▸ Undo's, as in Finder, not a ⌘Z of the banner's own.
+`MenuKeyEquivalentTests` walks the bar as declared and fails on any key bound
+to two commands.
 
 The view modes are M3 and not yet built, which is expected; the sidebar command
 is neither built nor scheduled, and §3.1 leans on it: *"Distraction-free writing is a mode (⌥⌘S, or full-screen

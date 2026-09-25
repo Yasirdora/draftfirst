@@ -1,0 +1,163 @@
+schemaVersion: 1
+id: IL-0108
+status: verified
+utterance: |-
+  Task: the app-bug batch — five real defects, each pinned by a failing test before you fix it.
+  This project requires a Code Director lock for every code change (see CLAUDE.md). Draft the locks, show me the Vibe Check for each, and wait for my yes before editing. Do not touch uncommitted work from other sessions (.codedirector/mcp.log, the xcscheme, the IL-0077 seal, the two root PNGs, the IL-0104 draft if still uncommitted). HEAD is aa23a72.
+  The five bugs, from the audit and from my own use:
+  ⌘9 is double-bound. The same shortcut fires two commands (check the key equivalents in MainMenu / command definitions). One shortcut, one action. Find every duplicate key equivalent in the app, not just this one, and report the full list before fixing.
+  Omitted scenes leak into print, PDF, and export. §7.3 says an omitted scene must not print. The collapse hides the body on screen, but ScreenplayPageRenderer and the export paths still emit it. Every output path — print, PDF, Final Draft export, Fountain export, plain text — must be audited and pinned by tests: an omitted scene's body appears in none of them; its OMITTED card follows each format's own convention (Final Draft writes the scene heading with OMITTED; check what Final Draft itself does on export and match it).
+  Export drops notes and outline sections. A no-edit round trip through export loses Final Draft notes and/or section+synopsis outline data. Round-trip tests against the anonymised fixture: everything Final Draft wrote comes back byte-meaningful, nothing silently dropped.
+  Highlights are lost in .draft saves. Text highlights survive in .fdx but not in the native .draft format. Pin the loss with a test, then fix the format — not a workaround.
+  Send Feedback emails the wrong address. In-app feedback goes to  feedback@edraft.xyz; the site and App Store materials say  support@edraft.xyz. One address everywhere:  support@edraft.xyz.
+  How I want it done:
+  One lock per bug, or one lock with an explicit per-bug budget — your proposal, but each bug gets its own fail-before test that you show failing at HEAD first.
+  No patches, no shortcuts. If the right fix is a refactor (I suspect print/export share a "what's visible on the page" decision that should exist in exactly one place), do the refactor properly and say so in the Vibe Check.
+  Follow docs/MACOS-DESIGN.md. Where a fix changes what a writer sees, quote the design doc section that covers it, or propose an amendment first.
+  Verify: the relevant suites plus macOS Debug and iOS Simulator builds, each into its own scratchpad DerivedData — never the shared one.
+  After all five land: rebuild from a clean clone at the final HEAD and hand me the binary path with a short manual-test list for each bug.
+  Start by confirming each bug reproduces at HEAD, and tell me which ones don't — a bug that doesn't reproduce gets investigated, not assumed.
+goal: "Bug 1 of the batch: no shortcut in eDraft runs two commands. The menu bar's definition moves into EDraftMacSurface, where MenuKeyEquivalentTests walks every item it declares; ⌘9 stays Format ▸ Element ▸ Lyrics and View ▸ Zoom to Fit moves to ⌥⌘0; the launch window's Move to Trash is Edit ▸ Undo's, not a ⌘Z of the banner's own; and ⌘1–⌘9 are one table (ScreenplayKind.shortcutKinds) for the Mac and the iPad, ⌘9 Lyrics on both. MACOS-DESIGN §3.4 is amended to say so."
+interpretation: |
+  BUG 1 OF FIVE. SIZED BY A SPIKE on aa23a72 + IL-0107 (the tree it lands
+  on); nothing in the tree is touched until this lock is active. The run
+  applies the spike's diff (scratchpad b1/il0108-*.diff) and removes
+  apple/macOS/MainMenu.swift.
+
+  REPRODUCED AT aa23a72 — WITH A DIFFERENT SYMPTOM THAN REPORTED. ScriptMenus
+  declares ⌘9 twice: Format ▸ Element ▸ Lyrics and View ▸ Zoom to Fit. At
+  runtime ⌘9 does not fire two commands: AppKit blanks the later duplicate
+  when the bar is installed (headless probe: Zoom to Fit's key becomes ""),
+  and the running 752be63 build's bar, read through Accessibility, shows Zoom
+  to Fit with no shortcut. The writer's bug: the key MACOS-DESIGN §3.4
+  promised Zoom to Fit silently does not exist.
+
+  THE FULL LIST (declarations — the live bar hides later duplicates):
+  1. ⌘9 — Format ▸ Element ▸ Lyrics and View ▸ Zoom to Fit.
+  2. ⌘Z — Edit ▸ Undo and the launch window's trash banner "Undo" (a SwiftUI
+     .keyboardShortcut). Measured: while the banner shows, the window takes
+     ⌘Z before the menu bar, so Edit ▸ Undo never sees it there.
+  3. ⌘F, ⇧⌘K — repeated in the toolbar's overflow menu, same commands: not
+     a clash.
+  Also: ⌘9 is Lyrics on the Mac and Centered on iPad (and on the web —
+  ScriptEditor.svelte's TYPE_ORDER; the web is not this batch's).
+
+  THE FIX (as the owner decided on 2026-09-25):
+  - MainMenu (with RecentDocumentsMenu) moves into EDraftMacSurface,
+    public; its three MacAppDelegate actions are named by selector
+    (showSettings:, setPagePaper:, openRecent:) — the responder chain
+    delivers them as before; EDraftMacApp.swift is unchanged. The project
+    file drops the app target's reference (4 lines).
+  - ScreenplayKind.shortcutKinds (EDraftCore): ⌘1–⌘9's nine kinds —
+    Final Draft's ⌘1–⌘7, General, Lyrics. ScriptMenus.keyedKinds and the
+    iPad's ScriptTextView key commands both read it.
+  - Zoom to Fit: ⌥⌘0.
+  - LaunchTrashUndo.registerUndo(on:putBack:) offers the trash to the
+    window's undo manager as "Move to Trash"; LaunchWindow registers it,
+    Redo trashes again (as Finder), and the banner's button sends Edit ▸
+    Undo. The banner has no ⌘Z. After the banner leaves, ⌘Z still puts the
+    script back while the window's undo stack holds it — Finder's
+    behaviour.
+  - MACOS-DESIGN §3.4: the Edit, Format and View rows and a paragraph,
+    "One shortcut, one command", with the reason.
+
+  TESTS — MenuKeyEquivalentTests (new, 5): no key + modifiers bound to two
+  commands across the declared bar and every toolbar menu; Format ▸ Element
+  is shortcutKinds with keys 1–9 and ⌘9 Lyrics; Zoom to Fit ⌥⌘0 beside
+  Actual Size ⌘0; a Move to Trash is Edit ▸ Undo's ("Undo Move to Trash",
+  undo puts it back); the banner, hosted in a window with its Undo enabled
+  (a real file in the "trash" — a disabled button answers no key and would
+  pass on any code), leaves ⌘Z unhandled.
+  FAIL-BEFORE (spike: HEAD with the menu moved and two stand-ins holding
+  today's behaviour — the iPad's table, no undo registration): all 5 fail.
+  AFTER: 5/5 pass; EDraftCore 429/0, EDraftUI 72/0, EDraftMacSurface 404
+  (7 skipped)/0; macOS Debug and iOS Simulator builds succeed.
+  MEASURED: 10 files, 779 lines — 480 of them the move (233 out, 247 in).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: every menu item keeps its title, place and command; only Zoom to Fit's key changes, and ⌘Z in the launch window now means Edit ▸ Undo
+  - kind: custom
+    text: ⌘1–⌘8 mean what they meant on the Mac; on iPad ⌘9 becomes Lyrics (Centered stays in the element picker)
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (.codedirector/mcp.log, the xcscheme, the IL-0077 seal, the two root PNGs, the IL-0104 draft) and IL-0107's uncommitted change are left exactly as found
+deny:
+  - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+  - apple/EDraftCore/Sources/EDraftCore/SupportContact.swift
+  - apple/eDraftEngine/**
+  - apple/EDraftUI/**
+  - apple/SplitWindowKit/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/macOS/EDraftMacApp.swift
+  - apple/macOS/SettingsWindow.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/WindowNotice.swift
+  - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/EditorBannerSurfaceTests.swift
+  - apple/*/Package.swift
+  - packages/**
+  - src/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - .gitignore
+  - .claude/**
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: No shortcut runs two commands; the menu bar is defined where a test walks all of it; Zoom to Fit is ⌥⌘0; the launch window's Undo is Edit ▸ Undo; ⌘1–⌘9 are one table on Mac and iPad; MACOS-DESIGN §3.4 says so.
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftUI && swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/DerivedData-IL-0108 -quiet build && xcodebuild -project apple/eDraft.xcodeproj -scheme eDraft -configuration Debug -destination "generic/platform=iOS Simulator" -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/DerivedData-IL-0108-ios -quiet build
+verifyTimeoutMs: 3600000
+budget:
+  files:
+    - apple/macOS/MainMenu.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/MainMenu.swift
+    - apple/eDraft.xcodeproj/project.pbxproj
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptMenus.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchWindow.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/LaunchTrashBanner.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayModels.swift
+    - apple/EDraftUIKitSurface/Sources/EDraftUIKitSurface/ScriptTextView.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MenuKeyEquivalentTests.swift
+    - docs/MACOS-DESIGN.md
+  symbols: []
+  maxFiles: 10
+  maxLines: 860
+accept:
+  - "FAIL-BEFORE: MenuKeyEquivalentTests 5/5 fail at aa23a72 (menu moved, stand-ins for today's iPad table and no undo registration) and pass after."
+  - "ONE SHORTCUT, ONE COMMAND: across the declared bar and every toolbar menu, no key + modifiers names two commands; ⌘9 is Lyrics on Mac and iPad; Zoom to Fit is ⌥⌘0; the launch banner answers no ⌘Z."
+  - "DESIGN FIRST: MACOS-DESIGN §3.4 carries the amendment in the same change."
+  - "NO REGRESSION: EDraftCore, EDraftUI and EDraftMacSurface suites green; macOS Debug and iOS Simulator builds succeed, each into its own scratchpad DerivedData."
+  - "MANUAL, stated as manual: on screen, ⌘9 makes a line Lyrics, ⌥⌘0 fits the page, View ▸ Zoom to Fit shows ⌥⌘0; in the launch window, Move to Trash then ⌘Z puts the script back and Edit ▸ Undo reads Undo Move to Trash; on iPad with a keyboard, ⌘9 makes a line Lyrics."
+assumptions:
+  - text: "HEAD is dbdf912 (IL-0107 committed; its four files are outside this budget). Foreign dirt: .codedirector/mcp.log, the xcscheme, the IL-0077 seal, the root PNGs, IL-0104's draft (another session's) — none touched; the baseline is the proof. This lock never runs while IL-0104 does."
+    source: system
+    confirmed: false
+  - text: "The owner's decisions, 2026-09-25: \"⌘9: Lyrics keeps ⌘9 (element keys ⌘1–⌘9 match Final Draft's muscle memory — that's worth more than View symmetry). Zoom to Fit moves to ⌥⌘0 — it pairs naturally with ⌘0 (100%), and I accept it's a choice, not a convention. Amend MACOS-DESIGN §3.4 first, as you proposed.\" \"Launch-window ⌘Z: fix it in IL-0108 — send it through Edit ▸ Undo, as Finder does. One meaning per shortcut everywhere.\" \"iPad ⌘9: align now. … one table, one truth, on both platforms. Lyrics keeps ⌘9 there too.\""
+    source: user
+    confirmed: true
+  - text: "The owner approved the measured IL-0108 on 2026-09-25, in their plan for the batch: \"Claude commits IL-0107 (feedback address), then runs IL-0108 (shortcuts) — you'll feel that one immediately: ⌘9 becomes Lyrics everywhere, Zoom to Fit moves to ⌥⌘0, and ⌘Z in the launch window restores a trashed script like Finder.\""
+    source: user
+    confirmed: true
+  - text: The measured size (10 files, 779 lines) exceeds the draft's estimate (6 files, 650 lines) because the owner's decisions added the launch window's ⌘Z and the iPad alignment; it is brought to the owner before activation, as asked.
+    source: system
+    confirmed: false
+  - text: The web editor's ⌘9 is Centered (TYPE_ORDER in ScriptEditor.svelte) — not aligned here; the web is outside this batch.
+    source: system
+    confirmed: false
+  - text: cdir's automatic draft anchored on a stale worktree copy (.claude/worktrees/…) — none of it touched; the budget and deny list were set by hand from the spike.
+    source: system
+    confirmed: false
+createdAt: 2026-09-24T21:54:25.035Z
+createdBy: Yasirdora
