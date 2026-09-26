@@ -46,7 +46,7 @@
 	];
 
 	const compareRows: { label: string; edraft: string; fd: string; arc: string }[] = [
-		{ label: 'Price', edraft: 'Free', fd: '$199.99, one-time', arc: 'Free tier, then $99/yr' },
+		{ label: 'Price', edraft: 'Free for education and research. Professional: one-time, price at launch.', fd: '$199.99, one-time', arc: 'Free tier, then $99/yr' },
 		{ label: 'Account', edraft: 'None required', fd: 'Activation required', arc: 'Email sign-in' },
 		{ label: 'Scripts', edraft: 'Unlimited', fd: 'Unlimited', arc: '2 on the free tier' },
 		{ label: 'PDF export', edraft: 'No watermark', fd: 'Included', arc: 'Watermarked on free' },
@@ -94,7 +94,7 @@
 			<div class="compare-inner">
 				<p class="label">The essentials, compared</p>
 				<h2 id="compare-title">What a screenwriting tool owes you.</h2>
-				<p class="compare-intro">The incumbents are powerful — and priced, gated, and cloud-bound to match. eDraft starts from the writer's side of the desk.</p>
+				<p class="compare-intro">The incumbents are powerful — and gated and cloud-bound to match. eDraft starts from the writer's side of the desk.</p>
 				<div class="table-wrap reveal">
 					<table>
 						<thead>
@@ -112,6 +112,7 @@
 						</tbody>
 					</table>
 				</div>
+				<p class="compare-intro">eDraft is free for education and research. Professional work, for writers and for studios, needs a licence: a one-time purchase, with the price announced at launch. The same rule covers the Mac and iPhone apps and eDraft in your browser.</p>
 				<p class="footnote">Competitor details from their public pricing and feature pages, September 2026. Verify current terms on their sites.</p>
 			</div>
 		</section>

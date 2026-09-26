@@ -1,0 +1,89 @@
+schemaVersion: 1
+id: IL-0116
+status: verified
+utterance: I have noticed one interesting thing, it seems edraft is marketed as free, it is free for education and research not for commercial work I think, chatgpt misunderstood me and changed it to completely free, can you please fix it, price TBA maybe 9.99 for creators and 99.99 for studios what do you think 0 for educational and research
+goal: "The website no longer says eDraft is free for everyone: the features page says it is free for education and research, and that professional work needs a one-time licence with the price announced at launch, covering the Mac and iPhone apps and the browser editor."
+interpretation: |
+  THE OWNER'S DECISIONS (2026-09-26): free for education and research;
+  paid for professional work; prices "to be announced" (no numbers on the
+  site); a one-time purchase; the rule covers everything, the browser editor
+  included. The code licence change came first — IL-0115 (f953cd9), © 2026
+  eDraft, all rights reserved.
+
+  WHAT THE SITE SAYS TODAY. One direct price claim: the features page's
+  comparison table, "Price: Free". Everything else still holds:
+  - "no account, no subscription" (features intro) — true: one-time price;
+  - "No account required" (home page description) — true;
+  - "eDraft does not hold your pages hostage behind a paid tier" (formats)
+    — true while every version has the same features and no watermark;
+  - the footer already reads "© {year} eDraft"; the call-to-action band says
+    only "Start writing".
+
+  WHAT CHANGES — one file, src/routes/features/+page.svelte:
+  1. The comparison table's Price row for eDraft: "Free" becomes
+     "Free for education and research. Professional: one-time, price at
+     launch."
+  2. The comparison intro: "priced, gated, and cloud-bound" becomes "gated
+     and cloud-bound" — eDraft is priced now too, so the word no longer
+     sets it apart.
+  3. One paragraph under the table (the existing compare-intro style, no new
+     CSS): "eDraft is free for education and research. Professional work,
+     for writers and for studios, needs a licence: a one-time purchase, with
+     the price announced at launch. The same rule covers the Mac and iPhone
+     apps and eDraft in your browser."
+
+  NOT IN THIS LOCK — FOR THE OWNER'S WORD: terms of use. The new LICENSE
+  says the apps and website are "offered under their own terms", and no
+  terms page exists yet; "education", "research" and "professional" need a
+  written definition there before launch. Also later: a help-center article
+  on pricing; the App Store listing (docs/APP-STORE-READINESS.md still calls
+  the business model an open question).
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: only the features page's words change — no layout, style, script or other page changes; the page builds and svelte-check is clean
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 and IL-0114 seals and seals.json's IL-0114 line, the IL-0104/0109/0110/0111/0114 lock files, the root PNGs) is left exactly as found
+deny:
+  - apple/**
+  - packages/**
+  - scripts/**
+  - static/**
+  - docs/**
+  - src/lib/**
+  - src/routes/+page.svelte
+  - src/routes/+layout.svelte
+  - src/routes/help/**
+  - src/routes/privacy/**
+  - src/routes/screenplay/**
+  - src/routes/features/formats/**
+  - LICENSE
+  - README.md
+  - package.json
+  - package-lock.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: The features page says eDraft is free for education and research, and that professional work needs a one-time licence priced at launch, for the apps and the browser editor alike.
+verifyCommand: "node -e 'const s=require(\"fs\").readFileSync(\"src/routes/features/+page.svelte\",\"utf8\");const checks={priceRow:s.includes(\"edraft: \\x27Free for education and research. Professional: one-time, price at launch.\\x27\"),noPlainFree:!s.includes(\"edraft: \\x27Free\\x27\"),intro:s.includes(\"gated and cloud-bound\")&&!s.includes(\"priced, gated\"),note:s.includes(\"eDraft is free for education and research. Professional work, for writers and for studios, needs a licence\")&&s.includes(\"eDraft in your browser.\")};const bad=Object.entries(checks).filter(([k,v])=>!v);if(bad.length){console.error(\"pricing copy checks failed:\",bad.map(([k])=>k).join(\", \"));process.exit(1)}console.log(\"pricing copy checks:\",Object.keys(checks).length,\"passed\")' && npm run --silent check"
+verifyTimeoutMs: 1200000
+budget:
+  files:
+    - src/routes/features/+page.svelte
+  symbols: []
+  maxFiles: 1
+  maxLines: 20
+accept:
+  - "The comparison table's eDraft price reads \"Free for education and research. Professional: one-time, price at launch.\" — no bare \"Free\"."
+  - The comparison intro no longer calls the others "priced".
+  - "A paragraph under the table states the rule: free for education and research; professional work needs a one-time licence, price at launch; the Mac and iPhone apps and the browser editor alike."
+  - Nothing else on the site changes; svelte-check is clean.
+assumptions:
+  - text: "Owner, 2026-09-26: free for education and research; paid for professional work; prices to be announced, no numbers; one-time purchase; the rule covers the browser editor too; the website follows the licence lock (IL-0115, committed f953cd9)."
+    source: user
+    confirmed: true
+  - text: HEAD is f953cd9. Another session holds IL-0114 active (src/lib/help/helpbook.test.ts among its files); svelte-check reads the whole project, so a half-written file of theirs could fail this verify — the baseline would prove it. No sibling lock touches src/routes/features.
+    source: system
+    confirmed: false
+createdAt: 2026-09-26T10:30:00.000Z
+createdBy: Yasirdora
