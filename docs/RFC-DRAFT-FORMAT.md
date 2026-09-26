@@ -35,6 +35,12 @@ repository is public.*
 | D3 | **An open standard.** The specification is public; eDraft is its reference implementation (the engine is MIT). | Human: "becoming a new standard". |
 | D4 | **The PDF round-trips.** A PDF eDraft writes carries the whole `.draft` and re-imports with all the data. | Human, after reviewing omnipdf's living PDFs. |
 
+*Amended 2026-09-26 (IL-0115):* D3's "the engine is MIT" no longer holds.
+From this date the repository, engine included, is © 2026 eDraft, all rights
+reserved (see LICENSE); versions published earlier keep the MIT License.
+Whether the `.draft` specification itself stays an open standard is the
+owner's open decision, not settled by that change.
+
 ### Proposed by this RFC — settled when the human approves it
 
 | # | Proposal | Where |

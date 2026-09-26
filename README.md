@@ -3,7 +3,6 @@
 [![npm version](https://img.shields.io/npm/v/%40edraft%2Fcore?label=%40edraft%2Fcore&color=cb3837)](https://www.npmjs.com/package/@edraft/core)
 [![npm downloads](https://img.shields.io/npm/dm/%40edraft%2Fcore?color=cb3837)](https://www.npmjs.com/package/@edraft/core)
 [![CI](https://github.com/Yasirdora/edraft/actions/workflows/ci.yml/badge.svg)](https://github.com/Yasirdora/edraft/actions/workflows/ci.yml)
-[![MIT License](https://img.shields.io/badge/license-MIT-2ea44f.svg)](./LICENSE)
 
 
 > **Continuing this work?** Start with [docs/HANDOFF.md](docs/HANDOFF.md) —
@@ -26,7 +25,7 @@ editor policies were separated into a tested package.
 - Website: [edraft.xyz](https://edraft.xyz)
 - npm package: [`@edraft/core`](https://www.npmjs.com/package/@edraft/core)
 - Package source: [`packages/edraft`](./packages/edraft)
-- License: [MIT](./LICENSE)
+- License: all rights reserved, © 2026 eDraft — see [LICENSE](./LICENSE)
 
 ## Why this project exists
 
@@ -137,4 +136,5 @@ run `npm run quality` before opening a pull request.
 
 ## License
 
-MIT © 2026 Yasir Dora.
+© 2026 eDraft. All rights reserved. Versions published before
+26 September 2026 were released under the MIT License; see [LICENSE](./LICENSE).

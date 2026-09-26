@@ -1,0 +1,99 @@
+schemaVersion: 1
+id: IL-0115
+status: verified
+utterance: I have noticed one interesting thing, it seems edraft is marketed as free, it is free for education and research not for commercial work I think, chatgpt misunderstood me and changed it to completely free, can you please fix it, price TBA maybe 9.99 for creators and 99.99 for studios what do you think 0 for educational and research
+goal: "From 2026-09-26 the repository is Copyright © 2026 eDraft, all rights reserved, not MIT: LICENSE, README, the @edraft/core licence field and its lockfile entry, and RFC-DRAFT-FORMAT D3 say so, and say that copies published earlier under MIT keep MIT. The website's pricing change follows in its own lock."
+interpretation: |
+  THE OWNER'S DECISIONS (2026-09-26, asked and answered in this session):
+  - eDraft is free for education and research and paid for professional
+    work; prices are "to be announced", one-time purchase, and the rule
+    covers everything, the browser editor included. That is the website's
+    change — the NEXT lock. The website waits for this one.
+  - The code licence: "Replace MIT: all rights reserved". The copyright
+    owner is eDraft, a registered company. The GitHub account mirdora-dev is
+    the owner's second account, so every commit is the owner's to relicense.
+
+  WHY THIS LOCK COMES FIRST. The repository is MIT (LICENSE, README,
+  @edraft/core). MIT lets anyone use, change and sell the code, commercial
+  work included, so the website could not truthfully say professional use
+  is paid while the code says it is free for any use.
+
+  WHAT CHANGES (licence statements only — no code, no app, no website):
+  - LICENSE: the MIT text is replaced by a short all-rights-reserved notice
+    for eDraft, which also says: versions published before 26 September 2026
+    were released under the MIT License and copies obtained under it keep
+    it; the eDraft apps and website are offered under their own terms.
+    Plain words, not a lawyer's — the owner is advised to have it checked.
+  - README.md: the MIT badge goes; "License: MIT" and "MIT © 2026 Yasir
+    Dora." become all-rights-reserved lines naming eDraft.
+  - packages/edraft/package.json: "license": "MIT" → "UNLICENSED" (npm's
+    word for "not licensed for others to use"); package-lock.json's matching
+    workspace entry the same — the only lockfile line that changes.
+  - docs/RFC-DRAFT-FORMAT.md D3 ("the engine is MIT"): a dated amendment
+    that the engine is no longer MIT from this date; whether the .draft
+    specification stays an open standard is left as the owner's open
+    decision, not decided here.
+  apple/macOS/Info.plist already reads "Copyright © 2026 eDraft. All rights
+  reserved." — unchanged (and budgeted by the active IL-0114).
+
+  FACTS BEHIND IT. @edraft/core has never been published on npm (404,
+  2026-09-26), but the GitHub repository is public, so what is already in
+  its history stays MIT for anyone who has it. Authors: Yasirdora and
+  mirdora-dev (the owner's accounts) only.
+
+  NOT IN THIS LOCK — FOR THE OWNER'S WORD: README/CONTRIBUTING invite
+  outside contributions (under all rights reserved an outside contribution
+  needs a written contributor agreement); RELEASING.md plans a public npm
+  release ("private": true would block it); the .draft specification's
+  openness; whether the public GitHub repository should become private.
+keep:
+  - kind: custom
+    text: no dependency is added, removed or changed — package-lock.json changes only the @edraft/core licence line, shown by its diff
+  - kind: custom
+    text: licence statements only — no source, test, app, website or help file changes; @edraft/core's own verify (boundary, types, tests, build, publint, attw) passes
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (the xcscheme, .codedirector/mcp.log, the IL-0077 and IL-0114 seals and seals.json's IL-0114 line, the IL-0104/0109/0110/0111/0114 lock files, the root PNGs) is left exactly as found
+deny:
+  - apple/**
+  - src/**
+  - static/**
+  - scripts/**
+  - packages/edraft/src/**
+  - packages/edraft/CHANGELOG.md
+  - CONTRIBUTING.md
+  - RELEASING.md
+  - package.json
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: The repository becomes Copyright © 2026 eDraft, all rights reserved (LICENSE, README, @edraft/core's licence field and lockfile entry, RFC-DRAFT-FORMAT D3), stating that earlier MIT copies keep MIT.
+verifyCommand: "node -e 'const fs=require(\"fs\");const lic=fs.readFileSync(\"LICENSE\",\"utf8\");const rd=fs.readFileSync(\"README.md\",\"utf8\");const rfc=fs.readFileSync(\"docs/RFC-DRAFT-FORMAT.md\",\"utf8\");const pk=JSON.parse(fs.readFileSync(\"packages/edraft/package.json\",\"utf8\"));const lk=JSON.parse(fs.readFileSync(\"package-lock.json\",\"utf8\"));const checks={licenseNotice:lic.startsWith(\"Copyright © 2026 eDraft. All rights reserved.\"),licenseKeepsHistory:/MIT License/.test(lic)&&/26 September 2026/.test(lic),readmeNoMitBadge:!/license-MIT/.test(rd),readmeNoMitLine:!/MIT ©/.test(rd)&&!/License: \\[MIT\\]/.test(rd),packageField:pk.license===\"UNLICENSED\",lockfileField:lk.packages[\"packages/edraft\"].license===\"UNLICENSED\",rfcAmended:/Amended 2026-09-26/.test(rfc)};const bad=Object.entries(checks).filter(([k,v])=>!v);if(bad.length){console.error(\"licence checks failed:\",bad.map(([k])=>k).join(\", \"));process.exit(1)}console.log(\"licence checks:\",Object.keys(checks).length,\"passed\")' && npm run --silent package:verify"
+verifyTimeoutMs: 1200000
+budget:
+  files:
+    - LICENSE
+    - README.md
+    - packages/edraft/package.json
+    - package-lock.json
+    - docs/RFC-DRAFT-FORMAT.md
+  symbols: []
+  maxFiles: 5
+  maxLines: 80
+accept:
+  - LICENSE opens "Copyright © 2026 eDraft. All rights reserved.", grants no licence without eDraft's written permission, and says versions published before 26 September 2026 were MIT and copies obtained under it keep it.
+  - README carries no MIT badge or MIT line; it names eDraft and all rights reserved.
+  - "@edraft/core's licence field and its package-lock.json workspace entry read \"UNLICENSED\"; no other lockfile line changes; the package's own verify passes."
+  - "RFC-DRAFT-FORMAT D3 carries a dated amendment: the engine is no longer MIT from 2026-09-26; the specification's openness is left open."
+  - Nothing else changes.
+assumptions:
+  - text: "Owner, 2026-09-26: replace MIT with all rights reserved; the copyright owner is eDraft, a registered company; mirdora-dev is the owner's second account; the website pricing change follows in its own lock (prices to be announced, one-time purchase, free for education and research, the browser editor included)."
+    source: user
+    confirmed: true
+  - text: HEAD is 9189672. Another session holds IL-0114 active (apple/macOS/Info.plist, MainMenu, HelpWindow files, project.pbxproj, src/lib/help/helpbook.test.ts) — no overlap. The draft IL-0110 also budgets docs/RFC-DRAFT-FORMAT.md; whichever lands second takes in the other's change. cdir's own root tsc can fail this run on another session's half-written files; if so, the baseline proves it.
+    source: system
+    confirmed: false
+  - text: cdir's automatic draft anchored on a name fragment (RevisionDiff.changed) and proposed engine files; the budget was set by hand. The profile's no-new-dependency check is replaced by a custom keep, because the lockfile's own licence line must change.
+    source: system
+    confirmed: false
+createdAt: 2026-09-26T10:00:00.000Z
+createdBy: Yasirdora

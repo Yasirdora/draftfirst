@@ -4,7 +4,7 @@
 	"description": "eDraft Screenwriting Engine for Fountain, FDX, deterministic pagination, and story-aware analysis.",
 	"type": "module",
 	"sideEffects": false,
-	"license": "MIT",
+	"license": "UNLICENSED",
 	"author": {
 		"name": "Yasir Dora",
 		"url": "https://ysr.design"
