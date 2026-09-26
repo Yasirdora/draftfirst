@@ -4285,6 +4285,43 @@
     "expected": "INT. KITCHEN - NIGHT\n\n[[Dana (Director): see [scene 4] ]]\n\n[[[eDraft thread:t4k9qz status:open] ]]\n\n[[Sam (Writer): see [scene 4] ]]\n\n[[x] ] ]]\n\n[[] ]]\n\n[[see [[4] ] later]]\n\n[[a] ] ]b]]\n\n[[see [4] ]]\n\nMara waits  by the door.\n\n[[Dana (Director): one\nSam (Writer): see [4] ]]\n\n[[a [bracket] inside]]\n\nThe kettle screams."
   },
   {
+    "name": "note-blank-lines",
+    "screenplay": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT. KITCHEN - NIGHT"
+        },
+        {
+          "type": "note",
+          "text": "First thought.\n\nSecond thought."
+        },
+        {
+          "type": "note",
+          "text": "One line."
+        },
+        {
+          "type": "note",
+          "text": "One.\n\nTwo.\n\nThree."
+        },
+        {
+          "type": "character",
+          "text": "BOB"
+        },
+        {
+          "type": "dialogue",
+          "text": "Hello."
+        },
+        {
+          "type": "action",
+          "text": "The kettle screams."
+        }
+      ]
+    },
+    "expected": "INT. KITCHEN - NIGHT\n\n[[First thought.\n  \nSecond thought.]]\n\n[[One line.]]\n\n[[One.\n  \nTwo.\n  \nThree.]]\n\nBOB\nHello.\n\nThe kettle screams."
+  },
+  {
     "name": "asides-in-dialogue",
     "screenplay": {
       "titlePage": [],

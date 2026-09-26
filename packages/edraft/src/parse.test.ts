@@ -489,6 +489,47 @@ describe('notes that end in ] or hold ]] (IL-0038)', () => {
 	});
 });
 
+describe('a blank line inside a note (IL-0111)', () => {
+	/* A blank line is Fountain's paragraph break. Written as it was, the
+	   reader closed the note there and the rest reopened as script. */
+	const around = (note: string) => `INT. KITCHEN - NIGHT\n\n${note}\n\nThe kettle screams.\n`;
+	const scene = (text: string): Screenplay => ({
+		titlePage: [],
+		elements: [
+			{ type: 'scene', text: 'INT. KITCHEN - NIGHT' },
+			{ type: 'note', text },
+			{ type: 'action', text: 'The kettle screams.' }
+		]
+	});
+	const written = (text: string) => serialiseFountain({ titlePage: [], elements: [{ type: 'note', text }] });
+	const reopened = (elements: ScreenplayElement[]) =>
+		parseFountain(serialiseFountain({ titlePage: [], elements })).elements;
+
+	it.each([
+		['one blank line', 'First thought.\n\nSecond thought.'],
+		['three paragraphs', 'One.\n\nTwo.\n\nThree.'],
+		['two blank lines in a row', 'A.\n\n\nB.'],
+		['a blank line after a bracketed word', 'See [4].\n\nThen go.']
+	])('a note with %s survives save and reopen', (_, text) => {
+		expect(parseFountain(around(written(text))).elements).toEqual(scene(text).elements);
+	});
+
+	it('writes the blank line as two spaces, Fountain\'s connected blank line', () => {
+		expect(written('First thought.\n\nSecond thought.')).toBe('[[First thought.\n  \nSecond thought.]]');
+	});
+
+	it('a two-paragraph note on a speech is written in front of the cue, and the speech survives', () => {
+		const cue: ScreenplayElement = { type: 'character', text: 'BOB' };
+		const speech: ScreenplayElement = { type: 'dialogue', text: 'Hello.' };
+		const note: ScreenplayElement = { type: 'note', text: 'First thought.\n\nSecond thought.' };
+		expect(reopened([cue, note, speech])).toEqual([note, cue, speech]);
+	});
+
+	it('the chosen asymmetry (RFC §13): a line of spaces inside a note comes back empty', () => {
+		expect(parseFountain(around(written('A.\n   \nB.'))).elements).toEqual(scene('A.\n\nB.').elements);
+	});
+});
+
 describe('asides inside a dialogue block (IL-0040)', () => {
 	/* The editor puts a note in front of the line it is about. Inside a
 	   dialogue block, the serialiser wrote it as its own paragraph between

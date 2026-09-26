@@ -493,6 +493,38 @@ for (const { name, source } of SCRIPTS) {
 	serialiseFixture.push({ name, screenplay, expected: serialiseFountain(screenplay) });
 }
 
+/* A blank line inside a note (IL-0111). Fountain's paragraph break would
+   close the note; the writer spells each interior blank line as two spaces,
+   and a one-line note is unchanged. A note of several lines on a speech is
+   written in front of the cue, as IL-0040 writes every such note. Parse and
+   serialise only: a note never reaches a page. */
+{
+	const name = 'note-blank-lines';
+	const source = [
+		'INT. KITCHEN - NIGHT',
+		'',
+		'[[First thought.',
+		'  ',
+		'Second thought.]]',
+		'',
+		'[[One line.]]',
+		'',
+		'[[One.',
+		'  ',
+		'Two.',
+		'  ',
+		'Three.]]',
+		'BOB',
+		'Hello.',
+		'',
+		'The kettle screams.',
+		''
+	].join('\n');
+	const screenplay = parseFountain(source);
+	parseFixture.push({ name, source, expected: screenplay });
+	serialiseFixture.push({ name, screenplay, expected: serialiseFountain(screenplay) });
+}
+
 /* Notes inside a dialogue block (IL-0040), in the inline spelling the
    serialiser now writes: a note on the line after it, never a paragraph of
    its own between a cue and its speech. Parse and serialise only. */

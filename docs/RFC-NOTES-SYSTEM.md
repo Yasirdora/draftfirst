@@ -294,6 +294,13 @@ The kettle screams. Mara doesn't move.
   ending in `]` therefore reads exactly. The reader trims the space before the
   close, and reads `] ]` back as `]]` on every line of a note, header
   included — lossy one way, by choice (§13).
+- **A blank line inside a note is Fountain's connected blank line** (IL-0111).
+  Each whitespace-only line strictly between a note's first and last lines is
+  written as two spaces. The reader gives a line of nothing but spaces inside
+  a note back empty. A note with no interior blank line is written as before.
+  Lossy one way: a line the writer filled with spaces comes back empty (§13).
+  A note an older build already broke — the blank line closed it, so its
+  words reopened as script — stays broken.
 - **Legacy notes stay valid.** `[[Dir: too slow]]` is a thread of one open
   message by `Dir`, anchored to the paragraph it precedes. Replying to it gives
   it a header; nothing converts a note the writer did not touch.
@@ -685,6 +692,12 @@ purpose.
   same way as an action line in capitals followed by a note, so the reader
   cannot tell them apart. Recorded as permanent. A scan of 74 files found it
   only in sample02 and its copies, which are repaired by hand.
+- **A line of spaces inside a note comes back empty — a chosen asymmetry**
+  (IL-0111). The writer spells an interior blank line as two spaces, and the
+  reader gives any line of nothing but spaces back empty, so a line the
+  writer filled with spaces does not survive. A note an older build already
+  broke stays broken: the blank line closed it, and its words reopened as
+  script. A scan of the 12 text scripts on the owner's Mac found none.
 - **A note the old writer already cut stays cut.** A file reopened and saved
   by a build before IL-0038 holds the note without its last `]`, followed by
   a paragraph that is only `]` (in FDX, an Action `]` after a Note). The

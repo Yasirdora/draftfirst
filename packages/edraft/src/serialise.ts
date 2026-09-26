@@ -141,7 +141,19 @@ function escapeForcedTransition(text: string): string {
  */
 function noteBody(body: string): string {
 	const spaced = body.replace(/\](?=\])/g, '] ');
-	return spaced.endsWith(']') ? `${spaced} ` : spaced;
+	const withClose = spaced.endsWith(']') ? `${spaced} ` : spaced;
+	/* A blank line is Fountain's paragraph break, and an unclosed note must
+	   not cross one. Each whitespace-only line strictly between the first and
+	   last is written as two spaces — Fountain's connected blank line — so
+	   the note stays one note. The first line follows `[[` and the last runs
+	   into `]]`, so they are never blank on the page. A note with no interior
+	   blank line is unchanged. */
+	const lines = withClose.split('\n');
+	if (lines.length < 3) return withClose;
+	for (let i = 1; i < lines.length - 1; i++) {
+		if (lines[i].trim() === '') lines[i] = '  ';
+	}
+	return lines.join('\n');
 }
 
 /** Render one element as its Fountain source line. */

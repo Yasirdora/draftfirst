@@ -805,6 +805,14 @@
       "diagnostics": []
     },
     {
+      "name": "corpus-note-blank-lines",
+      "corpus": "note-blank-lines",
+      "scriptSha256": "04a167990252d82c96cc4657444926c3aa092dfbc9c0449592537b6067129679",
+      "notesSha256": "22569ca54f1d1a3781d1c6e562f574e7b7c095987fc0d4ae2ce9f3ee3fa165bb",
+      "backSha256": "9de7bb95e1f5e5283b192441086d89b4b87db3dfbd83e023afc56843a1c78f35",
+      "diagnostics": []
+    },
+    {
       "name": "corpus-asides-in-dialogue",
       "corpus": "asides-in-dialogue",
       "scriptSha256": "6f513c7fa2941fb8b3d9a24aa68300ed3aa3ea9ddc1dac1b56f4ccdca25abe79",

@@ -1,0 +1,4 @@
+Claude commits IL-0107 (feedback address), then runs IL-0108 (shortcuts) — you'll feel that one immediately: ⌘9 becomes Lyrics everywhere, Zoom to Fit moves to ⌥⌘0, and ⌘Z in the launch window restores a trashed script like Finder.
+Then the blank-line-note fix (IL-0111) — it'll come back with a measured budget first.
+Then IL-0109 — the big one: omitted scenes stop leaking into print/PDF/export, and exports stop dropping your notes and outline.
+Then IL-0110 — real .draft files that keep highlights and omissions.

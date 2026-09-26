@@ -105,7 +105,19 @@ extension Fountain {
     /// with neither is written as it is.
     private static func noteBody(_ body: String) -> String {
         let spaced = body.replacingOccurrences(of: "\\](?=\\])", with: "] ", options: .regularExpression)
-        return spaced.hasSuffix("]") ? spaced + " " : spaced
+        let withClose = spaced.hasSuffix("]") ? spaced + " " : spaced
+        /* A blank line is Fountain's paragraph break, and an unclosed note
+           must not cross one. Each whitespace-only line strictly between the
+           first and last is written as two spaces — Fountain's connected
+           blank line — so the note stays one note. The first line follows
+           `[[` and the last runs into `]]`, so they are never blank on the
+           page. A note with no interior blank line is unchanged. */
+        var lines = withClose.components(separatedBy: "\n")
+        guard lines.count >= 3 else { return withClose }
+        for index in 1..<(lines.count - 1) where lines[index].trimmingCharacters(in: .whitespaces).isEmpty {
+            lines[index] = "  "
+        }
+        return lines.joined(separator: "\n")
     }
 
     /// Render one element as its Fountain source line

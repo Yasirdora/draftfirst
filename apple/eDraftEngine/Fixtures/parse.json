@@ -4285,6 +4285,43 @@
     }
   },
   {
+    "name": "note-blank-lines",
+    "source": "INT. KITCHEN - NIGHT\n\n[[First thought.\n  \nSecond thought.]]\n\n[[One line.]]\n\n[[One.\n  \nTwo.\n  \nThree.]]\nBOB\nHello.\n\nThe kettle screams.\n",
+    "expected": {
+      "titlePage": [],
+      "elements": [
+        {
+          "type": "scene",
+          "text": "INT. KITCHEN - NIGHT"
+        },
+        {
+          "type": "note",
+          "text": "First thought.\n\nSecond thought."
+        },
+        {
+          "type": "note",
+          "text": "One line."
+        },
+        {
+          "type": "note",
+          "text": "One.\n\nTwo.\n\nThree."
+        },
+        {
+          "type": "character",
+          "text": "BOB"
+        },
+        {
+          "type": "dialogue",
+          "text": "Hello."
+        },
+        {
+          "type": "action",
+          "text": "The kettle screams."
+        }
+      ]
+    }
+  },
+  {
     "name": "asides-in-dialogue",
     "source": "INT. KITCHEN - NIGHT\n\nBOB\nHello. [[n1]] [[n2]]\n\nANN\n(beat) [[n3]]\nHi.\nLine two [[see [scene 4] ]]\n\nCARL\nHi.\n\nDANA ^\nHo. [[n4]]\n\n[[after the block]]\n\nThe kettle screams.\n",
     "expected": {

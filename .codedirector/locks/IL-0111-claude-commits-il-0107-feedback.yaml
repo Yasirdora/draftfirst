@@ -1,0 +1,148 @@
+schemaVersion: 1
+id: IL-0111
+status: verified
+utterance: |-
+  Claude commits IL-0107 (feedback address), then runs IL-0108 (shortcuts) — you'll feel that one immediately: ⌘9 becomes Lyrics everywhere, Zoom to Fit moves to ⌥⌘0, and ⌘Z in the launch window restores a trashed script like Finder.
+  Then the blank-line-note fix (IL-0111) — it'll come back with a measured budget first.
+  Then IL-0109 — the big one: omitted scenes stop leaking into print/PDF/export, and exports stop dropping your notes and outline.
+  Then IL-0110 — real .draft files that keep highlights and omissions.
+goal: "A note with a blank line in it survives Fountain in both engines: the writer spells each blank line between a note's first and last lines as two spaces (Fountain's connected blank line), the reader gives a line of spaces inside a note back empty, and a note without one is written exactly as before — so a writer's note in two paragraphs no longer reopens as two printing lines of script. Pinned by a shared corpus case and mirrored tests in TypeScript and Swift, and by an EDraftCore save-and-reopen test."
+interpretation: |
+  A DEFECT OUTSIDE THE FIVE, FOUND BY IL-0109'S SPIKE (2026-09-25); taken into
+  the batch by the owner, before IL-0109. SIZED BY A SPIKE on dbdf912 +
+  IL-0108 (the tree it lands on); nothing in the tree is touched until this
+  lock is active. The run copies the spike's 13 files in.
+
+  THE DEFECT, MEASURED. A blank line is Fountain's paragraph break. Both
+  engines' `noteBody` (Serialise.swift, packages/edraft/src/serialise.ts)
+  wrote it inside a note as it was; the reader found no close before the
+  break and read the note — brackets and all — as action. A writer's note
+  "First thought. / (blank) / Second thought." added, saved and reopened comes
+  back as the script lines "[[First thought." and "Second thought.]]": the
+  note is gone and its words print. It hits every Fountain-text save
+  (.fountain; .draft until IL-0110), the web editor through the same engine,
+  and IL-0109's Export ▸ Fountain of the fixtures' Final Draft note in five
+  paragraphs. Both readers already keep a note open across a line of two
+  spaces (hasNoteCloseBeforeParagraphBreak), keeping the spaces in its text.
+
+  THE FIX (both engines, mirrored):
+  - Writer: each whitespace-only line strictly between a note's first and
+    last lines is written as two spaces. The first line follows `[[` and the
+    last runs into `]]`, so they are never blank on the page — a note with no
+    interior blank line is written byte for byte as before (the twelve
+    existing corpus cases regenerate unchanged).
+  - Reader: a line of nothing but spaces inside a note reads back empty.
+  - Lossy by choice, one way: a line the writer filled with spaces comes
+    back empty (RFC-NOTES-SYSTEM §13, beside IL-0038's `] ]`).
+  - RFC-NOTES-SYSTEM §4.4 gains the rule; §13 the asymmetry, and that a note
+    broken by an older build stays broken — a scan of the 12 text scripts on
+    the owner's Mac found none. packages/edraft CHANGELOG: Fixed.
+
+  TESTS:
+  - Shared corpus case `note-blank-lines` (scripts/engine-conformance-export.mjs
+    → parse.json, serialise.json; draft.json derives its per-corpus case
+    from it, +8 lines): a note with one blank line, a one-line note (bytes
+    unchanged), and a note of three paragraphs on a speech, written in front
+    of the cue as IL-0040 writes every note of several lines there. The Swift
+    conformance suites' corpus count goes from 12 to 13.
+  - packages/edraft parse.test.ts and FountainConformanceTests.swift, a
+    mirrored block of 7: four notes with blank lines survive save and reopen;
+    the blank line is written as two spaces; a two-paragraph note on a speech
+    goes in front of its cue whole and the speech survives; the chosen
+    asymmetry.
+  - EDraftCore NoteBlankLineTests: a note the writer adds in two paragraphs
+    survives save and reopen, and nothing of it is on the page.
+  FAIL-BEFORE (spike: the new tests and corpus against the unfixed engines):
+  TypeScript 7 of 7 fail; Swift the new suite, and the corpus case in parse,
+  serialise and round trip; EDraftCore 1 of 1 (the note reopens as two script
+  lines).
+  AFTER (spike): packages/edraft 923/923; web app vitest 47/47; npm run check
+  0; corpus regenerated, only the new case added (plus draft.json's derived
+  case); eDraftEngine 263 tests pass; EDraftCore 430/0; EDraftUI 72/0;
+  EDraftMacSurface 404 (7 skipped)/0; macOS Debug and iOS Simulator builds
+  succeed. With this lock's engine files, IL-0109's spike passes all 9 of its
+  core tests, including the one this defect blocked.
+  MEASURED: 13 files, 350 lines.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: a note with no blank line inside it is written byte for byte as before — the twelve existing corpus cases regenerate unchanged
+  - kind: custom
+    text: the two engines stay mirrored — the same rule, the same corpus case, the same test names in parse.test.ts and FountainConformanceTests.swift
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (.codedirector/mcp.log, the xcscheme, the IL-0077 seal, the two root PNGs, the IL-0104 draft) and IL-0108's change are left exactly as found
+deny:
+  - apple/EDraftCore/Sources/**
+  - apple/EDraftMacSurface/**
+  - apple/EDraftUI/**
+  - apple/EDraftUIKitSurface/**
+  - apple/SplitWindowKit/**
+  - apple/eDraft/**
+  - apple/eDraftTests/**
+  - apple/macOS/**
+  - apple/eDraft.xcodeproj/**
+  - apple/*/Package.swift
+  - src/**
+  - static/**
+  - packages/edraft/package.json
+  - package.json
+  - package-lock.json
+  - .gitignore
+  - .claude/**
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: A note with a blank line in it survives Fountain in both engines — written as Fountain's connected blank line, read back empty — pinned by a shared corpus case, mirrored tests and an EDraftCore save test.
+verifyCommand: rm -rf /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/il0111-fixtures && mkdir -p /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/il0111-fixtures && cp -R apple/eDraftEngine/Fixtures /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/il0111-fixtures/ && npm run --silent package:build && node scripts/engine-conformance-export.mjs && diff -r /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/il0111-fixtures/Fixtures apple/eDraftEngine/Fixtures && rm -rf /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/il0111-fixtures && npm run --silent test:package && npm run --silent test:app && npm run --silent check && swift test --package-path apple/eDraftEngine && swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftUI && swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/DerivedData-IL-0111 -quiet build && xcodebuild -project apple/eDraft.xcodeproj -scheme eDraft -configuration Debug -destination "generic/platform=iOS Simulator" -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/DerivedData-IL-0111-ios -quiet build
+verifyTimeoutMs: 3600000
+budget:
+  files:
+    - packages/edraft/src/serialise.ts
+    - packages/edraft/src/parse.ts
+    - packages/edraft/src/parse.test.ts
+    - packages/edraft/CHANGELOG.md
+    - apple/eDraftEngine/Sources/EDraftEngine/Fountain/Serialise.swift
+    - apple/eDraftEngine/Sources/EDraftEngine/Fountain/Parse.swift
+    - apple/eDraftEngine/Tests/EDraftEngineTests/FountainConformanceTests.swift
+    - apple/eDraftEngine/Fixtures/parse.json
+    - apple/eDraftEngine/Fixtures/serialise.json
+    - apple/eDraftEngine/Fixtures/draft.json
+    - scripts/engine-conformance-export.mjs
+    - docs/RFC-NOTES-SYSTEM.md
+    - apple/EDraftCore/Tests/EDraftCoreTests/NoteBlankLineTests.swift
+  symbols: []
+  maxFiles: 13
+  maxLines: 390
+accept:
+  - "FAIL-BEFORE: the new TypeScript tests (7), the new Swift suite and corpus case, and NoteBlankLineTests fail against the unfixed engines; all pass after."
+  - "FRESH: the corpus regenerated from the built TypeScript engine equals the tree's fixtures (diff -r); only the new case (and draft.json's derived case) was added."
+  - "MIRRORED: the same rule and the same tests in both engines."
+  - "NO REGRESSION: packages/edraft, the web app's tests, npm run check, eDraftEngine, EDraftCore, EDraftUI and EDraftMacSurface green; macOS Debug and iOS Simulator builds succeed, each into its own scratchpad DerivedData."
+assumptions:
+  - text: "HEAD is dbdf912 with IL-0108 applied (uncommitted) — no file in common. Foreign dirt: .codedirector/mcp.log, the xcscheme, the IL-0077 seal, the root PNGs, IL-0104's draft (another session's) — none touched; never runs while IL-0104 does."
+    source: system
+    confirmed: false
+  - text: "The owner took this into the batch on 2026-09-25, before IL-0109: \"Then the blank-line-note fix (IL-0111) — it'll come back with a measured budget first.\""
+    source: user
+    confirmed: true
+  - text: The engine lives in both languages and they share fixtures, so the web editor gets the same fix through packages/edraft; no src/ file changes.
+    source: system
+    confirmed: false
+  - text: The verify checks freshness as IL-0100 did — fixtures copied aside, the corpus regenerated from a fresh build, diff -r — because check:conformance compares against HEAD and would call this lock's own regenerated fixtures stale until they are committed.
+    source: system
+    confirmed: false
+  - text: cdir's automatic draft anchored on name fragments in a stale worktree copy and on unrelated EDraftCore files — none touched; the budget and deny list were set by hand from the spike.
+    source: system
+    confirmed: false
+createdAt: 2026-09-25T12:20:26.458Z
+createdBy: Yasirdora

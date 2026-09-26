@@ -153,8 +153,14 @@ public enum Fountain {
     /// one way: a note whose own text holds `] ]` comes back as `]]`
     /// (RFC-NOTES-SYSTEM §13).
     private static func noteText(_ raw: String) -> String {
-        raw.replacingOccurrences(of: "\\] (?=\\])", with: "]", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        /* A line of nothing but spaces is the writer's connected blank line,
+           and reads back empty. Lossy one way: a line the writer filled with
+           spaces comes back empty too (RFC-NOTES-SYSTEM §13). */
+        let collapsed = raw.replacingOccurrences(of: "\\] (?=\\])", with: "]", options: .regularExpression)
+        let lines = collapsed.components(separatedBy: "\n").map { line in
+            line.trimmingCharacters(in: .whitespaces).isEmpty ? "" : line
+        }
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Split into lines, extracting `[[ notes ]]` (which may span lines).

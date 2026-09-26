@@ -5,8 +5,8 @@ import EDraftEngine
 /// Conformance of `Fountain.parse` against `Fixtures/parse.json`: twelve
 /// scripts (sample, edge headings, edge dialogue, structural, title page,
 /// empty, whitespace chaos, torture, 871-element feature, note brackets,
-/// asides in dialogue, act cards) parsed by the TypeScript engine, compared
-/// element-for-element.
+/// asides in dialogue, act cards, blank lines inside a note) parsed by the
+/// TypeScript engine, compared element-for-element.
 @Suite("Fountain parse conformance")
 struct FountainParseConformanceTests {
 
@@ -20,7 +20,7 @@ struct FountainParseConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.count == 12)
+        #expect(Self.corpus.count == 13)
     }
 
     @Test("parse", arguments: Self.corpus)
@@ -45,7 +45,7 @@ struct FountainSerialiseConformanceTests {
 
     @Test("corpus loads non-empty")
     func corpusLoads() {
-        #expect(Self.corpus.count == 12)
+        #expect(Self.corpus.count == 13)
     }
 
     @Test("serialise", arguments: Self.corpus)
@@ -150,6 +150,77 @@ struct FountainNoteBracketTests {
         #expect(Self.written("a] ]b") == "[[a] ]b]]")
         let reopened = try Fountain.parse(Self.around(Self.written("a] ]b")))
         #expect(reopened.elements == Self.scene("a]]b").elements)
+    }
+}
+
+/// A blank line inside a note (IL-0111). A blank line is Fountain's paragraph
+/// break. Written as it was, the reader closed the note there and the rest
+/// reopened as script. Mirrors the TypeScript engine's parse.test.ts.
+@Suite("Fountain blank lines inside a note")
+struct FountainNoteBlankLineTests {
+
+    private static func around(_ note: String) -> String {
+        "INT. KITCHEN - NIGHT\n\n\(note)\n\nThe kettle screams.\n"
+    }
+
+    private static func scene(_ text: String) -> Screenplay {
+        Screenplay(elements: [
+            ScreenplayElement(type: .scene, text: "INT. KITCHEN - NIGHT"),
+            ScreenplayElement(type: .note, text: text),
+            ScreenplayElement(type: .action, text: "The kettle screams.")
+        ])
+    }
+
+    private static func written(_ text: String) -> String {
+        Fountain.serialise(Screenplay(elements: [ScreenplayElement(type: .note, text: text)]))
+    }
+
+    private static func reopened(_ elements: [ScreenplayElement]) throws -> [ScreenplayElement] {
+        try Fountain.parse(Fountain.serialise(Screenplay(elements: elements))).elements
+    }
+
+    @Test("a note with one blank line survives save and reopen")
+    func oneBlankLine() throws {
+        try expectRoundTrip("First thought.\n\nSecond thought.")
+    }
+
+    @Test("a note with three paragraphs survives save and reopen")
+    func threeParagraphs() throws {
+        try expectRoundTrip("One.\n\nTwo.\n\nThree.")
+    }
+
+    @Test("a note with two blank lines in a row survives save and reopen")
+    func twoBlankLines() throws {
+        try expectRoundTrip("A.\n\n\nB.")
+    }
+
+    @Test("a note with a blank line after a bracketed word survives save and reopen")
+    func blankAfterABracketedWord() throws {
+        try expectRoundTrip("See [4].\n\nThen go.")
+    }
+
+    private func expectRoundTrip(_ text: String) throws {
+        let reopened = try Fountain.parse(Self.around(Self.written(text)))
+        #expect(reopened.elements == Self.scene(text).elements)
+    }
+
+    @Test("writes the blank line as two spaces, Fountain's connected blank line")
+    func connectedBlankLine() {
+        #expect(Self.written("First thought.\n\nSecond thought.") == "[[First thought.\n  \nSecond thought.]]")
+    }
+
+    @Test("a two-paragraph note on a speech is written in front of the cue, and the speech survives")
+    func noteOnASpeech() throws {
+        let cue = ScreenplayElement(type: .character, text: "BOB")
+        let speech = ScreenplayElement(type: .dialogue, text: "Hello.")
+        let note = ScreenplayElement(type: .note, text: "First thought.\n\nSecond thought.")
+        #expect(try Self.reopened([cue, note, speech]) == [note, cue, speech])
+    }
+
+    @Test("the chosen asymmetry (RFC §13): a line of spaces inside a note comes back empty")
+    func spacesComeBackEmpty() throws {
+        let reopened = try Fountain.parse(Self.around(Self.written("A.\n   \nB.")))
+        #expect(reopened.elements == Self.scene("A.\n\nB.").elements)
     }
 }
 

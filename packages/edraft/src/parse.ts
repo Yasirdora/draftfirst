@@ -168,7 +168,14 @@ function hasNoteCloseBeforeParagraphBreak(
  * whose own text holds `] ]` comes back as `]]` (RFC-NOTES-SYSTEM §13).
  */
 function noteText(raw: string): string {
-	return raw.replace(/\] (?=\])/g, ']').trim();
+	/* A line of nothing but spaces is the writer's connected blank line, and
+	   reads back empty. Lossy one way: a line the writer filled with spaces
+	   comes back empty too (RFC-NOTES-SYSTEM §13). */
+	const lines = raw
+		.replace(/\] (?=\])/g, ']')
+		.split('\n')
+		.map((line) => (line.trim() === '' ? '' : line));
+	return lines.join('\n').trim();
 }
 
 /**
