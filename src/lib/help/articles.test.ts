@@ -73,3 +73,24 @@ describe('help articles', () => {
 		expect(searchArticles('   ')).toEqual([]);
 	});
 });
+
+/* Interim (IL-0117). No save keeps a highlight in any type of file: the save
+   re-parses Fountain text, and Fountain cannot spell a highlight. The help
+   said .fdx files keep them, which sent writers into the loss. When the save
+   takes the editor's live script (IL-0109/IL-0110), change the help and this
+   test together. */
+describe('highlights, while no save keeps them (interim, IL-0117)', () => {
+	it('says highlights aren’t kept in any type of file yet', () => {
+		const article = getArticle('add-emphasis');
+		expect(article).toBeDefined();
+		expect(visibleText(article!).join('\n')).toContain('Highlights aren’t kept in any type of file yet.');
+	});
+
+	it('claims no file keeps highlights', () => {
+		for (const article of helpArticles) {
+			for (const text of visibleText(article)) {
+				expect(text, article.slug).not.toMatch(/highlights are kept|kept only in final draft|removes eDraft highlights/i);
+			}
+		}
+	});
+});

@@ -264,7 +264,9 @@ export const helpArticles: HelpArticle[] = [
 			] },
 			{ type: 'p', text: 'To remove the formatting, select the same words and click the button again.' },
 			{ type: 'p', text: 'Highlights are yellow, and they print. The bar also has Add Note; see Add a note to a line.' },
-			{ type: 'note', text: 'Highlights are kept only in Final Draft (.fdx) files. eDraft scripts (.draft) and Fountain files don’t keep them after you close the script, and Final Draft removes them when it saves a file.' }
+			// Interim (IL-0117): no save keeps a highlight yet. Change this
+			// note when the save takes the editor's live script (IL-0109/IL-0110).
+			{ type: 'note', text: 'Highlights aren’t kept in any type of file yet. When you close the script, its highlights are gone.' }
 		]
 	},
 
@@ -686,7 +688,8 @@ export const helpArticles: HelpArticle[] = [
 				'If the script is an eDraft script (.draft): Choose File > Export > Final Draft, then send the .fdx file you save.'
 			] },
 			{ type: 'p', text: 'Notes you add to a .fdx file appear in Final Draft as notes titled [eDraft], with your name as their author.' },
-			{ type: 'note', text: 'Final Draft removes eDraft highlights when it saves a file. If the script has locked pages, see Edit a Final Draft script with locked pages before you send it.' }
+			// Interim (IL-0117) — see the note in Add bold, italic, underline, or a highlight.
+			{ type: 'note', text: 'Highlights don’t reach Final Draft yet: eDraft doesn’t keep them in any type of file. If the script has locked pages, see Edit a Final Draft script with locked pages before you send it.' }
 		]
 	},
 	{

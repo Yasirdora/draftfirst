@@ -1,0 +1,93 @@
+schemaVersion: 1
+id: IL-0117
+status: verified
+utterance: "Confirmed and root-caused: highlights are lost on every save, in every file type. The save boundary ScreenplayFile.encode(_:as:origin:omissions:) re-parses the document's Fountain text instead of writing the editor's live screenplay model, and Fountain cannot spell a highlight — so runs carry bold/italic through but drop highlight silently. Evidence: an eDraft-saved .fdx with an on-screen highlight contains no EDraft:Highlight markup. The engine's reader/writer are fine (FdxRunMarkupTests); the app never reaches them with live runs. Also: an existing EDraft:Highlight in an origin file dies when its paragraph is edited, because the rewrite comes from the Fountain reading too. Do NOT patch this — fold it into the IL-0109/IL-0110 save-boundary refactor: the save must take the editor's live screenplay, not re-parse text. Meanwhile the interim help-text fix (IL-pending, highlights \"aren't kept in any file type yet\") is approved — ship it, tracked for removal when the real fix lands."
+goal: "Interim Help Center fix: no article claims a file keeps highlights. Add bold, italic, underline, or a highlight says highlights aren't kept in any type of file yet; Send a script to a Final Draft user says they don't reach Final Draft yet. A test pins both until the save takes the editor's live script (IL-0109/IL-0110), when the help and the test change together."
+interpretation: |
+  INTERIM, APPROVED BY THE OWNER (2026-09-26): "the interim help-text fix
+  (IL-pending, highlights 'aren't kept in any file type yet') is approved —
+  ship it, tracked for removal when the real fix lands." No session had
+  drafted it (transcripts searched: the phrase first appears in the owner's
+  message, in this session and in the peer-review session); drafted and
+  spiked here, on 0459e13.
+
+  WHY: the help (IL-0097) says "Highlights are kept only in Final Draft (.fdx)
+  files." No save keeps one in any type of file: ScreenplayFile.encode
+  re-parses the document's Fountain text, which cannot spell a highlight
+  (measured twice: 2026-09-24 in IL-0110's spike, 1 -> 0 through .draft and
+  .fdx; 2026-09-25 by another session at 9189672). The help sent writers into
+  the loss. The real fix — the save takes the editor's live script — is
+  folded into IL-0109/IL-0110 on the owner's word, not patched.
+
+  THE CHANGE (src/lib/help/articles.ts, +5 / -2):
+  - add-emphasis, the note: "Highlights aren’t kept in any type of file yet.
+    When you close the script, its highlights are gone."
+  - share-with-final-draft-users, the note: "Highlights don’t reach Final
+    Draft yet: eDraft doesn’t keep them in any type of file. If the script
+    has locked pages, see Edit a Final Draft script with locked pages before
+    you send it."
+  - Each marked in the data as interim (IL-0117), to change with the save.
+  - Unchanged, still true: omit-a-scene's "in .draft and Fountain scripts …
+    highlights aren’t kept".
+  The Mac's offline help is generated from this data at build (IL-0112,
+  IL-0113) — nothing generated is committed, so it follows.
+
+  TRACKED FOR REMOVAL: articles.test.ts gains a block (2) pinning the interim
+  text and failing on any claim that a file keeps highlights; its comment,
+  the two data comments, and IL-0109/IL-0110 all say the help and the test
+  change together when the save keeps highlights.
+  FAIL-BEFORE (spike, 0459e13): 2 of 2 fail. AFTER: help tests 29/29;
+  npm run check 0; vite build 0, the built add-emphasis page carrying the
+  new sentence.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: only the two highlight notes change; every other article, title, slug and route is as before
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (.codedirector/mcp.log, the xcscheme, the IL-0077 seal, the two root PNGs, the IL-0104 and IL-0114 locks and the IL-0114 seal) and this session's IL-0109/0110/0111 drafts are left exactly as found
+deny:
+  - apple/**
+  - packages/**
+  - scripts/**
+  - static/**
+  - docs/**
+  - src/routes/**
+  - src/lib/help/helpbook.ts
+  - src/lib/help/helpbook.test.ts
+  - src/lib/help/guide.test.ts
+  - package.json
+  - package-lock.json
+  - .gitignore
+  - .claude/**
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+change: The Help Center stops saying .fdx files keep highlights; two notes say no type of file keeps them yet, pinned by a test until the save keeps them.
+verifyCommand: npm run check && npx vitest run src/lib/help && npx vite build
+verifyTimeoutMs: 900000
+budget:
+  files:
+    - src/lib/help/articles.ts
+    - src/lib/help/articles.test.ts
+  symbols: []
+  maxFiles: 2
+  maxLines: 40
+accept:
+  - "FAIL-BEFORE: the two new articles.test.ts tests fail on 0459e13's help text and pass after."
+  - "NO FILE CLAIM: no article says a file keeps highlights."
+  - "NO REGRESSION: npm run check, the help tests and vite build pass."
+assumptions:
+  - text: "The owner, 2026-09-26: \"Meanwhile the interim help-text fix (IL-pending, highlights 'aren't kept in any file type yet') is approved — ship it, tracked for removal when the real fix lands.\""
+    source: user
+    confirmed: true
+  - text: HEAD is 0459e13. IL-0114 (another session's native Help window) is active; its budget shares no file with this one (HelpWindowController, HelpWindowTests, MainMenu, the project file, Info.plist, helpbook.test.ts), and this run is kept from overlapping one of its runs.
+    source: system
+    confirmed: false
+  - text: "Under-claiming, deliberately: File > Export > Final Draft still writes highlights today (it takes the model), but the approved text says no type of file keeps them; the help promises less than the app does rather than more."
+    source: system
+    confirmed: false
+  - text: cdir's automatic draft anchored on a stale worktree copy and on unrelated files — none touched; the budget and deny list were set by hand from the spike.
+    source: system
+    confirmed: false
+createdAt: 2026-09-26T10:57:00.306Z
+createdBy: Yasirdora
