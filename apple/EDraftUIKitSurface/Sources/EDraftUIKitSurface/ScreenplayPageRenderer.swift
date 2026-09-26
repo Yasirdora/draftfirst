@@ -1,5 +1,6 @@
 import CoreGraphics
 import EDraftCore
+import EDraftEngine
 import UIKit
 
 /// Drawing a string at a point, in a font.
@@ -24,7 +25,7 @@ public enum ScreenplayPageRenderer {
 
     /// Rich text with Courier at a fixed six-lines-per-inch rhythm. Word
     /// processors reflow page breaks; the on-screen layout still matches.
-    public static func rtfData(_ screenplay: EDraftCore.Screenplay) -> Data? {
+    public static func rtfData(_ output: ScreenplayOutput) -> Data? {
         let paragraph = NSMutableParagraphStyle()
         paragraph.minimumLineHeight = ScreenplayPageLayout.lineHeight
         paragraph.maximumLineHeight = ScreenplayPageLayout.lineHeight
@@ -33,7 +34,7 @@ public enum ScreenplayPageRenderer {
             .font: courier,
             .paragraphStyle: paragraph
         ]
-        let attributed = NSAttributedString(string: ScreenplayExporter.plainText(screenplay), attributes: attributes)
+        let attributed = NSAttributedString(string: ScreenplayExporter.plainText(output), attributes: attributes)
         return try? attributed.data(
             from: NSRange(location: 0, length: attributed.length),
             documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
@@ -45,12 +46,16 @@ public enum ScreenplayPageRenderer {
     /// The writer's choice, shared with the panel that offers it.
     static var includeTitlePageKey: String { ScreenplayExportPreference.includeTitlePageKey }
 
-    public static func pdfData(_ screenplay: EDraftCore.Screenplay) -> Data {
+    public static func pdfData(_ output: ScreenplayOutput) -> Data {
+        pdfData(output.printed, carrying: output.fountain)
+    }
+
+    static func pdfData(_ screenplay: EDraftCore.Screenplay, carrying fountain: String? = nil) -> Data {
         let format = PageFormat.current
         let rendererFormat = UIGraphicsPDFRendererFormat()
         rendererFormat.documentInfo = [
             kCGPDFContextKeywords as String: PdfSignal.encode(
-                ScreenplayExporter.fountainSource(screenplay)
+                fountain ?? Fountain.serialise(screenplay.engineModel)
             )
         ]
         let renderer = UIGraphicsPDFRenderer(bounds: format.pageRect, format: rendererFormat)

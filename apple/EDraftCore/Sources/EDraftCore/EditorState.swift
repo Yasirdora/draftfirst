@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UniformTypeIdentifiers
 import EDraftEngine
 
 @MainActor
@@ -646,6 +647,47 @@ public final class EditorState {
         stats = Self.quickStats(for: screenplay)
         scheduleStatsRefresh()
         refreshPredictions()
+    }
+
+    /// Opens a file the way the documents do. A Final Draft file keeps the
+    /// runs `open` read, including a highlight Fountain cannot spell.
+    public convenience init(opened file: ScreenplayFile.Opened, startsAtEnd: Bool = false) {
+        guard let script = file.script else {
+            self.init(source: file.source, startsAtEnd: startsAtEnd)
+            return
+        }
+        self.init(source: "")
+        synchronizingIdentity = true
+        let core = Screenplay(engineModel: script)
+        let split = ScriptAsides.split(core.elements)
+        screenplay = Screenplay(
+            titlePage: core.titlePage,
+            elements: split.page.isEmpty ? Screenplay.blank.elements : split.page
+        )
+        asides = split.asides
+        synchronizingIdentity = false
+        synchronizeDraftIdentity()
+        let initial = startsAtEnd ? screenplay.elements.last : screenplay.elements.first
+        activeElementID = initial?.id
+        selectionOffset = startsAtEnd ? initial.map { ($0.text as NSString).length } ?? 0 : 0
+        revision += 1
+        stats = Self.quickStats(for: screenplay)
+        scheduleStatsRefresh()
+        refreshPredictions()
+    }
+
+    /// The live script a save writes. Highlights are on this model.
+    public var documentModel: EDraftEngine.Screenplay { currentDocumentModel }
+
+    /// The bytes the document writes. Final Draft is the live script; every
+    /// other type is still the Fountain text, until .draft is a real container.
+    public func savedFile(as type: UTType, origin: String?) throws -> Data {
+        if type.conforms(to: .finalDraftScreenplay) {
+            return try ScreenplayFile.encode(
+                currentDocumentModel, as: type, origin: origin, omissions: omissionsToWrite()
+            )
+        }
+        return try ScreenplayFile.encode(serializedSource())
     }
 
     /// Opens the durable document model. App .draft save wiring is a later milestone.
@@ -1942,17 +1984,22 @@ public final class EditorState {
         lastKnownSource = source
         /* From the same model, at the same moment, as the source itself — so
            the spans and the text they index cannot describe two documents. */
-        if omissionsEdited {
-            let document = ScriptAsides.merge(page: screenplay.elements, asides: asides)
-            publishedOmissions = OmissionSpans(
-                spans: Omissions.spans(of: omittedScenes, in: document),
-                elementCount: document.count
-            )
-        }
+        if omissionsEdited { publishedOmissions = omissionsToWrite() }
         onSourceChange?(source)
     }
 
-    private func serializedSource() -> String {
+    /// The omissions a save writes beside the source. Nil until the writer
+    /// omits or restores a scene, and then the file's own structure decides.
+    public func omissionsToWrite() -> OmissionSpans? {
+        guard omissionsEdited else { return nil }
+        let document = ScriptAsides.merge(page: screenplay.elements, asides: asides)
+        return OmissionSpans(
+            spans: Omissions.spans(of: omittedScenes, in: document),
+            elementCount: document.count
+        )
+    }
+
+    func serializedSource() -> String {
         Fountain.serialise(currentDocumentModel)
     }
 

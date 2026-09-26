@@ -38,6 +38,8 @@ struct EditorChrome {
     /// reach SwiftUI's observation, which is why a menu-picked theme used
     /// to do nothing.
     let setAppearance: (AppearancePreference) -> Void
+    /// The Final Draft file this document was opened from, if it was one.
+    let origin: String?
 
     let activeKind: ScreenplayKind
     let contextualKinds: [ScreenplayKind]
@@ -383,13 +385,13 @@ final class ChromeCoordinator {
             title: "Export & Send", image: UIImage(systemName: "square.and.arrow.up"),
             children: [
                 exportAction("eDraft Document", ext: "draft") {
-                    Data(ScreenplayExporter.fountainSource($0).utf8)
+                    Data($0.document.utf8)
                 },
                 exportAction("PDF", ext: "pdf") {
                     ScreenplayPageRenderer.pdfData($0)
                 },
                 exportAction("Final Draft (FDX)", ext: "fdx") {
-                    Data(ScreenplayExporter.fdxSource($0).utf8)
+                    try? $0.finalDraft()
                 },
                 exportAction("Fountain", ext: "fountain") {
                     Data(ScreenplayExporter.fountainSource($0).utf8)
@@ -558,10 +560,10 @@ final class ChromeCoordinator {
 
     private func exportAction(
         _ title: String, ext: String,
-        _ make: @escaping (EDraftCore.Screenplay) -> Data?
+        _ make: @escaping (ScreenplayOutput) -> Data?
     ) -> UIAction {
         UIAction(title: title) { [weak self] _ in
-            guard let self, let data = make(self.chrome.editor.screenplay) else { return }
+            guard let self, let data = make(self.chrome.editor.output(origin: self.chrome.origin)) else { return }
             self.share(data: data, extension: ext)
         }
     }
@@ -595,7 +597,7 @@ final class ChromeCoordinator {
         info.jobName = editor.screenplay.title
         info.outputType = .general
         controller.printInfo = info
-        controller.printingItem = ScreenplayPageRenderer.pdfData(editor.screenplay)
+        controller.printingItem = ScreenplayPageRenderer.pdfData(editor.output(origin: chrome.origin))
         // present(animated:) is iPhone-only; on iPad it raises an
         // exception — the print sheet must anchor to the source item.
         if UIDevice.current.userInterfaceIdiom == .pad {

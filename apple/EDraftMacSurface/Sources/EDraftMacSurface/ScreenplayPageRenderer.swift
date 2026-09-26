@@ -2,6 +2,7 @@ import AppKit
 import CoreGraphics
 import CoreText
 import EDraftCore
+import EDraftEngine
 import PDFKit
 
 /// Drawing a string at a point, in a font — the Mac's half.
@@ -26,7 +27,8 @@ public enum ScreenplayPageRenderer {
         { ($0 as NSString).size(withAttributes: textAttributes).width }
     }
 
-    public static func rtfData(_ screenplay: EDraftCore.Screenplay) -> Data? {
+    /// Rich Text of the printed script.
+    public static func rtfData(_ output: ScreenplayOutput) -> Data? {
         let paragraph = NSMutableParagraphStyle()
         paragraph.minimumLineHeight = ScreenplayPageLayout.lineHeight
         paragraph.maximumLineHeight = ScreenplayPageLayout.lineHeight
@@ -36,7 +38,7 @@ public enum ScreenplayPageRenderer {
             .paragraphStyle: paragraph
         ]
         let attributed = NSAttributedString(
-            string: ScreenplayExporter.plainText(screenplay), attributes: attributes
+            string: ScreenplayExporter.plainText(output), attributes: attributes
         )
         return try? attributed.data(
             from: NSRange(location: 0, length: attributed.length),
@@ -44,12 +46,17 @@ public enum ScreenplayPageRenderer {
         )
     }
 
-    /// The printable deliverable, with the Fountain source in `/Keywords`.
-    public static func pdfData(_ screenplay: EDraftCore.Screenplay) -> Data {
+    /// The printed script, carrying the document's Fountain in `/Keywords`.
+    public static func pdfData(_ output: ScreenplayOutput) -> Data {
+        pdfData(output.printed, carrying: output.fountain)
+    }
+
+    /// The page drawn as given. An app prints a `ScreenplayOutput`.
+    static func pdfData(_ screenplay: EDraftCore.Screenplay, carrying fountain: String? = nil) -> Data {
         let format = PageFormat.current
         var mediaBox = format.pageRect
         let data = NSMutableData()
-        let fountain = ScreenplayExporter.fountainSource(screenplay)
+        let fountain = fountain ?? Fountain.serialise(screenplay.engineModel)
         // Hex is `[0-9a-f]`, legal inside a PDF literal with no escaping.
         // Core Graphics writes `/Keywords (hex)` into the Info dictionary,
         // which survives a viewer re-save; trailing bytes after `%%EOF` do not.
@@ -107,15 +114,23 @@ public enum ScreenplayPageRenderer {
     /// Print the PDF we already export — not a second drawing that could
     /// drift from it. `NSPrintOperation` over a custom view lost: its
     /// paper size comes from `NSPrintInfo` and would paginate again.
-    public static func printOperation(_ screenplay: EDraftCore.Screenplay) -> NSPrintOperation? {
-        guard let document = PDFDocument(data: pdfData(screenplay)) else { return nil }
+    public static func printOperation(_ output: ScreenplayOutput) -> NSPrintOperation? {
+        printOperation(pdf: pdfData(output))
+    }
+
+    static func printOperation(_ screenplay: EDraftCore.Screenplay) -> NSPrintOperation? {
+        printOperation(pdf: pdfData(screenplay))
+    }
+
+    private static func printOperation(pdf: Data) -> NSPrintOperation? {
+        guard let document = PDFDocument(data: pdf) else { return nil }
         return document.printOperation(
             for: .shared, scalingMode: .pageScaleToFit, autoRotate: true
         )
     }
 
-    public static func runPrint(_ screenplay: EDraftCore.Screenplay) {
-        printOperation(screenplay)?.run()
+    public static func runPrint(_ output: ScreenplayOutput) {
+        printOperation(output)?.run()
     }
 
     // MARK: - Drawing

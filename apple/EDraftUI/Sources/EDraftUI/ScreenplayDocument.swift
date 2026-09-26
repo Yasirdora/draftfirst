@@ -1,4 +1,5 @@
 import EDraftCore
+import EDraftEngine
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -26,6 +27,13 @@ public struct EDraftDocument: FileDocument {
 
     public var source: String
 
+    /// The live script, when the editor has one. An .fdx save writes this
+    /// rather than re-parsing `source`. Nil until the editor has published.
+    public var script: EDraftEngine.Screenplay?
+
+    /// Omissions published with `script`. Fountain cannot spell them.
+    public var omissions: OmissionSpans?
+
     /// The Final Draft file this document was opened from, when it was one.
     ///
     /// Carried so a save can edit it rather than rebuild it: a screenplay
@@ -38,22 +46,30 @@ public struct EDraftDocument: FileDocument {
     public init(source: String = ScreenplayFile.blankSource) {
         self.source = source
         self.origin = nil
+        self.script = nil
+        self.omissions = nil
     }
 
     public init(configuration: ReadConfiguration) throws {
-        let opened = try ScreenplayFile.open(
+        let opened = try ScreenplayFile.read(
             configuration.file.regularFileContents,
             as: configuration.contentType
         )
         self.source = opened.source
         self.origin = opened.origin
+        self.script = opened.script
+        self.omissions = nil
     }
 
     public func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        FileWrapper(
-            regularFileWithContents: try ScreenplayFile.encode(
-                source, as: configuration.contentType, origin: origin
+        let data: Data
+        if configuration.contentType.conforms(to: .finalDraftScreenplay), let script {
+            data = try ScreenplayFile.encode(
+                script, as: configuration.contentType, origin: origin, omissions: omissions
             )
-        )
+        } else {
+            data = try ScreenplayFile.encode(source, as: configuration.contentType, origin: origin)
+        }
+        return FileWrapper(regularFileWithContents: data)
     }
 }

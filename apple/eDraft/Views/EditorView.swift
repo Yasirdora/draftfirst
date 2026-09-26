@@ -33,8 +33,9 @@ struct EditorView: View {
     init(document: Binding<EDraftDocument>, fileURL: URL? = nil, startsAtEnd: Bool = false) {
         _document = document
         self.fileURL = fileURL
+        let opened = document.wrappedValue
         let editor = EditorState(
-            source: document.wrappedValue.source,
+            opened: ScreenplayFile.Opened(source: opened.source, origin: opened.origin, script: opened.script),
             startsAtEnd: startsAtEnd
         )
         // Final Draft's own notes, read from the file this document was
@@ -188,6 +189,7 @@ struct EditorView: View {
             showTitlePage: { present(.titlePage) },
             showSettings: { present(.settings) },
             setAppearance: { appearance = $0 },
+            origin: document.origin,
             activeKind: editor.activeKind,
             contextualKinds: editor.contextualKinds,
             canUndo: editor.canUndo,
@@ -199,7 +201,11 @@ struct EditorView: View {
     private func wire(_ editor: EditorState) {
         editor.onSourceChange = { source in
             document.source = source
+            document.script = editor.documentModel
+            document.omissions = editor.omissionsToWrite()
         }
+        document.script = editor.documentModel
+        document.omissions = editor.omissionsToWrite()
     }
 
     /// The document can be deleted in Documents while this scene is

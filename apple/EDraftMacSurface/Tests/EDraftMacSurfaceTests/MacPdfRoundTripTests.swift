@@ -37,7 +37,7 @@ final class MacPdfRoundTripTests: XCTestCase {
         )
         XCTAssertEqual(
             recovered,
-            ScreenplayExporter.fountainSource(screenplay),
+            Fountain.serialise(screenplay.engineModel),
             "round-trip must be identical, not merely parseable"
         )
         XCTAssertTrue(recovered.contains("Molly’s"), "curly apostrophe was lost")
@@ -66,7 +66,7 @@ final class MacPdfRoundTripTests: XCTestCase {
             PdfSignal.extract(from: rewritten),
             "the signal did not survive a PDFDocument rewrite — it was not in the Info dictionary"
         )
-        XCTAssertEqual(recovered, ScreenplayExporter.fountainSource(screenplay))
+        XCTAssertEqual(recovered, Fountain.serialise(screenplay.engineModel))
         XCTAssertTrue(recovered.contains("Molly’s"))
         XCTAssertTrue(recovered.contains("日本語も。"))
     }

@@ -1,0 +1,227 @@
+schemaVersion: 1
+id: IL-0109
+status: verified
+utterance: |-
+  Task: the app-bug batch — five real defects, each pinned by a failing test before you fix it.
+  This project requires a Code Director lock for every code change (see CLAUDE.md). Draft the locks, show me the Vibe Check for each, and wait for my yes before editing. Do not touch uncommitted work from other sessions (.codedirector/mcp.log, the xcscheme, the IL-0077 seal, the two root PNGs, the IL-0104 draft if still uncommitted). HEAD is aa23a72.
+  The five bugs, from the audit and from my own use:
+  ⌘9 is double-bound. The same shortcut fires two commands (check the key equivalents in MainMenu / command definitions). One shortcut, one action. Find every duplicate key equivalent in the app, not just this one, and report the full list before fixing.
+  Omitted scenes leak into print, PDF, and export. §7.3 says an omitted scene must not print. The collapse hides the body on screen, but ScreenplayPageRenderer and the export paths still emit it. Every output path — print, PDF, Final Draft export, Fountain export, plain text — must be audited and pinned by tests: an omitted scene's body appears in none of them; its OMITTED card follows each format's own convention (Final Draft writes the scene heading with OMITTED; check what Final Draft itself does on export and match it).
+  Export drops notes and outline sections. A no-edit round trip through export loses Final Draft notes and/or section+synopsis outline data. Round-trip tests against the anonymised fixture: everything Final Draft wrote comes back byte-meaningful, nothing silently dropped.
+  Highlights are lost in .draft saves. Text highlights survive in .fdx but not in the native .draft format. Pin the loss with a test, then fix the format — not a workaround.
+  Send Feedback emails the wrong address. In-app feedback goes to  feedback@edraft.xyz; the site and App Store materials say  support@edraft.xyz. One address everywhere:  support@edraft.xyz.
+  How I want it done:
+  One lock per bug, or one lock with an explicit per-bug budget — your proposal, but each bug gets its own fail-before test that you show failing at HEAD first.
+  No patches, no shortcuts. If the right fix is a refactor (I suspect print/export share a "what's visible on the page" decision that should exist in exactly one place), do the refactor properly and say so in the Vibe Check.
+  Follow docs/MACOS-DESIGN.md. Where a fix changes what a writer sees, quote the design doc section that covers it, or propose an amendment first.
+  Verify: the relevant suites plus macOS Debug and iOS Simulator builds, each into its own scratchpad DerivedData — never the shared one.
+  After all five land: rebuild from a clean clone at the final HEAD and hand me the binary path with a short manual-test list for each bug.
+  Start by confirming each bug reproduces at HEAD, and tell me which ones don't — a bug that doesn't reproduce gets investigated, not assumed.
+goal: "Bugs 2 and 3 of the batch, one refactor: a single EDraftCore decision, ScreenplayOutput, says what every output carries, and no output can be handed the page instead. The printed outputs (Print, PDF, Plain Text, RTF) carry the page with each omitted scene as its OMITTED card and no body; the PDF's carried Fountain and Export ▸ Fountain carry the document — outline, the writer's notes and Final Draft's — with each omitted scene as its card alone; Export ▸ Final Draft is Save's own writer. That writer takes the editor's live screenplay, so a highlight survives an .fdx save. Today's .draft bytes stay Fountain text until IL-0110."
+interpretation: |
+  BUGS 2 AND 3 OF FIVE — ONE LOCK, PER-BUG TESTS. SIZED BY A SPIKE on
+  aa23a72 + IL-0107 + IL-0108 (no file in common with either); nothing in
+  the tree is touched until this lock is active. The run applies the
+  spike's diff (scratchpad b23/il0109-apple.diff).
+
+  REPRODUCED AT aa23a72, both anonymised Final Draft fixtures, through the
+  calls the apps make today: the cut scene's body in Plain Text, the
+  Fountain export, the PDF (5 of 5 lines; Print is this PDF), the Final Draft
+  export as live script with no <OmittedScene>; the Final Draft export kept 0
+  of 11 notes and 0 of 34 sections and synopses, the Fountain export none.
+  THE ONE ROOT: every output was handed `editor.screenplay`, the page alone
+  — no asides, no omission state. A NINTH PATH found in the audit: every PDF
+  carries its Fountain home in /Keywords (PdfSignal), built from the same
+  page — it leaked the body and dropped the outline too.
+
+  FINAL DRAFT'S OWN CONVENTION, MEASURED (the owner's Text export of
+  finaldraft-sample02.fdx from Final Draft 13, 2026-09-25): the omitted
+  scene is one line, its card's words in capitals ("OMITTED"), no number;
+  none of the 8 body paragraphs; no scene numbers anywhere; sections,
+  synopses, the in-script Note and End of Act included; the cut scene's own
+  section and synopsis dropped with it; Final Draft's ScriptNotes and the
+  title page not included; one paragraph per line. Final Draft offered no
+  Fountain export.
+
+  THE REFACTOR (measured):
+  - EDraftCore ScreenplayOutput (new): `printed` — the page, each omitted
+    span reduced to its card (which keeps its scene number, §7.3);
+    `fountain` — the document with asides and Final Draft's notes inline
+    (NoteAttribution.signed, RFC-DRAFT-FORMAT §12.3), each omitted span its
+    card alone; `document` — what a save publishes; `finalDraft()` —
+    ScreenplayFile.encode with the origin and the omissions a save writes.
+    EditorState.output(origin:) builds it.
+  - EditorState: `serializedSource()` internal; `omissionsToWrite()` —
+    publishSource and the export ask the same question.
+  - ScreenplayExporter: `plainText(_:)` and `fountainSource(_:)` take a
+    ScreenplayOutput; the page-only forms (and `fdxSource`) are internal —
+    no app can hand an output the page.
+  - Mac and iPhone ScreenplayPageRenderer: `pdfData`, `rtfData`,
+    `printOperation`, `runPrint` take a ScreenplayOutput; the PDF carries
+    `output.fountain`. Page-only drawing stays internal for the drawing tests.
+  - Mac ScreenplayDocument: Print and every File ▸ Export format from
+    `editor.output(origin:)`; an export that cannot be written presents the
+    error, never an empty file. iPhone EditorChrome: every Export & Send
+    item and Print from it (the chrome gains `origin`, passed by EditorView);
+    a failure shows a banner.
+  WHAT THE WRITER SEES: MACOS-DESIGN §3.2 — "A real page … at the same
+  metrics the PDF prints — so what a writer sees is what production
+  receives." The PDF and Print now show the collapsed card the page shows.
+
+  TESTS (measured):
+  - Bug 2 — ScreenplayOutputOmissionTests (Core, 6): printed script = page
+    with the card (and its number) and no body; Plain Text carries the card
+    as its own line, no body (Final Draft's convention); Fountain carries the
+    card as a heading with its number, no body; Final Draft keeps the body
+    under its card in <OmittedScene>, none live; a scene omitted in eDraft
+    leaves every output the same way (two <OmittedScene>s); a plain script
+    exports exactly as before (guard). PrintedOmissionTests (Mac, 3): the PDF
+    prints the card and no body, one sheet per printed page; the PDF carries
+    the Fountain export; Print is that PDF, sheet for sheet (guard).
+  - Bug 3 — ExportRoundTripTests (Core, 3): Export ▸ Final Draft is Save's
+    bytes; a no-edit round trip keeps every ScriptNote as written, the
+    outline, every line and kind, the omission and the title page; Export ▸
+    Fountain keeps the outline (all but the cut scene's own) and every note —
+    the writer's and Final Draft's.
+  - MacPdfRoundTripTests: two lines read the page's Fountain through the
+    engine, as the now-internal function did.
+  FAIL-BEFORE (spike, a stand-in ScreenplayOutput doing what the apps do at
+  aa23a72): Core 8 of 9 fail, Mac 2 of 3; the plain-script and Print tests
+  are guards that pass at both.
+  AFTER (spike, with IL-0107 and IL-0108): EDraftCore 438 tests, 4 failing
+  assertions, all in one test — see DEPENDS ON; EDraftUI 72/0;
+  EDraftMacSurface 407 (7 skipped)/0; macOS Debug and iOS Simulator builds
+  succeed.
+  PER-BUG SHARE of the 597 lines: bug 2's tests 239, bug 3's 110, the shared
+  refactor 248 (the type, the exporter, both renderers, both apps' calls).
+
+  DEPENDS ON — A DEFECT FOUND BY THIS SPIKE, OUTSIDE THE FIVE: a note with a
+  blank line in it does not survive Fountain. The engine's writer (Swift and
+  TypeScript, `noteBody`) writes the blank line as it is, and the reader then
+  sees two lines of action — measured: a writer's own note "First thought.
+  / (blank) / Second thought." added, saved and reopened comes back as the
+  script lines "[[First thought." and "Second thought.]]", printing. Fountain
+  spells a blank line inside a note as two spaces, which the reader already
+  accepts. It hits today's .fountain and .draft saves, and this lock's
+  Fountain export of the fixtures' multi-paragraph Final Draft note — the
+  one failing test. Proposed as its own lock (both engines, a shared corpus
+  case), run before this one.
+
+  THE SAVE WRITER (folded in 2026-09-26, before activation). ScreenplayFile
+  .encode(_:as:origin:omissions:) parses the document's Fountain text and
+  writes that. Fountain cannot spell a highlight, so every save drops one.
+  The engine already round-trips a highlight (FdxRunMarkupTests); the app
+  never hands it the live script. This lock's writer takes the editor's
+  live screenplay. Mac ScreenplayDocument and the iPhone document pass that
+  model. Export ▸ Final Draft calls the same writer. A highlight survives
+  an .fdx save and reopen. Today's .draft file is still Fountain text under
+  that name — the zip container and the declared type are IL-0110 — so a
+  highlight still cannot live in a .draft until then. Callers that only
+  have text keep a text entry; a save that has the editor does not use it.
+  Ceiling 14 files and 1000 lines: the omit/export spike measured 597, and
+  the writer change is the rest. Crossing the ceiling stops the work.
+
+  Help Center follow-up after this lands (a site lock): omit-a-scene and the
+  export articles can say how omitted scenes print and that exports carry
+  notes. The interim highlight wording (IL-0117) changes when a highlight
+  survives the file it is saved in.
+keep:
+  - kind: no-new-dependency
+  - kind: custom
+    text: a script with no omitted scene, no aside and no Final Draft note exports byte-for-byte as before in every format (testAPlainScriptExportsAsItDidBefore)
+  - kind: custom
+    text: Export ▸ Final Draft calls Save's writer. That writer takes the editor's live script rather than re-parsing Fountain.
+  - kind: custom
+    text: the tree's uncommitted work from other sessions (.codedirector/mcp.log, the xcscheme, the IL-0077 seal, the two root PNGs, the IL-0104 draft) and IL-0107/IL-0108's changes are left exactly as found
+deny:
+  - apple/eDraftEngine/**
+  - apple/EDraftCore/Sources/EDraftCore/Omissions.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScriptSurface.swift
+  - apple/EDraftMacSurface/Sources/EDraftMacSurface/WindowNotice.swift
+  - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/EditorBannerSurfaceTests.swift
+  - apple/SplitWindowKit/**
+  - apple/eDraft.xcodeproj/**
+  - apple/eDraftTests/**
+  - apple/*/Package.swift
+  - docs/**
+  - packages/**
+  - src/**
+  - static/**
+  - scripts/**
+  - package.json
+  - package-lock.json
+  - .gitignore
+  - .claude/**
+  - .codedirector/**
+  - edraft logo.png
+  - screenshot.png
+  - Pods/**
+  - Carthage/**
+  - Podfile.lock
+  - Package.resolved
+  - Cartfile.resolved
+  - Gemfile.lock
+  - "*.p8"
+  - "*.mobileprovision"
+  - "*.cer"
+  - "**/DerivedData/**"
+change: One EDraftCore decision (ScreenplayOutput) says what every output carries; Print, PDF and text drop an omitted scene's body and print its card; the exports carry the outline and every note; Save and Export ▸ Final Draft write the editor's live script, so a highlight survives an .fdx save.
+verifyCommand: swift test --package-path apple/EDraftCore && swift test --package-path apple/EDraftUI && swift test --package-path apple/EDraftMacSurface && xcodebuild -project apple/eDraft.xcodeproj -scheme "eDraft (macOS)" -configuration Debug -destination platform=macOS -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/DerivedData-IL-0109 -quiet build && xcodebuild -project apple/eDraft.xcodeproj -scheme eDraft -configuration Debug -destination "generic/platform=iOS Simulator" -derivedDataPath /private/tmp/claude-501/-Users-x-Documents-edraft/a84c65e9-eb6c-491e-a3da-a6e3b7f43c7b/scratchpad/DerivedData-IL-0109-ios -quiet build
+verifyTimeoutMs: 3600000
+budget:
+  files:
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayOutput.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayExporter.swift
+    - apple/EDraftCore/Sources/EDraftCore/ScreenplayFile.swift
+    - apple/EDraftCore/Sources/EDraftCore/EditorState.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/ScreenplayOutputOmissionTests.swift
+    - apple/EDraftCore/Tests/EDraftCoreTests/ExportRoundTripTests.swift
+    - apple/EDraftMacSurface/Sources/EDraftMacSurface/ScreenplayPageRenderer.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/PrintedOmissionTests.swift
+    - apple/EDraftMacSurface/Tests/EDraftMacSurfaceTests/MacPdfRoundTripTests.swift
+    - apple/macOS/ScreenplayDocument.swift
+    - apple/EDraftUI/Sources/EDraftUI/ScreenplayDocument.swift
+    - apple/EDraftUIKitSurface/Sources/EDraftUIKitSurface/ScreenplayPageRenderer.swift
+    - apple/eDraft/Views/EditorChrome.swift
+    - apple/eDraft/Views/EditorView.swift
+  symbols: []
+  maxFiles: 14
+  maxLines: 1000
+accept:
+  - "FAIL-BEFORE (bug 2): ScreenplayOutputOmissionTests 5 of 6 and PrintedOmissionTests 2 of 3 fail at aa23a72 (stand-in doing what the apps do); the rest are guards passing at both."
+  - "FAIL-BEFORE (bug 3): ExportRoundTripTests 3 of 3 fail at aa23a72."
+  - "ONE PLACE: no output path on Mac or iPhone reads editor.screenplay; the page-only export and drawing entry points are not public."
+  - "FINAL DRAFT'S CONVENTION: Plain Text's card is one line of its own without its number and no body line anywhere, as Final Draft 13's Text export of the fixture."
+  - "FAIL-BEFORE (highlight): a highlight saved through the document's .fdx path — the published Fountain passed to ScreenplayFile.encode, then opened back — is absent at 175809d and present once that path writes and reads the editor's live script."
+  - "HIGHLIGHT: a highlight on the editor's live script survives an .fdx save and reopen. A .draft save is still Fountain text, so a highlight there waits for IL-0110."
+  - "NO REGRESSION: all Core, UI and surface suites green on top of the blank-line note fix; macOS Debug and iOS Simulator builds succeed, each into its own scratchpad DerivedData."
+assumptions:
+  - text: "The owner, 2026-09-26: \"Confirmed and root-caused: highlights are lost on every save, in every file type. The save boundary ScreenplayFile.encode(_:as:origin:omissions:) re-parses the document's Fountain text instead of writing the editor's live screenplay model … Do NOT patch this — fold it into the IL-0109/IL-0110 save-boundary refactor: the save must take the editor's live screenplay, not re-parse text.\""
+    source: user
+    confirmed: true
+  - text: "The owner, 2026-09-26, queue: IL-0109 then IL-0110. The save boundary ScreenplayFile.encode re-parses Fountain and drops highlights; this lock's seam takes the editor's live screenplay. No patch. Export to Final Draft reuses that writer. The iPhone keeps writing today's .draft-save bytes until IL-0110, when .draft becomes zip and the declared type changes with the RFC."
+    source: user
+    confirmed: true
+  - text: HEAD is aa23a72 with IL-0107 applied and IL-0108 applied before this runs — no file in common. Foreign dirt as in IL-0107/0108; never runs while IL-0104 does.
+    source: system
+    confirmed: false
+  - text: "The owner, 2026-09-25: \"Export ▸ Final Draft reusing Save's writer: yes. Round-trip integrity is the whole point.\" \"iPhone PDF Simulator test: not now. The shared type's tests cover the decision.\" \"Final Draft's own exports: I'll export finaldraft-sample02.fdx from Final Draft myself as Text (and Fountain if it offers it)\" — the Text export arrived; no Fountain."
+    source: user
+    confirmed: true
+  - text: The blank-line note fix is in the working tree, uncommitted, and this lock runs on top of it. A multi-paragraph note in an export depends on that writer.
+    source: system
+    confirmed: false
+  - text: "The owner, standing decision: Plain Text export is the printed page in text form. Final Draft's own Text export is a flat list of paragraphs that includes the outline; eDraft does not copy that."
+    source: user
+    confirmed: true
+  - text: "OPEN — the owner's: the iPhone's eDraft Document export writes the document as a .draft save does (outline and notes kept). A Final Draft file's omitted scene then comes back live in that .draft, because a Fountain-text .draft cannot record an omission (RFC-DRAFT-PRODUCTION §7.3; the .draft record is Q13's). Alternative: write it as the Fountain export does — the card, no body."
+    source: system
+    confirmed: false
+  - text: Export ▸ Fountain's losses (highlights, tags, revisions, locked pages; an anchor's place within its line) are not yet 'said in the export notice' RFC-DRAFT-FORMAT §12.3 asks for — no notice exists in the apps; a UI decision for later, not built here.
+    source: system
+    confirmed: false
+  - text: cdir's automatic draft anchored on a stale worktree copy (.claude/worktrees/…) — none of it touched; the budget and deny list were set by hand from the spike.
+    source: system
+    confirmed: false
+createdAt: 2026-09-24T21:54:33.740Z
+createdBy: Yasirdora

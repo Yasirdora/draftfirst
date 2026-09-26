@@ -82,11 +82,11 @@ final class ScreenplayDocument: NSDocument {
     /// because this document does not opt into concurrent reading.
     override nonisolated func read(from data: Data, ofType typeName: String) throws {
         try MainActor.assumeIsolated {
-            let opened = try ScreenplayFile.open(data, as: Self.contentType(typeName))
+            let opened = try ScreenplayFile.read(data, as: Self.contentType(typeName))
             source = opened.source
             origin = opened.origin
             if windowControllers.isEmpty {
-                editor = EditorState(source: source)
+                editor = EditorState(opened: opened)
                 bind(editor)
             } else {
                 // Revert To, or a change from elsewhere: the window stays, the
@@ -108,17 +108,13 @@ final class ScreenplayDocument: NSDocument {
     }
 
     override func data(ofType typeName: String) throws -> Data {
-        // The omissions the editor published with this source: what the writer
-        // omitted or restored, which Fountain has no way to carry (§7.3).
-        try ScreenplayFile.encode(
-            source, as: Self.contentType(typeName), origin: origin, omissions: editor.publishedOmissions
-        )
+        try editor.savedFile(as: Self.contentType(typeName), origin: origin)
     }
 
     /// Print is the exported PDF, so what leaves the printer is what leaves
     /// the app.
     override func printDocument(_ sender: Any?) {
-        ScreenplayPageRenderer.runPrint(editor.screenplay)
+        ScreenplayPageRenderer.runPrint(editor.output(origin: origin))
     }
 
     private func bind(_ editor: EditorState) {
@@ -140,7 +136,7 @@ final class ScreenplayDocument: NSDocument {
         // toolbar menu and File → Export come here.
         editor.onExport = { [weak self] format in
             guard let self else { return }
-            ScreenplayExportWriter.write(format, editor.screenplay, from: windowForSheet)
+            ScreenplayExportWriter.write(format, editor.output(origin: origin), from: windowForSheet)
         }
     }
 
@@ -158,15 +154,20 @@ enum ScreenplayExportWriter {
 
     static func write(
         _ format: ScreenplayExportFormat,
-        _ screenplay: EDraftCore.Screenplay,
+        _ output: ScreenplayOutput,
         from window: NSWindow?
     ) {
+        let contents: Data
+        do { contents = try data(for: format, output) } catch {
+            if let window { window.presentError(error) } else { NSApp.presentError(error) }
+            return
+        }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [contentType(for: format)]
         panel.canCreateDirectories = true
-        let base = screenplay.title.isEmpty ? "Screenplay" : screenplay.title
+        let title = output.printed.title
+        let base = title.isEmpty ? "Screenplay" : title
         panel.nameFieldStringValue = "\(base).\(format.fileExtension)"
-        let contents = data(for: format, screenplay)
         let finish: (NSApplication.ModalResponse) -> Void = { response in
             guard response == .OK, let url = panel.url else { return }
             try? contents.write(to: url, options: .atomic)
@@ -182,13 +183,13 @@ enum ScreenplayExportWriter {
     }
 
     private static func data(
-        for format: ScreenplayExportFormat, _ screenplay: EDraftCore.Screenplay
-    ) -> Data {
+        for format: ScreenplayExportFormat, _ output: ScreenplayOutput
+    ) throws -> Data {
         switch format {
-        case .pdf: ScreenplayPageRenderer.pdfData(screenplay)
-        case .finalDraft: Data(ScreenplayExporter.fdxSource(screenplay).utf8)
-        case .fountain: Data(ScreenplayExporter.fountainSource(screenplay).utf8)
-        case .text: Data(ScreenplayExporter.plainText(screenplay).utf8)
+        case .pdf: ScreenplayPageRenderer.pdfData(output)
+        case .finalDraft: try output.finalDraft()
+        case .fountain: Data(ScreenplayExporter.fountainSource(output).utf8)
+        case .text: Data(ScreenplayExporter.plainText(output).utf8)
         }
     }
 

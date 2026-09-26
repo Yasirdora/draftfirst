@@ -27,6 +27,21 @@ extension UTType {
 /// nonisolated, so everything it calls must be too.
 public nonisolated enum ScreenplayFile {
 
+    /// A file as it was read. `source` is Fountain. `script` is the Final
+    /// Draft reading, runs included, and is nil for a text file. Fountain
+    /// cannot spell a highlight, so a highlight lives only on `script`.
+    public struct Opened: Sendable {
+        public let source: String
+        public let origin: String?
+        public let script: EDraftEngine.Screenplay?
+
+        public init(source: String, origin: String?, script: EDraftEngine.Screenplay?) {
+            self.source = source
+            self.origin = origin
+            self.script = script
+        }
+    }
+
     /// UTF-8 is the only on-disk encoding; anything else is corruption,
     /// never a silent lossy conversion.
     public static func decode(_ data: Data?) throws -> String {
@@ -58,9 +73,18 @@ public nonisolated enum ScreenplayFile {
     /// save that rebuilt the file from the screenplay would delete all of it.
     /// The original comes along, and `encode` edits it. See `Fdx.Document`.
     public static func open(_ data: Data?, as type: UTType) throws -> (source: String, origin: String?) {
+        let opened = try read(data, as: type)
+        return (opened.source, opened.origin)
+    }
+
+    /// `open`, plus the Final Draft reading whose runs a highlight lives on.
+    public static func read(_ data: Data?, as type: UTType) throws -> Opened {
         let text = try decode(data)
-        guard type.conforms(to: .finalDraftScreenplay) else { return (text, nil) }
-        return (Fountain.serialise(shouted(Fdx.parse(text).script)), text)
+        guard type.conforms(to: .finalDraftScreenplay) else {
+            return Opened(source: text, origin: nil, script: nil)
+        }
+        let script = shouted(Fdx.parse(text).script)
+        return Opened(source: Fountain.serialise(script), origin: text, script: script)
     }
 
     /// The kinds a screenplay shouts, shouted — for a document arriving from
@@ -107,11 +131,33 @@ public nonisolated enum ScreenplayFile {
     ) throws -> Data {
         guard type.conforms(to: .finalDraftScreenplay) else { return try encode(source) }
         let screenplay = Omissions.applying(omissions, to: try Fountain.parse(source, emphasis: .runs))
-        // The writer's notes go into Final Draft's <ScriptNotes>, each signed
-        // with the name the writer gave (RFC-NOTES-SYSTEM §4.2, §8).
+        return try encode(screenplay, as: type, origin: origin, omissions: nil, alreadyApplied: true)
+    }
+
+    /// The save the editor performs. `screenplay` is the live script, so a
+    /// highlight is written as `EDraft:Highlight`. The string entry above is
+    /// for a caller that only has text; a save that has the editor does not
+    /// use it. `omissions` mark cut scenes the model still holds as body.
+    public static func encode(
+        _ screenplay: EDraftEngine.Screenplay, as type: UTType, origin: String? = nil, omissions: OmissionSpans? = nil
+    ) throws -> Data {
+        try encode(screenplay, as: type, origin: origin, omissions: omissions, alreadyApplied: false)
+    }
+
+    private static func encode(
+        _ screenplay: EDraftEngine.Screenplay,
+        as type: UTType,
+        origin: String?,
+        omissions: OmissionSpans?,
+        alreadyApplied: Bool
+    ) throws -> Data {
+        guard type.conforms(to: .finalDraftScreenplay) else {
+            return try encode(Fountain.serialise(screenplay))
+        }
+        let script = alreadyApplied ? screenplay : Omissions.applying(omissions, to: screenplay)
         let notes = Fdx.NoteWriting(writer: NoteIdentity.signature)
-        guard let origin else { return try encode(Fdx.write(screenplay, options: Fdx.ExportOptions(notes: notes)).xml) }
-        return try encode(Fdx.open(origin).rewrite(screenplay, unedited: uneditedReading(of: origin), notes: notes))
+        guard let origin else { return try encode(Fdx.write(script, options: Fdx.ExportOptions(notes: notes)).xml) }
+        return try encode(Fdx.open(origin).rewrite(script, unedited: uneditedReading(of: origin), notes: notes))
     }
 
     /// The script as the editor first held it: the file carried through

@@ -15,16 +15,23 @@ public enum ScreenplayExporter {
 
     // MARK: Text formats
 
-    public static func fountainSource(_ screenplay: EDraftCore.Screenplay) -> String {
+    /// Export ▸ Fountain: the document, each omitted scene as its card.
+    public static func fountainSource(_ output: ScreenplayOutput) -> String {
+        output.fountain
+    }
+
+    /// Plain Text: the printed page, as monospaced text.
+    public static func plainText(_ output: ScreenplayOutput) -> String {
+        plainText(output.printed)
+    }
+
+    static func fountainSource(_ screenplay: EDraftCore.Screenplay) -> String {
         Fountain.serialise(screenplay.engineModel)
     }
 
-    /// Final Draft interchange XML, written by the engine's conformance-
-    /// pinned exporter — the delivery format productions expect. Elements
-    /// FDX cannot represent are omitted with an in-file warning comment,
-    /// the same contract as the web app. The writer's notes are Final Draft
-    /// ScriptNotes, signed with the name the writer gave (RFC-NOTES-SYSTEM §8).
-    public static func fdxSource(_ screenplay: EDraftCore.Screenplay) -> String {
+    /// Final Draft interchange XML from a page. Export ▸ Final Draft does not
+    /// use this: it uses Save's writer, which has the live script.
+    static func fdxSource(_ screenplay: EDraftCore.Screenplay) -> String {
         Fdx.write(
             screenplay.engineModel,
             options: Fdx.ExportOptions(notes: Fdx.NoteWriting(writer: NoteIdentity.signature))
@@ -33,7 +40,7 @@ public enum ScreenplayExporter {
 
     /// Monospaced text mirroring the printed layout: element indents applied,
     /// transitions flush right at the 60-character text block.
-    public static func plainText(_ screenplay: EDraftCore.Screenplay) -> String {
+    static func plainText(_ screenplay: EDraftCore.Screenplay) -> String {
         guard let pages = paginate(screenplay) else { return fountainSource(screenplay) }
         var out: [String] = []
         for page in pages {
